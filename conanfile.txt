@@ -1,0 +1,6 @@
+[requires] 
+nlohmann_json/3.9.1
+ncurses/6.2
+
+[generators]
+cmake
