@@ -17,11 +17,11 @@
 Game::Game(int lines, int cols) {
   field_ = new Field(lines, cols);
   field_->add_hills();
-  field_->add_player();
-  field_->add_ki();
+  auto player_den_pos = field_->add_player();
+  auto ki_den_pos = field_->add_ki();
 
-  player_ = new Player();
-  ki_ = new Player();
+  player_ = new Player(player_den_pos);
+  ki_ = new Player(ki_den_pos);
 }
 
 void Game::play() {
@@ -38,6 +38,7 @@ void Game::do_actions() {
     if (cur_time - last_action > 1) {
       last_action = cur_time;
       player_->inc();
+      player_->update_soldiers();
       refresh();
       print_field();
     }
@@ -74,11 +75,10 @@ void Game::get_player_choice() {
       attron(COLOR_PAIR(DEFAULT_COLORS));
     }
     else if (c == 'a') {
-      str = player_->add_soldier();
+      auto pos = field_->get_new_soldier_pos();
+      str = player_->add_soldier(pos);
       if (str != "")
         attron(COLOR_PAIR(ERROR));
-      else 
-        field_->add_player_soldier();
       str.insert(str.length(), field_->cols()*2-str.length(), char(46));
       mvaddstr(LINE_MSG, 10, str.c_str());
       attron(COLOR_PAIR(DEFAULT_COLORS));
@@ -91,7 +91,7 @@ void Game::get_player_choice() {
 
 void Game::print_field() {
   mvaddstr(LINE_HELP, 10, HELP);
-  field_->print_field();
+  field_->print_field(player_, ki_);
   mvaddstr(LINE_STATUS, 10, player_->get_status().c_str());
 }
 

@@ -1,6 +1,7 @@
 #ifndef SRC_FIELD_H_
 #define SRC_FIELD_H_
 
+#include "player.h"
 #include <map>
 #include <string>
 #include <utility>
@@ -22,13 +23,15 @@ class Field {
     int cols() { return cols_; }
 
     void add_hills();
-    void add_player();
-    void add_ki();
+    std::pair<int, int> add_player();
+    std::pair<int, int> add_ki();
     void add_resources(int l, int c);
 
-    void add_player_soldier();
+    std::pair<int, int> get_new_soldier_pos();
 
-    void print_field();
+
+    void update_field(Player* player_1, std::vector<std::vector<char>>& field);
+    void print_field(Player* player, Player* ki);
 
 
   private: 
@@ -38,6 +41,7 @@ class Field {
     std::map<std::pair<int, int>, char> player_;
     std::map<std::pair<int, int>, char> ki_;
     std::pair<int, int> player_den_;
+    std::pair<int, int> ki_den_;
 
     int get_line_in_range(int l);
     int get_col_in_range(int c);

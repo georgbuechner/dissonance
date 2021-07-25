@@ -5,7 +5,6 @@
 #include "game.h"
 
 
-
 #define ITERMAX 10000
 
 int main(void) {

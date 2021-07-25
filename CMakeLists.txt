@@ -17,6 +17,7 @@ set(SRC_FILES
     src/main.cc
     src/field.cc
     src/game.cc
+    src/player.cc
 )
 
 add_executable(game ${SRC_FILES})
