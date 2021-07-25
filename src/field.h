@@ -43,10 +43,28 @@ class Field {
     std::pair<int, int> player_den_;
     std::pair<int, int> ki_den_;
 
-    int get_line_in_range(int l);
-    int get_col_in_range(int c);
+    /**
+     * Gets x in range, returning 0 if x<min, max ist x > max, and x otherwise.
+     * @param x position to check
+     * @param max maximum allowed
+     * @param min minimum allowed
+     * @return 0 if x<min, max ist x > max and x otherwise.
+     */
+    int get_x_in_range(int x, int min, int max);
     bool in_field(int l, int c);
-    std::pair<int, int> find_free(int l, int c, int t);
+    
+    /** 
+     * Finds the next free position near a given position with min and max
+     * deviation.
+     * @param l initial line
+     * @param c initial column.
+     * @param min distance 
+     * @param max distance
+     * @return free position in given range.
+     */
+    std::pair<int, int> find_free(int l, int c, int min, int max);
+
+    void clear_field(int l, int c);
 };
 
 

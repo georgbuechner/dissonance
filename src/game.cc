@@ -16,9 +16,13 @@
 
 Game::Game(int lines, int cols) {
   field_ = new Field(lines, cols);
+  printf("Build field.\n");
   field_->add_hills();
+  printf("Build hills.\n");
   auto player_den_pos = field_->add_player();
+  printf("Build player den.\n");
   auto ki_den_pos = field_->add_ki();
+  printf("Build ki den.\n");
 
   player_ = new Player(player_den_pos);
   ki_ = new Player(ki_den_pos);

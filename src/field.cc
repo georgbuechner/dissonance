@@ -2,6 +2,7 @@
 #include <curses.h>
 #include <iostream>
 #include <locale>
+#include <math.h>
 #include <string>
 #include <utility>
 #include <vector>
@@ -20,12 +21,12 @@
 #define FREE char(46)
 
 int getrandom_int(int min, int max);
+int random_coordinate_shift(int x, int min, int max);
 
 Field::Field(int lines, int cols) {
   lines_ = lines;
   cols_ = cols;
-  std::cout << "Using lines: " << lines_ << std::endl;;
-  std::cout << "Using cols:  " << cols_ << std::endl;
+  printf("Using lines: %u, using cols: %u. \n", lines_, cols_);
 
   // initialize empty field.
   for (int l=0; l<=lines_; l++) {
@@ -40,7 +41,8 @@ std::pair<int, int> Field::add_player() {
   int x = getrandom_int(cols_ / 1.5, cols_-5);
   player_den_ = {y, x};
   player_[player_den_] = DEN;
-  field_[y][x] = player_[player_den_];
+  field_[y][x] = DEN;
+  clear_field(y, x);
 
   add_resources(y, x);
   return player_den_;
@@ -52,57 +54,50 @@ std::pair<int, int> Field::add_ki() {
   int x = getrandom_int(5, cols_ / 3);
   ki_den_ = {y,x};
   ki_[ki_den_] = DEN;
-  field_[y][x] = ki_[ki_den_];
+  field_[y][x] = DEN;
+  clear_field(y, x);
 
   add_resources(y, x);
   return ki_den_;
 }
 
+void Field::clear_field(int l, int c) {
+  field_[l][c+1] = FREE;
+  field_[l+1][c] = FREE;
+  field_[l][c-1] = FREE;
+  field_[l-1][c] = FREE;
+  field_[l+1][c+1] = FREE;
+  field_[l+1][c-1] = FREE;
+  field_[l-1][c+1] = FREE;
+  field_[l-1][c-1] = FREE;
+}
 
 void Field::add_resources(int y, int x) {
-  auto pos = find_free(y, x, 2);
+  auto pos = find_free(y, x, 2, 4);
   field_[pos.first][pos.second] = GOLD;
-  pos = find_free(y, x, 2);
+  pos = find_free(y, x, 2, 4);
   field_[pos.first][pos.second] = SILVER;
-  pos = find_free(y, x, 2);
+  pos = find_free(y, x, 2, 4);
   field_[pos.first][pos.second] = BRONZE;
 }
 
 std::pair<int, int> Field::get_new_soldier_pos() {
-  return find_free(player_den_.first, player_den_.second, 1);
+  return find_free(player_den_.first, player_den_.second, 1, 3);
 }
 
 void Field::add_hills() {
-  // int type = getrandom_int(0, 2);
-  
-  for (int i=0; i<lines_; i++) {
+  // Generate lines*2 mountains.
+  for (int i=0; i<lines_*2; i++) {
+    // Generate random hill.
     int start_y = getrandom_int(0, lines_);
     int start_x = getrandom_int(0, cols_);
     field_[start_y][start_x] = HILL;
-    int type = getrandom_int(0, 4);
 
-    // heap
-    if (type == 1) {
-      field_[start_y+1][start_x+1] = HILL;
-      field_[start_y][start_x+1] = HILL;
-      field_[start_y-1][start_x] = HILL;
-      field_[start_y-1][start_x-1] = HILL;
-    }
-    
-    // horizontel 
-    else if (type == 2) {
-      field_[get_line_in_range(start_y+1)][get_col_in_range(start_x)] = HILL;
-      field_[get_line_in_range(start_y+2)][get_col_in_range(start_x)] = HILL;
-      field_[get_line_in_range(start_y-1)][get_col_in_range(start_x)] = HILL;
-      field_[get_line_in_range(start_y-2)][get_col_in_range(start_x)] = HILL;
-    }
-    
-    // horizontel 
-    else if (type == 3) {
-      field_[get_line_in_range(start_y)][get_col_in_range(start_x-1)] = HILL;
-      field_[get_line_in_range(start_y)][get_col_in_range(start_x-2)] = HILL;
-      field_[get_line_in_range(start_y)][get_col_in_range(start_x+1)] = HILL;
-      field_[get_line_in_range(start_y)][get_col_in_range(start_x+2)] = HILL;
+    // Generate random 5 hills around this hill.
+    for (int j=1; j<=5; j++) {
+      int y = get_x_in_range(random_coordinate_shift(start_y, 0, j), 0, lines_);
+      int x = get_x_in_range(random_coordinate_shift(start_x, 0, j), 0, cols_);
+      field_[y][x] = HILL;
     }
   }
 }
@@ -142,37 +137,29 @@ void Field::print_field(Player* player, Player* ki) {
   }
 }
 
-int Field::get_line_in_range(int l) {
-  if (l < 0) 
-    return 0;
-  if (l > lines_)
-    return lines_;
-  return l;
-}
-
-int Field::get_col_in_range(int c) {
-  if (c < 0) 
-    return 0;
-  if (c > cols_)
-    return cols_;
-  return c;
+int Field::get_x_in_range(int x, int min, int max) {
+  if (x < min) 
+    return min;
+  if (x > max)
+    return max;
+  return x;
 }
 
 bool Field::in_field(int l, int c) {
   return (l >= 0 && l <= lines_ && c >= 0 && c <= cols_);
 }
 
-std::pair<int, int> Field::find_free(int l, int c, int t) {
-  for (int i=0; i<lines_; i++) {
-    if (in_field(l+t+i, c+t+i) && field_[l+t+i][c+t+i] == FREE)
-      return {l+t+i, c+t+i};
-    if (in_field(l-t-i, c+t+i) && field_[l-t-i][c+t+i] == FREE)
-      return {l-t-i, c+t+i};
-    if (in_field(l+t+i, c-t-i) && field_[l+t+i][c-t-i] == FREE)
-      return {l+t+i, c-t-i};
-    if (in_field(l-t-i, c-t-i) && field_[l-t-i][c-t-i] == FREE)
-      return {l-t-i, c-t-i};
-  }
+std::pair<int, int> Field::find_free(int l, int c, int min, int max) {
+  for (int attempts=0; attempts<100; attempts++) {
+    for (int i=0; i<max; i++) {
+      int y = get_x_in_range(random_coordinate_shift(l, min, min+i), 0, lines_);
+      int x = get_x_in_range(random_coordinate_shift(c, min, min+i), 0, cols_);
+      printf("Suggested pos: %u, %u.", y, x);
+
+      if (field_[y][x] == FREE)
+        return {y, x};
+    }
+  }    
   exit(400);
 }
 
@@ -180,4 +167,11 @@ std::pair<int, int> Field::find_free(int l, int c, int t) {
 int getrandom_int(int min, int max) {
   int ran = min + (rand() % (max - min + 1)); 
   return ran;
+}
+
+int random_coordinate_shift(int x, int min, int max) {
+  // Determine decrease or increase of values.
+  int plus_minus = getrandom_int(0, 1);
+  int random_faktor = getrandom_int(min, max);
+  return x + pow(-1, plus_minus)*random_faktor;
 }
