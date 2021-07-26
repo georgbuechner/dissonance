@@ -1,9 +1,11 @@
 #include <cctype>
+#include <cmath>
 #include <curses.h>
 #include <exception>
 #include <iostream>
 #include <locale>
 #include <math.h>
+#include <shared_mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -11,8 +13,8 @@
 #include "player.h"
 
 #define DEFAULT_COLORS 3
-#define PLAYER 1
-#define KI 2 
+#define PLAYER 2 
+#define KI 1 
 #define RESOURCES 4 
 #define IN_GRAPH 5 
 
@@ -22,14 +24,16 @@
 #define SILVER 'S' 
 #define BRONZE 'B' 
 #define FREE char(46)
+#define DEF 'T'
 
 int getrandom_int(int min, int max);
 int random_coordinate_shift(int x, int min, int max);
+int dist(std::pair<int, int> pos1, std::pair<int, int> pos2);
 
 Field::Field(int lines, int cols) {
   lines_ = lines;
   cols_ = cols;
-  printf("Using lines: %u, using cols: %u. \n", lines_, cols_);
+  printw("Using lines: %u, using cols: %u. \n", lines_, cols_);
 
   // initialize empty field.
   for (int l=0; l<=lines_; l++) {
@@ -43,7 +47,7 @@ std::pair<int, int> Field::add_player() {
   int y = getrandom_int(lines_ / 1.5, lines_-5);
   int x = getrandom_int(cols_ / 1.5, cols_-5);
   player_den_ = {y, x};
-  player_[player_den_] = DEN;
+  player_units_[player_den_] = DEN;
   field_[y][x] = DEN;
   clear_field(y, x);
 
@@ -56,7 +60,7 @@ std::pair<int, int> Field::add_ki() {
   int y = getrandom_int(5, lines_ / 3);
   int x = getrandom_int(5, cols_ / 3);
   ki_den_ = {y,x};
-  ki_[ki_den_] = DEN;
+  ki_units_[ki_den_] = DEN;
   field_[y][x] = DEN;
   clear_field(y, x);
 
@@ -135,13 +139,8 @@ void Field::build_graph() {
     throw "Invalid wworld.";
 }
 
-std::pair<int, int> Field::get_new_soldier_pos() {
-  return find_free(player_den_.first, player_den_.second, 1, 3);
-}
-
 void Field::add_hills() {
   int num_hils = lines_ + cols_;
-  printw("Number of hils: (%u + %u) = %u", lines_, cols_, num_hils);
   // Generate lines*2 mountains.
   for (int i=0; i<num_hils; i++) {
     // Generate random hill.
@@ -158,8 +157,32 @@ void Field::add_hills() {
   }
 }
 
+std::pair<int, int> Field::get_new_soldier_pos(bool player) {
+  if (player)
+    return find_free(player_den_.first, player_den_.second, 1, 3);
+  else
+    return find_free(ki_den_.first, ki_den_.second, 1, 3);
+}
+
+void Field::get_new_defence_pos(bool player) {
+  if (player) { 
+    std::unique_lock ul_player(mutex_player_units_);
+    auto pos = find_free(player_den_.first, player_den_.second, 1, 5);
+    player_units_[pos] = DEF;
+    std::unique_lock ul_field(mutex_field_);
+    field_[pos.first][pos.second] = DEF;
+  }
+  else {
+    std::unique_lock ul_ki(mutex_ki_units_);
+    auto pos = find_free(ki_den_.first, ki_den_.second, 1, 5);
+    ki_units_[pos] = DEF;
+    std::unique_lock ul_field(mutex_field_);
+    field_[pos.first][pos.second] = DEF;
+  }
+}
+
 void Field::update_field(Player *player, std::vector<std::vector<char>>& field) {
-  for (auto it : player->soldier()) {
+  for (auto it : player->soldier()) { // player-soldier does not need to be locked, as copy is returned
     int l = it.second.cur_pos_.first;
     int c = it.second.cur_pos_.second;
     if (field[l][c] == FREE)
@@ -175,20 +198,60 @@ void Field::update_field(Player *player, std::vector<std::vector<char>>& field) 
   }
 }
 
-void Field::print_field(Player* player, Player* ki) {
+void Field::handle_def(Player* player, Player* ki) {
+  std::shared_lock sl_player(mutex_player_units_);
+  for (auto building : player_units_) {
+    if (building.second != DEF)
+      continue;
+    std::string dead_soldier = "";
+    for (auto soldier : ki->soldier()) {
+      int distance = dist(building.first, soldier.second.cur_pos_);
+      if (distance < 3) {
+        dead_soldier = soldier.first;
+        break;  // break loop, since every tower can destroy only one soldier.
+      }
+    }
+    ki->remove_soldier(dead_soldier);
+  }
+  sl_player.unlock();
+  std::shared_lock sl_ki(mutex_ki_units_);
+  for (auto building : ki_units_) {
+    if (building.second != DEF)
+      continue;
+    std::string dead_soldier = "";
+    for (auto soldier : player->soldier()) {
+      int distance = dist(building.first, soldier.second.cur_pos_);
+      if (distance < 3) {
+        dead_soldier = soldier.first;
+        break;  // break loop, since every tower can destroy only one soldier.
+      }
+    }
+    player->remove_soldier(dead_soldier);
+  }
+}
+
+void Field::print_field(Player* player, Player* ki, bool show_in_graph) {
+  std::shared_lock sl_field(mutex_field_);
   auto field = field_;
+  sl_field.unlock();
+
   update_field(player, field);
   update_field(ki, field);
 
+  std::shared_lock sl_player(mutex_player_units_);
+  std::shared_lock sl_ki(mutex_ki_units_);
+
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
-      if (ki_.count({l,c}) > 0)
+      if (ki->is_player_soldier({l,c}) && player->is_player_soldier({l, c}))
+        attron(COLOR_PAIR(RESOURCES));
+      else if (ki_units_.count({l,c}) > 0 || ki->is_player_soldier({l,c}))
         attron(COLOR_PAIR(PLAYER));
-      else if (player_.count({l,c}) > 0)
+      else if (player_units_.count({l,c}) > 0 || player->is_player_soldier({l, c}))
         attron(COLOR_PAIR(KI));
-      else if (field_[l][c] == 'G' || field_[l][c] == 'S' ||field_[l][c] == 'B')
+      else if (field[l][c] == 'G' || field[l][c] == 'S' ||field[l][c] == 'B')
          attron(COLOR_PAIR(RESOURCES));
-      else if (graph_.in_graph({l, c})) 
+      else if (show_in_graph && graph_.in_graph({l, c})) 
         attron(COLOR_PAIR(IN_GRAPH));
       mvaddch(10+l, 10+2*c, field[l][c]);
       mvaddch(10+l, 10+2*c+1, ' ' );
@@ -197,19 +260,12 @@ void Field::print_field(Player* player, Player* ki) {
   }
 }
 
-int Field::get_x_in_range(int x, int min, int max) {
-  if (x < min) 
-    return min;
-  if (x > max)
-    return max;
-  return x;
-}
-
 bool Field::in_field(int l, int c) {
   return (l >= 0 && l <= lines_ && c >= 0 && c <= cols_);
 }
 
 std::pair<int, int> Field::find_free(int l, int c, int min, int max) {
+  std::shared_lock sl_field(mutex_field_);
   for (int attempts=0; attempts<100; attempts++) {
     for (int i=0; i<max; i++) {
       int y = get_x_in_range(random_coordinate_shift(l, min, min+i), 0, lines_);
@@ -221,6 +277,13 @@ std::pair<int, int> Field::find_free(int l, int c, int min, int max) {
   exit(400);
 }
 
+int Field::get_x_in_range(int x, int min, int max) {
+  if (x < min) 
+    return min;
+  if (x > max)
+    return max;
+  return x;
+}
 
 int getrandom_int(int min, int max) {
   int ran = min + (rand() % (max - min + 1)); 
@@ -232,4 +295,8 @@ int random_coordinate_shift(int x, int min, int max) {
   int plus_minus = getrandom_int(0, 1);
   int random_faktor = getrandom_int(min, max);
   return x + pow(-1, plus_minus)*random_faktor;
+}
+
+int dist(std::pair<int, int> pos1, std::pair<int, int> pos2) {
+  return std::sqrt(pow(pos2.first - pos1.first, 2) + pow(pos2.second - pos1.second, 2));
 }

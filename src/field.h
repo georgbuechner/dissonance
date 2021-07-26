@@ -3,7 +3,9 @@
 
 #include "player.h"
 #include <map>
+#include <mutex>
 #include <string>
+#include <shared_mutex>
 #include <utility>
 #include <vector>
 #include <curses.h>
@@ -12,10 +14,6 @@
 #include <time.h>
 
 #include "graph.h"
-
-#define RED "\033[1;31m"
-#define BLUE "\033[1;34m"
-#define CLEAR "\033[1;0"
 
 class Field {
   public:
@@ -30,14 +28,18 @@ class Field {
     void add_resources(int l, int c);
     void build_graph();
 
-    std::pair<int, int> get_new_soldier_pos();
-
+    std::pair<int, int> get_new_soldier_pos(bool player);
+    void get_new_defence_pos(bool player);
 
     void update_field(Player* player_1, std::vector<std::vector<char>>& field);
-    void print_field(Player* player, Player* ki);
+    void handle_def(Player* player, Player* ki);
+    void print_field(Player* player, Player* ki, bool show_in_graph=false);
 
-    std::list<std::pair<int, int>> get_way_for_soldier(std::pair<int, int> pos) {
-      return graph_.find_way(pos, ki_den_);
+    std::list<std::pair<int, int>> get_way_for_soldier(std::pair<int, int> pos, bool player) {
+      if (player)
+        return graph_.find_way(pos, ki_den_);
+      else
+        return graph_.find_way(pos, player_den_);
     }
 
 
@@ -46,10 +48,14 @@ class Field {
     int cols_;
     std::vector<std::vector<char>> field_;
     Graph graph_;
-    std::map<std::pair<int, int>, char> player_;
-    std::map<std::pair<int, int>, char> ki_;
+    std::map<std::pair<int, int>, char> player_units_;
+    std::map<std::pair<int, int>, char> ki_units_;
     std::pair<int, int> player_den_;
     std::pair<int, int> ki_den_;
+
+    std::shared_mutex mutex_field_;
+    std::shared_mutex mutex_player_units_;
+    std::shared_mutex mutex_ki_units_;
 
     /**
      * Gets x in range, returning 0 if x<min, max ist x > max, and x otherwise.
