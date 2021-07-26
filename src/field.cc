@@ -1,5 +1,6 @@
 #include <cctype>
 #include <curses.h>
+#include <exception>
 #include <iostream>
 #include <locale>
 #include <math.h>
@@ -12,6 +13,8 @@
 #define DEFAULT_COLORS 3
 #define PLAYER 1
 #define KI 2 
+#define RESOURCES 4 
+#define IN_GRAPH 5 
 
 #define HILL ' ' 
 #define DEN 'D' 
@@ -81,6 +84,57 @@ void Field::add_resources(int y, int x) {
   field_[pos.first][pos.second] = BRONZE;
 }
 
+void Field::build_graph() {
+  // Add all nodes.
+  for (int l=0; l<lines_; l++) {
+    for (int c=0; c<cols_; c++) {
+      if (field_[l][c] != HILL)
+        graph_.add_node(l, c);
+    }
+  }
+
+  // For each node, add edges.
+  for (auto node : graph_.nodes()) {
+    // Node above 
+    std::pair<int, int> pos = {node.second->line_-1, node.second->col_};
+    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
+      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    // Node below
+    pos = {node.second->line_+1, node.second->col_};
+    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
+      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    // Node left
+    pos = {node.second->line_, node.second->col_-1};
+    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
+      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    // Node right 
+    pos = {node.second->line_, node.second->col_+1};
+    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
+      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    // Upper left
+    pos = {node.second->line_-1, node.second->col_-1};
+    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
+      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    // lower left 
+    pos = {node.second->line_+1, node.second->col_-1};
+    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
+      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    // Upper right
+    pos = {node.second->line_-1, node.second->col_+1};
+    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
+      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    // lower right 
+    pos = {node.second->line_+1, node.second->col_+1};
+    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
+      graph_.add_edge(node.second, graph_.nodes().at(pos));
+  }
+
+  // Remove all nodes not in main circle
+  graph_.remove_invalid(player_den_);
+  if (graph_.nodes().count(ki_den_) == 0)
+    throw "Invalid wworld.";
+}
+
 std::pair<int, int> Field::get_new_soldier_pos() {
   return find_free(player_den_.first, player_den_.second, 1, 3);
 }
@@ -130,6 +184,10 @@ void Field::print_field(Player* player, Player* ki) {
         attron(COLOR_PAIR(PLAYER));
       else if (player_.count({l,c}) > 0)
         attron(COLOR_PAIR(KI));
+      else if (field_[l][c] == 'G' || field_[l][c] == 'S' ||field_[l][c] == 'B')
+        attron(COLOR_PAIR(RESOURCES));
+      else if (graph_.in_graph({l, c})) 
+        attron(COLOR_PAIR(IN_GRAPH));
       mvaddch(10+l, 10+2*c, field[l][c]);
       mvaddch(10+l, 10+2*c+1, ' ' );
       attron(COLOR_PAIR(DEFAULT_COLORS));
@@ -154,8 +212,6 @@ std::pair<int, int> Field::find_free(int l, int c, int min, int max) {
     for (int i=0; i<max; i++) {
       int y = get_x_in_range(random_coordinate_shift(l, min, min+i), 0, lines_);
       int x = get_x_in_range(random_coordinate_shift(c, min, min+i), 0, cols_);
-      printf("Suggested pos: %u, %u.", y, x);
-
       if (field_[y][x] == FREE)
         return {y, x};
     }

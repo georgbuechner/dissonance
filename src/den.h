@@ -5,6 +5,7 @@
 
 struct Den {
   std::pair<int, int> cur_pos_;
+  int lp_;
 };
 
 #endif

@@ -2,8 +2,10 @@
 #include <bits/types/time_t.h>
 #include <cstdlib>
 #include <curses.h>
+#include <exception>
 #include <time.h>
 #include <thread>
+#include <vector>
 
 #define HELP "soldier [a], gatherer [r], tech [t] | barracks [A], resources [R], tech [t] | pause [space] quit [q]"
 #define DEFAULT_COLORS 3
@@ -23,6 +25,7 @@ Game::Game(int lines, int cols) {
   printf("Build player den.\n");
   auto ki_den_pos = field_->add_ki();
   printf("Build ki den.\n");
+  field_->build_graph();
 
   player_ = new Player(player_den_pos);
   ki_ = new Player(ki_den_pos);
@@ -42,7 +45,12 @@ void Game::do_actions() {
     if (cur_time - last_action > 1) {
       last_action = cur_time;
       player_->inc();
-      player_->update_soldiers();
+      int life = player_->update_soldiers(ki_->den_pos());
+      if (ki_->decrease_den_lp(life)) {
+        clear();
+        mvaddstr(LINES/2, COLS/2-4, "YOU WON");
+      }
+
       refresh();
       print_field();
     }
@@ -80,7 +88,14 @@ void Game::get_player_choice() {
     }
     else if (c == 'a') {
       auto pos = field_->get_new_soldier_pos();
-      str = player_->add_soldier(pos);
+      std::list<std::pair<int, int>> way = {};
+      try {
+        way = field_->get_way_for_soldier(pos);
+      }
+      catch (std::exception & e) {
+        std::cout << e.what() << std::endl;
+      }
+      str = player_->add_soldier(pos, way);
       if (str != "")
         attron(COLOR_PAIR(ERROR));
       str.insert(str.length(), field_->cols()*2-str.length(), char(46));

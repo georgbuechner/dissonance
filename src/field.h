@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "graph.h"
+
 #define RED "\033[1;31m"
 #define BLUE "\033[1;34m"
 #define CLEAR "\033[1;0"
@@ -26,6 +28,7 @@ class Field {
     std::pair<int, int> add_player();
     std::pair<int, int> add_ki();
     void add_resources(int l, int c);
+    void build_graph();
 
     std::pair<int, int> get_new_soldier_pos();
 
@@ -33,11 +36,16 @@ class Field {
     void update_field(Player* player_1, std::vector<std::vector<char>>& field);
     void print_field(Player* player, Player* ki);
 
+    std::list<std::pair<int, int>> get_way_for_soldier(std::pair<int, int> pos) {
+      return graph_.find_way(pos, ki_den_);
+    }
+
 
   private: 
     int lines_;
     int cols_;
     std::vector<std::vector<char>> field_;
+    Graph graph_;
     std::map<std::pair<int, int>, char> player_;
     std::map<std::pair<int, int>, char> ki_;
     std::pair<int, int> player_den_;

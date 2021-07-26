@@ -17,13 +17,14 @@
 
 class Player {
   public:
-    Player(std::pair<int, int> den_pos) : gold_(0), silver_(4), bronze_(2.4), gatherer_gold_(0), gatherer_silver_(0), gatherer_bronze_(0) {den_ = Den(); den_.cur_pos_ = den_pos; }
+    Player(std::pair<int, int> den_pos) : gold_(0), silver_(4), bronze_(2.4), gatherer_gold_(0), gatherer_silver_(0), gatherer_bronze_(0) {
+      den_ = Den({den_pos, 2}); 
+    }
 
 
     // getter 
     const std::map<std::string, Soldier>& soldier() { return soldiers_; };
-
-    // setter 
+    std::pair<int, int> den_pos() { return std::make_pair(den_.cur_pos_.first, den_.cur_pos_.second); }
 
     // methods
     std::string get_status();
@@ -36,9 +37,15 @@ class Player {
 
     std::string add_gatherer_gold();
 
-    std::string add_soldier(std::pair<int, int> pos);
-    void update_soldiers();
+    std::string add_soldier(std::pair<int, int> pos, std::list<std::pair<int, int>>);
+    int update_soldiers(std::pair<int, int> enemy_den);
 
+    bool decrease_den_lp(int val) {
+      den_.lp_ -= val;
+      if (den_.lp_ <= 0)
+        return true;
+      return false;
+    }
 
   private: 
     float gold_;

@@ -25,6 +25,7 @@ int main(void) {
   init_pair(2, COLOR_RED, -1);
   init_pair(3, -1, -1);
   init_pair(4, COLOR_CYAN, -1);
+  init_pair(5, COLOR_GREEN, -1);
 
   // initialize game.
   Game game((LINES-20), (COLS-20) / 2);

@@ -1,5 +1,6 @@
 #include "player.h"
 #include <string>
+#include <vector>
 
 std::string create_id();
 
@@ -45,24 +46,34 @@ std::string Player::add_gatherer_gold() {
   return "Add gold-gatherer: not enough bronze (const: "+std::to_string(COST_GOLD_GATHERER)+")";
 }
 
-std::string Player::add_soldier(std::pair<int, int> pos) {
+std::string Player::add_soldier(std::pair<int, int> pos, std::list<std::pair<int, int>> way) {
   if (silver_ >= COST_SOLDIER) {
     silver_ -= COST_SOLDIER;
     std::string id = create_id();
     soldiers_[id] = Soldier();
     soldiers_[id].cur_pos_ = pos;
-    soldiers_[id].way_ = {{pos.first-1, pos.second}, {pos.first-2, pos.second}, {pos.first-3, pos.second}, {pos.first-4, pos.second}, {pos.first-5, pos.second}, {pos.first-6, pos.second}};
+    soldiers_[id].way_ = way;
+    return "";
   }
   return "Add soldier: not enough silver (const: "+std::to_string(COST_SOLDIER)+")";
 }
 
-void Player::update_soldiers() {
+int Player::update_soldiers(std::pair<int, int> enemy_den) {
+  std::vector<std::string> soldiers_to_remove;
+  int damage = 0;
   for (auto& it : soldiers_) {
     if (it.second.way_.size() > 0) {
       it.second.cur_pos_ = it.second.way_.front(); 
       it.second.way_.pop_front();
+      if (it.second.cur_pos_ == enemy_den) {
+        damage++; 
+        soldiers_to_remove.push_back(it.first);
+      }
     }
   }
+  for (const auto& it : soldiers_to_remove) 
+    soldiers_.erase(it);
+  return damage;
 }
 
 std::string create_id() {
