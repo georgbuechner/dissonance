@@ -140,8 +140,10 @@ std::pair<int, int> Field::get_new_soldier_pos() {
 }
 
 void Field::add_hills() {
+  int num_hils = lines_ + cols_;
+  printw("Number of hils: (%u + %u) = %u", lines_, cols_, num_hils);
   // Generate lines*2 mountains.
-  for (int i=0; i<lines_*2; i++) {
+  for (int i=0; i<num_hils; i++) {
     // Generate random hill.
     int start_y = getrandom_int(0, lines_);
     int start_x = getrandom_int(0, cols_);
@@ -185,7 +187,7 @@ void Field::print_field(Player* player, Player* ki) {
       else if (player_.count({l,c}) > 0)
         attron(COLOR_PAIR(KI));
       else if (field_[l][c] == 'G' || field_[l][c] == 'S' ||field_[l][c] == 'B')
-        attron(COLOR_PAIR(RESOURCES));
+         attron(COLOR_PAIR(RESOURCES));
       else if (graph_.in_graph({l, c})) 
         attron(COLOR_PAIR(IN_GRAPH));
       mvaddch(10+l, 10+2*c, field[l][c]);
