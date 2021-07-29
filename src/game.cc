@@ -7,6 +7,8 @@
 #include <time.h>
 #include <thread>
 #include <vector>
+
+#include "utils.h"
 #include "ki.h"
 
 #define HELP "soldier [a], gatherer [r], tech [t] | barracks [A], resources [R], defence [D] tech [T] | pause [space] quit [q]"
@@ -19,117 +21,94 @@
 #define LINE_MSG LINES-8
 
 #define RESOURCES_UPDATE_FREQUENCY 750
-#define SOLDIER_MOVEMENT_FREQUENCY 500
-#define DEFENCE_UPDATE_FREQUENCY 800 
+#define UPDATE_FREQUENCY 200 
 
 #define KI_NEW_SOLDIER 1250
 #define KI_NEW_SOLDIER 1250
-
-double get_elapsed(std::chrono::time_point<std::chrono::steady_clock> start,
-    std::chrono::time_point<std::chrono::steady_clock> end) {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
-}
 
 Game::Game(int lines, int cols) {
   field_ = new Field(lines, cols);
-  field_->add_hills();
-  auto player_den_pos = field_->add_player();
-  auto ki_den_pos = field_->add_ki();
-  field_->build_graph();
-
-  player_ = new Player(player_den_pos, 4);
-  ki_ = new Player(ki_den_pos, 1000);
+  field_->AddHills();
+  player_one_ = new Player(field_->AddDen(lines/1.5, lines-5, cols/1.5, cols-5), 4);
+  player_two_ = new Player(field_->AddDen(5, lines/3, 5, cols/3), 100000);
+  field_->BuildGraph(player_one_->den_pos(), player_two_->den_pos());
 
   game_over_ = false;
 }
 
 void Game::play() {
-  std::thread thread_actions([this]() { do_actions(); });
-  std::thread thread_choices([this]() { (get_player_choice()); });
+  std::thread thread_actions([this]() { DoActions(); });
+  std::thread thread_choices([this]() { (GetPlayerChoice()); });
+  std::thread thread_ki([this]() { (HandleKi()); });
   thread_actions.join();
   thread_choices.join();
 }
 
-void Game::do_actions() {
-  auto last_soldier_movement = std::chrono::steady_clock::now();
+void Game::DoActions() {
+  auto last_update = std::chrono::steady_clock::now();
   auto last_resource_inc = std::chrono::steady_clock::now();
-  auto last_defence_update = std::chrono::steady_clock::now();
-  Ki* ki = new Ki();
  
-  bool refresh_screen = false;
-  while (true) {
+  while (!game_over_) {
     auto cur_time = std::chrono::steady_clock::now();
-    refresh_screen = false;
-    // Increase resources.
-    if (get_elapsed(last_resource_inc, cur_time) > RESOURCES_UPDATE_FREQUENCY) {
-      // Increase players resources.
-      player_->inc();
-      last_resource_inc = cur_time;
-      refresh_screen = true;
-    }
-
-    if (get_elapsed(last_soldier_movement, cur_time) > SOLDIER_MOVEMENT_FREQUENCY) {
-      // Move player soldiers and check if enemy den's lp is down to 0.
-      int life = player_->update_soldiers(ki_->den_pos());
-      if (ki_->decrease_den_lp(life)) {
-        clear();
-        mvaddstr(LINES/2, COLS/2-4, "YOU WON");
-        refresh();
-        game_over_ = true;
-        break;
-      }
-      life = ki_->update_soldiers(player_->den_pos());
-      if (player_->decrease_den_lp(life)) {
-        clear();
-        mvaddstr(LINES/2, COLS/2-4, "YOU LOST");
-        refresh();
-        game_over_ = true;
-        break;
-      }
-
-      last_soldier_movement = cur_time;
-      refresh_screen = true;
-    }
-
-    if (get_elapsed(last_defence_update, cur_time) > DEFENCE_UPDATE_FREQUENCY) {
-      field_->handle_def(player_, ki_);
-      last_defence_update = cur_time;
-      refresh_screen = true;
-    }
-
-    // KI 
     
-    if (get_elapsed(ki->last_soldier(), cur_time) > ki->new_soldier_frequency()) {
-      auto pos = field_->get_new_soldier_pos(false);
-      auto way = field_->get_way_for_soldier(pos, false);
-      std::string str = ki_->add_soldier(pos, way);
-      ki->reset_last_soldier();
-      refresh_screen = true;
+    // Increase resources.
+    if (utils::get_elapsed(last_resource_inc, cur_time) > RESOURCES_UPDATE_FREQUENCY) {
+      // Increase players resources.
+      player_one_->IncreaseResources();
+      last_resource_inc = cur_time;
     }
 
-    if (get_elapsed(ki->last_def(), cur_time) > ki->new_tower_frequency()) {
-      field_->get_new_defence_pos(false);
-      ki->reset_last_def();
-      refresh_screen = true;
-    }
+    if (utils::get_elapsed(last_update, cur_time) > UPDATE_FREQUENCY) {
+      // Move player soldiers and check if enemy den's lp is down to 0.
+      int damage = player_one_->MoveSoldiers(player_two_->den_pos());
+      if (player_two_->DecreaseDenLp(damage)) {
+        SetGameOver("YOU WON");
+        break;
+      }
+      damage = player_two_->MoveSoldiers(player_one_->den_pos());
+      if (player_one_->DecreaseDenLp(damage)) {
+        SetGameOver("YOU LOST");
+        break;
+      }
 
-    if (get_elapsed(ki->last_update(), cur_time) > ki->update_frequency()) {
-      ki->update_frequencies();
-      ki->reset_last_update();
-    }
+      // Remove enemy soldiers in renage of defence towers.
+      player_one_->HandleDef(player_two_);
+      player_two_->HandleDef(player_one_);
 
-    if (refresh_screen) {
-      // Refresh and print field.
-      print_field();
+      // Refresh page
+      PrintFieldAndStatus();
       refresh();
+      last_update = cur_time;
     }
   } 
 }
 
-void Game::get_player_choice() {
+void Game::HandleKi() {
+  Ki* ki = new Ki();
+  while(!game_over_) {
+    auto cur_time = std::chrono::steady_clock::now();
+    if (utils::get_elapsed(ki->last_soldier(), cur_time) > ki->new_soldier_frequency()) {
+      auto pos = field_->GetNewSoldierPos(player_two_->den_pos());
+      auto way = field_->GetWayForSoldier(pos, player_one_->den_pos());
+      std::string str = player_two_->AddSoldier(pos, way);
+      ki->reset_last_soldier();
+    }
+
+    if (utils::get_elapsed(ki->last_def(), cur_time) > ki->new_tower_frequency()) {
+      field_->GetNewDefencePos(player_two_);
+      ki->reset_last_def();
+    }
+
+    if (utils::get_elapsed(ki->last_update(), cur_time) > ki->update_frequency()) {
+      ki->update_frequencies();
+      ki->reset_last_update();
+    }
+  }
+}
+
+void Game::GetPlayerChoice() {
   int choice;
-  std::string str = "";
-  print_field();
+  PrintFieldAndStatus();
   while (true) {
     choice = getch();
     // q: quit game
@@ -146,60 +125,58 @@ void Game::get_player_choice() {
 
     // r: add gatherer 
     else if (choice == 'r') {
-      std::unique_lock ul(mutex_print_field_);
-      attron(COLOR_PAIR(MSG));
-      mvaddstr(LINE_MSG, 10, "gold-, bronze- or silver-gatherer ([g]/[b]/[s])");
-      ul.unlock();
-      attron(COLOR_PAIR(DEFAULT_COLORS));
+      PrintMessage("gold-, bronze- or silver-gatherer ([g]/[b]/[s]", false);
       // Select bronze, silver or gold gatherer.
       int add_choice = getch();
+      std::string res = "";
       if (add_choice == 'b')
-        str = player_->add_gatherer_bronze();
+        res = player_one_->AddGathererBronze();
       else if (add_choice == 's')
-        str = player_->add_gatherer_silver();
+        res = player_one_->AddGathererSilver();
       else if (add_choice == 'g')
-        str = player_->add_gatherer_gold();
+        res = player_one_->AddGathererGold();
       // Use error color in case of error.
-      if (str != "")
-        attron(COLOR_PAIR(ERROR));
-      str.insert(str.length(), field_->cols()*2-str.length(), char(46));
-      ul.lock();
-      mvaddstr(LINE_MSG, 10, str.c_str());
-      attron(COLOR_PAIR(DEFAULT_COLORS));
+      PrintMessage(res, res!="");
     }
     // a: add soldier
     else if (choice == 'a') {
-      auto pos = field_->get_new_soldier_pos(true);
-      std::list<std::pair<int, int>> way = {};
-      way = field_->get_way_for_soldier(pos, true);
-      str = player_->add_soldier(pos, way);
-      if (str != "")
-        attron(COLOR_PAIR(ERROR));
-      str.insert(str.length(), field_->cols()*2-str.length(), char(46));
-      std::unique_lock ul(mutex_print_field_);
-      mvaddstr(LINE_MSG, 10, str.c_str());
-      attron(COLOR_PAIR(DEFAULT_COLORS));
+      auto pos = field_->GetNewSoldierPos(player_one_->den_pos());
+      std::list<Position> way = field_->GetWayForSoldier(pos, player_two_->den_pos());
+      std::string res = player_one_->AddSoldier(pos, way);
+      PrintMessage(res, res != "");
     }
     // D: place defence-tower
     else if (choice == 'D') {
-      str = player_->add_def();
-      if (str != "")
-        attron(COLOR_PAIR(ERROR));
-      else
-        field_->get_new_defence_pos(true);
-      str.insert(str.length(), field_->cols()*2-str.length(), char(46));
-      std::unique_lock ul(mutex_print_field_);
-      mvaddstr(LINE_MSG, 10, str.c_str());
-      attron(COLOR_PAIR(DEFAULT_COLORS));
+      std::string res = player_one_->CheckDefenceTowerResources();
+      if (res == "")
+        player_one_->AddDefenceTower(field_->GetNewDefencePos(player_one_));
+      PrintMessage(res, res!="");
     }
-    print_field();
-    refresh();
   } 
 }
 
-void Game::print_field() {
+void Game::PrintMessage(std::string msg, bool error) {
+  if (error)
+    attron(COLOR_PAIR(ERROR));
+  else
+    attron(COLOR_PAIR(MSG));
+  msg.insert(msg.length(), field_->cols()*2-msg.length(), char(46));
+  std::unique_lock ul(mutex_print_field_);
+  mvaddstr(LINE_MSG, 10, msg.c_str());
+  attron(COLOR_PAIR(DEFAULT_COLORS));
+  refresh();
+}
+
+void Game::PrintFieldAndStatus() {
   std::unique_lock ul(mutex_print_field_);
   mvaddstr(LINE_HELP, 10, HELP);
-  field_->print_field(player_, ki_);
-  mvaddstr(LINE_STATUS, 10, player_->get_status().c_str());
+  field_->PrintField(player_one_, player_two_);
+  mvaddstr(LINE_STATUS, 10, player_one_->GetCurrentStatusLine().c_str());
+}
+
+void Game::SetGameOver(std::string msg) {
+  clear();
+  mvaddstr(LINES/2, COLS/2-4, msg.c_str());
+  refresh();
+  game_over_ = true;
 }

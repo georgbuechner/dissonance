@@ -14,34 +14,37 @@ struct Node {
   std::list<Node*> nodes_;
 };
 
+typedef std::pair<int, int> Position;
+
 class Graph {
   public:
     Graph() { }
 
     // getter:
-    const std::map<std::pair<int, int>, Node*>& nodes() { return nodes_; }
+    const std::map<Position, Node*>& nodes() const {
+      return nodes_; 
+    }
 
-    void add_node(int line, int col) {
-      std::pair<int, int> pos = {line, col};
+    void AddNode(int line, int col) {
+      Position pos = {line, col};
       nodes_[pos] = new Node({line, col, {}});
     };
 
-    void add_edge(Node* a, Node* b) {
+    void AddEdge(Node* a, Node* b) {
       a->nodes_.push_back(b);
     }
 
-    bool in_graph(std::pair<int, int> pos) {
+    bool InGraph(Position pos) const {
       return nodes_.count(pos) > 0;
     }
 
-    void remove_invalid(std::pair<int, int> pos_a) {
-      std::list<std::pair<int, int>> invalid; 
-      std::map<std::pair<int, int>, bool> visited; 
+    void RemoveInvalid(Position pos_a) {
+      // Initialize all nodes as not-vistited.
+      std::map<Position, bool> visited; 
       for (auto node : nodes_) {
-        std::pair<int, int> pos = {node.second->line_, node.second->col_};
+        Position pos = {node.second->line_, node.second->col_};
         visited[pos] = false;
       }
-
       // Get all nodes which can be visited from player-den.
       std::list<Node*> queue;
       visited[pos_a] = true;
@@ -50,14 +53,13 @@ class Graph {
         auto cur = queue.front();
         queue.pop_front();
         for (auto node : cur->nodes_) {
-          std::pair<int, int> pos = {node->line_, node->col_};
+          Position pos = {node->line_, node->col_};
           if (!visited[pos]) {
             visited[pos] = true;
             queue.push_back(node);
           }
         }
       }
-
       // erase all nodes not visited
       for (auto it : visited) {
         if (!it.second) {
@@ -67,17 +69,17 @@ class Graph {
       }
     }
 
-    std::list<std::pair<int, int>> find_way(std::pair<int, int> pos_a, std::pair<int, int> pos_b) {
-      std::map<std::pair<int, int>, std::pair<int, int>> visited; 
+    std::list<Position> find_way(Position pos_a, Position pos_b) const {
+      std::map<Position, Position> visited; 
       for (auto node : nodes_) {
-        std::pair<int, int> pos = {node.second->line_, node.second->col_};
+        Position pos = {node.second->line_, node.second->col_};
         visited[pos] = {-1, -1};
       }
 
       // Get all nodes which can be visited from player-den.
       std::list<Node*> queue;
       visited[pos_a] = {pos_a.first, pos_a.second};
-      queue.push_back(nodes_[pos_a]);
+      queue.push_back(nodes_.at(pos_a));
       while(!queue.empty()) {
         auto cur = queue.front();
         queue.pop_front();
@@ -86,18 +88,17 @@ class Graph {
           break;
         // iterate over children.
         for (auto node : cur->nodes_) {
-          std::pair<int, int> pos = {node->line_, node->col_};
+          Position pos = {node->line_, node->col_};
           if (visited[pos] == std::make_pair(-1, -1)) {
             visited[pos] = {cur->line_, cur->col_};
             queue.push_back(node);
           }
         }
       }
-
       if (visited[pos_b] == std::make_pair(-1, -1))
         throw "Could not find enemy den!.";
       
-      std::list<std::pair<int, int>> way = { pos_b };
+      std::list<Position> way = { pos_b };
       while (way.back() != pos_a) {
         way.push_back({visited[way.back()].first, visited[way.back()].second});
       }
@@ -107,7 +108,7 @@ class Graph {
     }
 
   private:
-    std::map<std::pair<int, int>, Node*> nodes_;
+    std::map<Position, Node*> nodes_;
 };
 
 #endif

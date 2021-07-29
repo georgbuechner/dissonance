@@ -4,13 +4,13 @@
 #include <exception>
 #include <iostream>
 #include <locale>
-#include <math.h>
 #include <shared_mutex>
 #include <string>
 #include <utility>
 #include <vector>
 #include "field.h"
 #include "player.h"
+#include "units.h"
 
 #define DEFAULT_COLORS 3
 #define PLAYER 2 
@@ -28,7 +28,6 @@
 
 int getrandom_int(int min, int max);
 int random_coordinate_shift(int x, int min, int max);
-int dist(std::pair<int, int> pos1, std::pair<int, int> pos2);
 
 Field::Field(int lines, int cols) {
   lines_ = lines;
@@ -43,104 +42,96 @@ Field::Field(int lines, int cols) {
   }
 }
 
-std::pair<int, int> Field::add_player() {
-  int y = getrandom_int(lines_ / 1.5, lines_-5);
-  int x = getrandom_int(cols_ / 1.5, cols_-5);
-  player_den_ = {y, x};
-  player_units_[player_den_] = DEN;
-  field_[y][x] = DEN;
-  clear_field(y, x);
-
-  add_resources(y, x);
-  return player_den_;
+// getter
+int Field::lines() { 
+  return lines_; 
+}
+int Field::cols() { 
+  return cols_; 
 }
 
-std::pair<int, int> Field::add_ki() {
-  // Create random enemy den.
-  int y = getrandom_int(5, lines_ / 3);
-  int x = getrandom_int(5, cols_ / 3);
-  ki_den_ = {y,x};
-  ki_units_[ki_den_] = DEN;
-  field_[y][x] = DEN;
-  clear_field(y, x);
 
-  add_resources(y, x);
-  return ki_den_;
+Position Field::AddDen(int min_line, int max_line, int min_col, int max_col) {
+  Position pos = {getrandom_int(min_line, max_line), getrandom_int(min_col, cols_-5)};
+  field_[pos.first][pos.second] = DEN;
+  ClearField(pos);
+  AddResources(pos);
+  return pos;
 }
 
-void Field::clear_field(int l, int c) {
-  field_[l][c+1] = FREE;
-  field_[l+1][c] = FREE;
-  field_[l][c-1] = FREE;
-  field_[l-1][c] = FREE;
-  field_[l+1][c+1] = FREE;
-  field_[l+1][c-1] = FREE;
-  field_[l-1][c+1] = FREE;
-  field_[l-1][c-1] = FREE;
+void Field::ClearField(Position pos) {
+  field_[pos.first][pos.second+1] = FREE;
+  field_[pos.first+1][pos.second] = FREE;
+  field_[pos.first][pos.second-1] = FREE;
+  field_[pos.first-1][pos.second] = FREE;
+  field_[pos.first+1][pos.second+1] = FREE;
+  field_[pos.first+1][pos.second-1] = FREE;
+  field_[pos.first-1][pos.second+1] = FREE;
+  field_[pos.first-1][pos.second-1] = FREE;
 }
 
-void Field::add_resources(int y, int x) {
-  auto pos = find_free(y, x, 2, 4);
+void Field::AddResources(Position start_pos) {
+  auto pos = FindFree(start_pos.first, start_pos.second, 2, 4);
   field_[pos.first][pos.second] = GOLD;
-  pos = find_free(y, x, 2, 4);
+  pos = FindFree(start_pos.first, start_pos.second, 2, 4);
   field_[pos.first][pos.second] = SILVER;
-  pos = find_free(y, x, 2, 4);
+  pos = FindFree(start_pos.first, start_pos.second, 2, 4);
   field_[pos.first][pos.second] = BRONZE;
 }
 
-void Field::build_graph() {
+void Field::BuildGraph(Position player_den, Position enemy_den) {
   // Add all nodes.
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
       if (field_[l][c] != HILL)
-        graph_.add_node(l, c);
+        graph_.AddNode(l, c);
     }
   }
 
   // For each node, add edges.
   for (auto node : graph_.nodes()) {
     // Node above 
-    std::pair<int, int> pos = {node.second->line_-1, node.second->col_};
-    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
-      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    Position pos = {node.second->line_-1, node.second->col_};
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+      graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // Node below
     pos = {node.second->line_+1, node.second->col_};
-    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
-      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+      graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // Node left
     pos = {node.second->line_, node.second->col_-1};
-    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
-      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+      graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // Node right 
     pos = {node.second->line_, node.second->col_+1};
-    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
-      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+      graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // Upper left
     pos = {node.second->line_-1, node.second->col_-1};
-    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
-      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+      graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // lower left 
     pos = {node.second->line_+1, node.second->col_-1};
-    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
-      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+      graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // Upper right
     pos = {node.second->line_-1, node.second->col_+1};
-    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
-      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+      graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // lower right 
     pos = {node.second->line_+1, node.second->col_+1};
-    if (in_field(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.in_graph(pos))
-      graph_.add_edge(node.second, graph_.nodes().at(pos));
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+      graph_.AddEdge(node.second, graph_.nodes().at(pos));
   }
 
   // Remove all nodes not in main circle
-  graph_.remove_invalid(player_den_);
-  if (graph_.nodes().count(ki_den_) == 0)
-    throw "Invalid wworld.";
+  graph_.RemoveInvalid(player_den);
+  if (graph_.nodes().count(enemy_den) == 0)
+    throw "Invalid world.";
 }
 
-void Field::add_hills() {
-  int num_hils = lines_ + cols_;
+void Field::AddHills() {
+  int num_hils = (lines_ + cols_) * 2;
   // Generate lines*2 mountains.
   for (int i=0; i<num_hils; i++) {
     // Generate random hill.
@@ -150,41 +141,35 @@ void Field::add_hills() {
 
     // Generate random 5 hills around this hill.
     for (int j=1; j<=5; j++) {
-      int y = get_x_in_range(random_coordinate_shift(start_y, 0, j), 0, lines_);
-      int x = get_x_in_range(random_coordinate_shift(start_x, 0, j), 0, cols_);
+      int y = GetXInRange(random_coordinate_shift(start_y, 0, j), 0, lines_);
+      int x = GetXInRange(random_coordinate_shift(start_x, 0, j), 0, cols_);
       field_[y][x] = HILL;
     }
   }
 }
 
-std::pair<int, int> Field::get_new_soldier_pos(bool player) {
-  if (player)
-    return find_free(player_den_.first, player_den_.second, 1, 3);
-  else
-    return find_free(ki_den_.first, ki_den_.second, 1, 3);
+Position Field::GetNewSoldierPos(Position pos) {
+  auto new_pos = FindFree(pos.first, pos.second, 1, 3);
+  while(!graph_.InGraph(new_pos))
+    new_pos = FindFree(pos.first, pos.second, 1, 3);
+  return new_pos;
 }
 
-void Field::get_new_defence_pos(bool player) {
-  if (player) { 
-    std::unique_lock ul_player(mutex_player_units_);
-    auto pos = find_free(player_den_.first, player_den_.second, 1, 5);
-    player_units_[pos] = DEF;
-    std::unique_lock ul_field(mutex_field_);
-    field_[pos.first][pos.second] = DEF;
-  }
-  else {
-    std::unique_lock ul_ki(mutex_ki_units_);
-    auto pos = find_free(ki_den_.first, ki_den_.second, 1, 5);
-    ki_units_[pos] = DEF;
-    std::unique_lock ul_field(mutex_field_);
-    field_[pos.first][pos.second] = DEF;
-  }
+std::list<Position> Field::GetWayForSoldier(Position start_pos, Position target_pos) {
+  return graph_.find_way(start_pos, target_pos);
 }
 
-void Field::update_field(Player *player, std::vector<std::vector<char>>& field) {
+Position Field::GetNewDefencePos(Player* player) {
+  auto tower_pos = FindFree(player->den_pos().first, player->den_pos().second, 1, 5);
+  std::unique_lock ul_field(mutex_field_);
+  field_[tower_pos.first][tower_pos.second] = DEF;
+  return tower_pos;
+}
+
+void Field::UpdateField(Player *player, std::vector<std::vector<char>>& field) {
   for (auto it : player->soldier()) { // player-soldier does not need to be locked, as copy is returned
-    int l = it.second.cur_pos_.first;
-    int c = it.second.cur_pos_.second;
+    int l = it.second.pos_.first;
+    int c = it.second.pos_.second;
     if (field[l][c] == FREE)
       field[l][c] = '1';
     else {
@@ -198,60 +183,25 @@ void Field::update_field(Player *player, std::vector<std::vector<char>>& field) 
   }
 }
 
-void Field::handle_def(Player* player, Player* ki) {
-  std::shared_lock sl_player(mutex_player_units_);
-  for (auto building : player_units_) {
-    if (building.second != DEF)
-      continue;
-    std::string dead_soldier = "";
-    for (auto soldier : ki->soldier()) {
-      int distance = dist(building.first, soldier.second.cur_pos_);
-      if (distance < 3) {
-        dead_soldier = soldier.first;
-        break;  // break loop, since every tower can destroy only one soldier.
-      }
-    }
-    ki->remove_soldier(dead_soldier);
-  }
-  sl_player.unlock();
-  std::shared_lock sl_ki(mutex_ki_units_);
-  for (auto building : ki_units_) {
-    if (building.second != DEF)
-      continue;
-    std::string dead_soldier = "";
-    for (auto soldier : player->soldier()) {
-      int distance = dist(building.first, soldier.second.cur_pos_);
-      if (distance < 3) {
-        dead_soldier = soldier.first;
-        break;  // break loop, since every tower can destroy only one soldier.
-      }
-    }
-    player->remove_soldier(dead_soldier);
-  }
-}
-
-void Field::print_field(Player* player, Player* ki, bool show_in_graph) {
+void Field::PrintField(Player* player, Player* enemy, bool show_in_graph) {
   std::shared_lock sl_field(mutex_field_);
   auto field = field_;
   sl_field.unlock();
 
-  update_field(player, field);
-  update_field(ki, field);
-
-  std::shared_lock sl_player(mutex_player_units_);
-  std::shared_lock sl_ki(mutex_ki_units_);
+  UpdateField(player, field);
+  UpdateField(enemy, field);
 
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
-      if (ki->is_player_soldier({l,c}) && player->is_player_soldier({l, c}))
+      if (enemy->IsPlayerSoldier({l,c}) && player->IsPlayerSoldier({l, c}))
         attron(COLOR_PAIR(RESOURCES));
-      else if (ki_units_.count({l,c}) > 0 || ki->is_player_soldier({l,c}))
+      else if (enemy->units_and_buildings().count({l,c}) > 0 || enemy->IsPlayerSoldier({l,c}))
         attron(COLOR_PAIR(PLAYER));
-      else if (player_units_.count({l,c}) > 0 || player->is_player_soldier({l, c}))
+      else if (player->units_and_buildings().count({l,c}) > 0 || player->IsPlayerSoldier({l, c}))
         attron(COLOR_PAIR(KI));
       else if (field[l][c] == 'G' || field[l][c] == 'S' ||field[l][c] == 'B')
          attron(COLOR_PAIR(RESOURCES));
-      else if (show_in_graph && graph_.in_graph({l, c})) 
+      else if (show_in_graph && graph_.InGraph({l, c})) 
         attron(COLOR_PAIR(IN_GRAPH));
       mvaddch(10+l, 10+2*c, field[l][c]);
       mvaddch(10+l, 10+2*c+1, ' ' );
@@ -260,16 +210,16 @@ void Field::print_field(Player* player, Player* ki, bool show_in_graph) {
   }
 }
 
-bool Field::in_field(int l, int c) {
+bool Field::InField(int l, int c) {
   return (l >= 0 && l <= lines_ && c >= 0 && c <= cols_);
 }
 
-std::pair<int, int> Field::find_free(int l, int c, int min, int max) {
+Position Field::FindFree(int l, int c, int min, int max) {
   std::shared_lock sl_field(mutex_field_);
   for (int attempts=0; attempts<100; attempts++) {
     for (int i=0; i<max; i++) {
-      int y = get_x_in_range(random_coordinate_shift(l, min, min+i), 0, lines_);
-      int x = get_x_in_range(random_coordinate_shift(c, min, min+i), 0, cols_);
+      int y = GetXInRange(random_coordinate_shift(l, min, min+i), 0, lines_);
+      int x = GetXInRange(random_coordinate_shift(c, min, min+i), 0, cols_);
       if (field_[y][x] == FREE)
         return {y, x};
     }
@@ -277,7 +227,7 @@ std::pair<int, int> Field::find_free(int l, int c, int min, int max) {
   exit(400);
 }
 
-int Field::get_x_in_range(int x, int min, int max) {
+int Field::GetXInRange(int x, int min, int max) {
   if (x < min) 
     return min;
   if (x > max)
@@ -297,6 +247,3 @@ int random_coordinate_shift(int x, int min, int max) {
   return x + pow(-1, plus_minus)*random_faktor;
 }
 
-int dist(std::pair<int, int> pos1, std::pair<int, int> pos2) {
-  return std::sqrt(pow(pos2.first - pos1.first, 2) + pow(pos2.second - pos1.second, 2));
-}
