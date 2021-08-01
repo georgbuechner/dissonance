@@ -31,6 +31,7 @@ class Game {
     Player* player_one_;
     Player* player_two_;
     bool game_over_;
+    bool pause_;
 
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
 

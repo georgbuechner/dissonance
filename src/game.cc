@@ -26,14 +26,12 @@
 #define KI_NEW_SOLDIER 1250
 #define KI_NEW_SOLDIER 1250
 
-Game::Game(int lines, int cols) {
+Game::Game(int lines, int cols) : game_over_(false), pause_(false) {
   field_ = new Field(lines, cols);
   field_->AddHills();
   player_one_ = new Player(field_->AddDen(lines/1.5, lines-5, cols/1.5, cols-5), 4);
   player_two_ = new Player(field_->AddDen(5, lines/3, 5, cols/3), 100000);
   field_->BuildGraph(player_one_->den_pos(), player_two_->den_pos());
-
-  game_over_ = false;
 }
 
 void Game::play() {
@@ -48,7 +46,7 @@ void Game::DoActions() {
   auto last_update = std::chrono::steady_clock::now();
   auto last_resource_inc = std::chrono::steady_clock::now();
  
-  while (!game_over_) {
+  while (!game_over_ && !pause_) {
     auto cur_time = std::chrono::steady_clock::now();
     
     // Increase resources.
@@ -77,7 +75,6 @@ void Game::DoActions() {
 
       // Refresh page
       PrintFieldAndStatus();
-      refresh();
       last_update = cur_time;
     }
   } 
@@ -85,7 +82,7 @@ void Game::DoActions() {
 
 void Game::HandleKi() {
   Ki* ki = new Ki();
-  while(!game_over_) {
+  while(!game_over_ && !pause_) {
     auto cur_time = std::chrono::steady_clock::now();
     if (utils::get_elapsed(ki->last_soldier(), cur_time) > ki->new_soldier_frequency()) {
       auto pos = field_->GetNewSoldierPos(player_two_->den_pos());
@@ -121,6 +118,18 @@ void Game::GetPlayerChoice() {
     // Stop any other player-inputs, if game is over.
     else if (game_over_) {
       continue;
+    }
+
+    // SPACE: pause/ unpause game
+    else if (choice == ' ') {
+      if (pause_) {
+        pause_ = false;
+        PrintMessage("Un-Paused game.", false);
+      }
+      else {
+        pause_ = true;
+        PrintMessage("Paused game.", false);
+      }
     }
 
     // r: add gatherer 
@@ -172,6 +181,7 @@ void Game::PrintFieldAndStatus() {
   mvaddstr(LINE_HELP, 10, HELP);
   field_->PrintField(player_one_, player_two_);
   mvaddstr(LINE_STATUS, 10, player_one_->GetCurrentStatusLine().c_str());
+  refresh();
 }
 
 void Game::SetGameOver(std::string msg) {
