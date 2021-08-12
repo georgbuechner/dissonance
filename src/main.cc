@@ -15,6 +15,7 @@ int main(void) {
   initscr();
   cbreak();
   noecho();
+  keypad(stdscr, true);
 
   clear();
 
@@ -26,6 +27,7 @@ int main(void) {
   init_pair(3, -1, -1);
   init_pair(4, COLOR_CYAN, -1);
   init_pair(5, COLOR_GREEN, -1);
+  init_pair(6, COLOR_MAGENTA, -1);
 
   // initialize game.
   Game game((LINES-20), (COLS-20) / 2);

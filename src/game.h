@@ -11,6 +11,7 @@
 
 #include "field.h"
 #include "player.h"
+#include "units.h"
 
 class Game {
   public:
@@ -33,6 +34,9 @@ class Game {
     bool game_over_;
     bool pause_;
 
+    std::pair<volatile int, volatile int> highlight_;
+    volatile int range_;
+
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
 
     /**
@@ -51,6 +55,8 @@ class Game {
      * Handls player input (Runs as thread).
      */
     void GetPlayerChoice();
+
+    Position SelectPosition(Position start);
 
     /**
      * Handles ki-towers and soldiers.
@@ -74,6 +80,7 @@ class Game {
      * @param msg victory/ failure message.
      */
     void SetGameOver(std::string msg);
+
 };
 
 #endif

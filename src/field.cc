@@ -11,12 +11,15 @@
 #include "field.h"
 #include "player.h"
 #include "units.h"
+#include "utils.h"
+#include "codes.h"
 
-#define DEFAULT_COLORS 3
-#define PLAYER 2 
-#define KI 1 
-#define RESOURCES 4 
-#define IN_GRAPH 5 
+#define COLOR_DEFAULT 3
+#define COLOR_PLAYER 2 
+#define COLOR_KI 1 
+#define COLOR_RESOURCES 4 
+#define COLOR_OK 5 
+#define COLOR_HIGHLIGHT 6 
 
 #define HILL ' ' 
 #define DEN 'D' 
@@ -159,11 +162,9 @@ std::list<Position> Field::GetWayForSoldier(Position start_pos, Position target_
   return graph_.find_way(start_pos, target_pos);
 }
 
-Position Field::GetNewDefencePos(Player* player) {
-  auto tower_pos = FindFree(player->den_pos().first, player->den_pos().second, 1, 5);
+void Field::AddNewDefencePos(Position pos) {
   std::unique_lock ul_field(mutex_field_);
-  field_[tower_pos.first][tower_pos.second] = DEF;
-  return tower_pos;
+  field_[pos.first][pos.second] = DEF;
 }
 
 void Field::UpdateField(Player *player, std::vector<std::vector<char>>& field) {
@@ -183,7 +184,7 @@ void Field::UpdateField(Player *player, std::vector<std::vector<char>>& field) {
   }
 }
 
-void Field::PrintField(Player* player, Player* enemy, bool show_in_graph) {
+void Field::PrintField(Player* player, Player* enemy, Position highlight, int range) {
   std::shared_lock sl_field(mutex_field_);
   auto field = field_;
   sl_field.unlock();
@@ -193,21 +194,36 @@ void Field::PrintField(Player* player, Player* enemy, bool show_in_graph) {
 
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
-      if (enemy->IsPlayerSoldier({l,c}) && player->IsPlayerSoldier({l, c}))
-        attron(COLOR_PAIR(RESOURCES));
-      else if (enemy->units_and_buildings().count({l,c}) > 0 || enemy->IsPlayerSoldier({l,c}))
-        attron(COLOR_PAIR(PLAYER));
-      else if (player->units_and_buildings().count({l,c}) > 0 || player->IsPlayerSoldier({l, c}))
-        attron(COLOR_PAIR(KI));
+      Position cur = {l, c};
+      // highlight -> magenta
+      if (cur == highlight) 
+        attron(COLOR_PAIR(COLOR_HIGHLIGHT));
+      // both players -> cyan
+      else if (enemy->IsSoldier(cur) && player->IsSoldier(cur))
+        attron(COLOR_PAIR(COLOR_RESOURCES));
+      // player 2 -> red
+      else if (enemy->units_and_buildings().count(cur) > 0 || enemy->IsSoldier(cur))
+        attron(COLOR_PAIR(COLOR_PLAYER));
+      // player 1 -> blue 
+      else if (player->units_and_buildings().count(cur) > 0 || player->IsSoldier(cur))
+        attron(COLOR_PAIR(COLOR_KI));
+      // resources -> cyan
       else if (field[l][c] == 'G' || field[l][c] == 'S' ||field[l][c] == 'B')
-         attron(COLOR_PAIR(RESOURCES));
-      else if (show_in_graph && graph_.InGraph({l, c})) 
-        attron(COLOR_PAIR(IN_GRAPH));
+         attron(COLOR_PAIR(COLOR_RESOURCES));
+      // range -> green
+      else if (InRange(cur, range, player->den_pos()))
+        attron(COLOR_PAIR(COLOR_OK));
       mvaddch(10+l, 10+2*c, field[l][c]);
       mvaddch(10+l, 10+2*c+1, ' ' );
-      attron(COLOR_PAIR(DEFAULT_COLORS));
+      attron(COLOR_PAIR(COLOR_DEFAULT));
     }
   }
+}
+
+bool Field::InRange(Position pos, int range, Position start) {
+  if (range == ViewRange::GRAPH)
+    return graph_.InGraph(pos);
+  return utils::dist(pos, start) <= range;
 }
 
 bool Field::InField(int l, int c) {

@@ -1,4 +1,3 @@
-#include <math.h>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -16,7 +15,6 @@
 #define DEF 'T'
 
 std::string create_id();
-int dist(Position pos1, Position pos2);
 
 std::string Player::GetCurrentStatusLine() {
   std::scoped_lock scoped_lock(mutex_bronze_, mutex_silver_, mutex_gold_, mutex_bronze_gatherer_, 
@@ -43,6 +41,10 @@ std::set<Position> Player::units_and_buildings() {
 Position Player::den_pos() { 
   std::shared_lock sl(mutex_den_); 
   return den_.pos_;
+}
+
+int Player::cur_range() { 
+  return cur_range_;
 }
 
 // methods 
@@ -161,7 +163,7 @@ void Player::HandleDef(Player* enemy) {
     if (utils::get_elapsed(tower.second.last_action_, cur_time) > tower.second.speed_) {
       std::string dead_soldier = "";
       for (auto soldier : enemy->soldier()) {
-        int distance = dist(tower.first, soldier.second.pos_);
+        int distance = utils::dist(tower.first, soldier.second.pos_);
         if (distance < 3) {
           dead_soldier = soldier.first;
           tower.second.last_action_ = cur_time;  // tower did action, so update last_action_.
@@ -173,7 +175,7 @@ void Player::HandleDef(Player* enemy) {
   }
 }
 
-bool Player::IsPlayerSoldier(Position pos) {
+bool Player::IsSoldier(Position pos) {
   std::shared_lock sl(mutex_soldiers_);
   for (const auto& it : soldiers_) {
     if (it.second.pos_ == pos)
@@ -198,9 +200,4 @@ std::string create_id() {
     id += std::to_string(ran);
   }
   return id;
-}
-
-
-int dist(Position pos1, Position pos2) {
-  return std::sqrt(pow(pos2.first - pos1.first, 2) + pow(pos2.second - pos1.second, 2));
 }

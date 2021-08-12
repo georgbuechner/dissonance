@@ -64,11 +64,9 @@ class Field {
     /**
      * Finds a free position for a defence tower and adds tower to player/ ki
      * units.
-     * @param player Player for which to add defence tower for. (Needed to get
-     * den pos and to add building to player.
-     * @return position of new defence tower.
+     * @param pos position of new defence tower.
      */
-    Position GetNewDefencePos(Player* player);
+    void AddNewDefencePos(Position pos);
 
 
     /** 
@@ -79,7 +77,7 @@ class Field {
      * @param show_in_graph if set to true, highlights all free positions in the
      * way between player 1 and player 2 den.
      */
-    void PrintField(Player* player, Player* ki, bool show_in_graph=false);
+    void PrintField(Player* player, Player* ki, Position highlight, int show_availibe);
 
     /**
      * Gets way to a soldiers target.
@@ -88,6 +86,20 @@ class Field {
      * @return list of positions.
      */ 
     std::list<Position> GetWayForSoldier(Position start_pos, Position target_pos);
+
+    /** 
+     * Finds the next free position near a given position with min and max
+     * deviation.
+     * @param l initial line
+     * @param c initial column.
+     * @param min distance 
+     * @param max distance
+     * @return free position in given range.
+     */
+    Position FindFree(int l, int c, int min, int max);
+
+    bool InRange(Position pos, int range, Position start = {-1, -1});
+
 
   private: 
     int lines_;
@@ -128,17 +140,6 @@ class Field {
      * @return boolen indicating, whether given position is inside of field.
      */
     bool InField(int l, int c);
-    
-    /** 
-     * Finds the next free position near a given position with min and max
-     * deviation.
-     * @param l initial line
-     * @param c initial column.
-     * @param min distance 
-     * @param max distance
-     * @return free position in given range.
-     */
-    Position FindFree(int l, int c, int min, int max);
 
     /**
      * Function clearing field (set positions to FREE) in a certain radius around 

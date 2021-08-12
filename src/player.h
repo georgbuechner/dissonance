@@ -30,7 +30,7 @@ class Player {
      * @param[in] silver initial silver value.
      */
     Player(Position den_pos, int silver=0) : gold_(0), silver_(silver), bronze_(2.4), 
-      gatherer_gold_(0), gatherer_silver_(0), gatherer_bronze_(0) {
+      gatherer_gold_(0), gatherer_silver_(0), gatherer_bronze_(0), cur_range_(4) {
       den_ = Den(den_pos, 2); 
       all_units_and_buildings_.insert(den_pos);
     }
@@ -39,6 +39,7 @@ class Player {
     std::map<std::string, Soldier> soldier();
     std::set<Position> units_and_buildings();
     Position den_pos();
+    int cur_range();
 
     // methods:
 
@@ -122,7 +123,7 @@ class Player {
      * Checks if a soldier on the map belongs to this player.
      * @param[in] pos position to check for.
      */
-    bool IsPlayerSoldier(Position pos);
+    bool IsSoldier(Position pos);
 
     /** 
      * Decrease live of den.
@@ -138,6 +139,8 @@ class Player {
     int gatherer_gold_;
     int gatherer_silver_;
     int gatherer_bronze_;
+
+    int cur_range_;
 
 
     std::shared_mutex mutex_gold_;
