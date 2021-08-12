@@ -46,8 +46,10 @@ void Game::DoActions() {
   auto last_update = std::chrono::steady_clock::now();
   auto last_resource_inc = std::chrono::steady_clock::now();
  
-  while (!game_over_ && !pause_) {
+  while (!game_over_) {
     auto cur_time = std::chrono::steady_clock::now();
+
+    if (pause_) continue;
     
     // Increase resources.
     if (utils::get_elapsed(last_resource_inc, cur_time) > RESOURCES_UPDATE_FREQUENCY) {
