@@ -9,14 +9,16 @@
 #include <shared_mutex>
 #include <vector>
 
+#include "codes.h"
 #include "units.h"
 
-#define COST_GOLD_GATHERER 23.43
-#define COST_SILVER_GATHERER 4.84
-#define COST_BRONZE_GATHERER 2.2
-#define COST_DEF_BRONZE 5.2
-#define COST_DEF_SILVER 3.2
-#define COST_SOLDIER 1.6
+struct Costs {
+  double gold_;
+  double silver_;
+  double bronze_;
+  double space_;
+};
+
 
 typedef std::pair<int, int> Position;
 
@@ -29,7 +31,7 @@ class Player {
      * @param[in] den position of this player's den.
      * @param[in] silver initial silver value.
      */
-    Player(Position den_pos, int silver=0) : gold_(0), silver_(silver), bronze_(2.4), 
+    Player(Position den_pos, int silver=0) : gold_(0), silver_(20), bronze_(20.4), 
       gatherer_gold_(0), gatherer_silver_(0), gatherer_bronze_(0), cur_range_(4) {
       den_ = Den(den_pos, 2); 
       all_units_and_buildings_.insert(den_pos);
@@ -37,6 +39,7 @@ class Player {
 
     // getter:
     std::map<std::string, Soldier> soldier();
+    std::map<Position, Barrack> barracks();
     std::set<Position> units_and_buildings();
     Position den_pos();
     int cur_range();
@@ -56,35 +59,21 @@ class Player {
      */
     void IncreaseResources();
 
-    /** 
-     * Adds bronze-gatherer if resources are availibe.
-     * @return Error message (string) if resources are not availibe.
-     */
-    std::string AddGathererBronze();
+    Costs CheckResources(int unit);
 
     /** 
-     * Adds silver-gatherer if resources are availibe.
-     * @return Error message (string) if resources are not availibe.
+     * Adds specified gatherer.
+     * @param unit specify which gatherer
      */
-    std::string AddGathererSilver();
-
-    /** 
-     * Adds gold-gatherer if resources are availibe.
-     * @return Error message (string) if resources are not availibe.
-     */
-    std::string AddGathererGold();
-
-    /**
-     * Checks if resources for new defence tower are availibe.
-     * @return Error message (string) if resources are not availibe.
-     */
-    std::string CheckDefenceTowerResources();
+    void AddGatherer(int unit);
 
     /**
      * Adds a new defence tower at the given position. 
      * @param[in] pos position at which to add defence tower.
      */
     void AddDefenceTower(Position pos);
+
+    void AddBarrack(Position pos);
 
     /**
      * Adds new soldier and sets it's current position and the way to it's
@@ -94,9 +83,8 @@ class Player {
      * position.
      * @param[in] pos start position of new soldier.
      * @param[in] way to the enemies building.
-     * @return Error message (string) if resources are not availibe.
      */
-    std::string AddSoldier(Position pos, std::list<Position> way);
+    void AddSoldier(Position pos, std::list<Position> way);
 
     /**
      * Moves every soldier forward and if it's target is reached, damage is
@@ -143,12 +131,8 @@ class Player {
     int cur_range_;
 
 
-    std::shared_mutex mutex_gold_;
-    std::shared_mutex mutex_silver_;
-    std::shared_mutex mutex_bronze_;
-    std::shared_mutex mutex_gold_gatherer_;
-    std::shared_mutex mutex_silver_gatherer_;
-    std::shared_mutex mutex_bronze_gatherer_;
+    std::shared_mutex mutex_resources_;
+    std::shared_mutex mutex_gatherer_;
 
     Den den_;
     std::shared_mutex mutex_den_;
@@ -159,8 +143,14 @@ class Player {
     std::set<Position> all_units_and_buildings_;  ///< simple set, to check whether position belongs to player.
     std::shared_mutex mutex_units_and_buildings_;
 
+    std::map<Position, Barrack> barracks_;
+    std::shared_mutex mutex_barracks;
+
     std::map<Position, DefenceTower> defence_towers_;
     std::shared_mutex mutex_defence_towers_;
+
+    // methods
+    void TakeResources(Costs costs);
 };
 
 #endif

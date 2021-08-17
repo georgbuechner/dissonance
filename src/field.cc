@@ -1,3 +1,4 @@
+#include <bits/types/FILE.h>
 #include <cctype>
 #include <cmath>
 #include <curses.h>
@@ -28,6 +29,7 @@
 #define BRONZE 'B' 
 #define FREE char(46)
 #define DEF 'T'
+#define BARACK 'A'
 
 int getrandom_int(int min, int max);
 int random_coordinate_shift(int x, int min, int max);
@@ -43,6 +45,9 @@ Field::Field(int lines, int cols) {
     for (int c=0; c<=cols_; c++)
       field_[l].push_back(char(46));
   }
+
+  highlight_ = {};
+  range_ = ViewRange::HIDE;
 }
 
 // getter
@@ -52,7 +57,20 @@ int Field::lines() {
 int Field::cols() { 
   return cols_; 
 }
+std::vector<Position> Field::highlight() {
+  return highlight_;
+}
 
+// setter:
+void Field::set_highlight(std::vector<Position> positions) {
+  highlight_ = positions;
+}
+void Field::set_range(int range) {
+  range_ = range;
+}
+void Field::set_replace(std::map<Position, char> replacements) {
+  replacements_ = replacements;
+}
 
 Position Field::AddDen(int min_line, int max_line, int min_col, int max_col) {
   Position pos = {getrandom_int(min_line, max_line), getrandom_int(min_col, cols_-5)};
@@ -162,9 +180,12 @@ std::list<Position> Field::GetWayForSoldier(Position start_pos, Position target_
   return graph_.find_way(start_pos, target_pos);
 }
 
-void Field::AddNewDefencePos(Position pos) {
+void Field::AddNewUnitToPos(Position pos, int unit) {
   std::unique_lock ul_field(mutex_field_);
-  field_[pos.first][pos.second] = DEF;
+  if (unit == Units::DEFENCE)
+    field_[pos.first][pos.second] = DEF;
+  else if (unit == Units::BARACKS)
+    field_[pos.first][pos.second] = BARACK;
 }
 
 void Field::UpdateField(Player *player, std::vector<std::vector<char>>& field) {
@@ -184,7 +205,7 @@ void Field::UpdateField(Player *player, std::vector<std::vector<char>>& field) {
   }
 }
 
-void Field::PrintField(Player* player, Player* enemy, Position highlight, int range) {
+void Field::PrintField(Player* player, Player* enemy) {
   std::shared_lock sl_field(mutex_field_);
   auto field = field_;
   sl_field.unlock();
@@ -196,7 +217,7 @@ void Field::PrintField(Player* player, Player* enemy, Position highlight, int ra
     for (int c=0; c<cols_; c++) {
       Position cur = {l, c};
       // highlight -> magenta
-      if (cur == highlight) 
+      if (std::find(highlight_.begin(), highlight_.end(), cur) != highlight_.end())
         attron(COLOR_PAIR(COLOR_HIGHLIGHT));
       // both players -> cyan
       else if (enemy->IsSoldier(cur) && player->IsSoldier(cur))
@@ -211,9 +232,14 @@ void Field::PrintField(Player* player, Player* enemy, Position highlight, int ra
       else if (field[l][c] == 'G' || field[l][c] == 'S' ||field[l][c] == 'B')
          attron(COLOR_PAIR(COLOR_RESOURCES));
       // range -> green
-      else if (InRange(cur, range, player->den_pos()))
+      else if (InRange(cur, range_, player->den_pos()))
         attron(COLOR_PAIR(COLOR_OK));
-      mvaddch(10+l, 10+2*c, field[l][c]);
+      
+      // Replace certain elements.
+      if (replacements_.count(cur) > 0)
+        mvaddch(10+l, 10+2*c, replacements_.at(cur));
+      else
+        mvaddch(10+l, 10+2*c, field[l][c]);
       mvaddch(10+l, 10+2*c+1, ' ' );
       attron(COLOR_PAIR(COLOR_DEFAULT));
     }
@@ -224,6 +250,19 @@ bool Field::InRange(Position pos, int range, Position start) {
   if (range == ViewRange::GRAPH)
     return graph_.InGraph(pos);
   return utils::dist(pos, start) <= range;
+}
+
+Position Field::GetSelected(char replace, int num) {
+  int counter = int('a')-1;
+  for (int l=0; l<lines_; l++) {
+    for (int c=0; c<cols_; c++) {
+      if (field_[l][c] == replace)
+        counter++;
+      if (counter == num)
+        return {l, c};
+    }
+  }
+  return {-1, -1};
 }
 
 bool Field::InField(int l, int c) {
@@ -241,6 +280,10 @@ Position Field::FindFree(int l, int c, int min, int max) {
     }
   }    
   exit(400);
+}
+
+bool Field::IsFree(Position pos) {
+  return field_[pos.first][pos.second] == FREE;
 }
 
 int Field::GetXInRange(int x, int min, int max) {

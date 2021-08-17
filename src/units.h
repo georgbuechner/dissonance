@@ -23,6 +23,14 @@ struct Soldier : Unit {
   Soldier(Position pos, std::list<Position> way) : Unit(pos, 500), way_(way) {}
 };
 
+struct Barrack : Unit {
+  int stored_;
+
+  Barrack() : Unit () {}
+  Barrack(Position pos) : Unit(pos, 0), stored_(0) {}
+};
+
+
 struct DefenceTower : Unit{
   int range_;
 

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "codes.h"
+#include "player.h"
 #include "units.h"
 #include "utils.h"
 #include "ki.h"
@@ -30,22 +31,37 @@
 #define KI_NEW_SOLDIER 1250
 #define KI_NEW_SOLDIER 1250
 
-Game::Game(int lines, int cols) : game_over_(false), pause_(false), highlight_({-1,-1}) {
+std::map<char, int> input_unit_mapping {{'b', Units::BRONZE_GATHERER}, 
+  {'s', Units::SILVER_GATHERER}, {'g', Units::GOLD_GATHERER}};
+
+std::string CheckMissingResources(Costs missing_costs) {
+  std::string res = "";
+  if (missing_costs.gold_ > 0) 
+    res += "Missing " + std::to_string(missing_costs.gold_) + " gold! ";
+  if (missing_costs.silver_> 0) 
+    res += "Missing " + std::to_string(missing_costs.silver_) + " silver! ";
+  if (missing_costs.bronze_ > 0) 
+    res += "Missing " + std::to_string(missing_costs.bronze_) + " bronze! ";
+  if (missing_costs.space_> 0) 
+    res += "Missing " + std::to_string(missing_costs.space_) + " space! ";
+  return res;
+}
+
+Game::Game(int lines, int cols) : game_over_(false), pause_(false) {
   field_ = new Field(lines, cols);
   field_->AddHills();
   player_one_ = new Player(field_->AddDen(lines/1.5, lines-5, cols/1.5, cols-5), 4);
   player_two_ = new Player(field_->AddDen(5, lines/3, 5, cols/3), 100000);
   field_->BuildGraph(player_one_->den_pos(), player_two_->den_pos());
-  range_ = ViewRange::HIDE;
 }
 
 void Game::play() {
   std::thread thread_actions([this]() { DoActions(); });
   std::thread thread_choices([this]() { (GetPlayerChoice()); });
-  std::thread thread_ki([this]() { (HandleKi()); });
+  // std::thread thread_ki([this]() { (HandleKi()); });
   thread_actions.join();
   thread_choices.join();
-  thread_ki.join();
+  // thread_ki.join();
 }
 
 void Game::DoActions() {
@@ -97,13 +113,13 @@ void Game::HandleKi() {
     if (utils::get_elapsed(ki->last_soldier(), cur_time) > ki->new_soldier_frequency()) {
       auto pos = field_->GetNewSoldierPos(player_two_->den_pos());
       auto way = field_->GetWayForSoldier(pos, player_one_->den_pos());
-      std::string str = player_two_->AddSoldier(pos, way);
+      player_two_->AddSoldier(pos, way);
       ki->reset_last_soldier();
     }
 
     if (utils::get_elapsed(ki->last_def(), cur_time) > ki->new_tower_frequency()) {
       auto pos = field_->FindFree(player_two_->den_pos().first, player_two_->den_pos().second, 1, 5);
-      field_->AddNewDefencePos(pos);
+      field_->AddNewUnitToPos(pos, Units::DEFENCE);
       player_two_->AddDefenceTower(pos);
       ki->reset_last_def();
     }
@@ -150,59 +166,88 @@ void Game::GetPlayerChoice() {
       // Select bronze, silver or gold gatherer.
       int add_choice = getch();
       std::string res = "";
-      if (add_choice == 'b')
-        res = player_one_->AddGathererBronze();
-      else if (add_choice == 's')
-        res = player_one_->AddGathererSilver();
-      else if (add_choice == 'g')
-        res = player_one_->AddGathererGold();
-      // Use error color in case of error.
-      PrintMessage(res, res!="");
+      if (input_unit_mapping.count(add_choice) == 0)
+        PrintMessage("Invalid choice.", true);
+      else {
+        int unit = input_unit_mapping.at(add_choice);
+        std::string res = CheckMissingResources(player_one_->CheckResources(unit));
+        if (res == "") 
+          player_one_->AddGatherer(unit);
+        PrintMessage(res, res!="");
+      }
     }
     // a: add soldier
     else if (choice == 'a') {
-      auto pos = field_->GetNewSoldierPos(player_one_->den_pos());
-      std::list<Position> way = field_->GetWayForSoldier(pos, player_two_->den_pos());
-      std::string res = player_one_->AddSoldier(pos, way);
-      PrintMessage(res, res != "");
+      std::string res = CheckMissingResources(player_one_->CheckResources(Units::ATK));
+      if (res != "")
+        PrintMessage(res, true);
+      else {
+        auto pos = SelectBarack(player_one_);
+        if (pos.first == -1)
+          PrintMessage("Invalid choice!", true);
+        else {
+          PrintMessage("Added soldier at barrack @" + utils::PositionToString(pos), false);
+          std::list<Position> way = field_->GetWayForSoldier(pos, player_two_->den_pos());
+          player_one_->AddSoldier(pos, way);
+        }
+      }
     }
-    // D: place defence-tower
-    else if (choice == 'D') {
-      std::string res = player_one_->CheckDefenceTowerResources();
+
+    // A: barracks
+    else if (choice == 'A') {
+      std::string res = CheckMissingResources(player_one_->CheckResources(Units::BARACKS));
       PrintMessage("User the error keys to select a position. Press Enter to select.", false);
       if (res != "") 
-        PrintMessage(res, false);
+        PrintMessage(res, true);
       else {
-        range_ = player_one_->cur_range();
-        Position pos = SelectPosition(player_one_->den_pos());
-        range_ = ViewRange::HIDE;
+        Position pos = SelectPosition(player_one_->den_pos(), player_one_->cur_range());
+        if (pos.first != -1) {
+          player_one_->AddBarrack(pos);
+          field_->AddNewUnitToPos(pos, Units::BARACKS);
+        }
+        PrintMessage(res, res!="");
+      }
+    }
+
+    // D: place defence-tower
+    else if (choice == 'D') {
+      std::string res = CheckMissingResources(player_one_->CheckResources(Units::DEFENCE));
+      PrintMessage("User the error keys to select a position. Press Enter to select.", false);
+      if (res != "") 
+        PrintMessage(res, true);
+      else {
+        Position pos = SelectPosition(player_one_->den_pos(), player_one_->cur_range());
         if (pos.first != -1) {
           player_one_->AddDefenceTower(pos);
-          field_->AddNewDefencePos(pos);
-          PrintMessage(res, res!="");
+          field_->AddNewUnitToPos(pos, Units::DEFENCE);
         }
+        PrintMessage(res, res!="");
       }
     }
   } 
 }
 
-Position Game::SelectPosition(Position start) {
+Position Game::SelectPosition(Position start, int range) {
+  bool end = false;
   int choice;
   Position new_pos = {0, 0};
-  highlight_ = start;
+  field_->set_highlight({start});
+  field_->set_range(range);
   
-  while(!game_over_) {
+  while(!game_over_ && !end) {
     choice = getch();
-    new_pos = highlight_;
+    new_pos = field_->highlight().front();
 
     switch (choice) {
-      case 10: {
-        highlight_ = {-1, -1}; 
-        return new_pos;
-      }
+      case 10:
+        if (field_->IsFree(new_pos))
+          end = true;
+        else 
+          PrintMessage("Invalid position (not free)!", false); 
+        break;
       case 'q':
-        highlight_ = {-1, -1}; 
-        return {-1, -1};
+        end = true;
+        break;
       case KEY_UP:
         new_pos.first--; 
         PrintFieldAndStatus();
@@ -220,16 +265,39 @@ Position Game::SelectPosition(Position start) {
         break;
     }
     // Update highlight only if in range.
-    if (new_pos != highlight_ && field_->InRange(new_pos, range_, player_one_->den_pos())) {
-      highlight_ = new_pos;
+    if (field_->InRange(new_pos, range, player_one_->den_pos())) {
+      field_->set_highlight({new_pos});
       PrintFieldAndStatus();
     }
     else 
       PrintMessage("Outside of range!", false); 
   }
-  return {-1, -1};
+  field_->set_range(ViewRange::HIDE);
+  field_->set_highlight({});
+  return new_pos;
 }
 
+Position Game::SelectBarack(Player* p) {
+  // create replacements (map barack position to letter a..z).
+  std::map<Position, char> replacements;
+  int counter = 0;
+  for (auto it : p->barracks()) 
+    replacements[it.first] = (int)'a'+(counter++);
+  field_->set_replace(replacements);
+
+  // Print field and get player choice and reset replacements.
+  PrintFieldAndStatus();
+  PrintMessage("Choose barack: ", false);
+  char choice = getch();
+  field_->set_replace({});
+
+  // Find selected barack in replacements and return.
+  for (auto it : replacements) {
+    if (it.second == choice)
+      return it.first;
+  }
+  return {-1, -1};
+}
 
 void Game::PrintMessage(std::string msg, bool error) {
   if (error)
@@ -246,7 +314,7 @@ void Game::PrintMessage(std::string msg, bool error) {
 void Game::PrintFieldAndStatus() {
   std::unique_lock ul(mutex_print_field_);
   mvaddstr(LINE_HELP, 10, HELP);
-  field_->PrintField(player_one_, player_two_, highlight_, range_);
+  field_->PrintField(player_one_, player_two_);
   mvaddstr(LINE_STATUS, 10, player_one_->GetCurrentStatusLine().c_str());
   refresh();
 }

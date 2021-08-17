@@ -34,9 +34,6 @@ class Game {
     bool game_over_;
     bool pause_;
 
-    std::pair<volatile int, volatile int> highlight_;
-    volatile int range_;
-
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
 
     /**
@@ -56,7 +53,9 @@ class Game {
      */
     void GetPlayerChoice();
 
-    Position SelectPosition(Position start);
+    Position SelectPosition(Position start, int range);
+
+    Position SelectBarack(Player* p);
 
     /**
      * Handles ki-towers and soldiers.

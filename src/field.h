@@ -27,6 +27,12 @@ class Field {
     // getter:
     int lines();
     int cols();
+    std::vector<Position> highlight();
+
+    // setter:
+    void set_highlight(std::vector<Position> positions);
+    void set_range(int);
+    void set_replace(std::map<Position, char> replacements);
 
     // methods:
 
@@ -65,8 +71,9 @@ class Field {
      * Finds a free position for a defence tower and adds tower to player/ ki
      * units.
      * @param pos position of new defence tower.
+     * @param unit integer to identify unit.
      */
-    void AddNewDefencePos(Position pos);
+    void AddNewUnitToPos(Position pos, int unit);
 
 
     /** 
@@ -77,7 +84,7 @@ class Field {
      * @param show_in_graph if set to true, highlights all free positions in the
      * way between player 1 and player 2 den.
      */
-    void PrintField(Player* player, Player* ki, Position highlight, int show_availibe);
+    void PrintField(Player* player, Player* ki);
 
     /**
      * Gets way to a soldiers target.
@@ -98,8 +105,11 @@ class Field {
      */
     Position FindFree(int l, int c, int min, int max);
 
+    bool IsFree(Position pos);
+
     bool InRange(Position pos, int range, Position start = {-1, -1});
 
+    Position GetSelected(char replace, int num);
 
   private: 
     int lines_;
@@ -107,6 +117,10 @@ class Field {
     Graph graph_;
     std::vector<std::vector<char>> field_;
     std::shared_mutex mutex_field_;
+
+    std::vector<Position> highlight_;
+    volatile int range_;
+    std::map<Position, char> replacements_;
 
     /** 
      * Adds resources ([G]old, [S]ilver, [B]ronze) near given position.
