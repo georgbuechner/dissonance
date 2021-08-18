@@ -23,27 +23,21 @@
 
 #define LINE_HELP 8
 #define LINE_STATUS LINES-9
-#define LINE_MSG LINES-8
+#define LINE_MSG LINES-6
 
 #define RESOURCES_UPDATE_FREQUENCY 750
-#define UPDATE_FREQUENCY 200 
+#define UPDATE_FREQUENCY 50
 
 #define KI_NEW_SOLDIER 1250
 #define KI_NEW_SOLDIER 1250
-
-std::map<char, int> input_unit_mapping {{'b', Units::BRONZE_GATHERER}, 
-  {'s', Units::SILVER_GATHERER}, {'g', Units::GOLD_GATHERER}};
 
 std::string CheckMissingResources(Costs missing_costs) {
   std::string res = "";
-  if (missing_costs.gold_ > 0) 
-    res += "Missing " + std::to_string(missing_costs.gold_) + " gold! ";
-  if (missing_costs.silver_> 0) 
-    res += "Missing " + std::to_string(missing_costs.silver_) + " silver! ";
-  if (missing_costs.bronze_ > 0) 
-    res += "Missing " + std::to_string(missing_costs.bronze_) + " bronze! ";
-  if (missing_costs.space_> 0) 
-    res += "Missing " + std::to_string(missing_costs.space_) + " space! ";
+  if (missing_costs.size() == 0)
+    return res;
+  for (const auto& it : missing_costs) {
+    res += "Missing " + std::to_string(it.second) + " " + resources_name_mapping.at(it.first) + "! ";
+  }
   return res;
 }
 
@@ -56,12 +50,28 @@ Game::Game(int lines, int cols) : game_over_(false), pause_(false) {
 }
 
 void Game::play() {
+  auto welome = utils::LoadWelcome();
+  for (const auto& paragraph : welome) {
+    int size = paragraph.size()/2;
+    int counter = 0;
+    for (const auto& line : paragraph) {
+      PrintCentered(LINES/2-size+(counter++), line);
+    }
+    PrintCentered(LINES/2+size+2, "[Press any key to continue]");
+    char c = getch();
+    c++;
+    refresh();
+    clear();
+  }
+
+  DistributeIron();
+
   std::thread thread_actions([this]() { DoActions(); });
   std::thread thread_choices([this]() { (GetPlayerChoice()); });
-  // std::thread thread_ki([this]() { (HandleKi()); });
+  std::thread thread_ki([this]() { (HandleKi()); });
   thread_actions.join();
   thread_choices.join();
-  // thread_ki.join();
+  thread_ki.join();
 }
 
 void Game::DoActions() {
@@ -119,7 +129,7 @@ void Game::HandleKi() {
 
     if (utils::get_elapsed(ki->last_def(), cur_time) > ki->new_tower_frequency()) {
       auto pos = field_->FindFree(player_two_->den_pos().first, player_two_->den_pos().second, 1, 5);
-      field_->AddNewUnitToPos(pos, Units::DEFENCE);
+      field_->AddNewUnitToPos(pos, Units::ACTIVATEDNEURON);
       player_two_->AddDefenceTower(pos);
       ki->reset_last_def();
     }
@@ -159,26 +169,9 @@ void Game::GetPlayerChoice() {
         PrintMessage("Paused game.", false);
       }
     }
-
-    // r: add gatherer 
-    else if (choice == 'r') {
-      PrintMessage("gold-, bronze- or silver-gatherer ([g]/[b]/[s]", false);
-      // Select bronze, silver or gold gatherer.
-      int add_choice = getch();
-      std::string res = "";
-      if (input_unit_mapping.count(add_choice) == 0)
-        PrintMessage("Invalid choice.", true);
-      else {
-        int unit = input_unit_mapping.at(add_choice);
-        std::string res = CheckMissingResources(player_one_->CheckResources(unit));
-        if (res == "") 
-          player_one_->AddGatherer(unit);
-        PrintMessage(res, res!="");
-      }
-    }
     // a: add soldier
     else if (choice == 'a') {
-      std::string res = CheckMissingResources(player_one_->CheckResources(Units::ATK));
+      std::string res = CheckMissingResources(player_one_->CheckResources(Units::EPSP));
       if (res != "")
         PrintMessage(res, true);
       else {
@@ -195,7 +188,7 @@ void Game::GetPlayerChoice() {
 
     // A: barracks
     else if (choice == 'A') {
-      std::string res = CheckMissingResources(player_one_->CheckResources(Units::BARACKS));
+      std::string res = CheckMissingResources(player_one_->CheckResources(Units::SYNAPSE));
       PrintMessage("User the error keys to select a position. Press Enter to select.", false);
       if (res != "") 
         PrintMessage(res, true);
@@ -203,7 +196,7 @@ void Game::GetPlayerChoice() {
         Position pos = SelectPosition(player_one_->den_pos(), player_one_->cur_range());
         if (pos.first != -1) {
           player_one_->AddBarrack(pos);
-          field_->AddNewUnitToPos(pos, Units::BARACKS);
+          field_->AddNewUnitToPos(pos, Units::SYNAPSE);
         }
         PrintMessage(res, res!="");
       }
@@ -211,7 +204,7 @@ void Game::GetPlayerChoice() {
 
     // D: place defence-tower
     else if (choice == 'D') {
-      std::string res = CheckMissingResources(player_one_->CheckResources(Units::DEFENCE));
+      std::string res = CheckMissingResources(player_one_->CheckResources(Units::ACTIVATEDNEURON));
       PrintMessage("User the error keys to select a position. Press Enter to select.", false);
       if (res != "") 
         PrintMessage(res, true);
@@ -219,10 +212,16 @@ void Game::GetPlayerChoice() {
         Position pos = SelectPosition(player_one_->den_pos(), player_one_->cur_range());
         if (pos.first != -1) {
           player_one_->AddDefenceTower(pos);
-          field_->AddNewUnitToPos(pos, Units::DEFENCE);
+          field_->AddNewUnitToPos(pos, Units::ACTIVATEDNEURON);
         }
         PrintMessage(res, res!="");
       }
+    }
+
+    else if (choice == 'E') {
+      pause_ = true;
+      DistributeIron();
+      pause_= false; 
     }
   } 
 }
@@ -299,6 +298,49 @@ Position Game::SelectBarack(Player* p) {
   return {-1, -1};
 }
 
+void Game::DistributeIron() {
+  clear();
+  refresh();
+
+  bool end = false;
+  while(!end) {
+    int iron = player_one_->iron();
+    std::string msg = "You can distribute " + std::to_string(iron) + " iron.";
+    PrintCentered(LINES/2-1, msg);
+
+    auto resources = player_one_->resources();
+    std::map<int, std::string> selection = {{Resources::OXYGEN, "oxygen-boast"}};
+    for (const auto& it : resources) {
+      if (it.first!= Resources::IRON && !it.second.second)
+        selection[it.first] = resources_name_mapping.at(it.first);
+    }
+    std::string txt = "";
+    for (const auto& it : selection) {
+      txt += it.second + "(" + std::to_string(it.first) + ")    ";
+    }
+    PrintCentered(LINES/2+1, txt);
+    char c = getch();
+    PrintCentered(LINES/2+2, "selection: " + std::to_string(c-49));
+    if (c == 'q')
+      end = true;
+    else {
+      if (!player_one_->DistributeIron(c-48)) {
+        clear();
+        refresh();
+        PrintCentered(LINES/2, "Invalid selection or not enough iron!");
+      }
+      else {
+        clear();
+        refresh();
+      }
+    }
+
+    if (player_one_->iron() == 0) {
+      end = true;
+    }
+  }
+}
+
 void Game::PrintMessage(std::string msg, bool error) {
   if (error)
     attron(COLOR_PAIR(COLOR_ERROR));
@@ -315,13 +357,19 @@ void Game::PrintFieldAndStatus() {
   std::unique_lock ul(mutex_print_field_);
   mvaddstr(LINE_HELP, 10, HELP);
   field_->PrintField(player_one_, player_two_);
-  mvaddstr(LINE_STATUS, 10, player_one_->GetCurrentStatusLine().c_str());
+  PrintCentered(LINE_STATUS, player_one_->GetCurrentStatusLineA().c_str());
+  PrintCentered(LINE_STATUS+1, player_one_->GetCurrentStatusLineB().c_str());
+  PrintCentered(LINE_STATUS+2, player_one_->GetCurrentStatusLineC().c_str());
   refresh();
 }
 
 void Game::SetGameOver(std::string msg) {
   clear();
-  mvaddstr(LINES/2, COLS/2-4, msg.c_str());
+  PrintCentered(LINES/2, msg);
   refresh();
   game_over_ = true;
+}
+
+void Game::PrintCentered(int line, std::string txt) {
+  mvaddstr(line, COLS/2-txt.length()/2, txt.c_str());
 }

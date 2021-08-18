@@ -12,6 +12,7 @@ int main(void) {
   srand (time(NULL));
 
   // initialize curses
+  setlocale(LC_ALL, "");
   initscr();
   cbreak();
   noecho();

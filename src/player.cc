@@ -1,3 +1,5 @@
+#include <cmath>
+#include <math.h>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -6,6 +8,7 @@
 #include "codes.h"
 #include "player.h"
 #include "units.h"
+#include "codes.h"
 #include "utils.h"
 
 #define HILL ' ' 
@@ -17,33 +20,88 @@
 #define DEF 'T'
 
 const std::map<int, Costs> initial_costs_ = {
-  {Units::GOLD_GATHERER, Costs{0, 0, 23.43, 1}},
-  {Units::SILVER_GATHERER, Costs{0, 0, 4.84, 1}}, 
-  {Units::BRONZE_GATHERER, Costs{0, 0, 2.2, 1}}, 
-  {Units::ATK, Costs{0, 1.6, 0, 1}},
-  {Units::BARACKS, Costs{0, 2.6, 10, 1}},
-  {Units::DEFENCE, Costs{0, 4.2, 5.2, 1}}, 
+  {Units::ACTIVATEDNEURON, {
+      {Resources::OXYGEN, 8.9}, 
+      {Resources::POTASSIUM, 0}, 
+      {Resources::CHLORIDE, 0}, 
+      {Resources::GLUTAMATE, 19.1}, 
+      {Resources::DOPAMINE, 0}, 
+      {Resources::SEROTONIN, 0}
+    }
+  },
+  {Units::SYNAPSE, {
+      {Resources::OXYGEN, 13.4}, 
+      {Resources::POTASSIUM, 6.6}, 
+      {Resources::CHLORIDE, 0}, 
+      {Resources::GLUTAMATE, 0}, 
+      {Resources::DOPAMINE, 0}, 
+      {Resources::SEROTONIN, 0}
+    }
+  },
+  {Units::EPSP, {
+      {Resources::OXYGEN, 0}, 
+      {Resources::POTASSIUM, 4.4}, 
+      {Resources::CHLORIDE, 0}, 
+      {Resources::GLUTAMATE, 0}, 
+      {Resources::DOPAMINE, 0}, 
+      {Resources::SEROTONIN, 0}
+    }
+  },
+  {Units::IPSP, {
+      {Resources::OXYGEN, 0}, 
+      {Resources::POTASSIUM, 3.4}, 
+      {Resources::CHLORIDE, 6.8}, 
+      {Resources::GLUTAMATE, 0}, 
+      {Resources::DOPAMINE, 0}, 
+      {Resources::SEROTONIN, 0}
+    }
+  }
 };
 
 std::string create_id();
 
-std::string Player::GetCurrentStatusLine() {
-  std::scoped_lock scoped_lock(mutex_resources_, mutex_gatherer_);
-  return "gold: " + std::to_string(gold_)
-    + ", silver: " + std::to_string(silver_)
-    + ", bronze: " + std::to_string(bronze_)
-    + ", gatherer_gold: " + std::to_string(gatherer_gold_)
-    + ", gatherer_silver: " + std::to_string(gatherer_silver_)
-    + ", gatherer_bronze: " + std::to_string(gatherer_bronze_) 
-    + ", den-lp: " + std::to_string(den_.lp_)
-    + ".";
+Player::Player(Position den_pos, int silver0) : cur_range_(4), oxygen_boast_(0), total_oxygen_(5.5) {
+  den_ = Nucleus(den_pos); 
+  all_units_and_buildings_.insert(den_pos);
+  resources_ = {
+    { Resources::IRON, {3, false}},
+    { Resources::OXYGEN, {5.5, true}},
+    { Resources::POTASSIUM, {0, false}},
+    { Resources::CHLORIDE, {0, false}},
+    { Resources::GLUTAMATE, {0, false}},
+    { Resources::DOPAMINE, {0, false}},
+    { Resources::SEROTONIN, {0, false}},
+  };
+}
+
+std::string Player::GetCurrentStatusLineA() {
+  std::scoped_lock scoped_lock(mutex_resources_);
+  return "Iron " SYMBOL_IRON ": " + std::to_string(resources_.at(Resources::IRON).first)
+    + ", oxygen boast: " + std::to_string(oxygen_boast_)
+    + ", total oxygen " SYMBOL_OXYGEN ": " + std::to_string(total_oxygen_)
+    + ", bound oxygen: " + std::to_string(bound_oxygen_)
+    + ", oxygen: " + std::to_string(resources_.at(Resources::OXYGEN).first);
+}
+
+std::string Player::GetCurrentStatusLineB() {
+  std::scoped_lock scoped_lock(mutex_resources_);
+  return "potassium " SYMBOL_POTASSIUM ": " + std::to_string(resources_.at(Resources::POTASSIUM).first)
+    + ", chloride " SYMBOL_CHLORIDE ": " + std::to_string(resources_.at(Resources::CHLORIDE).first)
+    + ", glutamate " SYMBOL_GLUTAMATE ": " + std::to_string(resources_.at(Resources::GLUTAMATE).first)
+    + ", dopamine " SYMBOL_DOPAMINE ": " + std::to_string(resources_.at(Resources::DOPAMINE).first)
+    + ", serotonin " SYMBOL_SEROTONIN ": " + std::to_string(resources_.at(Resources::SEROTONIN).first);
+}
+
+std::string Player::GetCurrentStatusLineC() {
+  std::shared_lock sl(mutex_den_);
+  return "nucleus " SYMBOL_DEN " potential: " + std::to_string(den_.lp_) + "/" + std::to_string(den_.max_lp_);
 }
 
 // getter 
-std::map<std::string, Soldier> Player::soldier() { 
+std::map<std::string, Epsp> Player::soldier() { 
   return soldiers_; 
 };
-std::map<Position, Barrack> Player::barracks() { 
+std::map<Position, Synapse> Player::barracks() { 
   return barracks_; 
 };
 
@@ -60,6 +118,16 @@ int Player::cur_range() {
   return cur_range_;
 }
 
+int Player::iron() {
+  std::shared_lock sl(mutex_resources_);
+  return resources_.at(Resources::IRON).first;
+}
+
+std::map<int, Resource> Player::resources() {
+   std::shared_lock sl(mutex_resources_);
+  return resources_;
+}
+
 // methods 
 
 void Player::AddBuilding(Position pos) {
@@ -67,73 +135,108 @@ void Player::AddBuilding(Position pos) {
   all_units_and_buildings_.insert(pos);
 }
 
+bool Player::DamageSoldier(std::string id) {
+  std::unique_lock ul(mutex_soldiers_);
+  if (soldiers_.count(id) > 0) {
+    soldiers_[id].attack_--;
+    if (soldiers_[id].attack_ == 0)
+      return true;
+  }
+  return false;
+}
+
 void Player::IncreaseResources() {
   std::unique_lock ul_resources(mutex_resources_);
-  gold_ += static_cast<double>(gatherer_gold_)/10;
-  silver_ += static_cast<double>(gatherer_silver_)/5;
-  bronze_ += static_cast<double>(gatherer_bronze_)/2;
+  for (auto& it : resources_) {
+    if (it.first == Resources::IRON) 
+      continue;
+    // Add oxygen based on oxygen-boast and current oxygen.
+    else if (it.first == Resources::OXYGEN) {
+      it.second.first += oxygen_boast_*(static_cast<double>(100-total_oxygen_)*0.01);
+      total_oxygen_ = bound_oxygen_ + it.second.first;
+    }
+    // Add other resources based on current oxygen.
+    else if (it.second.second)
+      it.second.first += log(resources_.at(Resources::OXYGEN).first)*(static_cast<double>(100-it.second.first))*0.005;
+
+    auto cur_time = std::chrono::steady_clock::now();
+    if (utils::get_elapsed(last_iron_, cur_time) > 5000) {
+      if (utils::getrandom_int(0, 100-resources_[Resources::OXYGEN].first) == 0)
+        resources_[Resources::IRON].first++;
+    }
+  }
+}
+
+bool Player::DistributeIron(int resource) {
+  std::unique_lock ul(mutex_resources_);
+  if (resources_.count(resource) == 0) {
+    return false;
+  }
+  else if (resource == Resources::OXYGEN) {
+    oxygen_boast_++;
+    resources_[Resources::IRON].first--;
+  }
+  else if (resources_[Resources::IRON].first < 2) {
+    return false;
+  }
+  else if (resources_[resource].second) {
+    return false;
+  }
+  else {
+    resources_[resource].second = true;
+    resources_[Resources::IRON].first-=2;
+  }
+  return true;
 }
 
 Costs Player::CheckResources(int unit) {
   std::shared_lock sl(mutex_resources_);
+  // get costs for desired unit
   Costs needed = initial_costs_.at(unit);
-  Costs missing = Costs({0,0,0,0});
-  if (gold_ < needed.gold_)
-    missing.gold_ = needed.gold_ - gold_;
-  if (silver_< needed.silver_)
-    missing.silver_ = needed.silver_ - silver_;
-  if (bronze_ < needed.bronze_)
-    missing.bronze_ = needed.bronze_ - bronze_;
+  std::map<int, double> missing;
+
+  for (const auto& it : needed) {
+    if (resources_.at(it.first).first < it.second) 
+      missing[it.first] = it.second - resources_.at(it.first).first;
+  }
   return missing;
 }
 
 void Player::TakeResources(Costs costs) {
   std::unique_lock ul_resources(mutex_resources_);
-  bronze_ -= costs.bronze_;
-  silver_ -= costs.silver_;
-  gold_ -= costs.gold_;
-}
-
-void Player::AddGatherer(int unit) {
-  // Take resources.
-  TakeResources(initial_costs_.at(unit));
-
-  // Add depeding on type of gatherer.
-  std::unique_lock ul_gatherer(mutex_gatherer_);
-  if (unit == Units::BRONZE_GATHERER)
-    gatherer_bronze_++;
-  else if (unit == Units::SILVER_GATHERER)
-    gatherer_silver_++;
-  else if (unit == Units::GOLD_GATHERER)
-    gatherer_gold_++;
+  for (const auto& it : costs) {
+    resources_[it.first].first -= it.second;
+    if (it.first == Resources::OXYGEN)
+      bound_oxygen_ += it.second;
+  }
 }
 
 void Player::AddDefenceTower(Position pos) {
   // Take resources.
-  TakeResources(initial_costs_.at(Units::DEFENCE));
+  TakeResources(initial_costs_.at(Units::ACTIVATEDNEURON));
 
   AddBuilding(pos);
   std::unique_lock ul_def(mutex_defence_towers_);
-  defence_towers_[pos] = DefenceTower(pos);
+  defence_towers_[pos] = ActivatedNeuron(pos);
 }
 
 void Player::AddSoldier(Position pos, std::list<Position> way) {
   // Take resources.
-  TakeResources(initial_costs_.at(Units::ATK));
+  TakeResources(initial_costs_.at(Units::EPSP));
 
   // Add soldier
   std::unique_lock ul(mutex_soldiers_);
-  soldiers_[create_id()] = Soldier(pos, way);
+  soldiers_[create_id()] = Epsp(pos, way);
 }
 
 void Player::AddBarrack(Position pos) {
   // Take resources.
-  TakeResources(initial_costs_.at(Units::BARACKS));
+  TakeResources(initial_costs_.at(Units::SYNAPSE));
 
   // Add barrack
   AddBuilding(pos);
   std::unique_lock ul(mutex_soldiers_);
-  barracks_[pos] = Barrack(pos);
+  barracks_[pos] = Synapse(pos);
 }
 
 int Player::MoveSoldiers(Position enemy_den) {
@@ -148,8 +251,8 @@ int Player::MoveSoldiers(Position enemy_den) {
       it.second.pos_ = it.second.way_.front(); 
       it.second.way_.pop_front();
       if (it.second.pos_ == enemy_den) {
-        damage++; 
-        soldiers_to_remove.push_back(it.first);
+        damage+=it.second.attack_;  // add potential to damage.
+        soldiers_to_remove.push_back(it.first); // remove 
       }
       it.second.last_action_ = cur_time;  // soldier did action, so update last_action_.
     }
@@ -171,14 +274,15 @@ void Player::RemoveSoldier(std::string id) {
 void Player::HandleDef(Player* enemy) {
   std::shared_lock sl(mutex_units_and_buildings_);
   auto cur_time = std::chrono::steady_clock::now();
-  for (auto tower : defence_towers_) {
+  for (auto& tower : defence_towers_) {
     // Check if tower's recharge is done.
     if (utils::get_elapsed(tower.second.last_action_, cur_time) > tower.second.speed_) {
       std::string dead_soldier = "";
-      for (auto soldier : enemy->soldier()) {
-        int distance = utils::dist(tower.first, soldier.second.pos_);
+      for (const auto& potential : enemy->soldier()) {
+        int distance = utils::dist(tower.first, potential.second.pos_);
         if (distance < 3) {
-          dead_soldier = soldier.first;
+          if (enemy->DamageSoldier(potential.first))
+            dead_soldier = potential.first;
           tower.second.last_action_ = cur_time;  // tower did action, so update last_action_.
           break;  // break loop, since every tower can destroy only one soldier.
         }
@@ -197,14 +301,17 @@ bool Player::IsSoldier(Position pos) {
   return false;
 }
 
+bool Player::IsActivatedResource(int resource) {
+  return resources_.at(resource).second;
+}
+
 bool Player::DecreaseDenLp(int val) {
   std::unique_lock ul(mutex_den_);
-  den_.lp_ -= val;
-  if (den_.lp_ <= 0)
+  den_.lp_ += val;
+  if (den_.lp_ >= den_.max_lp_)
     return true;
   return false;
 }
-
 
 std::string create_id() {
   std::string id = "";

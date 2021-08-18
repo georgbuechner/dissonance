@@ -12,15 +12,9 @@
 #include "codes.h"
 #include "units.h"
 
-struct Costs {
-  double gold_;
-  double silver_;
-  double bronze_;
-  double space_;
-};
-
-
 typedef std::pair<int, int> Position;
+typedef std::pair<double, bool> Resource;
+typedef const std::map<int, double> Costs;
 
 class Player {
   public:
@@ -31,33 +25,37 @@ class Player {
      * @param[in] den position of this player's den.
      * @param[in] silver initial silver value.
      */
-    Player(Position den_pos, int silver=0) : gold_(0), silver_(20), bronze_(20.4), 
-      gatherer_gold_(0), gatherer_silver_(0), gatherer_bronze_(0), cur_range_(4) {
-      den_ = Den(den_pos, 2); 
-      all_units_and_buildings_.insert(den_pos);
-    }
+    Player(Position den_pos, int silver=0);
 
     // getter:
-    std::map<std::string, Soldier> soldier();
-    std::map<Position, Barrack> barracks();
+    std::map<std::string, Epsp> soldier();
+    std::map<Position, Synapse> barracks();
     std::set<Position> units_and_buildings();
     Position den_pos();
     int cur_range();
+    int iron();
+    std::map<int, Resource> resources();
 
     // methods:
 
     void AddBuilding(Position pos);
 
+    bool DamageSoldier(std::string id);
+
     
     /**
      * Show current status (resources, gatherers, den-lp ...)
      */
-    std::string GetCurrentStatusLine();
+    std::string GetCurrentStatusLineA();
+    std::string GetCurrentStatusLineB();
+    std::string GetCurrentStatusLineC();
 
     /** 
      * Increase all resources by set amount.
      */
     void IncreaseResources();
+
+    bool DistributeIron(int resource);
 
     Costs CheckResources(int unit);
 
@@ -113,6 +111,8 @@ class Player {
      */
     bool IsSoldier(Position pos);
 
+    bool IsActivatedResource(int resource);
+
     /** 
      * Decrease live of den.
      * @param[in] val values to decrease life by.
@@ -121,32 +121,30 @@ class Player {
     bool DecreaseDenLp(int val);
 
   private: 
-    float gold_;
-    float silver_;
-    float bronze_;
-    int gatherer_gold_;
-    int gatherer_silver_;
-    int gatherer_bronze_;
-
     int cur_range_;
-
-
+    int oxygen_boast_;
+    double total_oxygen_;
+    double bound_oxygen_;
+    std::map<int, Resource> resources_;
     std::shared_mutex mutex_resources_;
-    std::shared_mutex mutex_gatherer_;
 
-    Den den_;
+    std::chrono::time_point<std::chrono::steady_clock> last_iron_; 
+
+
+
+    Nucleus den_;
     std::shared_mutex mutex_den_;
 
-    std::map<std::string, Soldier> soldiers_;
+    std::map<std::string, Epsp> soldiers_;
     std::shared_mutex mutex_soldiers_;
 
     std::set<Position> all_units_and_buildings_;  ///< simple set, to check whether position belongs to player.
     std::shared_mutex mutex_units_and_buildings_;
 
-    std::map<Position, Barrack> barracks_;
+    std::map<Position, Synapse> barracks_;
     std::shared_mutex mutex_barracks;
 
-    std::map<Position, DefenceTower> defence_towers_;
+    std::map<Position, ActivatedNeuron> defence_towers_;
     std::shared_mutex mutex_defence_towers_;
 
     // methods

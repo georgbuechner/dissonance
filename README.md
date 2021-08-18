@@ -43,8 +43,8 @@ current voltage level determines how fast technologies are researched.
 |:-----------:|:-------:|---------------| ------ | ----- |
 | FE (iron)   | Resources| metalloprotein | automatic income every 30sec (random factor) | used for gaining O2; when converted Hemoglobin, allows gaining new resources. |
 | O2 (oxygen) | Resources/ Production | ---| increases by amount of FE2 (iron) invested. | used for production; increases gain of other resources. |
-| K (potassium) | Attack | --- | If K production is activated by Hemoglobin, automatically gained depending on O2 level | used to generate EPSP |
-| KCI (chloride) | Attack | --- | If KCI production is activated by Hemoglobin, automatically gained depending on O2 level | used to generate IPSP |
+| K (potassium) y | Attack | --- | If K production is activated by Hemoglobin, automatically gained depending on O2 level | used to generate EPSP |
+| KCI (chloride) y | Attack | --- | If KCI production is activated by Hemoglobin, automatically gained depending on O2 level | used to generate IPSP |
 | Glu (glutamate) | Defence | --- | If Glu production is activated by Hemoglobin, automatically gained depending on O2 level | used to activate neuron |
 | DA (dopamine) | Tech | --- | If Da production is activated by Hemoglobin, automatically gained depending on O2 level | used to gain advanced technologies |
 | 5-HT (serotonin) | Tech | --- | If 5-HT production is activated by Hemoglobin, automatically gained depending on O2 level | used to gain advanced technologies |

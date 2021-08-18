@@ -57,6 +57,8 @@ class Game {
 
     Position SelectBarack(Player* p);
 
+    void DistributeIron();
+
     /**
      * Handles ki-towers and soldiers.
      */
@@ -79,6 +81,8 @@ class Game {
      * @param msg victory/ failure message.
      */
     void SetGameOver(std::string msg);
+
+    void PrintCentered(int line, std::string txt);
 
 };
 

@@ -22,28 +22,17 @@
 #define COLOR_OK 5 
 #define COLOR_HIGHLIGHT 6 
 
-#define HILL ' ' 
-#define DEN 'D' 
-#define GOLD 'G' 
-#define SILVER 'S' 
-#define BRONZE 'B' 
-#define FREE char(46)
-#define DEF 'T'
-#define BARACK 'A'
-
-int getrandom_int(int min, int max);
 int random_coordinate_shift(int x, int min, int max);
 
 Field::Field(int lines, int cols) {
   lines_ = lines;
   cols_ = cols;
-  printw("Using lines: %u, using cols: %u. \n", lines_, cols_);
 
   // initialize empty field.
   for (int l=0; l<=lines_; l++) {
     field_.push_back({});
     for (int c=0; c<=cols_; c++)
-      field_[l].push_back(char(46));
+      field_[l].push_back(SYMBOL_FREE);
   }
 
   highlight_ = {};
@@ -73,38 +62,42 @@ void Field::set_replace(std::map<Position, char> replacements) {
 }
 
 Position Field::AddDen(int min_line, int max_line, int min_col, int max_col) {
-  Position pos = {getrandom_int(min_line, max_line), getrandom_int(min_col, cols_-5)};
-  field_[pos.first][pos.second] = DEN;
+  Position pos = {utils::getrandom_int(min_line, max_line), utils::getrandom_int(min_col, max_col-5)};
+  field_[pos.first][pos.second] = SYMBOL_DEN;
   ClearField(pos);
   AddResources(pos);
   return pos;
 }
 
 void Field::ClearField(Position pos) {
-  field_[pos.first][pos.second+1] = FREE;
-  field_[pos.first+1][pos.second] = FREE;
-  field_[pos.first][pos.second-1] = FREE;
-  field_[pos.first-1][pos.second] = FREE;
-  field_[pos.first+1][pos.second+1] = FREE;
-  field_[pos.first+1][pos.second-1] = FREE;
-  field_[pos.first-1][pos.second+1] = FREE;
-  field_[pos.first-1][pos.second-1] = FREE;
+  field_[pos.first][pos.second+1] = SYMBOL_FREE;
+  field_[pos.first+1][pos.second] = SYMBOL_FREE;
+  field_[pos.first][pos.second-1] = SYMBOL_FREE;
+  field_[pos.first-1][pos.second] = SYMBOL_FREE;
+  field_[pos.first+1][pos.second+1] = SYMBOL_FREE;
+  field_[pos.first+1][pos.second-1] = SYMBOL_FREE;
+  field_[pos.first-1][pos.second+1] = SYMBOL_FREE;
+  field_[pos.first-1][pos.second-1] = SYMBOL_FREE;
 }
 
 void Field::AddResources(Position start_pos) {
   auto pos = FindFree(start_pos.first, start_pos.second, 2, 4);
-  field_[pos.first][pos.second] = GOLD;
+  field_[pos.first][pos.second] = SYMBOL_POTASSIUM;
   pos = FindFree(start_pos.first, start_pos.second, 2, 4);
-  field_[pos.first][pos.second] = SILVER;
+  field_[pos.first][pos.second] = SYMBOL_CHLORIDE;
   pos = FindFree(start_pos.first, start_pos.second, 2, 4);
-  field_[pos.first][pos.second] = BRONZE;
+  field_[pos.first][pos.second] = SYMBOL_GLUTAMATE;
+  pos = FindFree(start_pos.first, start_pos.second, 2, 4);
+  field_[pos.first][pos.second] = SYMBOL_DOPAMINE;
+  pos = FindFree(start_pos.first, start_pos.second, 2, 4);
+  field_[pos.first][pos.second] = SYMBOL_SEROTONIN;
 }
 
 void Field::BuildGraph(Position player_den, Position enemy_den) {
   // Add all nodes.
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
-      if (field_[l][c] != HILL)
+      if (field_[l][c] != SYMBOL_HILL)
         graph_.AddNode(l, c);
     }
   }
@@ -113,35 +106,35 @@ void Field::BuildGraph(Position player_den, Position enemy_den) {
   for (auto node : graph_.nodes()) {
     // Node above 
     Position pos = {node.second->line_-1, node.second->col_};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
       graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // Node below
     pos = {node.second->line_+1, node.second->col_};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
       graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // Node left
     pos = {node.second->line_, node.second->col_-1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
       graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // Node right 
     pos = {node.second->line_, node.second->col_+1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
       graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // Upper left
     pos = {node.second->line_-1, node.second->col_-1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
       graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // lower left 
     pos = {node.second->line_+1, node.second->col_-1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
       graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // Upper right
     pos = {node.second->line_-1, node.second->col_+1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
       graph_.AddEdge(node.second, graph_.nodes().at(pos));
     // lower right 
     pos = {node.second->line_+1, node.second->col_+1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != HILL && graph_.InGraph(pos))
+    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
       graph_.AddEdge(node.second, graph_.nodes().at(pos));
   }
 
@@ -156,15 +149,15 @@ void Field::AddHills() {
   // Generate lines*2 mountains.
   for (int i=0; i<num_hils; i++) {
     // Generate random hill.
-    int start_y = getrandom_int(0, lines_);
-    int start_x = getrandom_int(0, cols_);
-    field_[start_y][start_x] = HILL;
+    int start_y = utils::getrandom_int(0, lines_);
+    int start_x = utils::getrandom_int(0, cols_);
+    field_[start_y][start_x] = SYMBOL_HILL;
 
     // Generate random 5 hills around this hill.
     for (int j=1; j<=5; j++) {
       int y = GetXInRange(random_coordinate_shift(start_y, 0, j), 0, lines_);
       int x = GetXInRange(random_coordinate_shift(start_x, 0, j), 0, cols_);
-      field_[y][x] = HILL;
+      field_[y][x] = SYMBOL_HILL;
     }
   }
 }
@@ -182,21 +175,21 @@ std::list<Position> Field::GetWayForSoldier(Position start_pos, Position target_
 
 void Field::AddNewUnitToPos(Position pos, int unit) {
   std::unique_lock ul_field(mutex_field_);
-  if (unit == Units::DEFENCE)
-    field_[pos.first][pos.second] = DEF;
-  else if (unit == Units::BARACKS)
-    field_[pos.first][pos.second] = BARACK;
+  if (unit == Units::ACTIVATEDNEURON)
+    field_[pos.first][pos.second] = SYMBOL_DEF;
+  else if (unit == Units::SYNAPSE)
+    field_[pos.first][pos.second] = SYMBOL_BARACK;
 }
 
-void Field::UpdateField(Player *player, std::vector<std::vector<char>>& field) {
+void Field::UpdateField(Player *player, std::vector<std::vector<std::string>>& field) {
   for (auto it : player->soldier()) { // player-soldier does not need to be locked, as copy is returned
     int l = it.second.pos_.first;
     int c = it.second.pos_.second;
-    if (field[l][c] == FREE)
+    if (field[l][c] == SYMBOL_FREE)
       field[l][c] = '1';
     else {
       std::locale loc;
-      char val = field[l][c];
+      char val = field[l][c].front();
       if (std::isdigit(val, loc)) {
         int num = val - '0';
         field[l][c] = num+1 + '0';
@@ -229,7 +222,9 @@ void Field::PrintField(Player* player, Player* enemy) {
       else if (player->units_and_buildings().count(cur) > 0 || player->IsSoldier(cur))
         attron(COLOR_PAIR(COLOR_KI));
       // resources -> cyan
-      else if (field[l][c] == 'G' || field[l][c] == 'S' ||field[l][c] == 'B')
+      else if (resources_symbol_mapping.count(field[l][c]) > 0 && (
+          player->IsActivatedResource(resources_symbol_mapping.at(field[l][c])) 
+          || enemy->IsActivatedResource(resources_symbol_mapping.at(field[l][c]))))
          attron(COLOR_PAIR(COLOR_RESOURCES));
       // range -> green
       else if (InRange(cur, range_, player->den_pos()))
@@ -238,8 +233,9 @@ void Field::PrintField(Player* player, Player* enemy) {
       // Replace certain elements.
       if (replacements_.count(cur) > 0)
         mvaddch(10+l, 10+2*c, replacements_.at(cur));
-      else
-        mvaddch(10+l, 10+2*c, field[l][c]);
+      else {
+        mvaddstr(10+l, 10+2*c, field[l][c].c_str());
+      }
       mvaddch(10+l, 10+2*c+1, ' ' );
       attron(COLOR_PAIR(COLOR_DEFAULT));
     }
@@ -256,7 +252,7 @@ Position Field::GetSelected(char replace, int num) {
   int counter = int('a')-1;
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
-      if (field_[l][c] == replace)
+      if (field_[l][c].front() == replace)
         counter++;
       if (counter == num)
         return {l, c};
@@ -275,7 +271,7 @@ Position Field::FindFree(int l, int c, int min, int max) {
     for (int i=0; i<max; i++) {
       int y = GetXInRange(random_coordinate_shift(l, min, min+i), 0, lines_);
       int x = GetXInRange(random_coordinate_shift(c, min, min+i), 0, cols_);
-      if (field_[y][x] == FREE)
+      if (field_[y][x] == SYMBOL_FREE)
         return {y, x};
     }
   }    
@@ -283,7 +279,7 @@ Position Field::FindFree(int l, int c, int min, int max) {
 }
 
 bool Field::IsFree(Position pos) {
-  return field_[pos.first][pos.second] == FREE;
+  return field_[pos.first][pos.second] == SYMBOL_FREE;
 }
 
 int Field::GetXInRange(int x, int min, int max) {
@@ -294,15 +290,10 @@ int Field::GetXInRange(int x, int min, int max) {
   return x;
 }
 
-int getrandom_int(int min, int max) {
-  int ran = min + (rand() % (max - min + 1)); 
-  return ran;
-}
-
 int random_coordinate_shift(int x, int min, int max) {
   // Determine decrease or increase of values.
-  int plus_minus = getrandom_int(0, 1);
-  int random_faktor = getrandom_int(min, max);
+  int plus_minus = utils::getrandom_int(0, 1);
+  int random_faktor = utils::getrandom_int(min, max);
   return x + pow(-1, plus_minus)*random_faktor;
 }
 

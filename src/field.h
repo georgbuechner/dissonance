@@ -115,7 +115,7 @@ class Field {
     int lines_;
     int cols_;
     Graph graph_;
-    std::vector<std::vector<char>> field_;
+    std::vector<std::vector<std::string>> field_;
     std::shared_mutex mutex_field_;
 
     std::vector<Position> highlight_;
@@ -136,7 +136,7 @@ class Field {
      * @param[in] player player of which to add soldiers.
      * @param[out] field reference to copy of field.
      */
-    void UpdateField(Player* player, std::vector<std::vector<char>>& field);
+    void UpdateField(Player* player, std::vector<std::vector<std::string>>& field);
 
     /**
      * Gets x in range, returning 0 if x<min, max ist x > max, and x otherwise.

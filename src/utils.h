@@ -4,6 +4,7 @@
 #include <chrono>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace utils {
 
@@ -15,6 +16,9 @@ namespace utils {
   int dist(Position pos1, Position pos2);
 
   std::string PositionToString(Position pos);
+
+  int getrandom_int(int min, int max);
+  std::vector<std::vector<std::string>> LoadWelcome();
 }
 
 #endif
