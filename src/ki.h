@@ -2,12 +2,14 @@
 #define SRC_KI_H_H
 
 #include <chrono>
+#include <list>
 #include <mutex>
 #include <shared_mutex>
+#include <vector>
 
 class Ki {
   public:
-    Ki( int s_frequenzy = 1250, int t_frequenzy = 10000, int u_frequency = 15000, 
+    Ki( int s_frequenzy = 150, int t_frequenzy = 500, int u_frequency = 500, 
         int s_win = 100, int s_max = 300, int t_win = 100, int t_max = 7500) {
       new_soldier_frequency_ = s_frequenzy;
       new_tower_frequency_ = t_frequenzy;
@@ -16,13 +18,21 @@ class Ki {
       soldier_update_max = s_max;
       update_def_win = t_win;
       def_update_max = t_max;
+      max_towers_ = 3;
+
+      attacks_ = {10, 30, 40, 50, 60};
 
       last_soldier_ = std::chrono::steady_clock::now(); 
+      last_synapse_ = std::chrono::steady_clock::now(); 
       last_def_ = std::chrono::steady_clock::now(); 
       last_update_ = std::chrono::steady_clock::now(); 
     }
 
     // getter: 
+    
+    std::list<int>& attacks() {
+      return attacks_;
+    }
     
     int new_soldier_frequency() const { 
       std::shared_lock sl(mutex_soldier_);
@@ -51,6 +61,13 @@ class Ki {
       std::shared_lock sl(mutex_update_);
       return last_update_;
     }
+    std::chrono::time_point<std::chrono::steady_clock> last_synapse() const {
+      return last_synapse_;
+    }
+
+    unsigned int max_towers() {
+      return max_towers_;
+    }
 
     // methods
     void reset_last_soldier() { 
@@ -64,6 +81,9 @@ class Ki {
     void reset_last_update() { 
       std::unique_lock ul(mutex_update_);
       last_update_ = std::chrono::steady_clock::now();
+    }
+    void reset_last_synapse() { 
+      last_synapse_ = std::chrono::steady_clock::now();
     }
 
     void update_frequencies() {
@@ -86,7 +106,12 @@ class Ki {
     mutable std::shared_mutex mutex_def_;
     mutable std::shared_mutex mutex_update_;
 
+    std::list<int> attacks_;
+
+    unsigned int max_towers_;
+
     std::chrono::time_point<std::chrono::steady_clock> last_soldier_;
+    std::chrono::time_point<std::chrono::steady_clock> last_synapse_;
     std::chrono::time_point<std::chrono::steady_clock> last_def_;
     std::chrono::time_point<std::chrono::steady_clock> last_update_;
 

@@ -16,7 +16,7 @@
 #include "utils.h"
 #include "ki.h"
 
-#define HELP "soldier [a], gatherer [r], tech [t] | barracks [A], resources [R], defence [D] tech [T] | pause [space] quit [q]"
+#define HELP "epsp [e], ipsp [i], tech [t] | activate neuron [A], build synapse [S] | pause [space] quit [q]"
 #define COLOR_DEFAULT 3
 #define COLOR_ERROR 2 
 #define COLOR_MSG 4
@@ -44,8 +44,8 @@ std::string CheckMissingResources(Costs missing_costs) {
 Game::Game(int lines, int cols) : game_over_(false), pause_(false) {
   field_ = new Field(lines, cols);
   field_->AddHills();
-  player_one_ = new Player(field_->AddDen(lines/1.5, lines-5, cols/1.5, cols-5), 4);
-  player_two_ = new Player(field_->AddDen(5, lines/3, 5, cols/3), 100000);
+  player_one_ = new Player(field_->AddDen(lines/1.5, lines-5, cols/1.5, cols-5), 3);
+  player_two_ = new Player(field_->AddDen(5, lines/3, 5, cols/3), 4);
   field_->BuildGraph(player_one_->den_pos(), player_two_->den_pos());
 }
 
@@ -116,27 +116,65 @@ void Game::DoActions() {
 
 void Game::HandleKi() {
   Ki* ki = new Ki();
+
+  player_two_->DistributeIron(Resources::OXYGEN);
+  player_two_->DistributeIron(Resources::GLUTAMATE);
+  // player_two_->set_resource_curve(player_two_->resource_curve()+1);
+  for (int i=0; i<5; i++) 
+    player_two_->IncreaseResources();
+
   while(!game_over_) {
     if (pause_) continue;
 
     auto cur_time = std::chrono::steady_clock::now();
-    if (utils::get_elapsed(ki->last_soldier(), cur_time) > ki->new_soldier_frequency()) {
-      auto pos = field_->GetNewSoldierPos(player_two_->den_pos());
-      auto way = field_->GetWayForSoldier(pos, player_one_->den_pos());
-      player_two_->AddSoldier(pos, way);
-      ki->reset_last_soldier();
-    }
 
     if (utils::get_elapsed(ki->last_def(), cur_time) > ki->new_tower_frequency()) {
-      auto pos = field_->FindFree(player_two_->den_pos().first, player_two_->den_pos().second, 1, 5);
-      field_->AddNewUnitToPos(pos, Units::ACTIVATEDNEURON);
-      player_two_->AddDefenceTower(pos);
+      player_two_->IncreaseResources();
       ki->reset_last_def();
     }
 
-    if (utils::get_elapsed(ki->last_update(), cur_time) > ki->update_frequency()) {
-      ki->update_frequencies();
-      ki->reset_last_update();
+    // if (utils::get_elapsed(ki->last_update(), cur_time) > ki->update_frequency()) 
+    //   ki->reset_last_update();
+    // else 
+    //   continue;
+
+    if (player_two_->CheckResources(Units::SYNAPSE).size() == 0 && player_two_->barracks().size() == 0) {
+      auto pos = field_->FindFree(player_two_->den_pos().first, player_two_->den_pos().second, 1, 5);
+      player_two_->AddBarrack(pos);
+      field_->AddNewUnitToPos(pos, Units::SYNAPSE);
+    }
+
+    if (player_two_->resources().at(Resources::POTASSIUM).first > ki->attacks().front() && player_two_->barracks().size() > 0) {
+      auto synapse_pos = player_two_->barracks().begin()->first;
+      while (player_two_->CheckResources(Units::EPSP).size() == 0) {
+        auto cur_time_b = std::chrono::steady_clock::now(); 
+        if (utils::get_elapsed(ki->last_soldier(), cur_time_b) > ki->new_soldier_frequency()) 
+          ki->reset_last_soldier();
+        else 
+          continue;
+        auto pos = field_->GetNewSoldierPos(synapse_pos);
+        auto way = field_->GetWayForSoldier(synapse_pos, player_one_->den_pos());
+        player_two_->AddSoldier(pos, way);
+      }
+      if (ki->attacks().size() > 1)
+        ki->attacks().pop_front();
+    }
+
+    if (player_two_->CheckResources(Units::ACTIVATEDNEURON).size() == 0 
+        && ki->max_towers() >= player_two_->activated_neurons().size()) {
+      // Only add def, if a barrak already exists, or no def exists.
+      if (!(player_two_->activated_neurons().size() > 0 && player_two_->barracks().size() == 0)) {
+        auto pos = field_->FindFree(player_two_->den_pos().first, player_two_->den_pos().second, 1, 5);
+        field_->AddNewUnitToPos(pos, Units::ACTIVATEDNEURON);
+        player_two_->AddDefenceTower(pos);
+      }
+    }
+
+    if (player_two_->iron() > 0) {
+      if (player_two_->IsActivatedResource(Resources::POTASSIUM))
+        player_two_->DistributeIron(Resources::IRON);
+      else if (player_two_->iron() == 2)
+        player_two_->DistributeIron(Resources::POTASSIUM);
     }
   }
 }
@@ -169,8 +207,8 @@ void Game::GetPlayerChoice() {
         PrintMessage("Paused game.", false);
       }
     }
-    // a: add soldier
-    else if (choice == 'a') {
+    // a: add epsp
+    else if (choice == 'e') {
       std::string res = CheckMissingResources(player_one_->CheckResources(Units::EPSP));
       if (res != "")
         PrintMessage(res, true);
@@ -187,9 +225,9 @@ void Game::GetPlayerChoice() {
     }
 
     // A: barracks
-    else if (choice == 'A') {
+    else if (choice == 'S') {
       std::string res = CheckMissingResources(player_one_->CheckResources(Units::SYNAPSE));
-      PrintMessage("User the error keys to select a position. Press Enter to select.", false);
+      PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
       if (res != "") 
         PrintMessage(res, true);
       else {
@@ -203,9 +241,9 @@ void Game::GetPlayerChoice() {
     }
 
     // D: place defence-tower
-    else if (choice == 'D') {
+    else if (choice == 'A') {
       std::string res = CheckMissingResources(player_one_->CheckResources(Units::ACTIVATEDNEURON));
-      PrintMessage("User the error keys to select a position. Press Enter to select.", false);
+      PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
       if (res != "") 
         PrintMessage(res, true);
       else {
@@ -360,6 +398,16 @@ void Game::PrintFieldAndStatus() {
   PrintCentered(LINE_STATUS, player_one_->GetCurrentStatusLineA().c_str());
   PrintCentered(LINE_STATUS+1, player_one_->GetCurrentStatusLineB().c_str());
   PrintCentered(LINE_STATUS+2, player_one_->GetCurrentStatusLineC().c_str());
+
+  // std::string msg = "Enemy iron: " + std::to_string(player_two_->resources().at(Resources::IRON).first);
+  // PrintCentered(3, msg.c_str());
+  // msg = "Enemy oxygen: " + std::to_string(player_two_->resources().at(Resources::OXYGEN).first);
+  // PrintCentered(4, msg.c_str());
+  // msg = "Enemy potassium: " + std::to_string(player_two_->resources().at(Resources::POTASSIUM).first);
+  // PrintCentered(5, msg.c_str());
+  // msg = "Enemy glutamate: " + std::to_string(player_two_->resources().at(Resources::GLUTAMATE).first);
+  // PrintCentered(6, msg.c_str());
+
   refresh();
 }
 

@@ -17,12 +17,12 @@ def gen_resource_stable_oxygen(
     for i in range(seconds-1):
         oxygen.append(oxygen[-1] + (boast * (o_limit-(oxygen[-1]+bound_oxygen[-1]))/(curve*o_limit)/1.5))
         resource.append(resource[-1] + (np.log(oxygen[-1]) * (r_limit-resource[-1])/(curve*r_limit))/1.5)
-        if i % 100 == 0 and oxygen[-1] > 10:
-            bound_oxygen.append(bound_oxygen[-1]+10)
-            cur = oxygen.pop()
-            oxygen.append(cur-10)
-        else:
-            bound_oxygen.append(bound_oxygen[-1])
+        # if i % 100 == 0 and oxygen[-1] > 10:
+        #     bound_oxygen.append(bound_oxygen[-1]+10)
+        #     cur = oxygen.pop()
+        #     oxygen.append(cur-10)
+        # else:
+        bound_oxygen.append(bound_oxygen[-1])
         if i % 100 == 0 and random.randrange(int(oxygen[-1])) == 0:
             iron.append(iron[-1]+1)
         else:

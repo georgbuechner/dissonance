@@ -25,16 +25,21 @@ class Player {
      * @param[in] den position of this player's den.
      * @param[in] silver initial silver value.
      */
-    Player(Position den_pos, int silver=0);
+    Player(Position den_pos, int iron);
 
     // getter:
     std::map<std::string, Epsp> soldier();
     std::map<Position, Synapse> barracks();
+    std::map<Position, ActivatedNeuron> activated_neurons();
     std::set<Position> units_and_buildings();
     Position den_pos();
     int cur_range();
     int iron();
+    int resource_curve();
     std::map<int, Resource> resources();
+
+    // setter
+    void set_resource_curve(int resource_curve);
 
     // methods:
 
@@ -122,6 +127,7 @@ class Player {
 
   private: 
     int cur_range_;
+    int resource_curve_;
     int oxygen_boast_;
     double total_oxygen_;
     double bound_oxygen_;

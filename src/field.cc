@@ -222,10 +222,15 @@ void Field::PrintField(Player* player, Player* enemy) {
       else if (player->units_and_buildings().count(cur) > 0 || player->IsSoldier(cur))
         attron(COLOR_PAIR(COLOR_KI));
       // resources -> cyan
-      else if (resources_symbol_mapping.count(field[l][c]) > 0 && (
-          player->IsActivatedResource(resources_symbol_mapping.at(field[l][c])) 
-          || enemy->IsActivatedResource(resources_symbol_mapping.at(field[l][c]))))
+      else if (resources_symbol_mapping.count(field[l][c]) > 0) {
+        int dist_player = utils::dist(cur, player->den_pos());
+        int dist_enemy = utils::dist(cur, enemy->den_pos());
+        if ((dist_player < dist_enemy 
+            && player->IsActivatedResource(resources_symbol_mapping.at(field[l][c])) )
+            || (dist_enemy < dist_player
+            && enemy->IsActivatedResource(resources_symbol_mapping.at(field[l][c]))))
          attron(COLOR_PAIR(COLOR_RESOURCES));
+      }
       // range -> green
       else if (InRange(cur, range_, player->den_pos()))
         attron(COLOR_PAIR(COLOR_OK));

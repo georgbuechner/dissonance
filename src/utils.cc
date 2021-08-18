@@ -44,7 +44,9 @@ std::vector<std::vector<std::string>> utils::LoadWelcome() {
       "Other technologies or advanced use of potentials are waiting for you...\n\n"
     },
     {
-      "When disonance starts, rember you should boast oxygen and activate production of glutamate, to start defending yourself."
+      "When disonance starts, rember you should boast oxygen and activate production of glutamate, to start defending yourself.",
+      "Also keep in mind, that there are to kinds of potential: ",
+      "epsp (strong in attack) and ipsp (blocks buildings); you should start with epsp."
     }
   };
 }

@@ -60,11 +60,12 @@ const std::map<int, Costs> initial_costs_ = {
 
 std::string create_id();
 
-Player::Player(Position den_pos, int silver0) : cur_range_(4), oxygen_boast_(0), total_oxygen_(5.5) {
+Player::Player(Position den_pos, int iron) : cur_range_(4), resource_curve_(3), 
+    oxygen_boast_(0), total_oxygen_(5.5) {
   den_ = Nucleus(den_pos); 
   all_units_and_buildings_.insert(den_pos);
   resources_ = {
-    { Resources::IRON, {3, false}},
+    { Resources::IRON, {iron, false}},
     { Resources::OXYGEN, {5.5, true}},
     { Resources::POTASSIUM, {0, false}},
     { Resources::CHLORIDE, {0, false}},
@@ -104,7 +105,9 @@ std::map<std::string, Epsp> Player::soldier() {
 std::map<Position, Synapse> Player::barracks() { 
   return barracks_; 
 };
-
+std::map<Position, ActivatedNeuron> Player::activated_neurons() { 
+  return defence_towers_; 
+}
 std::set<Position> Player::units_and_buildings() {
   return all_units_and_buildings_;
 }
@@ -118,6 +121,10 @@ int Player::cur_range() {
   return cur_range_;
 }
 
+int Player::resource_curve() {
+  return resource_curve_;
+}
+
 int Player::iron() {
   std::shared_lock sl(mutex_resources_);
   return resources_.at(Resources::IRON).first;
@@ -126,6 +133,12 @@ int Player::iron() {
 std::map<int, Resource> Player::resources() {
    std::shared_lock sl(mutex_resources_);
   return resources_;
+}
+
+// setter 
+void Player::set_resource_curve(int resource_curve) {
+  std::unique_lock ul(mutex_resources_);
+  resource_curve_ = resource_curve;
 }
 
 // methods 
@@ -145,24 +158,30 @@ bool Player::DamageSoldier(std::string id) {
   return false;
 }
 
+double faktor(int limit, double cur, int curve) {
+  return (limit-cur)/(curve*limit);
+}
+
 void Player::IncreaseResources() {
   std::unique_lock ul_resources(mutex_resources_);
   for (auto& it : resources_) {
+    int cur_oxygen = resources_[Resources::OXYGEN].first;
     if (it.first == Resources::IRON) 
       continue;
     // Add oxygen based on oxygen-boast and current oxygen.
     else if (it.first == Resources::OXYGEN) {
-      it.second.first += oxygen_boast_*(static_cast<double>(100-total_oxygen_)*0.01);
+      it.second.first += oxygen_boast_* faktor(100, total_oxygen_, resource_curve_) * 1;
       total_oxygen_ = bound_oxygen_ + it.second.first;
     }
     // Add other resources based on current oxygen.
     else if (it.second.second)
-      it.second.first += log(resources_.at(Resources::OXYGEN).first)*(static_cast<double>(100-it.second.first))*0.005;
+      it.second.first += log(cur_oxygen+1) * faktor(70, it.second.first, resource_curve_) * 1;
 
     auto cur_time = std::chrono::steady_clock::now();
-    if (utils::get_elapsed(last_iron_, cur_time) > 5000) {
-      if (utils::getrandom_int(0, 100-resources_[Resources::OXYGEN].first) == 0)
+    if (utils::get_elapsed(last_iron_, cur_time) > 2500) {
+      if (utils::getrandom_int(0, cur_oxygen*0.75) == 0)
         resources_[Resources::IRON].first++;
+      last_iron_ = cur_time;
     }
   }
 }
