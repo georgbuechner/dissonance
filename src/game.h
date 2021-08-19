@@ -13,6 +13,7 @@
 #include "player.h"
 #include "units.h"
 
+
 class Game {
   public:
     /** 
@@ -33,6 +34,8 @@ class Game {
     Player* player_two_;
     bool game_over_;
     bool pause_;
+
+    int difficulty_;
 
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
 
@@ -82,7 +85,12 @@ class Game {
      */
     void SetGameOver(std::string msg);
 
+    void PrintCentered(Paragraphs paragraphs);
     void PrintCentered(int line, std::string txt);
+
+    int SelectInteger(std::string msg, std::vector<int>);
+
+    void ClearField();
 
 };
 

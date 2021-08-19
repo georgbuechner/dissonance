@@ -1,4 +1,5 @@
 #include <cmath>
+#include <cwchar>
 #include <math.h>
 #include <mutex>
 #include <shared_mutex>
@@ -6,6 +7,7 @@
 #include <vector>
 
 #include "codes.h"
+#include "curses.h"
 #include "player.h"
 #include "units.h"
 #include "codes.h"
@@ -98,9 +100,13 @@ std::string Player::GetCurrentStatusLineC() {
 
 // getter 
 std::map<std::string, Epsp> Player::epsps() { 
+  std::shared_lock sl(mutex_potentials_);
   return epsps_; 
 }
-
+std::map<std::string, Ipsp> Player::ipsps() { 
+  std::shared_lock sl(mutex_potentials_);
+  return ipsps_; 
+}
 std::map<Position, Synapse> Player::synapses() { 
   std::shared_lock sl(mutex_all_neurons_);
   return synapses_; 
@@ -120,7 +126,10 @@ Position Player::nucleus_pos() {
   std::shared_lock sl(mutex_nucleus_); 
   return nucleus_.pos_;
 }
-
+int Player::nucleus_potential() { 
+  std::shared_lock sl(mutex_nucleus_); 
+  return nucleus_.lp_;
+}
 int Player::cur_range() { 
   return cur_range_;
 }
@@ -237,8 +246,11 @@ void Player::AddPotential(Position pos, std::list<Position> way, int unit) {
   std::unique_lock ul(mutex_potentials_);
   if (unit == Units::EPSP)
     epsps_[utils::create_id()] = Epsp(pos, way);
-  else if (unit == Units::IPSP)
+  else if (unit == Units::IPSP) {
     ipsps_[utils::create_id()] = Ipsp(pos, way, 5);
+    std::string msg = "Added ipsp with way size: " + std::to_string(way.size());
+    mvaddstr(1, 0, msg.c_str());
+  }
 }
 
 int Player::MovePotential(Position target_neuron, Player* enemy) {
@@ -265,9 +277,11 @@ int Player::MovePotential(Position target_neuron, Player* enemy) {
   // Move ipsps.
   for (auto& it : ipsps_) {
     // Move potential if not already at target position.
-    if (it.second.pos_ != target_neuron && it.second.way_.size() > 0) {
+    if (it.second.pos_ != target_neuron && it.second.way_.size() > 0
+        && utils::get_elapsed(it.second.last_action_, cur_time) > it.second.speed_) {
       it.second.pos_ = it.second.way_.front(); 
       it.second.way_.pop_front();
+      it.second.last_action_ = cur_time;  // potential did action, so update last_action_.
     }
     // Otherwise, check if waiting time is up.
     else if (utils::get_elapsed(it.second.last_action_, cur_time) > it.second.duration_*1000) {
@@ -303,7 +317,8 @@ void Player::HandleDef(Player* enemy) {
   auto cur_time = std::chrono::steady_clock::now();
   for (auto& activated_neuron : activated_neurons_) {
     // Check if tower's recharge is done.
-    if (utils::get_elapsed(activated_neuron.second.last_action_, cur_time) > activated_neuron.second.speed_) {
+    if (utils::get_elapsed(activated_neuron.second.last_action_, cur_time) > activated_neuron.second.speed_
+        && !activated_neuron.second.blocked_) {
       for (const auto& potential : enemy->epsps()) {
         int distance = utils::dist(activated_neuron.first, potential.second.pos_);
         if (distance < 3) {
@@ -326,11 +341,19 @@ void Player::NeutalizePotential(std::string id) {
   }
 }
 
-bool Player::IsSoldier(Position pos) {
+bool Player::IsSoldier(Position pos, int unit) {
   std::shared_lock sl(mutex_potentials_);
-  for (const auto& it : epsps_) {
-    if (it.second.pos_ == pos)
-      return true;
+  if (unit == -1 || unit == Units::EPSP) {
+    for (const auto& it : epsps_) {
+      if (it.second.pos_ == pos)
+        return true;
+    }
+  }
+  if (unit == -1 || unit == Units::IPSP) {
+    for (const auto& it : ipsps_) {
+      if (it.second.pos_ == pos)
+        return true;
+    }
   }
   return false;
 }

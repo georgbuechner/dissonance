@@ -12,6 +12,7 @@
 #include "codes.h"
 #include "units.h"
 
+typedef std::vector<std::vector<std::string>> Paragraphs;
 typedef std::pair<int, int> Position;
 typedef std::pair<double, bool> Resource;
 typedef const std::map<int, double> Costs;
@@ -29,10 +30,12 @@ class Player {
 
     // getter:
     std::map<std::string, Epsp> epsps();
+    std::map<std::string, Ipsp> ipsps();
     std::map<Position, Synapse> synapses();
     std::map<Position, ActivatedNeuron> activated_neurons();
     std::set<Position> neurons();
     Position nucleus_pos();
+    int nucleus_potential();
     int cur_range();
     int iron();
     int resource_curve();
@@ -116,7 +119,7 @@ class Player {
      * Checks if a potential on the map belongs to this player.
      * @param[in] pos position to check for.
      */
-    bool IsSoldier(Position pos);
+    bool IsSoldier(Position pos, int unit=-1);
 
     /** 
      * Checks if a resource is activated.

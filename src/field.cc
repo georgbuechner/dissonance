@@ -196,6 +196,19 @@ void Field::UpdateField(Player *player, std::vector<std::vector<std::string>>& f
       }
     }
   }
+  for (auto it : player->ipsps()) { // player-soldier does not need to be locked, as copy is returned
+    int l = it.second.pos_.first;
+    int c = it.second.pos_.second;
+    if (field[l][c] == SYMBOL_FREE)
+      field[l][c] = 'a';
+    else {
+      std::locale loc;
+      char val = field[l][c].front();
+      if (std::isalpha(val, loc)) {
+        field[l][c] = val+1;
+      }
+    }
+  }
 }
 
 void Field::PrintField(Player* player, Player* enemy) {
@@ -212,6 +225,10 @@ void Field::PrintField(Player* player, Player* enemy) {
       // highlight -> magenta
       if (std::find(highlight_.begin(), highlight_.end(), cur) != highlight_.end())
         attron(COLOR_PAIR(COLOR_HIGHLIGHT));
+      // IPSP is on enemy neuron -> cyan.
+      else if ((player->neurons().count(cur) > 0 && enemy->IsSoldier(cur, Units::IPSP))
+        || (enemy->neurons().count(cur) > 0 && player->IsSoldier(cur, Units::IPSP)))
+          attron(COLOR_PAIR(COLOR_RESOURCES));
       // both players -> cyan
       else if (enemy->IsSoldier(cur) && player->IsSoldier(cur))
         attron(COLOR_PAIR(COLOR_RESOURCES));

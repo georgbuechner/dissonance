@@ -9,6 +9,7 @@
 namespace utils {
 
   typedef std::pair<int, int> Position;
+  typedef std::vector<std::vector<std::string>> Paragraphs;
 
   double get_elapsed(std::chrono::time_point<std::chrono::steady_clock> start,
     std::chrono::time_point<std::chrono::steady_clock> end);
@@ -19,8 +20,8 @@ namespace utils {
 
   int getrandom_int(int min, int max);
   
-  std::vector<std::vector<std::string>> LoadWelcome();
-  std::vector<std::vector<std::string>> LoadHelp();
+  Paragraphs LoadWelcome();
+  Paragraphs LoadHelp();
 
   std::string create_id();
 }

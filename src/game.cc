@@ -1,4 +1,5 @@
 #include "game.h"
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <curses.h>
@@ -25,7 +26,7 @@
 #define LINE_STATUS LINES-9
 #define LINE_MSG LINES-6
 
-#define RESOURCES_UPDATE_FREQUENCY 750
+#define RESOURCE_UPDATE_FREQUENCY 500
 #define UPDATE_FREQUENCY 50
 
 #define KI_NEW_SOLDIER 1250
@@ -50,19 +51,11 @@ Game::Game(int lines, int cols) : game_over_(false), pause_(false) {
 }
 
 void Game::play() {
-  auto welome = utils::LoadWelcome();
-  for (const auto& paragraph : welome) {
-    int size = paragraph.size()/2;
-    int counter = 0;
-    for (const auto& line : paragraph) {
-      PrintCentered(LINES/2-size+(counter++), line);
-    }
-    PrintCentered(LINES/2+size+2, "[Press any key to continue]");
-    char c = getch();
-    c++;
-    refresh();
-    clear();
-  }
+  // Print welcome text.
+  PrintCentered(utils::LoadWelcome());
+
+  // Select difficulty
+  difficulty_ = SelectInteger("Select difficulty", {1, 2, 3, 4, 5, 6, 7, 8, 9});
 
   DistributeIron();
 
@@ -76,7 +69,12 @@ void Game::play() {
 
 void Game::DoActions() {
   auto last_update = std::chrono::steady_clock::now();
-  auto last_resource_inc = std::chrono::steady_clock::now();
+  auto last_resource_player_one = std::chrono::steady_clock::now();
+  auto last_resource_player_two = std::chrono::steady_clock::now();
+
+  int ki_update_frequency = RESOURCE_UPDATE_FREQUENCY;
+  ki_update_frequency -= 40*difficulty_;
+  PrintCentered(1, "difficulty: " + std::to_string(difficulty_));
  
   while (!game_over_) {
     auto cur_time = std::chrono::steady_clock::now();
@@ -84,10 +82,14 @@ void Game::DoActions() {
     if (pause_) continue;
     
     // Increase resources.
-    if (utils::get_elapsed(last_resource_inc, cur_time) > RESOURCES_UPDATE_FREQUENCY) {
-      // Increase players resources.
+    if (utils::get_elapsed(last_resource_player_one, cur_time) > RESOURCE_UPDATE_FREQUENCY) {
       player_one_->IncreaseResources();
-      last_resource_inc = cur_time;
+      last_resource_player_one = cur_time;
+    }
+
+    if (utils::get_elapsed(last_resource_player_two, cur_time) > ki_update_frequency) {
+      player_two_->IncreaseResources();
+      last_resource_player_two = cur_time;
     }
 
     if (utils::get_elapsed(last_update, cur_time) > UPDATE_FREQUENCY) {
@@ -115,76 +117,13 @@ void Game::DoActions() {
 }
 
 void Game::HandleKi() {
-  Ki* ki = new Ki();
+  Ki* ki = new Ki(player_one_, player_two_);
+  ki->SetUpKi(difficulty_);
 
-  player_two_->DistributeIron(Resources::OXYGEN);
-  player_two_->DistributeIron(Resources::GLUTAMATE);
-  for (int i=0; i<5; i++) 
-    player_two_->IncreaseResources();
-
+  // Handle building neurons and potentials.
   while(!game_over_) {
-    if (pause_) continue;
-
-    auto cur_time = std::chrono::steady_clock::now();
-
-    if (utils::get_elapsed(ki->last_def(), cur_time) > ki->new_tower_frequency()) {
-      player_two_->IncreaseResources();
-      ki->reset_last_def();
-    }
-
-    // if (utils::get_elapsed(ki->last_update(), cur_time) > ki->update_frequency()) 
-    //   ki->reset_last_update();
-    // else 
-    //   continue;
-
-    if (player_two_->CheckResources(Units::SYNAPSE).size() == 0 && player_two_->synapses().size() == 0) {
-      auto pos = field_->FindFree(player_two_->nucleus_pos().first, player_two_->nucleus_pos().second, 1, 5);
-      player_two_->AddNeuron(pos, Units::SYNAPSE);
-      field_->AddNewUnitToPos(pos, Units::SYNAPSE);
-    }
-
-    if (player_two_->resources().at(Resources::POTASSIUM).first > ki->attacks().front() && player_two_->synapses().size() > 0) {
-      auto synapse_pos = player_two_->synapses().begin()->first;
-      while (player_two_->CheckResources(Units::EPSP).size() == 0) {
-        auto cur_time_b = std::chrono::steady_clock::now(); 
-        if (utils::get_elapsed(ki->last_soldier(), cur_time_b) > ki->new_soldier_frequency()) 
-          ki->reset_last_soldier();
-        else 
-          continue;
-        auto pos = field_->GetNewSoldierPos(synapse_pos);
-        auto way = field_->GetWayForSoldier(synapse_pos, player_one_->nucleus_pos());
-        player_two_->AddPotential(pos, way, Units::EPSP);
-      }
-      if (ki->attacks().size() > 1)
-        ki->attacks().pop_front();
-    }
-
-    if (player_two_->CheckResources(Units::ACTIVATEDNEURON).size() == 0 
-        && ki->max_towers() >= player_two_->activated_neurons().size()) {
-      // Only add def, if a barrak already exists, or no def exists.
-      if (!(player_two_->activated_neurons().size() > 0 && player_two_->synapses().size() == 0)) {
-        auto pos = field_->FindFree(player_two_->nucleus_pos().first, player_two_->nucleus_pos().second, 1, 5);
-        field_->AddNewUnitToPos(pos, Units::ACTIVATEDNEURON);
-        player_two_->AddNeuron(pos, Units::ACTIVATEDNEURON);
-      }
-    }
-
-    /*
-    if (ki->attacks().size() == 1) {
-      ki->set_max_towers(ki->max_towers()+2);
-      ki->update_frequencies();
-    }
-    else if (ki->attacks().size() == 2) {
-      player_two_->set_resource_curve(player_two_->resource_curve()-1);
-    }
-    */
-
-    if (player_two_->iron() > 0) {
-      if (player_two_->IsActivatedResource(Resources::POTASSIUM))
-        player_two_->DistributeIron(Resources::IRON);
-      else if (player_two_->iron() == 2)
-        player_two_->DistributeIron(Resources::POTASSIUM);
-    }
+    if (!pause_)
+      ki->UpdateKi(field_);
   }
 }
 
@@ -207,22 +146,13 @@ void Game::GetPlayerChoice() {
 
     else if (choice == 'h') {
       pause_ = true;
-      refresh();
-      clear();
-      auto help = utils::LoadHelp();
-      for (const auto& paragraph : help) {
-        int size = paragraph.size()/2;
-        int counter = 0;
-        for (const auto& line : paragraph) {
-          PrintCentered(LINES/2-size+(counter++), line);
-        }
-        PrintCentered(LINES/2+size+2, "[Press any key to continue]");
-        char c = getch();
-        c++;
-        refresh();
-        clear();
-      }
+      PrintCentered(utils::LoadHelp());
       pause_ = false;
+    }
+
+    else if (choice == 'c') {
+      for (int i=0; i<10; i++)
+        player_one_->IncreaseResources();
     }
 
     // SPACE: pause/ unpause game
@@ -266,7 +196,7 @@ void Game::GetPlayerChoice() {
           Position target = player_two_->activated_neurons().begin()->second.pos_;
           // PrintMessage("Added ibsp with target: " + utils::PositionToString(target), false);
           std::list<Position> way = field_->GetWayForSoldier(pos, target);
-          PrintMessage("way size : " + std::to_string(way.size()), false);
+          PrintMessage("created isps with target=: " + utils::PositionToString(target), false);
           player_one_->AddPotential(pos, way, Units::IPSP);
         }
       }
@@ -385,14 +315,12 @@ Position Game::SelectBarack(Player* p) {
 }
 
 void Game::DistributeIron() {
-  clear();
-  refresh();
-
+  ClearField();
   bool end = false;
   while(!end) {
+    // Get iron and print options.
     int iron = player_one_->iron();
     std::string msg = "You can distribute " + std::to_string(iron) + " iron.";
-
     PrintCentered(LINES/2-1, msg);
 
     auto resources = player_one_->resources();
@@ -401,31 +329,50 @@ void Game::DistributeIron() {
       if (it.first!= Resources::IRON && !it.second.second)
         selection[it.first] = resources_name_mapping.at(it.first);
     }
-    std::string txt = "";
+    std::string options = "";
     for (const auto& it : selection) {
-      txt += it.second + "(" + std::to_string(it.first) + ")    ";
+      options += it.second + "(" + std::to_string(it.first) + ")    ";
     }
-    PrintCentered(LINES/2+1, txt);
+    PrintCentered(LINES/2+1, options);
+
+    // Get players choice.
     char c = getch();
     PrintCentered(LINES/2+2, "selection: " + std::to_string(c-49));
     if (c == 'q')
       end = true;
     else {
-      if (!player_one_->DistributeIron(c-48)) {
-        clear();
-        refresh();
+      ClearField();
+      if (!player_one_->DistributeIron(c-48))
         PrintCentered(LINES/2, "Invalid selection or not enough iron!");
-      }
-      else {
-        clear();
-        refresh();
-      }
     }
 
-    if (player_one_->iron() == 0) {
+    if (player_one_->iron() == 0)
       end = true;
-    }
   }
+}
+
+int Game::SelectInteger(std::string msg, std::vector<int> options) {
+  ClearField();
+  bool end = false;
+  while (!end) {
+    // Print options.
+    std::string availible_options = "";
+    for (const auto& option : options) {
+      availible_options+= std::to_string(option);
+      availible_options+= "    ";
+    }
+    PrintCentered(LINES/2-1, msg);
+    PrintCentered(LINES/2+1, availible_options);
+    PrintCentered(LINES/2+3, "> enter number...");
+
+    // Get choice.
+    char choice = getch();
+    if (std::find(options.begin(), options.end(), choice-48) != options.end())
+      return choice-48;
+    else 
+      PrintCentered(LINES/2+5, "Wrong selection.");
+  }
+  return -1;
 }
 
 void Game::PrintMessage(std::string msg, bool error) {
@@ -448,14 +395,16 @@ void Game::PrintFieldAndStatus() {
   PrintCentered(LINE_STATUS+1, player_one_->GetCurrentStatusLineB().c_str());
   PrintCentered(LINE_STATUS+2, player_one_->GetCurrentStatusLineC().c_str());
 
-  // std::string msg = "Enemy iron: " + std::to_string(player_two_->resources().at(Resources::IRON).first);
-  // PrintCentered(3, msg.c_str());
-  // msg = "Enemy oxygen: " + std::to_string(player_two_->resources().at(Resources::OXYGEN).first);
-  // PrintCentered(4, msg.c_str());
-  // msg = "Enemy potassium: " + std::to_string(player_two_->resources().at(Resources::POTASSIUM).first);
-  // PrintCentered(5, msg.c_str());
-  // msg = "Enemy glutamate: " + std::to_string(player_two_->resources().at(Resources::GLUTAMATE).first);
-  // PrintCentered(6, msg.c_str());
+  std::string msg = "Enemy nucleus potential " + std::to_string(player_two_->nucleus_potential()) + "/9";
+  PrintCentered(2, msg.c_str());
+  msg = "Enemy iron: " + std::to_string(player_two_->resources().at(Resources::IRON).first);
+  PrintCentered(3, msg.c_str());
+  msg = "Enemy oxygen: " + std::to_string(player_two_->resources().at(Resources::OXYGEN).first);
+  PrintCentered(4, msg.c_str());
+  msg = "Enemy potassium: " + std::to_string(player_two_->resources().at(Resources::POTASSIUM).first);
+  PrintCentered(5, msg.c_str());
+  msg = "Enemy glutamate: " + std::to_string(player_two_->resources().at(Resources::GLUTAMATE).first);
+  PrintCentered(6, msg.c_str());
 
   refresh();
 }
@@ -467,6 +416,26 @@ void Game::SetGameOver(std::string msg) {
   game_over_ = true;
 }
 
+void Game::PrintCentered(Paragraphs paragraphs) {
+  for (const auto& paragraph : paragraphs) {
+    refresh();
+    clear();
+    int size = paragraph.size()/2;
+    int counter = 0;
+    for (const auto& line : paragraph) {
+      PrintCentered(LINES/2-size+(counter++), line);
+    }
+    PrintCentered(LINES/2+size+2, "[Press any key to continue]");
+    char c = getch();
+    c++;
+  }
+}
+
 void Game::PrintCentered(int line, std::string txt) {
   mvaddstr(line, COLS/2-txt.length()/2, txt.c_str());
+}
+
+void Game::ClearField() {
+  clear();
+  refresh();
 }
