@@ -16,7 +16,7 @@
 #include "utils.h"
 #include "ki.h"
 
-#define HELP "epsp [e], ipsp [i], tech [t] | activate neuron [A], build synapse [S] | pause [space] quit [q]"
+#define HELP "epsp [e], ipsp [i], tech [t] | activate neuron [A], build synapse [S] | Distribute Iron [E] | Help [h] | pause [space] quit [q]"
 #define COLOR_DEFAULT 3
 #define COLOR_ERROR 2 
 #define COLOR_MSG 4
@@ -46,7 +46,7 @@ Game::Game(int lines, int cols) : game_over_(false), pause_(false) {
   field_->AddHills();
   player_one_ = new Player(field_->AddDen(lines/1.5, lines-5, cols/1.5, cols-5), 3);
   player_two_ = new Player(field_->AddDen(5, lines/3, 5, cols/3), 4);
-  field_->BuildGraph(player_one_->den_pos(), player_two_->den_pos());
+  field_->BuildGraph(player_one_->nucleus_pos(), player_two_->nucleus_pos());
 }
 
 void Game::play() {
@@ -92,13 +92,13 @@ void Game::DoActions() {
 
     if (utils::get_elapsed(last_update, cur_time) > UPDATE_FREQUENCY) {
       // Move player soldiers and check if enemy den's lp is down to 0.
-      int damage = player_one_->MoveSoldiers(player_two_->den_pos());
-      if (player_two_->DecreaseDenLp(damage)) {
+      int damage = player_one_->MovePotential(player_two_->nucleus_pos(), player_two_);
+      if (player_two_->IncreaseNeuronPotential(damage, Units::NUCLEUS)) {
         SetGameOver("YOU WON");
         break;
       }
-      damage = player_two_->MoveSoldiers(player_one_->den_pos());
-      if (player_one_->DecreaseDenLp(damage)) {
+      damage = player_two_->MovePotential(player_one_->nucleus_pos(), player_one_);
+      if (player_one_->IncreaseNeuronPotential(damage, Units::NUCLEUS)) {
         SetGameOver("YOU LOST");
         break;
       }
@@ -119,7 +119,6 @@ void Game::HandleKi() {
 
   player_two_->DistributeIron(Resources::OXYGEN);
   player_two_->DistributeIron(Resources::GLUTAMATE);
-  // player_two_->set_resource_curve(player_two_->resource_curve()+1);
   for (int i=0; i<5; i++) 
     player_two_->IncreaseResources();
 
@@ -138,14 +137,14 @@ void Game::HandleKi() {
     // else 
     //   continue;
 
-    if (player_two_->CheckResources(Units::SYNAPSE).size() == 0 && player_two_->barracks().size() == 0) {
-      auto pos = field_->FindFree(player_two_->den_pos().first, player_two_->den_pos().second, 1, 5);
-      player_two_->AddBarrack(pos);
+    if (player_two_->CheckResources(Units::SYNAPSE).size() == 0 && player_two_->synapses().size() == 0) {
+      auto pos = field_->FindFree(player_two_->nucleus_pos().first, player_two_->nucleus_pos().second, 1, 5);
+      player_two_->AddNeuron(pos, Units::SYNAPSE);
       field_->AddNewUnitToPos(pos, Units::SYNAPSE);
     }
 
-    if (player_two_->resources().at(Resources::POTASSIUM).first > ki->attacks().front() && player_two_->barracks().size() > 0) {
-      auto synapse_pos = player_two_->barracks().begin()->first;
+    if (player_two_->resources().at(Resources::POTASSIUM).first > ki->attacks().front() && player_two_->synapses().size() > 0) {
+      auto synapse_pos = player_two_->synapses().begin()->first;
       while (player_two_->CheckResources(Units::EPSP).size() == 0) {
         auto cur_time_b = std::chrono::steady_clock::now(); 
         if (utils::get_elapsed(ki->last_soldier(), cur_time_b) > ki->new_soldier_frequency()) 
@@ -153,8 +152,8 @@ void Game::HandleKi() {
         else 
           continue;
         auto pos = field_->GetNewSoldierPos(synapse_pos);
-        auto way = field_->GetWayForSoldier(synapse_pos, player_one_->den_pos());
-        player_two_->AddSoldier(pos, way);
+        auto way = field_->GetWayForSoldier(synapse_pos, player_one_->nucleus_pos());
+        player_two_->AddPotential(pos, way, Units::EPSP);
       }
       if (ki->attacks().size() > 1)
         ki->attacks().pop_front();
@@ -163,12 +162,22 @@ void Game::HandleKi() {
     if (player_two_->CheckResources(Units::ACTIVATEDNEURON).size() == 0 
         && ki->max_towers() >= player_two_->activated_neurons().size()) {
       // Only add def, if a barrak already exists, or no def exists.
-      if (!(player_two_->activated_neurons().size() > 0 && player_two_->barracks().size() == 0)) {
-        auto pos = field_->FindFree(player_two_->den_pos().first, player_two_->den_pos().second, 1, 5);
+      if (!(player_two_->activated_neurons().size() > 0 && player_two_->synapses().size() == 0)) {
+        auto pos = field_->FindFree(player_two_->nucleus_pos().first, player_two_->nucleus_pos().second, 1, 5);
         field_->AddNewUnitToPos(pos, Units::ACTIVATEDNEURON);
-        player_two_->AddDefenceTower(pos);
+        player_two_->AddNeuron(pos, Units::ACTIVATEDNEURON);
       }
     }
+
+    /*
+    if (ki->attacks().size() == 1) {
+      ki->set_max_towers(ki->max_towers()+2);
+      ki->update_frequencies();
+    }
+    else if (ki->attacks().size() == 2) {
+      player_two_->set_resource_curve(player_two_->resource_curve()-1);
+    }
+    */
 
     if (player_two_->iron() > 0) {
       if (player_two_->IsActivatedResource(Resources::POTASSIUM))
@@ -196,6 +205,26 @@ void Game::GetPlayerChoice() {
       continue;
     }
 
+    else if (choice == 'h') {
+      pause_ = true;
+      refresh();
+      clear();
+      auto help = utils::LoadHelp();
+      for (const auto& paragraph : help) {
+        int size = paragraph.size()/2;
+        int counter = 0;
+        for (const auto& line : paragraph) {
+          PrintCentered(LINES/2-size+(counter++), line);
+        }
+        PrintCentered(LINES/2+size+2, "[Press any key to continue]");
+        char c = getch();
+        c++;
+        refresh();
+        clear();
+      }
+      pause_ = false;
+    }
+
     // SPACE: pause/ unpause game
     else if (choice == ' ') {
       if (pause_) {
@@ -207,7 +236,7 @@ void Game::GetPlayerChoice() {
         PrintMessage("Paused game.", false);
       }
     }
-    // a: add epsp
+    // e: add epsp
     else if (choice == 'e') {
       std::string res = CheckMissingResources(player_one_->CheckResources(Units::EPSP));
       if (res != "")
@@ -217,23 +246,42 @@ void Game::GetPlayerChoice() {
         if (pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
-          PrintMessage("Added soldier at barrack @" + utils::PositionToString(pos), false);
-          std::list<Position> way = field_->GetWayForSoldier(pos, player_two_->den_pos());
-          player_one_->AddSoldier(pos, way);
+          PrintMessage("Added epsp at synapse @" + utils::PositionToString(pos), false);
+          std::list<Position> way = field_->GetWayForSoldier(pos, player_two_->nucleus_pos());
+          player_one_->AddPotential(pos, way, Units::EPSP);
+        }
+      }
+    }
+    // i: add ipsp 
+    else if (choice == 'i') {
+      std::string res = CheckMissingResources(player_one_->CheckResources(Units::IPSP));
+      if (res != "")
+        PrintMessage(res, true);
+      else {
+        auto pos = SelectBarack(player_one_);
+        if (pos.first == -1)
+          PrintMessage("Invalid choice!", true);
+        else {
+          // PrintMessage("Added ibsp at synapse @" + utils::PositionToString(pos), false);
+          Position target = player_two_->activated_neurons().begin()->second.pos_;
+          // PrintMessage("Added ibsp with target: " + utils::PositionToString(target), false);
+          std::list<Position> way = field_->GetWayForSoldier(pos, target);
+          PrintMessage("way size : " + std::to_string(way.size()), false);
+          player_one_->AddPotential(pos, way, Units::IPSP);
         }
       }
     }
 
-    // A: barracks
+    // S: Synapse
     else if (choice == 'S') {
       std::string res = CheckMissingResources(player_one_->CheckResources(Units::SYNAPSE));
       PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
       if (res != "") 
         PrintMessage(res, true);
       else {
-        Position pos = SelectPosition(player_one_->den_pos(), player_one_->cur_range());
+        Position pos = SelectPosition(player_one_->nucleus_pos(), player_one_->cur_range());
         if (pos.first != -1) {
-          player_one_->AddBarrack(pos);
+          player_one_->AddNeuron(pos, Units::SYNAPSE);
           field_->AddNewUnitToPos(pos, Units::SYNAPSE);
         }
         PrintMessage(res, res!="");
@@ -247,9 +295,9 @@ void Game::GetPlayerChoice() {
       if (res != "") 
         PrintMessage(res, true);
       else {
-        Position pos = SelectPosition(player_one_->den_pos(), player_one_->cur_range());
+        Position pos = SelectPosition(player_one_->nucleus_pos(), player_one_->cur_range());
         if (pos.first != -1) {
-          player_one_->AddDefenceTower(pos);
+          player_one_->AddNeuron(pos, Units::ACTIVATEDNEURON);
           field_->AddNewUnitToPos(pos, Units::ACTIVATEDNEURON);
         }
         PrintMessage(res, res!="");
@@ -302,7 +350,7 @@ Position Game::SelectPosition(Position start, int range) {
         break;
     }
     // Update highlight only if in range.
-    if (field_->InRange(new_pos, range, player_one_->den_pos())) {
+    if (field_->InRange(new_pos, range, player_one_->nucleus_pos())) {
       field_->set_highlight({new_pos});
       PrintFieldAndStatus();
     }
@@ -318,7 +366,7 @@ Position Game::SelectBarack(Player* p) {
   // create replacements (map barack position to letter a..z).
   std::map<Position, char> replacements;
   int counter = 0;
-  for (auto it : p->barracks()) 
+  for (auto it : p->synapses()) 
     replacements[it.first] = (int)'a'+(counter++);
   field_->set_replace(replacements);
 
@@ -344,6 +392,7 @@ void Game::DistributeIron() {
   while(!end) {
     int iron = player_one_->iron();
     std::string msg = "You can distribute " + std::to_string(iron) + " iron.";
+
     PrintCentered(LINES/2-1, msg);
 
     auto resources = player_one_->resources();

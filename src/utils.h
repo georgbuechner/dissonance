@@ -18,7 +18,11 @@ namespace utils {
   std::string PositionToString(Position pos);
 
   int getrandom_int(int min, int max);
+  
   std::vector<std::vector<std::string>> LoadWelcome();
+  std::vector<std::vector<std::string>> LoadHelp();
+
+  std::string create_id();
 }
 
 #endif

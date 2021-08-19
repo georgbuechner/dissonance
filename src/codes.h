@@ -29,6 +29,7 @@ enum Units {
   SYNAPSE,
   EPSP,
   IPSP,
+  NUCLEUS, 
 };
 
 enum Resources {
@@ -49,6 +50,7 @@ const std::map<int, std::string> resources_name_mapping = {
   {GLUTAMATE, "glutamate"},
   {DOPAMINE, "dopamine"},
   {SEROTONIN, "serotonin"},
+  {NUCLEUS, "nucleus"},
 };
 const std::map<std::string, int> resources_symbol_mapping = {
   {SYMBOL_IRON, IRON},
@@ -58,6 +60,7 @@ const std::map<std::string, int> resources_symbol_mapping = {
   {SYMBOL_GLUTAMATE, GLUTAMATE},
   {SYMBOL_DOPAMINE, DOPAMINE},
   {SYMBOL_SEROTONIN, SEROTONIN},
+  {SYMBOL_DEN, NUCLEUS},
 };
 
 

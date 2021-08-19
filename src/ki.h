@@ -20,7 +20,7 @@ class Ki {
       def_update_max = t_max;
       max_towers_ = 3;
 
-      attacks_ = {10, 30, 40, 50, 60};
+      attacks_ = {10, 30, 40, 50};
 
       last_soldier_ = std::chrono::steady_clock::now(); 
       last_synapse_ = std::chrono::steady_clock::now(); 
@@ -69,6 +69,10 @@ class Ki {
       return max_towers_;
     }
 
+    void set_max_towers(int num) {
+      max_towers_ = num;
+    }
+
     // methods
     void reset_last_soldier() { 
       std::unique_lock ul(mutex_soldier_);
@@ -88,14 +92,7 @@ class Ki {
 
     void update_frequencies() {
       std::unique_lock ul_soldier(mutex_soldier_);
-      new_soldier_frequency_ -= update_soldier_win;
-      if (new_soldier_frequency_ < soldier_update_max) 
-        new_soldier_frequency_ = soldier_update_max;
-      ul_soldier.unlock();
-      std::unique_lock ul_def(mutex_def_);
-      new_tower_frequency_ -= update_def_win;
-      if (new_tower_frequency_ < def_update_max)
-        new_soldier_frequency_ = def_update_max;
+      new_soldier_frequency_ = 100;
     }
 
   private:

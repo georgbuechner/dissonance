@@ -22,17 +22,17 @@ class Player {
     /**
      * Constructor initializing all resources and gatherers with defaul values
      * and creates den with given position.
-     * @param[in] den position of this player's den.
+     * @param[in] nucleus_pos position of player's nucleus.
      * @param[in] silver initial silver value.
      */
-    Player(Position den_pos, int iron);
+    Player(Position nucleus_pos, int iron);
 
     // getter:
-    std::map<std::string, Epsp> soldier();
-    std::map<Position, Synapse> barracks();
+    std::map<std::string, Epsp> epsps();
+    std::map<Position, Synapse> synapses();
     std::map<Position, ActivatedNeuron> activated_neurons();
-    std::set<Position> units_and_buildings();
-    Position den_pos();
+    std::set<Position> neurons();
+    Position nucleus_pos();
     int cur_range();
     int iron();
     int resource_curve();
@@ -42,12 +42,7 @@ class Player {
     void set_resource_curve(int resource_curve);
 
     // methods:
-
-    void AddBuilding(Position pos);
-
-    bool DamageSoldier(std::string id);
-
-    
+   
     /**
      * Show current status (resources, gatherers, den-lp ...)
      */
@@ -60,48 +55,49 @@ class Player {
      */
     void IncreaseResources();
 
+    /**
+     * Distributes iron to either boast oxygen production or activate neu
+     * resource.
+     * @param resource which to distribute iron to.
+     * @return whether distribution was successfull.
+     */
     bool DistributeIron(int resource);
 
+    /**
+     * Returns missing resources for given unit.
+     * @param unit code for unit for which to check.
+     * @return missing resources for this unit. Empty if all needed resources
+     * are availible.
+     */
     Costs CheckResources(int unit);
 
-    /** 
-     * Adds specified gatherer.
-     * @param unit specify which gatherer
+    /**
+     * Adds a newly create neuron to list of all neurons.
+     * @param[in] pos position of newly added neurons.
+     * @param[in] neuron (unit).
      */
-    void AddGatherer(int unit);
+    void AddNeuron(Position pos, int neuron);
 
     /**
-     * Adds a new defence tower at the given position. 
-     * @param[in] pos position at which to add defence tower.
-     */
-    void AddDefenceTower(Position pos);
-
-    void AddBarrack(Position pos);
-
-    /**
-     * Adds new soldier and sets it's current position and the way to it's
+     * Adds new potential and sets it's current position and the way to it's
      * target.
-     * A soldier is always created with a new, random id, as (in contrast to
-     * other units/ buildings) a soldier is not uniquely defined by it's
-     * position.
-     * @param[in] pos start position of new soldier.
-     * @param[in] way to the enemies building.
+     * A potential is always created with a new, random id, as (in contrast to
+     * neurons) a potential is not uniquely defined by it's position.
+     * @param[in] pos start position of new potential.
+     * @param[in] way to the enemies neuron.
+     * @param[in] unit should be either ESPS or IPSP.
      */
-    void AddSoldier(Position pos, std::list<Position> way);
+    void AddPotential(Position pos, std::list<Position> way, int unit);
 
     /**
-     * Moves every soldier forward and if it's target is reached, damage is
-     * increased and the soldier is removed.
-     * @param[in] enemy_den position of the enemies building.
-     * @return damage inficted to the target.
+     * Moves every potential forward and if it's target is reached, potential is
+     * increased and the potential is removed.
+     * @param[in] target_pos position of targeted enemy neuron.
+     * @return potential transfered to the target.
      */
-    int MoveSoldiers(Position enemy_den);
+    int MovePotential(Position target_pos, Player* enemy);
 
-    /**
-     * Remove a soldier if it exists.
-     * @param[in] id of soldier which shall be removed.
-     */
-    void RemoveSoldier(std::string id);
+    void SetBlockForNeuron(Position pos, int unit, bool block);
 
     /**
      * Function checking whether a tower has defeted a soldier.
@@ -111,19 +107,31 @@ class Player {
     void HandleDef(Player* enemy);
 
     /**
-     * Checks if a soldier on the map belongs to this player.
+     * Decrease potential and removes potential if potential is down to zero.
+     * @param id of potential.
+     */
+    void NeutalizePotential(std::string id);
+ 
+    /**
+     * Checks if a potential on the map belongs to this player.
      * @param[in] pos position to check for.
      */
     bool IsSoldier(Position pos);
 
+    /** 
+     * Checks if a resource is activated.
+     * @param[in] resource which to check
+     * @return whether resource is activated.
+     */
     bool IsActivatedResource(int resource);
 
     /** 
-     * Decrease live of den.
-     * @param[in] val values to decrease life by.
-     * @return whether building is destroied.
+     * Increase potential of neuron.
+     * @param[in] potential which to add to neuron.
+     * @param[in] neuron which neuron to add potential to.
+     * @return whether neuron is destroyed.
      */
-    bool DecreaseDenLp(int val);
+    bool IncreaseNeuronPotential(int potential, int neuron);
 
   private: 
     int cur_range_;
@@ -136,25 +144,21 @@ class Player {
 
     std::chrono::time_point<std::chrono::steady_clock> last_iron_; 
 
+    std::shared_mutex mutex_nucleus_;
+    Nucleus nucleus_;
 
+    std::shared_mutex mutex_potentials_;
+    std::map<std::string, Epsp> epsps_;
+    std::map<std::string, Ipsp> ipsps_;
 
-    Nucleus den_;
-    std::shared_mutex mutex_den_;
-
-    std::map<std::string, Epsp> soldiers_;
-    std::shared_mutex mutex_soldiers_;
-
-    std::set<Position> all_units_and_buildings_;  ///< simple set, to check whether position belongs to player.
-    std::shared_mutex mutex_units_and_buildings_;
-
-    std::map<Position, Synapse> barracks_;
-    std::shared_mutex mutex_barracks;
-
-    std::map<Position, ActivatedNeuron> defence_towers_;
-    std::shared_mutex mutex_defence_towers_;
+    std::shared_mutex mutex_all_neurons_;
+    std::set<Position> all_neurons_;  ///< simple set, to check whether position belongs to player.
+    std::map<Position, Synapse> synapses_;
+    std::map<Position, ActivatedNeuron> activated_neurons_;
 
     // methods
     void TakeResources(Costs costs);
+    double Faktor(int limit, double cur);
 };
 
 #endif

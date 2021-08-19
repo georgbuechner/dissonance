@@ -182,7 +182,7 @@ void Field::AddNewUnitToPos(Position pos, int unit) {
 }
 
 void Field::UpdateField(Player *player, std::vector<std::vector<std::string>>& field) {
-  for (auto it : player->soldier()) { // player-soldier does not need to be locked, as copy is returned
+  for (auto it : player->epsps()) { // player-soldier does not need to be locked, as copy is returned
     int l = it.second.pos_.first;
     int c = it.second.pos_.second;
     if (field[l][c] == SYMBOL_FREE)
@@ -216,15 +216,15 @@ void Field::PrintField(Player* player, Player* enemy) {
       else if (enemy->IsSoldier(cur) && player->IsSoldier(cur))
         attron(COLOR_PAIR(COLOR_RESOURCES));
       // player 2 -> red
-      else if (enemy->units_and_buildings().count(cur) > 0 || enemy->IsSoldier(cur))
+      else if (enemy->neurons().count(cur) > 0 || enemy->IsSoldier(cur))
         attron(COLOR_PAIR(COLOR_PLAYER));
       // player 1 -> blue 
-      else if (player->units_and_buildings().count(cur) > 0 || player->IsSoldier(cur))
+      else if (player->neurons().count(cur) > 0 || player->IsSoldier(cur))
         attron(COLOR_PAIR(COLOR_KI));
       // resources -> cyan
       else if (resources_symbol_mapping.count(field[l][c]) > 0) {
-        int dist_player = utils::dist(cur, player->den_pos());
-        int dist_enemy = utils::dist(cur, enemy->den_pos());
+        int dist_player = utils::dist(cur, player->nucleus_pos());
+        int dist_enemy = utils::dist(cur, enemy->nucleus_pos());
         if ((dist_player < dist_enemy 
             && player->IsActivatedResource(resources_symbol_mapping.at(field[l][c])) )
             || (dist_enemy < dist_player
@@ -232,7 +232,7 @@ void Field::PrintField(Player* player, Player* enemy) {
          attron(COLOR_PAIR(COLOR_RESOURCES));
       }
       // range -> green
-      else if (InRange(cur, range_, player->den_pos()))
+      else if (InRange(cur, range_, player->nucleus_pos()))
         attron(COLOR_PAIR(COLOR_OK));
       
       // Replace certain elements.

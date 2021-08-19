@@ -58,12 +58,10 @@ const std::map<int, Costs> initial_costs_ = {
   }
 };
 
-std::string create_id();
-
-Player::Player(Position den_pos, int iron) : cur_range_(4), resource_curve_(3), 
+Player::Player(Position nucleus_pos, int iron) : cur_range_(4), resource_curve_(3), 
     oxygen_boast_(0), total_oxygen_(5.5) {
-  den_ = Nucleus(den_pos); 
-  all_units_and_buildings_.insert(den_pos);
+  nucleus_ = Nucleus(nucleus_pos); 
+  all_neurons_.insert(nucleus_pos);
   resources_ = {
     { Resources::IRON, {iron, false}},
     { Resources::OXYGEN, {5.5, true}},
@@ -94,27 +92,33 @@ std::string Player::GetCurrentStatusLineB() {
 }
 
 std::string Player::GetCurrentStatusLineC() {
-  std::shared_lock sl(mutex_den_);
-  return "nucleus " SYMBOL_DEN " potential: " + std::to_string(den_.lp_) + "/" + std::to_string(den_.max_lp_);
+  std::shared_lock sl(mutex_nucleus_);
+  return "nucleus " SYMBOL_DEN " potential: " + std::to_string(nucleus_.lp_) + "/" + std::to_string(nucleus_.max_lp_);
 }
 
 // getter 
-std::map<std::string, Epsp> Player::soldier() { 
-  return soldiers_; 
-};
-std::map<Position, Synapse> Player::barracks() { 
-  return barracks_; 
-};
-std::map<Position, ActivatedNeuron> Player::activated_neurons() { 
-  return defence_towers_; 
-}
-std::set<Position> Player::units_and_buildings() {
-  return all_units_and_buildings_;
+std::map<std::string, Epsp> Player::epsps() { 
+  return epsps_; 
 }
 
-Position Player::den_pos() { 
-  std::shared_lock sl(mutex_den_); 
-  return den_.pos_;
+std::map<Position, Synapse> Player::synapses() { 
+  std::shared_lock sl(mutex_all_neurons_);
+  return synapses_; 
+}
+
+std::map<Position, ActivatedNeuron> Player::activated_neurons() { 
+  std::shared_lock sl(mutex_all_neurons_);
+  return activated_neurons_; 
+}
+
+std::set<Position> Player::neurons() {
+  std::shared_lock sl(mutex_all_neurons_);
+  return all_neurons_;
+}
+
+Position Player::nucleus_pos() { 
+  std::shared_lock sl(mutex_nucleus_); 
+  return nucleus_.pos_;
 }
 
 int Player::cur_range() { 
@@ -131,7 +135,7 @@ int Player::iron() {
 }
 
 std::map<int, Resource> Player::resources() {
-   std::shared_lock sl(mutex_resources_);
+  std::shared_lock sl(mutex_resources_);
   return resources_;
 }
 
@@ -143,23 +147,8 @@ void Player::set_resource_curve(int resource_curve) {
 
 // methods 
 
-void Player::AddBuilding(Position pos) {
-  std::unique_lock ul(mutex_units_and_buildings_);
-  all_units_and_buildings_.insert(pos);
-}
-
-bool Player::DamageSoldier(std::string id) {
-  std::unique_lock ul(mutex_soldiers_);
-  if (soldiers_.count(id) > 0) {
-    soldiers_[id].attack_--;
-    if (soldiers_[id].attack_ == 0)
-      return true;
-  }
-  return false;
-}
-
-double faktor(int limit, double cur, int curve) {
-  return (limit-cur)/(curve*limit);
+double Player::Faktor(int limit, double cur) {
+  return (limit-cur)/(resource_curve_*limit);
 }
 
 void Player::IncreaseResources() {
@@ -170,13 +159,14 @@ void Player::IncreaseResources() {
       continue;
     // Add oxygen based on oxygen-boast and current oxygen.
     else if (it.first == Resources::OXYGEN) {
-      it.second.first += oxygen_boast_* faktor(100, total_oxygen_, resource_curve_) * 1;
+      it.second.first += oxygen_boast_* Faktor(100, total_oxygen_) * 1;
       total_oxygen_ = bound_oxygen_ + it.second.first;
     }
     // Add other resources based on current oxygen.
     else if (it.second.second)
-      it.second.first += log(cur_oxygen+1) * faktor(70, it.second.first, resource_curve_) * 1;
+      it.second.first += log(cur_oxygen+1) * Faktor(70, it.second.first) * 1;
 
+    // Add iron (every 2.5sec and randomly.
     auto cur_time = std::chrono::steady_clock::now();
     if (utils::get_elapsed(last_iron_, cur_time) > 2500) {
       if (utils::getrandom_int(0, cur_oxygen*0.75) == 0)
@@ -195,10 +185,7 @@ bool Player::DistributeIron(int resource) {
     oxygen_boast_++;
     resources_[Resources::IRON].first--;
   }
-  else if (resources_[Resources::IRON].first < 2) {
-    return false;
-  }
-  else if (resources_[resource].second) {
+  else if (resources_[Resources::IRON].first < 2 || resources_[resource].second) {
     return false;
   }
   else {
@@ -210,10 +197,11 @@ bool Player::DistributeIron(int resource) {
 
 Costs Player::CheckResources(int unit) {
   std::shared_lock sl(mutex_resources_);
-  // get costs for desired unit
+  // Get costs for desired unit
   Costs needed = initial_costs_.at(unit);
-  std::map<int, double> missing;
 
+  // Check costs and add to missing.
+  std::map<int, double> missing;
   for (const auto& it : needed) {
     if (resources_.at(it.first).first < it.second) 
       missing[it.first] = it.second - resources_.at(it.first).first;
@@ -230,90 +218,117 @@ void Player::TakeResources(Costs costs) {
   }
 }
 
-void Player::AddDefenceTower(Position pos) {
-  // Take resources.
-  TakeResources(initial_costs_.at(Units::ACTIVATEDNEURON));
+void Player::AddNeuron(Position pos, int neuron) {
+  std::unique_lock ul(mutex_all_neurons_);
+  TakeResources(initial_costs_.at(neuron));
+  all_neurons_.insert(pos);
 
-  AddBuilding(pos);
-  std::unique_lock ul_def(mutex_defence_towers_);
-  defence_towers_[pos] = ActivatedNeuron(pos);
+  if (neuron == Units::ACTIVATEDNEURON)
+    activated_neurons_[pos] = ActivatedNeuron(pos);
+  else if (neuron == Units::SYNAPSE)
+    synapses_[pos] = Synapse(pos);
 }
 
-void Player::AddSoldier(Position pos, std::list<Position> way) {
+void Player::AddPotential(Position pos, std::list<Position> way, int unit) {
   // Take resources.
-  TakeResources(initial_costs_.at(Units::EPSP));
+  TakeResources(initial_costs_.at(unit));
 
   // Add soldier
-  std::unique_lock ul(mutex_soldiers_);
-  soldiers_[create_id()] = Epsp(pos, way);
+  std::unique_lock ul(mutex_potentials_);
+  if (unit == Units::EPSP)
+    epsps_[utils::create_id()] = Epsp(pos, way);
+  else if (unit == Units::IPSP)
+    ipsps_[utils::create_id()] = Ipsp(pos, way, 5);
 }
 
-void Player::AddBarrack(Position pos) {
-  // Take resources.
-  TakeResources(initial_costs_.at(Units::SYNAPSE));
-
-  // Add barrack
-  AddBuilding(pos);
-  std::unique_lock ul(mutex_soldiers_);
-  barracks_[pos] = Synapse(pos);
-}
-
-int Player::MoveSoldiers(Position enemy_den) {
+int Player::MovePotential(Position target_neuron, Player* enemy) {
   // Move soldiers along the way to it's target and check if target is reached.
-  std::shared_lock sl_soldier(mutex_soldiers_);
-  std::vector<std::string> soldiers_to_remove;
+  std::shared_lock sl_potenial(mutex_potentials_);
+  std::vector<std::string> potential_to_remove;
   auto cur_time = std::chrono::steady_clock::now();
+
+  // Move epsps and collect damage.
   int damage = 0;
-  for (auto& it : soldiers_) {
-    // Only move soldier, if way not empty and recharge is done.
+  for (auto& it : epsps_) {
+    // Only move potential, if way not empty and recharge is done.
     if (it.second.way_.size() > 0 && utils::get_elapsed(it.second.last_action_, cur_time) > it.second.speed_) {
       it.second.pos_ = it.second.way_.front(); 
       it.second.way_.pop_front();
-      if (it.second.pos_ == enemy_den) {
+      if (it.second.pos_ == target_neuron) {
         damage+=it.second.attack_;  // add potential to damage.
-        soldiers_to_remove.push_back(it.first); // remove 
+        potential_to_remove.push_back(it.first); // remove 
       }
-      it.second.last_action_ = cur_time;  // soldier did action, so update last_action_.
+      it.second.last_action_ = cur_time;  // potential did action, so update last_action_.
     }
   }
-  sl_soldier.unlock();
-  // Remove soldiers which have reached it's target.
-  std::unique_lock ul_soldier(mutex_soldiers_);
-  for (const auto& it : soldiers_to_remove) 
-    soldiers_.erase(it);
+
+  // Move ipsps.
+  for (auto& it : ipsps_) {
+    // Move potential if not already at target position.
+    if (it.second.pos_ != target_neuron && it.second.way_.size() > 0) {
+      it.second.pos_ = it.second.way_.front(); 
+      it.second.way_.pop_front();
+    }
+    // Otherwise, check if waiting time is up.
+    else if (utils::get_elapsed(it.second.last_action_, cur_time) > it.second.duration_*1000) {
+      enemy->SetBlockForNeuron(target_neuron, Units::ACTIVATEDNEURON, false);
+      potential_to_remove.push_back(it.first); // remove 
+    }
+    else if (it.second.pos_ == target_neuron) {
+      enemy->SetBlockForNeuron(target_neuron, Units::ACTIVATEDNEURON, true);
+    }
+  }
+  sl_potenial.unlock();
+
+  // Remove potential which has reached it's target.
+  std::unique_lock ul_potential(mutex_potentials_);
+  for (const auto& it : potential_to_remove) {
+    if (epsps_.count(it) > 0)
+      epsps_.erase(it);
+    else if (ipsps_.count(it) > 0)
+      ipsps_.erase(it);
+  }
   return damage;
 }
 
-void Player::RemoveSoldier(std::string id) {
-  std::unique_lock ul(mutex_soldiers_);
-  if (soldiers_.count(id) > 0)
-    soldiers_.erase(id);
+void Player::SetBlockForNeuron(Position pos, int unit, bool blocked) {
+  std::unique_lock ul(mutex_all_neurons_);
+  if (unit == Units::ACTIVATEDNEURON && activated_neurons_.count(pos) > 0) {
+    activated_neurons_[pos].blocked_ = blocked;
+  }
 }
 
 void Player::HandleDef(Player* enemy) {
-  std::shared_lock sl(mutex_units_and_buildings_);
+  std::shared_lock sl(mutex_all_neurons_);
   auto cur_time = std::chrono::steady_clock::now();
-  for (auto& tower : defence_towers_) {
+  for (auto& activated_neuron : activated_neurons_) {
     // Check if tower's recharge is done.
-    if (utils::get_elapsed(tower.second.last_action_, cur_time) > tower.second.speed_) {
-      std::string dead_soldier = "";
-      for (const auto& potential : enemy->soldier()) {
-        int distance = utils::dist(tower.first, potential.second.pos_);
+    if (utils::get_elapsed(activated_neuron.second.last_action_, cur_time) > activated_neuron.second.speed_) {
+      for (const auto& potential : enemy->epsps()) {
+        int distance = utils::dist(activated_neuron.first, potential.second.pos_);
         if (distance < 3) {
-          if (enemy->DamageSoldier(potential.first))
-            dead_soldier = potential.first;
-          tower.second.last_action_ = cur_time;  // tower did action, so update last_action_.
-          break;  // break loop, since every tower can destroy only one soldier.
+          // Decrease potential and removes potential if potential is down to zero.
+          enemy->NeutalizePotential(potential.first);
+          activated_neuron.second.last_action_ = cur_time;  // tower did action, so update last_action_.
+          break;  // break loop, since every activated neuron only neutralizes one potential.
         }
       }
-      enemy->RemoveSoldier(dead_soldier);
     }
+  }
+}
+
+void Player::NeutalizePotential(std::string id) {
+  std::unique_lock ul(mutex_potentials_);
+  if (epsps_.count(id) > 0) {
+    epsps_[id].attack_--;
+    if (epsps_[id].attack_ == 0)
+      epsps_.erase(id);
   }
 }
 
 bool Player::IsSoldier(Position pos) {
-  std::shared_lock sl(mutex_soldiers_);
-  for (const auto& it : soldiers_) {
+  std::shared_lock sl(mutex_potentials_);
+  for (const auto& it : epsps_) {
     if (it.second.pos_ == pos)
       return true;
   }
@@ -324,19 +339,12 @@ bool Player::IsActivatedResource(int resource) {
   return resources_.at(resource).second;
 }
 
-bool Player::DecreaseDenLp(int val) {
-  std::unique_lock ul(mutex_den_);
-  den_.lp_ += val;
-  if (den_.lp_ >= den_.max_lp_)
-    return true;
-  return false;
-}
-
-std::string create_id() {
-  std::string id = "";
-  for (int i=0; i<10; i++) {
-    int ran = rand() % 9;
-    id += std::to_string(ran);
+bool Player::IncreaseNeuronPotential(int val, int neuron) {
+  std::unique_lock ul(mutex_nucleus_);
+  if (neuron == Units::NUCLEUS) {
+    nucleus_.lp_ += val;
+    if (nucleus_.lp_ >= nucleus_.max_lp_)
+      return true;
   }
-  return id;
+  return false;
 }

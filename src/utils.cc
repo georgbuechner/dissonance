@@ -20,6 +20,16 @@ int utils::getrandom_int(int min, int max) {
   return ran;
 }
 
+std::string utils::create_id() {
+  std::string id = "";
+  for (int i=0; i<10; i++) {
+    int ran = rand() % 9;
+    id += std::to_string(ran);
+  }
+  return id;
+
+}
+
 std::vector<std::vector<std::string>> utils::LoadWelcome() {
   return {
     {
@@ -47,6 +57,34 @@ std::vector<std::vector<std::string>> utils::LoadWelcome() {
       "When disonance starts, rember you should boast oxygen and activate production of glutamate, to start defending yourself.",
       "Also keep in mind, that there are to kinds of potential: ",
       "epsp (strong in attack) and ipsp (blocks buildings); you should start with epsp."
+    }
+  };
+}
+
+std::vector<std::vector<std::string>> utils::LoadHelp() {
+  return {
+    {
+      "##### HELP #####",
+      "",
+      "--- costs ----", 
+      "activate neuron: oxygen=8.9, glutamate=19.1",
+      "synapse: oxygen=13.4, potassium=6.6",
+      "epsp: potassium=4.4",
+      "ipsp: potassium=3.4, chloride=6.8",
+    },
+    {
+      "##### HELP #####",
+      "",
+      "--- tips ----", 
+      "Iron is used to boast oxygen production (1 iron per boast) or to start gaining new resources (2 iron per new resource).",
+      "Iron is gained in relation to you oxygen-level: more oxygen = less iron per second",
+      "",
+      "You should start invensting into activate neurons to defend yourself: for this you need oxygen and glutamate.",
+      "",
+      "To start building units, you first need to build a synapse.",
+      "EPSP aimes to destroy enemy buildings, while IPSP blocks buildings.",
+      "",
+      "Also rember you gain resources from FREE oxygen. The more bound oxygen you have, then less resources you gain!"
     }
   };
 }
