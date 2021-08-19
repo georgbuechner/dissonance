@@ -55,7 +55,7 @@ void Game::play() {
   PrintCentered(utils::LoadWelcome());
 
   // Select difficulty
-  difficulty_ = SelectInteger("Select difficulty", {1, 2, 3, 4, 5, 6, 7, 8, 9});
+  difficulty_ = SelectInteger("Select difficulty", false, {1, 2, 3, 4, 5, 6, 7, 8, 9});
 
   DistributeIron();
 
@@ -192,9 +192,7 @@ void Game::GetPlayerChoice() {
         if (pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
-          // PrintMessage("Added ibsp at synapse @" + utils::PositionToString(pos), false);
           Position target = player_two_->activated_neurons().begin()->second.pos_;
-          // PrintMessage("Added ibsp with target: " + utils::PositionToString(target), false);
           std::list<Position> way = field_->GetWayForSoldier(pos, target);
           PrintMessage("created isps with target=: " + utils::PositionToString(target), false);
           player_one_->AddPotential(pos, way, Units::IPSP);
@@ -232,6 +230,27 @@ void Game::GetPlayerChoice() {
         }
         PrintMessage(res, res!="");
       }
+    }
+
+    // T: Technology
+    else if (choice == 'T') {
+      pause_ = true;
+      std::vector<int> options;
+      std::map<int, std::string> mapping;
+      for (const auto& it : player_one_->technologies()) {
+        if (it.second.first < it.second.second) {
+          options.push_back(it.first);
+          mapping[it.first] += technology_name_mapping.at(it.first) 
+            + "(" + utils::PositionToString(it.second) + ")";
+        }
+      }
+
+      int technology = SelectInteger("Select technology", true, options, mapping);
+      if (player_one_->AddTechnology(technology))
+        PrintMessage("selected: " + technology_name_mapping.at(technology), false);
+      else if (technology != -1)
+        PrintMessage("Not enough resources or inavlid selection", true);
+      pause_ = false;
     }
 
     else if (choice == 'E') {
@@ -324,14 +343,14 @@ void Game::DistributeIron() {
     PrintCentered(LINES/2-1, msg);
 
     auto resources = player_one_->resources();
-    std::map<int, std::string> selection = {{Resources::OXYGEN, "oxygen-boast"}};
+    std::map<int, std::string> selection = {{Resources::OXYGEN, "oxygen-boast c=FE"}};
     for (const auto& it : resources) {
       if (it.first!= Resources::IRON && !it.second.second)
-        selection[it.first] = resources_name_mapping.at(it.first);
+        selection[it.first] = resources_name_mapping.at(it.first) + " c=FE2";
     }
     std::string options = "";
     for (const auto& it : selection) {
-      options += it.second + "(" + std::to_string(it.first) + ")    ";
+      options += it.second + " (" + std::to_string(it.first) + ")    ";
     }
     PrintCentered(LINES/2+1, options);
 
@@ -351,7 +370,8 @@ void Game::DistributeIron() {
   }
 }
 
-int Game::SelectInteger(std::string msg, std::vector<int> options) {
+int Game::SelectInteger(std::string msg, bool omit, 
+    std::vector<int> options, std::map<int, std::string> mapping) {
   ClearField();
   bool end = false;
   while (!end) {
@@ -359,6 +379,8 @@ int Game::SelectInteger(std::string msg, std::vector<int> options) {
     std::string availible_options = "";
     for (const auto& option : options) {
       availible_options+= std::to_string(option);
+      if (mapping.count(option) > 0)
+        availible_options += ": " + mapping[option];
       availible_options+= "    ";
     }
     PrintCentered(LINES/2-1, msg);
@@ -367,7 +389,9 @@ int Game::SelectInteger(std::string msg, std::vector<int> options) {
 
     // Get choice.
     char choice = getch();
-    if (std::find(options.begin(), options.end(), choice-48) != options.end())
+    if (choice == 'q' && omit)
+      end = true;
+    else if (std::find(options.begin(), options.end(), choice-48) != options.end())
       return choice-48;
     else 
       PrintCentered(LINES/2+5, "Wrong selection.");

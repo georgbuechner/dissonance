@@ -73,6 +73,11 @@ Player::Player(Position nucleus_pos, int iron) : cur_range_(4), resource_curve_(
     { Resources::DOPAMINE, {0, false}},
     { Resources::SEROTONIN, {0, false}},
   };
+  technologies_ = {
+    {Technology::WAY, {0,3}},
+    {Technology::SWARM, {0,3}},
+    {Technology::TARGET, {0,3}},
+  };
 }
 
 std::string Player::GetCurrentStatusLineA() {
@@ -146,6 +151,11 @@ int Player::iron() {
 std::map<int, Resource> Player::resources() {
   std::shared_lock sl(mutex_resources_);
   return resources_;
+}
+
+std::map<int, TechXOf> Player::technologies() {
+  std::shared_lock sl(mutex_technologies_);
+  return technologies_;
 }
 
 // setter 
@@ -253,6 +263,15 @@ void Player::AddPotential(Position pos, std::list<Position> way, int unit) {
   }
 }
 
+bool Player::AddTechnology(int technology) {
+  std::unique_lock ul(mutex_technologies_);
+  if (technologies_.count(technology) > 0) {
+    technologies_[technology].first++;
+    return true;
+  }
+  return false;
+}
+
 int Player::MovePotential(Position target_neuron, Player* enemy) {
   // Move soldiers along the way to it's target and check if target is reached.
   std::shared_lock sl_potenial(mutex_potentials_);
@@ -328,6 +347,16 @@ void Player::HandleDef(Player* enemy) {
           break;  // break loop, since every activated neuron only neutralizes one potential.
         }
       }
+      for (const auto& potential : enemy->ipsps()) {
+        int distance = utils::dist(activated_neuron.first, potential.second.pos_);
+        if (distance < 3) {
+          // Decrease potential and removes potential if potential is down to zero.
+          enemy->NeutalizePotential(potential.first);
+          activated_neuron.second.last_action_ = cur_time;  // tower did action, so update last_action_.
+          break;  // break loop, since every activated neuron only neutralizes one potential.
+        }
+      }
+
     }
   }
 }
@@ -338,6 +367,11 @@ void Player::NeutalizePotential(std::string id) {
     epsps_[id].attack_--;
     if (epsps_[id].attack_ == 0)
       epsps_.erase(id);
+  }
+  if (ipsps_.count(id) > 0) {
+    ipsps_[id].attack_--;
+    if (ipsps_[id].attack_ == 0)
+      ipsps_.erase(id);
   }
 }
 

@@ -15,6 +15,7 @@
 typedef std::vector<std::vector<std::string>> Paragraphs;
 typedef std::pair<int, int> Position;
 typedef std::pair<double, bool> Resource;
+typedef std::pair<int, int> TechXOf;
 typedef const std::map<int, double> Costs;
 
 class Player {
@@ -40,6 +41,7 @@ class Player {
     int iron();
     int resource_curve();
     std::map<int, Resource> resources();
+    std::map<int, TechXOf> technologies();
 
     // setter
     void set_resource_curve(int resource_curve);
@@ -91,6 +93,8 @@ class Player {
      * @param[in] unit should be either ESPS or IPSP.
      */
     void AddPotential(Position pos, std::list<Position> way, int unit);
+
+    bool AddTechnology(int technology);
 
     /**
      * Moves every potential forward and if it's target is reached, potential is
@@ -158,6 +162,9 @@ class Player {
     std::set<Position> all_neurons_;  ///< simple set, to check whether position belongs to player.
     std::map<Position, Synapse> synapses_;
     std::map<Position, ActivatedNeuron> activated_neurons_;
+
+    std::shared_mutex mutex_technologies_;
+    std::map<int, TechXOf> technologies_;
 
     // methods
     void TakeResources(Costs costs);

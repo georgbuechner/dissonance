@@ -226,8 +226,8 @@ void Field::PrintField(Player* player, Player* enemy) {
       if (std::find(highlight_.begin(), highlight_.end(), cur) != highlight_.end())
         attron(COLOR_PAIR(COLOR_HIGHLIGHT));
       // IPSP is on enemy neuron -> cyan.
-      else if ((player->neurons().count(cur) > 0 && enemy->IsSoldier(cur, Units::IPSP))
-        || (enemy->neurons().count(cur) > 0 && player->IsSoldier(cur, Units::IPSP)))
+      else if ((player->activated_neurons().count(cur) > 0 && player->activated_neurons().at(cur).blocked_)
+          || (enemy->activated_neurons().count(cur) > 0 && enemy->activated_neurons().at(cur).blocked_))
           attron(COLOR_PAIR(COLOR_RESOURCES));
       // both players -> cyan
       else if (enemy->IsSoldier(cur) && player->IsSoldier(cur))

@@ -52,6 +52,7 @@ const std::map<int, std::string> resources_name_mapping = {
   {SEROTONIN, "serotonin"},
   {NUCLEUS, "nucleus"},
 };
+
 const std::map<std::string, int> resources_symbol_mapping = {
   {SYMBOL_IRON, IRON},
   {SYMBOL_OXYGEN, OXYGEN},
@@ -63,5 +64,16 @@ const std::map<std::string, int> resources_symbol_mapping = {
   {SYMBOL_DEN, NUCLEUS},
 };
 
+enum Technology {
+  WAY = 1,
+  SWARM,
+  TARGET,
+};
+
+const std::map<int, std::string> technology_name_mapping = {
+  {WAY,"chose way"},
+  {SWARM,"swarm attacks"},
+  {TARGET,"chose target"}
+};
 
 #endif
