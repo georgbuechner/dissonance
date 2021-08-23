@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <list>
+#include <vector>
 
 #include "codes.h"
 
@@ -45,11 +46,20 @@ struct Neuron : Unit {
  * - lp (derived from Neuron)
  */
 struct Synapse : Neuron {
+  bool swarm_;
+  int max_stored_;
   int stored_;
-  int target_;
+  
+  Position epsp_target_;
+  Position ipsp_target_;
+
+  unsigned int availible_ways_;
+  std::vector<Position> ways_;
 
   Synapse() : Neuron() {}
-  Synapse(Position pos) : Neuron(pos, 5, Units::SYNAPSE) {}
+  Synapse(Position pos, int max_stored, int availible_ways, Position epsp_target, Position ipsp_target) : 
+      Neuron(pos, 5, UnitsTech::SYNAPSE), swarm_(false), max_stored_(max_stored), 
+      stored_(0), epsp_target_(epsp_target), ipsp_target_(ipsp_target), availible_ways_(availible_ways) {}
 };
 
 /** 
@@ -64,7 +74,7 @@ struct ActivatedNeuron : Neuron {
   std::chrono::time_point<std::chrono::steady_clock> last_action_; 
 
   ActivatedNeuron() : Neuron() {}
-  ActivatedNeuron(Position pos) : Neuron(pos, 17, Units::ACTIVATEDNEURON), speed_(700), 
+  ActivatedNeuron(Position pos) : Neuron(pos, 17, UnitsTech::ACTIVATEDNEURON), speed_(700), 
     last_action_(std::chrono::steady_clock::now()) {}
 };
 
@@ -77,7 +87,7 @@ struct ActivatedNeuron : Neuron {
  */
 struct Nucleus : Neuron {
   Nucleus() : Neuron() {}
-  Nucleus(Position pos) : Neuron(pos, 9, Units::NUCLEUS) {}
+  Nucleus(Position pos) : Neuron(pos, 9, UnitsTech::NUCLEUS) {}
 };
 
 /**
@@ -86,14 +96,14 @@ struct Nucleus : Neuron {
  * - pos (derived from Unit)
  */
 struct Potential : Unit {
-  int attack_;
+  int potential_;
   int speed_;  ///< lower number means higher speed.
   std::chrono::time_point<std::chrono::steady_clock> last_action_; 
   std::list<Position> way_;
 
   Potential() : Unit(), speed_(999), last_action_(std::chrono::steady_clock::now()) {}
   Potential(Position pos, int attack, std::list<Position> way, int speed, int type) 
-    : Unit(pos, type), attack_(attack), speed_(speed), 
+    : Unit(pos, type), potential_(attack), speed_(speed), 
     last_action_(std::chrono::steady_clock::now()), way_(way) {}
 };
 
@@ -108,7 +118,8 @@ struct Potential : Unit {
  */
 struct Epsp : Potential {
   Epsp() : Potential() {}
-  Epsp(Position pos, std::list<Position> way) : Potential(pos, 2, way, 370, Units::EPSP) {}
+  Epsp(Position pos, std::list<Position> way, int potential_boast, int speed_boast) 
+    : Potential(pos, 2+potential_boast, way, 370-speed_boast, UnitsTech::EPSP) {}
 };
 
 /**
@@ -124,8 +135,9 @@ struct Ipsp: Potential {
   int duration_;
 
   Ipsp() : Potential() {}
-  Ipsp(Position pos, std::list<Position> way, int duration) : Potential(pos, 1, way, 420, Units::IPSP), 
-    duration_(duration) {}
+  Ipsp(Position pos, std::list<Position> way, int potential_boast, int speed_boast, int duration_boast) 
+    : Potential(pos, 3+potential_boast, way, 420-speed_boast, UnitsTech::IPSP), 
+    duration_(4+duration_boast) {}
 };
 
 #endif

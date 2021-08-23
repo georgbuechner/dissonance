@@ -88,7 +88,8 @@ class Game {
     void PrintCentered(Paragraphs paragraphs);
     void PrintCentered(int line, std::string txt);
 
-    int SelectInteger(std::string msg, bool omit, std::vector<int>, std::map<int, std::string> mapping={});
+    int SelectInteger(std::string msg, bool omit, std::vector<int>, std::map<int, std::string> mapping={},
+        std::vector<int> splits = {});
 
     void ClearField();
 

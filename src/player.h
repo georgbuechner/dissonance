@@ -10,13 +10,15 @@
 #include <vector>
 
 #include "codes.h"
+#include "costs.h"
 #include "units.h"
+
+using namespace costs;
 
 typedef std::vector<std::vector<std::string>> Paragraphs;
 typedef std::pair<int, int> Position;
 typedef std::pair<double, bool> Resource;
 typedef std::pair<int, int> TechXOf;
-typedef const std::map<int, double> Costs;
 
 class Player {
   public:
@@ -45,8 +47,15 @@ class Player {
 
     // setter
     void set_resource_curve(int resource_curve);
+    void set_iron(int iron);
 
     // methods:
+    
+    void ResetWayForSynapse(Position pos, Position way_position);
+    void AddWayPosForSynapse(Position pos, Position way_position);
+    void SwitchSwarmAttack(Position pos);
+    void ChangeIpspTargetForSynapse(Position pos, Position target_pos);
+    void ChangeEpspTargetForSynapse(Position pos, Position target_pos);
    
     /**
      * Show current status (resources, gatherers, den-lp ...)
@@ -79,7 +88,7 @@ class Player {
      * @param[in] pos position of newly added neurons.
      * @param[in] neuron (unit).
      */
-    void AddNeuron(Position pos, int neuron);
+    void AddNeuron(Position pos, int neuron, Position epsp_target={-1, -1}, Position ipsp_target={-1, -1});
 
     /**
      * Adds new potential and sets it's current position and the way to it's
@@ -97,10 +106,10 @@ class Player {
     /**
      * Moves every potential forward and if it's target is reached, potential is
      * increased and the potential is removed.
-     * @param[in] target_pos position of targeted enemy neuron.
+     * @param[in] enemy 
      * @return potential transfered to the target.
      */
-    int MovePotential(Position target_pos, Player* enemy);
+    int MovePotential(Player* enemy);
 
     void SetBlockForNeuron(Position pos, int unit, bool block);
 
@@ -138,10 +147,14 @@ class Player {
      */
     bool IncreaseNeuronPotential(int potential, int neuron);
 
+    Synapse GetSynapse(Position pos);
+
   private: 
     int cur_range_;
     int resource_curve_;
     int oxygen_boast_;
+    int max_oxygen_;
+    int max_resources_;
     double total_oxygen_;
     double bound_oxygen_;
     std::map<int, Resource> resources_;

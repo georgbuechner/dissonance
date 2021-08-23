@@ -24,12 +24,22 @@ enum ViewRange {
   RANGE = 2,
 };
 
-enum Units {
+enum UnitsTech {
   ACTIVATEDNEURON = 0,
   SYNAPSE,
   EPSP,
   IPSP,
   NUCLEUS, 
+
+  WAY,
+  SWARM,
+  TARGET,
+  TOTAL_OXYGEN, 
+  TOTAL_RESOURCE, 
+  CURVE,
+  POTENIAL,
+  SPEED,
+  DURATION,
 };
 
 enum Resources {
@@ -64,16 +74,21 @@ const std::map<std::string, int> resources_symbol_mapping = {
   {SYMBOL_DEN, NUCLEUS},
 };
 
-enum Technology {
-  WAY = 1,
-  SWARM,
-  TARGET,
-};
-
-const std::map<int, std::string> technology_name_mapping = {
+const std::map<int, std::string> units_tech_mapping = {
+  {ACTIVATEDNEURON, "activated neuron"},
+  {SYNAPSE, "synapse"},
+  {EPSP, "epsp"},
+  {IPSP, "ipsp"},
+  {NUCLEUS, "nucleus"},
   {WAY,"chose way"},
   {SWARM,"swarm attacks"},
-  {TARGET,"chose target"}
+  {TARGET,"chose target"},
+  {TOTAL_OXYGEN, "Increase total oxygen"},
+  {TOTAL_RESOURCE, "Increase total of one rersource"},
+  {CURVE, "lower rersource curve slowdown"},
+  {POTENIAL, "Increase potential"},
+  {SPEED, "Increase speed of potentials"},
+  {DURATION, "Increase ipsp duration"},
 };
 
 #endif

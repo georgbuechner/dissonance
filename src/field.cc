@@ -175,9 +175,9 @@ std::list<Position> Field::GetWayForSoldier(Position start_pos, Position target_
 
 void Field::AddNewUnitToPos(Position pos, int unit) {
   std::unique_lock ul_field(mutex_field_);
-  if (unit == Units::ACTIVATEDNEURON)
+  if (unit == UnitsTech::ACTIVATEDNEURON)
     field_[pos.first][pos.second] = SYMBOL_DEF;
-  else if (unit == Units::SYNAPSE)
+  else if (unit == UnitsTech::SYNAPSE)
     field_[pos.first][pos.second] = SYMBOL_BARACK;
 }
 

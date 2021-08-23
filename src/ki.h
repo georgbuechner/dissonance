@@ -42,19 +42,19 @@ class Ki {
 
       // Add extra stating resources to ki.
       for (int i=0; i<2*difficulty; i++) 
-         ki_->IncreaseResources();
+        ki_->IncreaseResources();
 
       // Increase update-frequency depending on difficulty.
-      update_frequency_ -= 1000*difficulty;
+      update_frequency_ -= 1000*(difficulty-1);
     }
     
     // methods
     void UpdateKi(Field* field) {
-      if (ki_->CheckResources(Units::SYNAPSE).size() == 0)
+      if (ki_->CheckResources(UnitsTech::SYNAPSE).size() == 0)
         CreateSynapses(field);
       if (ki_->resources().at(Resources::POTASSIUM).first > attacks_.front())
         CreateEpsp(field);
-      if (ki_->CheckResources(Units::ACTIVATEDNEURON).size() == 0)
+      if (ki_->CheckResources(UnitsTech::ACTIVATEDNEURON).size() == 0)
         CreateActivatedNeuron(field);
       if (ki_->iron() > 0)
         DistributeIron(field);
@@ -79,8 +79,8 @@ class Ki {
     void CreateSynapses(Field* field) {
       if (ki_->synapses().size() == 0) {
         auto pos = field->FindFree(ki_->nucleus_pos().first, ki_->nucleus_pos().second, 1, 5);
-        ki_->AddNeuron(pos, Units::SYNAPSE);
-        field->AddNewUnitToPos(pos, Units::SYNAPSE);
+        ki_->AddNeuron(pos, UnitsTech::SYNAPSE, player_one_->nucleus_pos());
+        field->AddNewUnitToPos(pos, UnitsTech::SYNAPSE);
       }
     }
 
@@ -88,7 +88,7 @@ class Ki {
       // Check that atleast one synapses exists.
       if (ki_->synapses().size() > 0) {
         auto synapse_pos = ki_->synapses().begin()->first;
-        while (ki_->CheckResources(Units::EPSP).size() == 0) {
+        while (ki_->CheckResources(UnitsTech::EPSP).size() == 0) {
           auto cur_time_b = std::chrono::steady_clock::now(); 
           if (utils::get_elapsed(last_potential_, cur_time_b) > new_potential_frequency_) 
             last_potential_ = std::chrono::steady_clock::now();
@@ -96,7 +96,7 @@ class Ki {
             continue;
           auto pos = field->GetNewSoldierPos(synapse_pos);
           auto way = field->GetWayForSoldier(synapse_pos, player_one_->nucleus_pos());
-          ki_->AddPotential(pos, way, Units::EPSP);
+          ki_->AddPotential(pos, way, UnitsTech::EPSP);
         }
         if (attacks_.size() > 1)
           attacks_.pop_front();
@@ -109,8 +109,8 @@ class Ki {
         if (!(ki_->activated_neurons().size() > 0 && ki_->synapses().size() == 0)
             || ki_->resources().at(Resources::OXYGEN).first > 40) {
           auto pos = field->FindFree(ki_->nucleus_pos().first, ki_->nucleus_pos().second, 1, 5);
-          field->AddNewUnitToPos(pos, Units::ACTIVATEDNEURON);
-          ki_->AddNeuron(pos, Units::ACTIVATEDNEURON);
+          field->AddNewUnitToPos(pos, UnitsTech::ACTIVATEDNEURON);
+          ki_->AddNeuron(pos, UnitsTech::ACTIVATEDNEURON);
         }
       }
     }
