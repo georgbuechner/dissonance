@@ -237,7 +237,7 @@ void Player::TakeResources(Costs costs) {
   }
 }
 
-void Player::AddNeuron(Position pos, int neuron) {
+void Player::AddNeuron(Position pos, int neuron, Position target) {
   std::unique_lock ul(mutex_all_neurons_);
   TakeResources(initial_costs_.at(neuron));
   all_neurons_.insert(pos);
@@ -245,7 +245,8 @@ void Player::AddNeuron(Position pos, int neuron) {
   if (neuron == Units::ACTIVATEDNEURON)
     activated_neurons_[pos] = ActivatedNeuron(pos);
   else if (neuron == Units::SYNAPSE)
-    synapses_[pos] = Synapse(pos);
+    synapses_[pos] = Synapse(pos, technologies_.at(Technology::SWARM).first,
+       true, technologies_.at(Technology::WAY).first, target);
 }
 
 void Player::AddPotential(Position pos, std::list<Position> way, int unit) {
@@ -404,4 +405,9 @@ bool Player::IncreaseNeuronPotential(int val, int neuron) {
       return true;
   }
   return false;
+}
+
+Synapse Player::GetSynapse(Position pos) {
+  std::shared_lock sl(mutex_all_neurons_);
+  return synapses_.at(pos);
 }

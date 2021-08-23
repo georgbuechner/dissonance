@@ -81,7 +81,7 @@ class Player {
      * @param[in] pos position of newly added neurons.
      * @param[in] neuron (unit).
      */
-    void AddNeuron(Position pos, int neuron);
+    void AddNeuron(Position pos, int neuron, Position target={-1, -1});
 
     /**
      * Adds new potential and sets it's current position and the way to it's
@@ -139,6 +139,8 @@ class Player {
      * @return whether neuron is destroyed.
      */
     bool IncreaseNeuronPotential(int potential, int neuron);
+
+    Synapse GetSynapse(Position pos);
 
   private: 
     int cur_range_;

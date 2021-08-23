@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <list>
+#include <vector>
 
 #include "codes.h"
 
@@ -45,11 +46,19 @@ struct Neuron : Unit {
  * - lp (derived from Neuron)
  */
 struct Synapse : Neuron {
+  int max_stored_;
   int stored_;
+  
+  bool enable_select_target_;
   int target_;
 
+  int availible_ways_;
+  std::vector<Position> ways_;
+
   Synapse() : Neuron() {}
-  Synapse(Position pos) : Neuron(pos, 5, Units::SYNAPSE) {}
+  Synapse(Position pos, int max_stored, bool enable_select_target, int availible_ways, 
+      Position target) : Neuron(pos, 5, Units::SYNAPSE), max_stored_(max_stored), stored_(0),
+      enable_select_target_(enable_select_target), availible_ways_(availible_ways), ways_({target}) {}
 };
 
 /** 

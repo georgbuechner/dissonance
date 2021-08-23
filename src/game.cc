@@ -209,7 +209,7 @@ void Game::GetPlayerChoice() {
       else {
         Position pos = SelectPosition(player_one_->nucleus_pos(), player_one_->cur_range());
         if (pos.first != -1) {
-          player_one_->AddNeuron(pos, Units::SYNAPSE);
+          player_one_->AddNeuron(pos, Units::SYNAPSE, player_two_->nucleus_pos());
           field_->AddNewUnitToPos(pos, Units::SYNAPSE);
         }
         PrintMessage(res, res!="");
@@ -244,13 +244,22 @@ void Game::GetPlayerChoice() {
             + "(" + utils::PositionToString(it.second) + ")";
         }
       }
-
       int technology = SelectInteger("Select technology", true, options, mapping);
       if (player_one_->AddTechnology(technology))
         PrintMessage("selected: " + technology_name_mapping.at(technology), false);
       else if (technology != -1)
         PrintMessage("Not enough resources or inavlid selection", true);
       pause_ = false;
+    }
+
+    else if (choice == 's') {
+      auto pos = SelectBarack(player_one_);
+      if (pos.first == -1)
+        PrintMessage("Invalid choice!", true);
+      else {
+        Synapse synapse = player_one_->GetSynapse(pos);
+        int free_ways = synapse.availible_ways_;
+      }
     }
 
     else if (choice == 'E') {
@@ -263,13 +272,12 @@ void Game::GetPlayerChoice() {
 
 Position Game::SelectPosition(Position start, int range) {
   bool end = false;
-  int choice;
   Position new_pos = {0, 0};
   field_->set_highlight({start});
   field_->set_range(range);
   
   while(!game_over_ && !end) {
-    choice = getch();
+    int choice = getch();
     new_pos = field_->highlight().front();
 
     switch (choice) {

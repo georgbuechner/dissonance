@@ -41,8 +41,8 @@ class Ki {
       ki_->DistributeIron(Resources::GLUTAMATE);
 
       // Add extra stating resources to ki.
-      // for (int i=0; i<2*difficulty; i++) 
-      //   ki_->IncreaseResources();
+      for (int i=0; i<2*difficulty; i++) 
+        ki_->IncreaseResources();
 
       // Increase update-frequency depending on difficulty.
       update_frequency_ -= 1000*difficulty;
@@ -79,7 +79,7 @@ class Ki {
     void CreateSynapses(Field* field) {
       if (ki_->synapses().size() == 0) {
         auto pos = field->FindFree(ki_->nucleus_pos().first, ki_->nucleus_pos().second, 1, 5);
-        ki_->AddNeuron(pos, Units::SYNAPSE);
+        ki_->AddNeuron(pos, Units::SYNAPSE, player_one_->nucleus_pos());
         field->AddNewUnitToPos(pos, Units::SYNAPSE);
       }
     }

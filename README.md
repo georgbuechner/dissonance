@@ -60,11 +60,17 @@ current voltage level determines how fast technologies are researched.
 
 
 #### Tech
-| name            | description   | steps |
-|:---------------:|---------------| ------ |
-| choose way | chose one neuron the potential passes for each available step; applicable to each synapse separately | 1, 2, 3 steps |
-| swarm attack | potential waits till a certain amount is reached before advancing to the target; activate/ deactivate for each synapse separately | 5, 10, 15 potentials |
-| chose target | allows a synapse to specify a target | 1, 3, all synapse can use this ability |
+| name            | type | description   | steps |
+|:---------------:|------|--------| ------ |
+| choose way | attack | chose one neuron the potential passes for each available step; applicable to each synapse separately. | 1, 2, 3 steps |
+| swarm attack | attack | potential waits till a certain amount is reached before advancing to the target; activate/ deactivate for each synapse separately | 5, 10, 15 potentials |
+| chose target | attack | allows a synapse to specify a target | 1, 3, all synapse can use this ability |
+| total oxygen | resources | increases maximum oxygen | 120, 140, 160 |
+| lower curve | resources | lower curve effekt when gaining resources | 3, 2, 1 |
+| stored voltage | potential-upgrade | increases voltage in one potential | +1, +2, +3 |
+| speed | potential-upgrade | increases speed of ipsp and epsp | +20ms, +40ms, +60ms |
+| ipsp duration | potential-upgrade | increases duration of ipsp in enemy neuron | 100ms, 200ms 
+
 
 #### Questions
 - how does voltage increase (suggestions: binding oxygen, destroying enemy
