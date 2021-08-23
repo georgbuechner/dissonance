@@ -80,27 +80,25 @@ Player::Player(Position nucleus_pos, int iron) : cur_range_(4), resource_curve_(
   };
 }
 
-std::string Player::GetCurrentStatusLineA() {
+std::vector<std::string> Player::GetCurrentStatusLine() {
   std::scoped_lock scoped_lock(mutex_resources_);
-  return "Iron " SYMBOL_IRON ": " + std::to_string(resources_.at(Resources::IRON).first)
-    + ", oxygen boast: " + std::to_string(oxygen_boast_)
-    + ", total oxygen " SYMBOL_OXYGEN ": " + std::to_string(total_oxygen_)
-    + ", bound oxygen: " + std::to_string(bound_oxygen_)
-    + ", oxygen: " + std::to_string(resources_.at(Resources::OXYGEN).first);
-}
-
-std::string Player::GetCurrentStatusLineB() {
-  std::scoped_lock scoped_lock(mutex_resources_);
-  return "potassium " SYMBOL_POTASSIUM ": " + std::to_string(resources_.at(Resources::POTASSIUM).first)
-    + ", chloride " SYMBOL_CHLORIDE ": " + std::to_string(resources_.at(Resources::CHLORIDE).first)
-    + ", glutamate " SYMBOL_GLUTAMATE ": " + std::to_string(resources_.at(Resources::GLUTAMATE).first)
-    + ", dopamine " SYMBOL_DOPAMINE ": " + std::to_string(resources_.at(Resources::DOPAMINE).first)
-    + ", serotonin " SYMBOL_SEROTONIN ": " + std::to_string(resources_.at(Resources::SEROTONIN).first);
-}
-
-std::string Player::GetCurrentStatusLineC() {
-  std::shared_lock sl(mutex_nucleus_);
-  return "nucleus " SYMBOL_DEN " potential: " + std::to_string(nucleus_.lp_) + "/" + std::to_string(nucleus_.max_lp_);
+  std::string end = ": ";
+  return { 
+    "RESOURCES",
+    "",
+    "Iron " SYMBOL_IRON + end, std::to_string(resources_.at(Resources::IRON).first), "",
+    "oxygen boast: ", std::to_string(oxygen_boast_), "",
+    "resource curve slowdown: ", std::to_string(resource_curve_), "",
+    "total oxygen " SYMBOL_OXYGEN + end, std::to_string(total_oxygen_), "",
+    "bound oxygen: ", std::to_string(bound_oxygen_), "",
+    "oxygen: ", std::to_string(resources_.at(Resources::OXYGEN).first), "",
+    "potassium " SYMBOL_POTASSIUM + end, std::to_string(resources_.at(Resources::POTASSIUM).first), "",
+    "chloride " SYMBOL_CHLORIDE + end, std::to_string(resources_.at(Resources::CHLORIDE).first), "",
+    "glutamate " SYMBOL_GLUTAMATE + end, std::to_string(resources_.at(Resources::GLUTAMATE).first), "",
+    "dopamine " SYMBOL_DOPAMINE + end, std::to_string(resources_.at(Resources::DOPAMINE).first), "",
+    "serotonin " SYMBOL_SEROTONIN + end, std::to_string(resources_.at(Resources::SEROTONIN).first), "",
+    "nucleus " SYMBOL_DEN " potential" + end, std::to_string(nucleus_.lp_) + "/" + std::to_string(nucleus_.max_lp_),
+  };
 }
 
 // getter 
@@ -201,8 +199,12 @@ bool Player::DistributeIron(int resource) {
     return false;
   }
   else if (resource == Resources::OXYGEN) {
-    oxygen_boast_++;
-    resources_[Resources::IRON].first--;
+    if (resources_.at(Resources::IRON).first > 0) {
+      oxygen_boast_++;
+      resources_[Resources::IRON].first--;
+    }
+    else 
+      return false;
   }
   else if (resources_[Resources::IRON].first < 2 || resources_[resource].second) {
     return false;

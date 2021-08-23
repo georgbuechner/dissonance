@@ -51,9 +51,7 @@ class Player {
     /**
      * Show current status (resources, gatherers, den-lp ...)
      */
-    std::string GetCurrentStatusLineA();
-    std::string GetCurrentStatusLineB();
-    std::string GetCurrentStatusLineC();
+    std::vector<std::string> GetCurrentStatusLine();
 
     /** 
      * Increase all resources by set amount.

@@ -29,7 +29,7 @@ class Ki {
       update_frequency_ = 20000;
       max_activated_neurons_ = 3;
 
-      attacks_ = {10, 10, 20, 40, 30, 40, 50};
+      attacks_ = {10, 10, 10, 10, 20, 10, 40, 30, 40, 50};
 
       last_potential_ = std::chrono::steady_clock::now(); 
       last_update_ = std::chrono::steady_clock::now(); 
@@ -41,8 +41,8 @@ class Ki {
       ki_->DistributeIron(Resources::GLUTAMATE);
 
       // Add extra stating resources to ki.
-      // for (int i=0; i<2*difficulty; i++) 
-      //   ki_->IncreaseResources();
+      for (int i=0; i<2*difficulty; i++) 
+         ki_->IncreaseResources();
 
       // Increase update-frequency depending on difficulty.
       update_frequency_ -= 1000*difficulty;

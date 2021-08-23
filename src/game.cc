@@ -17,14 +17,14 @@
 #include "utils.h"
 #include "ki.h"
 
-#define HELP "epsp [e], ipsp [i], tech [t] | activate neuron [A], build synapse [S] | Distribute Iron [E] | Help [h] | pause [space] quit [q]"
+#define HELP "[e]psp, [i]psp | [A]ctivate neuron, build [S]ynapse | [d]istribute iron, [s]elect synapse | [h]elp | pause [space], [q]uit"
 #define COLOR_DEFAULT 3
 #define COLOR_ERROR 2 
 #define COLOR_MSG 4
 
 #define LINE_HELP 8
 #define LINE_STATUS LINES-9
-#define LINE_MSG LINES-6
+#define LINE_MSG LINES-9
 
 #define RESOURCE_UPDATE_FREQUENCY 500
 #define UPDATE_FREQUENCY 50
@@ -253,7 +253,7 @@ void Game::GetPlayerChoice() {
       pause_ = false;
     }
 
-    else if (choice == 'E') {
+    else if (choice == 'd') {
       pause_ = true;
       DistributeIron();
       pause_= false; 
@@ -415,9 +415,11 @@ void Game::PrintFieldAndStatus() {
   std::unique_lock ul(mutex_print_field_);
   mvaddstr(LINE_HELP, 10, HELP);
   field_->PrintField(player_one_, player_two_);
-  PrintCentered(LINE_STATUS, player_one_->GetCurrentStatusLineA().c_str());
-  PrintCentered(LINE_STATUS+1, player_one_->GetCurrentStatusLineB().c_str());
-  PrintCentered(LINE_STATUS+2, player_one_->GetCurrentStatusLineC().c_str());
+  
+  auto lines = player_one_->GetCurrentStatusLine();
+  for (unsigned int i=0; i<lines.size(); i++) {
+    mvaddstr(10+i, COLS-28, lines[i].c_str());
+  }
 
   std::string msg = "Enemy nucleus potential " + std::to_string(player_two_->nucleus_potential()) + "/9";
   PrintCentered(2, msg.c_str());
@@ -441,6 +443,7 @@ void Game::SetGameOver(std::string msg) {
 }
 
 void Game::PrintCentered(Paragraphs paragraphs) {
+  std::unique_lock ul(mutex_print_field_);
   for (const auto& paragraph : paragraphs) {
     refresh();
     clear();
@@ -460,6 +463,7 @@ void Game::PrintCentered(int line, std::string txt) {
 }
 
 void Game::ClearField() {
+  std::unique_lock ul(mutex_print_field_);
   clear();
   refresh();
 }

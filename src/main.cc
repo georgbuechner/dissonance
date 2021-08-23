@@ -31,7 +31,7 @@ int main(void) {
   init_pair(6, COLOR_MAGENTA, -1);
 
   // initialize game.
-  Game game((LINES-20), (COLS-20) / 2);
+  Game game((LINES-20), (COLS-40) / 2);
 
   // start game
   game.play();
