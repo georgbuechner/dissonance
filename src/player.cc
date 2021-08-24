@@ -311,7 +311,7 @@ int Player::MovePotential(Player* enemy) {
       it.second.pos_ = it.second.way_.front(); 
       it.second.way_.pop_front();
       if (it.second.way_.size() == 0) {
-        damage+=it.second.potential_;  // add potential to damage.
+        enemy->AddPotentialToNeuron(it.second.pos_, it.second.potential_);
         potential_to_remove.push_back(it.first); // remove 
       }
       it.second.last_action_ = cur_time;  // potential did action, so update last_action_. 
@@ -405,6 +405,29 @@ void Player::NeutalizePotential(std::string id) {
       mvaddstr(3, 0, msg.c_str());
       ipsps_.erase(id);
     }
+  }
+}
+
+void Player::AddPotentialToNeuron(Position pos, int potential) {
+  std::unique_lock ul_all_neurons(mutex_all_neurons_);
+  std::unique_lock ul_nucleus(mutex_nucleus_);
+  if (synapses_.count(pos) > 0) {
+    synapses_[pos].lp_ += potential;
+    if (synapses_[pos].lp_ >= synapses_[pos].max_lp_) {
+      synapses_.erase(pos);
+      all_neurons_.erase(pos);
+    }
+  }
+  else if (activated_neurons_.count(pos) > 0) {
+    activated_neurons_[pos].lp_ += potential;
+    if (activated_neurons_[pos].lp_ >= activated_neurons_[pos].max_lp_) {
+      activated_neurons_.erase(pos);
+      all_neurons_.erase(pos);
+    }
+
+  }
+  else if (nucleus_.pos_.first == pos.first || nucleus_.pos_.first == pos.second) {
+    nucleus_.lp_ += potential;
   }
 }
 

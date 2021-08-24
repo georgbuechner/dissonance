@@ -95,7 +95,9 @@ class Ki {
           else 
             continue;
           auto pos = field->GetNewSoldierPos(synapse_pos);
-          auto way = field->GetWayForSoldier(synapse_pos, player_one_->nucleus_pos());
+          auto way_points = ki_->GetSynapse(synapse_pos).ways_; 
+          way_points.push_back(ki_->GetSynapse(synapse_pos).epsp_target_);
+          auto way = field->GetWayForSoldier(synapse_pos, way_points);
           ki_->AddPotential(pos, way, UnitsTech::EPSP);
         }
         if (attacks_.size() > 1)

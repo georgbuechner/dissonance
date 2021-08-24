@@ -125,6 +125,8 @@ class Player {
      * @param id of potential.
      */
     void NeutalizePotential(std::string id);
+
+    void AddPotentialToNeuron(Position pos, int potential);
  
     /**
      * Checks if a potential on the map belongs to this player.

@@ -184,8 +184,9 @@ void Game::GetPlayerChoice() {
           PrintMessage("Invalid choice!", true);
         else {
           PrintMessage("Added epsp at synapse @" + utils::PositionToString(pos), false);
-          Position target = player_one_->GetSynapse(pos).epsp_target_;
-          std::list<Position> way = field_->GetWayForSoldier(pos, target);
+          auto way_points = player_one_->GetSynapse(pos).ways_;
+          way_points.push_back(player_one_->GetSynapse(pos).epsp_target_);
+          std::list<Position> way = field_->GetWayForSoldier(pos, way_points);
           player_one_->AddPotential(pos, way, UnitsTech::EPSP);
         }
       }
@@ -201,7 +202,9 @@ void Game::GetPlayerChoice() {
           PrintMessage("Invalid choice!", true);
         else {
           Position target = player_one_->GetSynapse(pos).ipsp_target_;
-          std::list<Position> way = field_->GetWayForSoldier(pos, target);
+          auto way_points = player_one_->GetSynapse(pos).ways_;
+          way_points.push_back(player_one_->GetSynapse(pos).ipsp_target_);
+          std::list<Position> way = field_->GetWayForSoldier(pos, way_points);
           PrintMessage("created isps with target=: " + utils::PositionToString(target), false);
           player_one_->AddPotential(pos, way, UnitsTech::IPSP);
         }
@@ -310,11 +313,28 @@ void Game::GetPlayerChoice() {
         }
 
         int choice = SelectInteger("What to do?", true, options, mapping_option_to_desc);
-        if (choice == 1) {
-          auto new_target_pos = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
-          player_one_->ChangeIpspTargetForSynapse(pos, new_target_pos);
+        if (mapping_option_to_func.count(choice) > 0) {
+          if (mapping_option_to_func[choice] == 1) {
+            auto new_way_point = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
+            player_one_->ResetWayForSynapse(pos, new_way_point);
+          }
+          else if (mapping_option_to_func[choice] == 2) {
+            auto new_way_point = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
+            player_one_->AddWayPosForSynapse(pos, new_way_point);
+          }
+          else if (mapping_option_to_func[choice] == 3) {
+            auto new_target_pos = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
+            player_one_->ChangeIpspTargetForSynapse(pos, new_target_pos);
+          }
+          else if (mapping_option_to_func[choice] == 4) {
+            auto new_target_pos = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
+            player_one_->ChangeEpspTargetForSynapse(pos, new_target_pos);
+          }
+          PrintMessage("Selected choice: " + std::to_string(choice), false);
         }
-        PrintMessage("Selected choice: " + std::to_string(choice), false);
+        else {
+          PrintMessage("Invalid choice: " + std::to_string(choice), true);
+        }
       }
     }
 

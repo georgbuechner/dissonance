@@ -92,7 +92,7 @@ class Field {
      * @param target_pos target position.
      * @return list of positions.
      */ 
-    std::list<Position> GetWayForSoldier(Position start_pos, Position target_pos);
+    std::list<Position> GetWayForSoldier(Position start_pos, std::vector<Position> way_points);
 
     /** 
      * Finds the next free position near a given position with min and max

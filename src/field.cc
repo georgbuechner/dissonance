@@ -169,8 +169,15 @@ Position Field::GetNewSoldierPos(Position pos) {
   return new_pos;
 }
 
-std::list<Position> Field::GetWayForSoldier(Position start_pos, Position target_pos) {
-  return graph_.find_way(start_pos, target_pos);
+std::list<Position> Field::GetWayForSoldier(Position start_pos, std::vector<Position> way_points) {
+  std::list<Position> way = {start_pos};
+  for (const auto& it : way_points) {
+    auto cur_start = way.back();
+    way.pop_back();
+    auto new_part = graph_.find_way(cur_start, it);
+    way.insert(way.end(), new_part.begin(), new_part.end());
+  }
+  return way;
 }
 
 void Field::AddNewUnitToPos(Position pos, int unit) {
