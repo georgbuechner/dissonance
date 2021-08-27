@@ -138,6 +138,8 @@ class Field {
      */
     void UpdateField(Player* player, std::vector<std::vector<std::string>>& field);
 
+    bool CheckCollidingPotentials(Position pos, Player* player_one, Player* player_two);
+
     /**
      * Gets x in range, returning 0 if x<min, max ist x > max, and x otherwise.
      * @param x position to check

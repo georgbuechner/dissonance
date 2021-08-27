@@ -37,9 +37,11 @@ enum UnitsTech {
   TOTAL_OXYGEN, 
   TOTAL_RESOURCE, 
   CURVE,
-  POTENIAL,
-  SPEED,
-  DURATION,
+  ATK_POTENIAL,
+  ATK_SPEED,
+  ATK_DURATION,
+  DEF_POTENTIAL,
+  DEF_SPEED,
 };
 
 enum Resources {
@@ -86,9 +88,11 @@ const std::map<int, std::string> units_tech_mapping = {
   {TOTAL_OXYGEN, "Increase total oxygen"},
   {TOTAL_RESOURCE, "Increase total of one rersource"},
   {CURVE, "lower rersource curve slowdown"},
-  {POTENIAL, "Increase potential"},
-  {SPEED, "Increase speed of potentials"},
-  {DURATION, "Increase ipsp duration"},
+  {ATK_POTENIAL, "Increase potential"},
+  {ATK_SPEED, "Increase speed of potentials"},
+  {ATK_DURATION, "Increase ipsp duration"},
+  {DEF_POTENTIAL, "Increase potential of activated neuron"},
+  {DEF_SPEED, "Increase cooldown of activated neuron"},
 };
 
 #endif

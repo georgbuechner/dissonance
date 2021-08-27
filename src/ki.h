@@ -5,11 +5,14 @@
 #include "field.h"
 #include "player.h"
 #include "utils.h"
+#include <algorithm>
 #include <chrono>
+#include <iterator>
 #include <list>
 #include <mutex>
 #include <shared_mutex>
 #include <vector>
+#include <random>
 
 #define MIN_POTENTIAL_FREQUENCY 50
 #define MAX_ACTIVATED_NEURONS 8
@@ -30,6 +33,15 @@ class Ki {
       max_activated_neurons_ = 3;
 
       attacks_ = {10, 10, 10, 10, 20, 10, 40, 30, 40, 50};
+      technologies_.insert(technologies_.end(), UnitsTech::CURVE, 2);
+      technologies_.insert(technologies_.end(), UnitsTech::TOTAL_RESOURCE, 2);
+      technologies_.insert(technologies_.end(), UnitsTech::ATK_POTENIAL, 3);
+      technologies_.insert(technologies_.end(), UnitsTech::ATK_SPEED, 3);
+      technologies_.insert(technologies_.end(), UnitsTech::ATK_DURATION, 3);
+      technologies_.insert(technologies_.end(), UnitsTech::DEF_POTENTIAL, 3);
+      technologies_.insert(technologies_.end(), UnitsTech::DEF_SPEED, 3);
+      auto rng = std::default_random_engine {};
+      std::shuffle(std::begin(technologies_), std::begin(technologies_), rng);
 
       last_potential_ = std::chrono::steady_clock::now(); 
       last_update_ = std::chrono::steady_clock::now(); 
@@ -69,6 +81,7 @@ class Ki {
     int new_potential_frequency_;  ///< determins how fast potential is added once resources are reached.
     int update_frequency_; 
     std::list<int> attacks_;  ///< determins how many resources to gather before launching an attack.
+    std::vector<int> technologies_;  ///< determins how many resources to gather before launching an attack.
     unsigned int max_activated_neurons_;  ///< determins maximum number of towers
 
     std::chrono::time_point<std::chrono::steady_clock> last_potential_;
@@ -94,11 +107,7 @@ class Ki {
             last_potential_ = std::chrono::steady_clock::now();
           else 
             continue;
-          auto pos = field->GetNewSoldierPos(synapse_pos);
-          auto way_points = ki_->GetSynapse(synapse_pos).ways_; 
-          way_points.push_back(ki_->GetSynapse(synapse_pos).epsp_target_);
-          auto way = field->GetWayForSoldier(synapse_pos, way_points);
-          ki_->AddPotential(pos, way, UnitsTech::EPSP);
+          ki_->AddPotential(synapse_pos, field, UnitsTech::EPSP);
         }
         if (attacks_.size() > 1)
           attacks_.pop_front();
@@ -118,10 +127,18 @@ class Ki {
     }
 
     void DistributeIron(Field* field) {
-      if (ki_->IsActivatedResource(Resources::POTASSIUM))
+      if (ki_->oxygen_boast() > ki_->max_oxygen()-5 
+          && ki_->technologies().at(UnitsTech::TOTAL_OXYGEN).first 
+          >= ki_->technologies().at(UnitsTech::TOTAL_OXYGEN).second)
+        ki_->AddTechnology(UnitsTech::TOTAL_OXYGEN);
+      else if (ki_->IsActivatedResource(Resources::POTASSIUM))
         ki_->DistributeIron(Resources::OXYGEN);
       else if (ki_->iron() == 2)
         ki_->DistributeIron(Resources::POTASSIUM);
+      if (ki_->oxygen_boast() > 5) {
+        ki_->AddTechnology(technologies_.back());
+        technologies_.pop_back();
+      }
     }
 
     void Update() {

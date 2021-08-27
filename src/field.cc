@@ -170,11 +170,14 @@ Position Field::GetNewSoldierPos(Position pos) {
 }
 
 std::list<Position> Field::GetWayForSoldier(Position start_pos, std::vector<Position> way_points) {
+  std::map<int, Position> sorted_way;
+  for (const auto& it : way_points) 
+    sorted_way[lines_+cols_-utils::dist(it, way_points.back())] = it;
   std::list<Position> way = {start_pos};
-  for (const auto& it : way_points) {
+  for (const auto& it : sorted_way) {
     auto cur_start = way.back();
     way.pop_back();
-    auto new_part = graph_.find_way(cur_start, it);
+    auto new_part = graph_.find_way(cur_start, it.second);
     way.insert(way.end(), new_part.begin(), new_part.end());
   }
   return way;
@@ -218,6 +221,26 @@ void Field::UpdateField(Player *player, std::vector<std::vector<std::string>>& f
   }
 }
 
+bool Field::CheckCollidingPotentials(Position pos, Player* player_one, Player* player_two) {
+  std::string id_one = player_one->IsSoldier(pos);
+  std::string id_two = player_two->IsSoldier(pos);
+  // Not colliding potentials as at atleast one position there is no potential.
+  if (id_one == "" || id_two != "")
+    return false;
+
+  if (player_one->epsps().count(id_one) > 0 && player_two->ipsps().count(id_two) > 0) {
+    player_one->NeutralizePotential(id_one, 1);
+    player_two->NeutralizePotential(id_two, -1); // -1 increase potential.
+  }
+  else if (player_one->ipsps().count(id_one) > 0 && player_two->epsps().count(id_two) > 0) {
+    player_one->NeutralizePotential(id_one, -1);
+    player_two->NeutralizePotential(id_two, 1); // -1 increase potential.
+    // std::string msg = "Reduced potential to: " + std::to_string(player_two->epsps().at(id_two).potential_);
+    // mvaddstr(0, 0, msg.c_str());
+  }
+  return true;
+}
+
 void Field::PrintField(Player* player, Player* enemy) {
   std::shared_lock sl_field(mutex_field_);
   auto field = field_;
@@ -237,13 +260,13 @@ void Field::PrintField(Player* player, Player* enemy) {
           || (enemy->activated_neurons().count(cur) > 0 && enemy->activated_neurons().at(cur).blocked_))
           attron(COLOR_PAIR(COLOR_RESOURCES));
       // both players -> cyan
-      else if (enemy->IsSoldier(cur) && player->IsSoldier(cur))
+      else if (CheckCollidingPotentials(cur, player, enemy))
         attron(COLOR_PAIR(COLOR_RESOURCES));
       // player 2 -> red
-      else if (enemy->neurons().count(cur) > 0 || enemy->IsSoldier(cur))
+      else if (enemy->neurons().count(cur) > 0 || enemy->IsSoldier(cur) != "")
         attron(COLOR_PAIR(COLOR_PLAYER));
       // player 1 -> blue 
-      else if (player->neurons().count(cur) > 0 || player->IsSoldier(cur))
+      else if (player->neurons().count(cur) > 0 || player->IsSoldier(cur) != "")
         attron(COLOR_PAIR(COLOR_KI));
       // resources -> cyan
       else if (resources_symbol_mapping.count(field[l][c]) > 0) {

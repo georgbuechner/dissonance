@@ -107,7 +107,7 @@ namespace costs {
         {Resources::SEROTONIN, 11.2}
       }
     },
-    {UnitsTech::POTENIAL, {
+    {UnitsTech::ATK_POTENIAL, {
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
@@ -116,7 +116,7 @@ namespace costs {
         {Resources::SEROTONIN, 11.2}
       }
     },
-    {UnitsTech::SPEED, {
+    {UnitsTech::ATK_SPEED, {
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
@@ -125,7 +125,7 @@ namespace costs {
         {Resources::SEROTONIN, 9.2}
       }
     },
-    {UnitsTech::DURATION, {
+    {UnitsTech::ATK_DURATION, {
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 

@@ -95,13 +95,13 @@ void Game::DoActions() {
 
     if (utils::get_elapsed(last_update, cur_time) > UPDATE_FREQUENCY) {
       // Move player soldiers and check if enemy den's lp is down to 0.
-      int damage = player_one_->MovePotential(player_two_);
-      if (player_two_->IncreaseNeuronPotential(damage, UnitsTech::NUCLEUS)) {
+      player_one_->MovePotential(player_two_);
+      if (player_two_->HasLost()) {
         SetGameOver("YOU WON");
         break;
       }
-      damage = player_two_->MovePotential(player_one_);
-      if (player_one_->IncreaseNeuronPotential(damage, UnitsTech::NUCLEUS)) {
+      player_two_->MovePotential(player_one_);
+      if (player_one_->HasLost()) {
         SetGameOver("YOU LOST");
         break;
       }
@@ -183,11 +183,8 @@ void Game::GetPlayerChoice() {
         if (pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
-          PrintMessage("Added epsp at synapse @" + utils::PositionToString(pos), false);
-          auto way_points = player_one_->GetSynapse(pos).ways_;
-          way_points.push_back(player_one_->GetSynapse(pos).epsp_target_);
-          std::list<Position> way = field_->GetWayForSoldier(pos, way_points);
-          player_one_->AddPotential(pos, way, UnitsTech::EPSP);
+          PrintMessage("Added epsp @synapse " + utils::PositionToString(pos), false);
+          player_one_->AddPotential(pos, field_, UnitsTech::EPSP);
         }
       }
     }
@@ -201,12 +198,8 @@ void Game::GetPlayerChoice() {
         if (pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
-          Position target = player_one_->GetSynapse(pos).ipsp_target_;
-          auto way_points = player_one_->GetSynapse(pos).ways_;
-          way_points.push_back(player_one_->GetSynapse(pos).ipsp_target_);
-          std::list<Position> way = field_->GetWayForSoldier(pos, way_points);
-          PrintMessage("created isps with target=: " + utils::PositionToString(target), false);
-          player_one_->AddPotential(pos, way, UnitsTech::IPSP);
+          PrintMessage("created isps @synapse: " + utils::PositionToString(pos), false);
+          player_one_->AddPotential(pos, field_, UnitsTech::IPSP);
         }
       }
     }
@@ -255,7 +248,7 @@ void Game::GetPlayerChoice() {
         mapping[it.first-UnitsTech::NUCLEUS] += units_tech_mapping.at(it.first) 
           + " (" + utils::PositionToString(it.second) + ")";
       }
-      int technology = SelectInteger("Select technology", true, options, mapping, {4, 7})+UnitsTech::NUCLEUS;
+      int technology = SelectInteger("Select technology", true, options, mapping, {4, 7, 10})+UnitsTech::NUCLEUS;
       if (player_one_->AddTechnology(technology))
         PrintMessage("selected: " + units_tech_mapping.at(technology), false);
       else if (technology != -1)
@@ -305,9 +298,9 @@ void Game::GetPlayerChoice() {
         if (swarm > 0) {
           options.push_back(++counter);
           if (synapse.swarm_)
-            mapping_option_to_desc[counter] = "Turn swarm-attack on";
-          else 
             mapping_option_to_desc[counter] = "Turn swarm-attack off";
+          else 
+            mapping_option_to_desc[counter] = "Turn swarm-attack on";
           mapping_option_to_func[counter] = 5;
           mapping_option_to_desc[counter] += " (currently " + std::to_string(synapse.max_stored_) + ").";
         }
@@ -329,6 +322,9 @@ void Game::GetPlayerChoice() {
           else if (mapping_option_to_func[choice] == 4) {
             auto new_target_pos = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
             player_one_->ChangeEpspTargetForSynapse(pos, new_target_pos);
+          }
+          else if (mapping_option_to_func[choice] == 5) {
+            player_one_->SwitchSwarmAttack(pos);
           }
           PrintMessage("Selected choice: " + std::to_string(choice), false);
         }
@@ -383,7 +379,7 @@ Position Game::SelectPosition(Position start, int range) {
         break;
     }
     // Update highlight only if in range.
-    if (field_->InRange(new_pos, range, player_one_->nucleus_pos())) {
+    if (field_->InRange(new_pos, range, player_one_->nucleus_pos()) || range == ViewRange::GRAPH) {
       field_->set_highlight({new_pos});
       PrintFieldAndStatus();
     }

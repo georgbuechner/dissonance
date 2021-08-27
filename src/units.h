@@ -71,10 +71,13 @@ struct Synapse : Neuron {
  */
 struct ActivatedNeuron : Neuron {
   int speed_;  ///< lower number means higher speed.
+  int potential_slowdown_;
   std::chrono::time_point<std::chrono::steady_clock> last_action_; 
 
   ActivatedNeuron() : Neuron() {}
-  ActivatedNeuron(Position pos) : Neuron(pos, 17, UnitsTech::ACTIVATEDNEURON), speed_(700), 
+  ActivatedNeuron(Position pos, int slowdown_boast, int speed_boast) : 
+    Neuron(pos, 17, UnitsTech::ACTIVATEDNEURON), 
+    speed_(700-speed_boast), potential_slowdown_(1+slowdown_boast), 
     last_action_(std::chrono::steady_clock::now()) {}
 };
 

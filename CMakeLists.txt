@@ -12,19 +12,32 @@ SET(CMAKE_CXX_FLAGS "-Wall -Werror -pthread -lncursesw")
 add_compile_options(-fdiagnostics-color=always)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)
 
-# Add source files to create textadventure
+# Add source files needed for tests and game
 set(SRC_FILES
-    src/main.cc
-    src/field.cc
-    src/game.cc
-    src/player.cc
-    src/utils.cc
+  src/field.cc
+  src/game.cc
+  src/player.cc
+  src/utils.cc
 )
 
-add_executable(game ${SRC_FILES})
+# Add soruce files needed for game only
+set(SRC_FILES_GAME 
+  src/main.cc 
+  ${SRC_FILES}
+)
+
+# Add source files for testing only
+set(SRC_FILES_TEST
+  test/test_utils.cc
+  test/test_field.cc
+  ${SRC_FILES}
+)
+
+add_executable(game ${SRC_FILES_GAME})
+add_executable(tests ${SRC_FILES_TEST})
 
 target_link_libraries(game PUBLIC ${CONAN_LIBS})
+target_link_libraries(tests PUBLIC ${CONAN_LIBS})
 
-target_include_directories(game PUBLIC
-  "src"
-)
+target_include_directories(game PUBLIC "src")
+target_include_directories(tests PUBLIC "src", "test")

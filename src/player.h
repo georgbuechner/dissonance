@@ -13,6 +13,8 @@
 #include "costs.h"
 #include "units.h"
 
+class Field;
+
 using namespace costs;
 
 typedef std::vector<std::vector<std::string>> Paragraphs;
@@ -42,6 +44,9 @@ class Player {
     int cur_range();
     int iron();
     int resource_curve();
+    int bound_oxygen();
+    int max_oxygen();
+    int oxygen_boast();
     std::map<int, Resource> resources();
     std::map<int, TechXOf> technologies();
 
@@ -51,6 +56,8 @@ class Player {
 
     // methods:
     
+    bool HasLost();
+
     void ResetWayForSynapse(Position pos, Position way_position);
     void AddWayPosForSynapse(Position pos, Position way_position);
     void SwitchSwarmAttack(Position pos);
@@ -99,7 +106,7 @@ class Player {
      * @param[in] way to the enemies neuron.
      * @param[in] unit should be either ESPS or IPSP.
      */
-    void AddPotential(Position pos, std::list<Position> way, int unit);
+    void AddPotential(Position pos, Field* field, int unit);
 
     bool AddTechnology(int technology);
 
@@ -109,7 +116,7 @@ class Player {
      * @param[in] enemy 
      * @return potential transfered to the target.
      */
-    int MovePotential(Player* enemy);
+    void MovePotential(Player* enemy);
 
     void SetBlockForNeuron(Position pos, int unit, bool block);
 
@@ -124,7 +131,7 @@ class Player {
      * Decrease potential and removes potential if potential is down to zero.
      * @param id of potential.
      */
-    void NeutalizePotential(std::string id);
+    void NeutralizePotential(std::string id, int potential);
 
     void AddPotentialToNeuron(Position pos, int potential);
  
@@ -132,7 +139,7 @@ class Player {
      * Checks if a potential on the map belongs to this player.
      * @param[in] pos position to check for.
      */
-    bool IsSoldier(Position pos, int unit=-1);
+    std::string IsSoldier(Position pos, int unit=-1);
 
     /** 
      * Checks if a resource is activated.
