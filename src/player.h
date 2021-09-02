@@ -36,6 +36,7 @@ class Player {
     // getter:
     std::map<std::string, Epsp> epsps();
     std::map<std::string, Ipsp> ipsps();
+    std::map<Position, Nucleus> all_nucleus();
     std::map<Position, Synapse> synapses();
     std::map<Position, ActivatedNeuron> activated_neurons();
     std::set<Position> neurons();
@@ -88,7 +89,7 @@ class Player {
      * @return missing resources for this unit. Empty if all needed resources
      * are availible.
      */
-    Costs CheckResources(int unit);
+    Costs GetMissingResources(int unit, int boast=1);
 
     /**
      * Adds a newly create neuron to list of all neurons.
@@ -134,12 +135,14 @@ class Player {
     void NeutralizePotential(std::string id, int potential);
 
     void AddPotentialToNeuron(Position pos, int potential);
+
+    void CheckNeuronsAfterNexusDies();
  
     /**
-     * Checks if a potential on the map belongs to this player.
+     * Returns id of potential iof unit at given position is potential.
      * @param[in] pos position to check for.
      */
-    std::string IsSoldier(Position pos, int unit=-1);
+    std::string GetPotentialIdIfPotential(Position pos, int unit=-1);
 
     /** 
      * Checks if a resource is activated.
@@ -169,6 +172,8 @@ class Player {
     std::map<int, Resource> resources_;
     std::shared_mutex mutex_resources_;
 
+    std::map<Position, Nucleus> all_nucleus_;
+
     std::chrono::time_point<std::chrono::steady_clock> last_iron_; 
 
     std::shared_mutex mutex_nucleus_;
@@ -187,7 +192,7 @@ class Player {
     std::map<int, TechXOf> technologies_;
 
     // methods
-    void TakeResources(Costs costs);
+    void TakeResources(Costs costs, int boast=1);
     double Faktor(int limit, double cur);
 };
 

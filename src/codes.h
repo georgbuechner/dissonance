@@ -42,6 +42,7 @@ enum UnitsTech {
   ATK_DURATION,
   DEF_POTENTIAL,
   DEF_SPEED,
+  NUCLEUS_RANGE,
 };
 
 enum Resources {
@@ -73,7 +74,6 @@ const std::map<std::string, int> resources_symbol_mapping = {
   {SYMBOL_GLUTAMATE, GLUTAMATE},
   {SYMBOL_DOPAMINE, DOPAMINE},
   {SYMBOL_SEROTONIN, SEROTONIN},
-  {SYMBOL_DEN, NUCLEUS},
 };
 
 const std::map<int, std::string> units_tech_mapping = {
@@ -93,6 +93,7 @@ const std::map<int, std::string> units_tech_mapping = {
   {ATK_DURATION, "Increase ipsp duration"},
   {DEF_POTENTIAL, "Increase potential of activated neuron"},
   {DEF_SPEED, "Increase cooldown of activated neuron"},
+  {NUCLEUS_RANGE, "Increase cooldown of activated neuron"},
 };
 
 #endif

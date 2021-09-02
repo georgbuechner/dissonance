@@ -4,6 +4,7 @@
 #include "codes.h"
 #include "field.h"
 #include "player.h"
+#include "units.h"
 #include "utils.h"
 #include <algorithm>
 #include <chrono>
@@ -62,11 +63,11 @@ class Ki {
     
     // methods
     void UpdateKi(Field* field) {
-      if (ki_->CheckResources(UnitsTech::SYNAPSE).size() == 0)
+      if (ki_->GetMissingResources(UnitsTech::SYNAPSE).size() == 0)
         CreateSynapses(field);
       if (ki_->resources().at(Resources::POTASSIUM).first > attacks_.front())
         CreateEpsp(field);
-      if (ki_->CheckResources(UnitsTech::ACTIVATEDNEURON).size() == 0)
+      if (ki_->GetMissingResources(UnitsTech::ACTIVATEDNEURON).size() == 0)
         CreateActivatedNeuron(field);
       if (ki_->iron() > 0)
         DistributeIron(field);
@@ -101,7 +102,17 @@ class Ki {
       // Check that atleast one synapses exists.
       if (ki_->synapses().size() > 0) {
         auto synapse_pos = ki_->synapses().begin()->first;
-        while (ki_->CheckResources(UnitsTech::EPSP).size() == 0) {
+        int min_dist = 999;
+        Position target_pos = {-1, -1}; 
+        for (const auto &it : player_one_->all_nucleus()) {
+          int dist = utils::dist(synapse_pos, it.first);
+          if(dist < min_dist) {
+            target_pos = it.first;
+            min_dist = dist;
+          }
+        }
+        ki_->ChangeEpspTargetForSynapse(synapse_pos, target_pos);
+        while (ki_->GetMissingResources(UnitsTech::EPSP).size() == 0) {
           auto cur_time_b = std::chrono::steady_clock::now(); 
           if (utils::get_elapsed(last_potential_, cur_time_b) > new_potential_frequency_) 
             last_potential_ = std::chrono::steady_clock::now();

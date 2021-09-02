@@ -26,6 +26,7 @@ Player::Player(Position nucleus_pos, int iron) : cur_range_(4), resource_curve_(
     oxygen_boast_(0), max_oxygen_(100), max_resources_(70),  total_oxygen_(5.5){
   nucleus_ = Nucleus(nucleus_pos); 
   all_neurons_.insert(nucleus_pos);
+  all_nucleus_[nucleus_pos] = nucleus_;
   resources_ = {
     { Resources::IRON, {iron, false}},
     { Resources::OXYGEN, {5.5, true}},
@@ -47,6 +48,7 @@ Player::Player(Position nucleus_pos, int iron) : cur_range_(4), resource_curve_(
     {UnitsTech::ATK_DURATION, {0,3}},
     {UnitsTech::DEF_POTENTIAL, {0,3}},
     {UnitsTech::DEF_SPEED, {0,3}},
+    {UnitsTech::NUCLEUS_RANGE, {0,3}},
   };
 }
 
@@ -79,6 +81,10 @@ std::map<std::string, Epsp> Player::epsps() {
 std::map<std::string, Ipsp> Player::ipsps() { 
   std::shared_lock sl(mutex_potentials_);
   return ipsps_; 
+}
+std::map<Position, Nucleus> Player::all_nucleus() { 
+  std::shared_lock sl(mutex_all_neurons_);
+  return all_nucleus_; 
 }
 std::map<Position, Synapse> Player::synapses() { 
   std::shared_lock sl(mutex_all_neurons_);
@@ -206,8 +212,8 @@ void Player::IncreaseResources() {
 
     // Add iron (every 2.5sec and randomly.
     auto cur_time = std::chrono::steady_clock::now();
-    if (utils::get_elapsed(last_iron_, cur_time) > 2500) {
-      if (utils::getrandom_int(0, cur_oxygen*0.75) == 0)
+    if (utils::get_elapsed(last_iron_, cur_time) > 2000) {
+      if (utils::getrandom_int(0, cur_oxygen*0.65) == 0)
         resources_[Resources::IRON].first++;
       last_iron_ = cur_time;
     }
@@ -237,7 +243,7 @@ bool Player::DistributeIron(int resource) {
   return true;
 }
 
-Costs Player::CheckResources(int unit) {
+Costs Player::GetMissingResources(int unit, int boast) {
   std::shared_lock sl(mutex_resources_);
   // Get costs for desired unit
   Costs needed = units_costs_.at(unit);
@@ -245,16 +251,16 @@ Costs Player::CheckResources(int unit) {
   // Check costs and add to missing.
   std::map<int, double> missing;
   for (const auto& it : needed) {
-    if (resources_.at(it.first).first < it.second) 
+    if (resources_.at(it.first).first < it.second*boast) 
       missing[it.first] = it.second - resources_.at(it.first).first;
   }
   return missing;
 }
 
-void Player::TakeResources(Costs costs) {
+void Player::TakeResources(Costs costs, int boast) {
   std::unique_lock ul_resources(mutex_resources_);
   for (const auto& it : costs) {
-    resources_[it.first].first -= it.second;
+    resources_[it.first].first -= it.second*boast;
     if (it.first == Resources::OXYGEN)
       bound_oxygen_ += it.second;
   }
@@ -274,21 +280,30 @@ void Player::AddNeuron(Position pos, int neuron, Position epsp_target, Position 
   else if (neuron == UnitsTech::SYNAPSE)
     synapses_[pos] = Synapse(pos, technologies_.at(UnitsTech::SWARM).first*3+1, 
         technologies_.at(UnitsTech::WAY).first, epsp_target, ipsp_target);
+  else if (neuron == UnitsTech::NUCLEUS) {
+    all_nucleus_[pos] = Nucleus(pos);
+    std::shared_lock sl(mutex_resources_);
+    max_oxygen_ += 10;
+    max_resources_ += 10;
+  }
 }
 
-void Player::AddPotential(Position pos, Field* field, int unit) {
+void Player::AddPotential(Position synapes_pos, Field* field, int unit) {
   // Take resources.
   TakeResources(units_costs_.at(unit));
 
   // Get way and target:
   std::shared_lock sl_neurons(mutex_all_neurons_);
-  auto synapse = synapses_.at(pos);
+  auto synapse = synapses_.at(synapes_pos);
+  // Check if synapses is blocked.
+  if (synapse.blocked_)
+    return;
   auto way_points = synapse.ways_;
   if (unit == UnitsTech::EPSP)
     way_points.push_back(synapse.epsp_target_);
   else 
     way_points.push_back(synapse.ipsp_target_);
-  std::list<Position> way = field->GetWayForSoldier(pos, way_points);
+  std::list<Position> way = field->GetWayForSoldier(synapes_pos, way_points);
 
   // Add potential
   std::unique_lock ul(mutex_potentials_);
@@ -299,27 +314,34 @@ void Player::AddPotential(Position pos, Field* field, int unit) {
   sl.unlock();
   if (unit == UnitsTech::EPSP) {
     if (synapse.swarm_) {
-      synapses_[pos].stored_++;
-      if (synapses_.at(pos).stored_ >= synapses_.at(pos).max_stored_) {
-        while (synapses_.at(pos).stored_-- > 0)
-          epsps_[utils::create_id()] = Epsp(pos, way, potential_boast, speed_boast);
+      synapses_[synapes_pos].stored_++;
+      if (synapses_.at(synapes_pos).stored_ >= synapses_.at(synapes_pos).max_stored_) {
+        while (synapses_.at(synapes_pos).stored_-- > 0)
+          epsps_[utils::create_id()] = Epsp(synapes_pos, way, potential_boast, speed_boast);
       }
     }
     else
-      epsps_[utils::create_id()] = Epsp(pos, way, potential_boast, speed_boast);
+      epsps_[utils::create_id()] = Epsp(synapes_pos, way, potential_boast, speed_boast);
   }
   else if (unit == UnitsTech::IPSP)
-    ipsps_[utils::create_id()] = Ipsp(pos, way, potential_boast, speed_boast, duration_boast);
+    ipsps_[utils::create_id()] = Ipsp(synapes_pos, way, potential_boast, speed_boast, duration_boast);
 }
 
 bool Player::AddTechnology(int technology) {
   std::unique_lock ul(mutex_technologies_);
   std::unique_lock ul_resources(mutex_resources_);
   ul_resources.unlock();
+
+  // Check if technology exists
+  if (technologies_.count(technology) == 0)
+    return false;
   
-  // If technology does not exist or is already fully researched.
-  if (technologies_.count(technology) == 0 
-      || technologies_[technology].first == technologies_[technology].second )
+  // Check if missing resources
+  if (GetMissingResources(technology, technologies_[technology].first+1).size() > 0)
+    return false;
+  
+  // Check if is already fully researched
+  if (technologies_[technology].first == technologies_[technology].second)
     return false;
  
   // Handle technology.
@@ -340,6 +362,9 @@ bool Player::AddTechnology(int technology) {
   }
   else if (technology == UnitsTech::CURVE) {
     resource_curve_--;
+  }
+  else if (technology == UnitsTech::NUCLEUS_RANGE) {
+    cur_range_++;
   }
   return true;
 }
@@ -397,13 +422,10 @@ void Player::MovePotential(Player* enemy) {
 
 void Player::SetBlockForNeuron(Position pos, int unit, bool blocked) {
   std::unique_lock ul(mutex_all_neurons_);
-  if (unit == UnitsTech::ACTIVATEDNEURON && activated_neurons_.count(pos) > 0) {
-    if (blocked) 
-      mvaddstr(2, 0, "Neuron blocked");
-    else 
-      mvaddstr(2, 0, "Neuron unblocked");
+  if (unit == UnitsTech::ACTIVATEDNEURON && activated_neurons_.count(pos) > 0)
     activated_neurons_[pos].blocked_ = blocked;
-  }
+  else if (unit == UnitsTech::SYNAPSE && synapses_.count(pos) > 0)
+    synapses_[pos].blocked_ = blocked;
 }
 
 void Player::HandleDef(Player* enemy) {
@@ -466,14 +488,54 @@ void Player::AddPotentialToNeuron(Position pos, int potential) {
       activated_neurons_.erase(pos);
       all_neurons_.erase(pos);
     }
-
   }
-  else if (nucleus_.pos_.first == pos.first || nucleus_.pos_.first == pos.second) {
+  else if (all_nucleus_.count(pos) > 0) {
+    all_nucleus_[pos].lp_ += potential;
+    if (all_nucleus_[pos].lp_ >= all_nucleus_[pos].max_lp_) {
+      all_nucleus_.erase(pos);
+      all_neurons_.erase(pos);
+      ul_all_neurons.unlock();
+      CheckNeuronsAfterNexusDies();
+    }
+  }
+  if (nucleus_.pos_.first == pos.first || nucleus_.pos_.first == pos.second) {
     nucleus_.lp_ += potential;
   }
 }
 
-std::string Player::IsSoldier(Position pos, int unit) {
+void Player::CheckNeuronsAfterNexusDies() {
+  std::shared_lock sl(mutex_all_neurons_);
+  std::vector<Position> activated_neurons_to_remove;
+  for (const auto& activated_neuron : activated_neurons_) {
+    bool in_range = false;
+    for (const auto& nucleus : all_nucleus_) {
+      if (utils::dist(activated_neuron.first, nucleus.first) <= cur_range_)
+        in_range = true;
+    }
+    if (!in_range) activated_neurons_to_remove.push_back(activated_neuron.first);
+  }
+  std::vector<Position> synapses_to_remove;
+  for (const auto& synapses : synapses_) {
+    bool in_range = false;
+    for (const auto& nucleus : all_nucleus_) {
+      if (utils::dist(synapses.first, nucleus.first) <= cur_range_)
+        in_range = true;
+    }
+    if (!in_range) synapses_to_remove.push_back(synapses.first);
+  }
+  sl.unlock();
+  std::unique_lock ul(mutex_all_neurons_);
+  for (const auto& it : activated_neurons_to_remove) {
+    activated_neurons_.erase(it);
+    all_neurons_.erase(it);
+  }
+  for (const auto& it : synapses_to_remove) {
+    synapses_.erase(it);
+    all_neurons_.erase(it);
+  }
+}
+
+std::string Player::GetPotentialIdIfPotential(Position pos, int unit) {
   std::shared_lock sl(mutex_potentials_);
   if (unit == -1 || unit == UnitsTech::EPSP) {
     for (const auto& it : epsps_) {

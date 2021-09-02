@@ -57,6 +57,9 @@ void Field::set_highlight(std::vector<Position> positions) {
 void Field::set_range(int range) {
   range_ = range;
 }
+void Field::set_range_center(Position pos) {
+  range_center_ = pos;
+}
 void Field::set_replace(std::map<Position, char> replacements) {
   replacements_ = replacements;
 }
@@ -189,6 +192,8 @@ void Field::AddNewUnitToPos(Position pos, int unit) {
     field_[pos.first][pos.second] = SYMBOL_DEF;
   else if (unit == UnitsTech::SYNAPSE)
     field_[pos.first][pos.second] = SYMBOL_BARACK;
+  else if (unit == UnitsTech::NUCLEUS)
+    field_[pos.first][pos.second] = SYMBOL_DEN;
 }
 
 void Field::UpdateField(Player *player, std::vector<std::vector<std::string>>& field) {
@@ -222,11 +227,12 @@ void Field::UpdateField(Player *player, std::vector<std::vector<std::string>>& f
 }
 
 bool Field::CheckCollidingPotentials(Position pos, Player* player_one, Player* player_two) {
-  std::string id_one = player_one->IsSoldier(pos);
-  std::string id_two = player_two->IsSoldier(pos);
+  std::string id_one = player_one->GetPotentialIdIfPotential(pos);
+  std::string id_two = player_two->GetPotentialIdIfPotential(pos);
   // Not colliding potentials as at atleast one position there is no potential.
-  if (id_one == "" || id_two != "")
+  if (id_one == "" || id_two == "")
     return false;
+  //mvaddstr(0, 0, "Potential met");
 
   if (player_one->epsps().count(id_one) > 0 && player_two->ipsps().count(id_two) > 0) {
     player_one->NeutralizePotential(id_one, 1);
@@ -235,8 +241,6 @@ bool Field::CheckCollidingPotentials(Position pos, Player* player_one, Player* p
   else if (player_one->ipsps().count(id_one) > 0 && player_two->epsps().count(id_two) > 0) {
     player_one->NeutralizePotential(id_one, -1);
     player_two->NeutralizePotential(id_two, 1); // -1 increase potential.
-    // std::string msg = "Reduced potential to: " + std::to_string(player_two->epsps().at(id_two).potential_);
-    // mvaddstr(0, 0, msg.c_str());
   }
   return true;
 }
@@ -257,16 +261,23 @@ void Field::PrintField(Player* player, Player* enemy) {
         attron(COLOR_PAIR(COLOR_HIGHLIGHT));
       // IPSP is on enemy neuron -> cyan.
       else if ((player->activated_neurons().count(cur) > 0 && player->activated_neurons().at(cur).blocked_)
-          || (enemy->activated_neurons().count(cur) > 0 && enemy->activated_neurons().at(cur).blocked_))
+          || (enemy->activated_neurons().count(cur) > 0 && enemy->activated_neurons().at(cur).blocked_)) {
           attron(COLOR_PAIR(COLOR_RESOURCES));
+          if (field_[l][c] == SYMBOL_DEN)
+            mvaddstr(0, 0, "blocked");
+      }
       // both players -> cyan
-      else if (CheckCollidingPotentials(cur, player, enemy))
+      else if (CheckCollidingPotentials(cur, player, enemy)) {
         attron(COLOR_PAIR(COLOR_RESOURCES));
+          if (field_[l][c] == SYMBOL_DEN)
+            mvaddstr(0, 0, "blocked");
+      }
+
       // player 2 -> red
-      else if (enemy->neurons().count(cur) > 0 || enemy->IsSoldier(cur) != "")
+      else if (enemy->neurons().count(cur) > 0 || enemy->GetPotentialIdIfPotential(cur) != "")
         attron(COLOR_PAIR(COLOR_PLAYER));
       // player 1 -> blue 
-      else if (player->neurons().count(cur) > 0 || player->IsSoldier(cur) != "")
+      else if (player->neurons().count(cur) > 0 || player->GetPotentialIdIfPotential(cur) != "")
         attron(COLOR_PAIR(COLOR_KI));
       // resources -> cyan
       else if (resources_symbol_mapping.count(field[l][c]) > 0) {
@@ -276,10 +287,13 @@ void Field::PrintField(Player* player, Player* enemy) {
             && player->IsActivatedResource(resources_symbol_mapping.at(field[l][c])) )
             || (dist_enemy < dist_player
             && enemy->IsActivatedResource(resources_symbol_mapping.at(field[l][c]))))
+          if (field_[l][c] == SYMBOL_DEN)
+            mvaddstr(0, 0, "activated resource");
+
          attron(COLOR_PAIR(COLOR_RESOURCES));
       }
       // range -> green
-      else if (InRange(cur, range_, player->nucleus_pos()))
+      else if (InRange(cur, range_, range_center_) && player->all_nucleus().count(cur) == 0)
         attron(COLOR_PAIR(COLOR_OK));
       
       // Replace certain elements.

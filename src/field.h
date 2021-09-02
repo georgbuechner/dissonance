@@ -32,6 +32,7 @@ class Field {
     // setter:
     void set_highlight(std::vector<Position> positions);
     void set_range(int);
+    void set_range_center(Position pos);
     void set_replace(std::map<Position, char> replacements);
 
     // methods:
@@ -120,6 +121,7 @@ class Field {
 
     std::vector<Position> highlight_;
     volatile int range_;
+    Position range_center_;
     std::map<Position, char> replacements_;
 
     /** 

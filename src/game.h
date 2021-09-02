@@ -58,7 +58,7 @@ class Game {
 
     Position SelectPosition(Position start, int range);
 
-    Position SelectBarack(Player* p);
+    Position SelectNeuron(Player* p, int type);
 
     void DistributeIron();
 

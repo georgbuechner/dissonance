@@ -175,11 +175,11 @@ void Game::GetPlayerChoice() {
 
     // e: add epsp
     else if (choice == 'e') {
-      std::string res = CheckMissingResources(player_one_->CheckResources(UnitsTech::EPSP));
+      std::string res = CheckMissingResources(player_one_->GetMissingResources(UnitsTech::EPSP));
       if (res != "")
         PrintMessage(res, true);
       else {
-        auto pos = SelectBarack(player_one_);
+        auto pos = SelectNeuron(player_one_, UnitsTech::SYNAPSE);
         if (pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
@@ -190,11 +190,11 @@ void Game::GetPlayerChoice() {
     }
     // i: add ipsp 
     else if (choice == 'i') {
-      std::string res = CheckMissingResources(player_one_->CheckResources(UnitsTech::IPSP));
+      std::string res = CheckMissingResources(player_one_->GetMissingResources(UnitsTech::IPSP));
       if (res != "")
         PrintMessage(res, true);
       else {
-        auto pos = SelectBarack(player_one_);
+        auto pos = SelectNeuron(player_one_, UnitsTech::SYNAPSE);
         if (pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
@@ -206,33 +206,60 @@ void Game::GetPlayerChoice() {
 
     // S: Synapse
     else if (choice == 'S') {
-      std::string res = CheckMissingResources(player_one_->CheckResources(UnitsTech::SYNAPSE));
-      PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
+      std::string res = CheckMissingResources(player_one_->GetMissingResources(UnitsTech::SYNAPSE));
       if (res != "") 
         PrintMessage(res, true);
       else {
-        Position pos = SelectPosition(player_one_->nucleus_pos(), player_one_->cur_range());
-        if (pos.first != -1) {
-          Position epsp_target= player_two_->nucleus_pos();
-          Position ipsp_target = player_two_->activated_neurons().begin()->second.pos_; // random tower.
-          player_one_->AddNeuron(pos, UnitsTech::SYNAPSE, epsp_target, ipsp_target);
-          field_->AddNewUnitToPos(pos, UnitsTech::SYNAPSE);
+        Position nucleus_pos = SelectNeuron(player_one_, UnitsTech::NUCLEUS);
+        if (nucleus_pos.first == -1)
+          PrintMessage("Invalid choice!", true);
+        else {
+          PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
+          Position pos = SelectPosition(nucleus_pos, player_one_->cur_range());
+          if (pos.first != -1) {
+            Position epsp_target= player_two_->nucleus_pos();
+            Position ipsp_target = player_two_->activated_neurons().begin()->second.pos_; // random tower.
+            player_one_->AddNeuron(pos, UnitsTech::SYNAPSE, epsp_target, ipsp_target);
+            field_->AddNewUnitToPos(pos, UnitsTech::SYNAPSE);
+          }
+          PrintMessage(res, res!="");
         }
-        PrintMessage(res, res!="");
       }
     }
 
     // D: place defence-tower
     else if (choice == 'A') {
-      std::string res = CheckMissingResources(player_one_->CheckResources(UnitsTech::ACTIVATEDNEURON));
-      PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
+      std::string res = CheckMissingResources(player_one_->GetMissingResources(UnitsTech::ACTIVATEDNEURON));
       if (res != "") 
         PrintMessage(res, true);
       else {
-        Position pos = SelectPosition(player_one_->nucleus_pos(), player_one_->cur_range());
+        Position nucleus_pos = SelectNeuron(player_one_, UnitsTech::NUCLEUS);
+        if (nucleus_pos.first == -1)
+          PrintMessage("Invalid choice!", true);
+        else {
+          PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
+          Position pos = SelectPosition(nucleus_pos, player_one_->cur_range());
+          if (pos.first != -1) {
+            player_one_->AddNeuron(pos, UnitsTech::ACTIVATEDNEURON);
+            field_->AddNewUnitToPos(pos, UnitsTech::ACTIVATEDNEURON);
+          }
+          PrintMessage(res, res!="");
+        }
+      }
+    }
+
+    // N: new nucleus
+    else if (choice == 'N') {
+      std::string res = CheckMissingResources(player_one_->GetMissingResources(UnitsTech::NUCLEUS,
+            player_one_->all_nucleus().size()));
+      if (res != "") 
+        PrintMessage(res, true);
+      else {
+        PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
+        Position pos = SelectPosition(player_one_->nucleus_pos(), ViewRange::GRAPH);
         if (pos.first != -1) {
-          player_one_->AddNeuron(pos, UnitsTech::ACTIVATEDNEURON);
-          field_->AddNewUnitToPos(pos, UnitsTech::ACTIVATEDNEURON);
+          player_one_->AddNeuron(pos, UnitsTech::NUCLEUS);
+          field_->AddNewUnitToPos(pos, UnitsTech::NUCLEUS);
         }
         PrintMessage(res, res!="");
       }
@@ -248,7 +275,8 @@ void Game::GetPlayerChoice() {
         mapping[it.first-UnitsTech::NUCLEUS] += units_tech_mapping.at(it.first) 
           + " (" + utils::PositionToString(it.second) + ")";
       }
-      int technology = SelectInteger("Select technology", true, options, mapping, {4, 7, 10})+UnitsTech::NUCLEUS;
+      int technology = SelectInteger("Select technology", true, options, mapping, {4, 7, 10, 12})
+        +UnitsTech::NUCLEUS;
       if (player_one_->AddTechnology(technology))
         PrintMessage("selected: " + units_tech_mapping.at(technology), false);
       else if (technology != -1)
@@ -257,7 +285,7 @@ void Game::GetPlayerChoice() {
     }
 
     else if (choice == 's') {
-      auto pos = SelectBarack(player_one_);
+      auto pos = SelectNeuron(player_one_, UnitsTech::SYNAPSE);
       if (pos.first == -1)
         PrintMessage("Invalid choice!", true);
       else {
@@ -344,9 +372,10 @@ void Game::GetPlayerChoice() {
 
 Position Game::SelectPosition(Position start, int range) {
   bool end = false;
-  Position new_pos = {0, 0};
+  Position new_pos = {-1, -1};
   field_->set_highlight({start});
   field_->set_range(range);
+  field_->set_range_center(start);
   
   while(!game_over_ && !end) {
     int choice = getch();
@@ -361,6 +390,7 @@ Position Game::SelectPosition(Position start, int range) {
         break;
       case 'q':
         end = true;
+        new_pos = {0, 0};
         break;
       case KEY_UP:
         new_pos.first--; 
@@ -379,7 +409,7 @@ Position Game::SelectPosition(Position start, int range) {
         break;
     }
     // Update highlight only if in range.
-    if (field_->InRange(new_pos, range, player_one_->nucleus_pos()) || range == ViewRange::GRAPH) {
+    if (field_->InRange(new_pos, range, start) || range == ViewRange::GRAPH) {
       field_->set_highlight({new_pos});
       PrintFieldAndStatus();
     }
@@ -387,16 +417,23 @@ Position Game::SelectPosition(Position start, int range) {
       PrintMessage("Outside of range!", false); 
   }
   field_->set_range(ViewRange::HIDE);
+  field_->set_range_center({-1, -1});
   field_->set_highlight({});
   return new_pos;
 }
 
-Position Game::SelectBarack(Player* p) {
+Position Game::SelectNeuron(Player* p, int type) {
   // create replacements (map barack position to letter a..z).
   std::map<Position, char> replacements;
   int counter = 0;
-  for (auto it : p->synapses()) 
-    replacements[it.first] = (int)'a'+(counter++);
+  if (type == UnitsTech::SYNAPSE) {
+    for (auto it : p->synapses()) 
+      replacements[it.first] = (int)'a'+(counter++);
+  }
+  else if (type == UnitsTech::NUCLEUS) {
+    for (auto it : p->all_nucleus()) 
+      replacements[it.first] = (int)'a'+(counter++);
+  }
   field_->set_replace(replacements);
 
   // Print field and get player choice and reset replacements.
@@ -459,7 +496,8 @@ int Game::SelectInteger(std::string msg, bool omit,
     // Print options.
     std::string availible_options = "";
     for (const auto& option : options) {
-      availible_options+= std::to_string(option);
+      char c_option = 'a'+option-1;
+      availible_options+= c_option;
       if (mapping.count(option) > 0)
         availible_options += ": " + mapping[option];
       availible_options+= "    ";
@@ -468,7 +506,11 @@ int Game::SelectInteger(std::string msg, bool omit,
 
     int counter = 1;
     for (const auto& split : splits) {
-      size_t pos = availible_options.find(std::to_string(split) + ": ");
+      std::string s_split;
+      char c_split = 'a'+split-1;
+      s_split += c_split;
+
+      size_t pos = availible_options.find(s_split + ": ");
       PrintCentered(LINES/2+(counter+=2), availible_options.substr(0, pos));
       availible_options = availible_options.substr(pos);
     }
@@ -479,12 +521,12 @@ int Game::SelectInteger(std::string msg, bool omit,
     char choice = getch();
     if (choice == 'q' && omit)
       end = true;
-    else if (std::find(options.begin(), options.end(), choice-48) != options.end()) {
+    else if (std::find(options.begin(), options.end(), choice-'a'+1) != options.end()) {
       pause_ = false;
-      return choice-48;
+      return choice-'a'+1;
     }
     else 
-      PrintCentered(LINES/2+5, "Wrong selection.");
+      PrintCentered(LINES/2+5, "Wrong selection: " + std::to_string(choice-'a'+1));
   }
   pause_ = false;
   return -1;
@@ -512,6 +554,7 @@ void Game::PrintFieldAndStatus() {
     mvaddstr(10+i, COLS-28, lines[i].c_str());
   }
 
+  /*
   std::string msg = "Enemy nucleus potential " + std::to_string(player_two_->nucleus_potential()) + "/9";
   PrintCentered(2, msg.c_str());
   msg = "Enemy iron: " + std::to_string(player_two_->resources().at(Resources::IRON).first);
@@ -522,11 +565,13 @@ void Game::PrintFieldAndStatus() {
   PrintCentered(5, msg.c_str());
   msg = "Enemy glutamate: " + std::to_string(player_two_->resources().at(Resources::GLUTAMATE).first);
   PrintCentered(6, msg.c_str());
+  */
 
   refresh();
 }
 
 void Game::SetGameOver(std::string msg) {
+  std::unique_lock ul(mutex_print_field_);
   clear();
   PrintCentered(LINES/2, msg);
   refresh();

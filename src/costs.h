@@ -8,6 +8,15 @@ namespace costs {
   typedef const std::map<int, double> Costs;
 
   const std::map<int, Costs> units_costs_ = {
+    {UnitsTech::NUCLEUS, {
+        {Resources::OXYGEN, 30},
+        {Resources::POTASSIUM, 30}, 
+        {Resources::CHLORIDE, 30}, 
+        {Resources::GLUTAMATE, 30}, 
+        {Resources::DOPAMINE, 30}, 
+        {Resources::SEROTONIN, 30}
+      }
+    },
     {UnitsTech::ACTIVATEDNEURON, {
         {Resources::OXYGEN, 8.9}, 
         {Resources::POTASSIUM, 0}, 
@@ -71,15 +80,6 @@ namespace costs {
         {Resources::SEROTONIN, 0}
       }
     },
-    {UnitsTech::TARGET, {
-        {Resources::OXYGEN, 0}, 
-        {Resources::POTASSIUM, 0}, 
-        {Resources::CHLORIDE, 0}, 
-        {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 6.5}, 
-        {Resources::SEROTONIN, 0}
-      }
-    },
     {UnitsTech::TOTAL_OXYGEN, {
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
@@ -89,7 +89,7 @@ namespace costs {
         {Resources::SEROTONIN, 8.9}
       }
     },
-    {UnitsTech::CURVE, {
+    {UnitsTech::TOTAL_RESOURCE, {
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
@@ -134,6 +134,34 @@ namespace costs {
         {Resources::SEROTONIN, 11.2}
       }
     },
+    {UnitsTech::DEF_SPEED, {
+        {Resources::OXYGEN, 0}, 
+        {Resources::POTASSIUM, 0}, 
+        {Resources::CHLORIDE, 0}, 
+        {Resources::GLUTAMATE, 5.8}, 
+        {Resources::DOPAMINE, 6.5}, 
+        {Resources::SEROTONIN, 6.6}
+      }
+    },
+    {UnitsTech::DEF_POTENTIAL, {
+        {Resources::OXYGEN, 0}, 
+        {Resources::POTASSIUM, 0}, 
+        {Resources::CHLORIDE, 0}, 
+        {Resources::GLUTAMATE, 5.9}, 
+        {Resources::DOPAMINE, 4.5}, 
+        {Resources::SEROTONIN, 7.6}
+      }
+    },
+    {UnitsTech::NUCLEUS_RANGE, {
+        {Resources::OXYGEN, 0}, 
+        {Resources::POTASSIUM, 0}, 
+        {Resources::CHLORIDE, 0}, 
+        {Resources::GLUTAMATE, 6.9}, 
+        {Resources::DOPAMINE, 3.5}, 
+        {Resources::SEROTONIN, 7.9}
+      }
+    }
+
   };
 }
 
