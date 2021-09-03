@@ -34,8 +34,9 @@ class Player {
     Player(Position nucleus_pos, int iron);
 
     // getter:
-    std::map<std::string, Epsp> epsps();
-    std::map<std::string, Ipsp> ipsps();
+    std::map<std::string, Potential> potential();
+    std::map<std::string, Potential> epsps();
+    std::map<std::string, Potential> ipsps();
     std::map<Position, Nucleus> all_nucleus();
     std::map<Position, Synapse> synapses();
     std::map<Position, ActivatedNeuron> activated_neurons();
@@ -119,7 +120,7 @@ class Player {
      */
     void MovePotential(Player* enemy);
 
-    void SetBlockForNeuron(Position pos, int unit, bool block);
+    void SetBlockForNeuron(Position pos, bool block);
 
     /**
      * Function checking whether a tower has defeted a soldier.
@@ -180,8 +181,7 @@ class Player {
     Nucleus nucleus_;
 
     std::shared_mutex mutex_potentials_;
-    std::map<std::string, Epsp> epsps_;
-    std::map<std::string, Ipsp> ipsps_;
+    std::map<std::string, Potential> potential_;
 
     std::shared_mutex mutex_all_neurons_;
     std::set<Position> all_neurons_;  ///< simple set, to check whether position belongs to player.

@@ -28,8 +28,8 @@ set(SRC_FILES_GAME
 
 # Add source files for testing only
 set(SRC_FILES_TEST
-  test/test_utils.cc
   test/test_field.cc
+  test/test_utils.cc
   ${SRC_FILES}
 )
 

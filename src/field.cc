@@ -197,31 +197,28 @@ void Field::AddNewUnitToPos(Position pos, int unit) {
 }
 
 void Field::UpdateField(Player *player, std::vector<std::vector<std::string>>& field) {
-  for (auto it : player->epsps()) { // player-soldier does not need to be locked, as copy is returned
-    int l = it.second.pos_.first;
-    int c = it.second.pos_.second;
-    if (field[l][c] == SYMBOL_FREE)
-      field[l][c] = '1';
-    else {
-      std::locale loc;
-      char val = field[l][c].front();
-      if (std::isdigit(val, loc)) {
-        int num = val - '0';
-        field[l][c] = num+1 + '0';
-      }
-    }
+  // Accumulate all ipsps and epsps at their current positions.
+  // Accumulate epsps with start symbol '0' and ipsps with start symbol 'a'.
+  std::map<Position, std::map<char, int>> potentials_at_position;
+  for (const auto& it : player->potential()) {
+    if (it.second.type_ == UnitsTech::EPSP) 
+      potentials_at_position[it.second.pos_]['0']++;
+    else if (it.second.type_ == UnitsTech::IPSP)
+      potentials_at_position[it.second.pos_]['a']++;
   }
-  for (auto it : player->ipsps()) { // player-soldier does not need to be locked, as copy is returned
-    int l = it.second.pos_.first;
-    int c = it.second.pos_.second;
-    if (field[l][c] == SYMBOL_FREE)
-      field[l][c] = 'a';
-    else {
-      std::locale loc;
-      char val = field[l][c].front();
-      if (std::isalpha(val, loc)) {
-        field[l][c] = val+1;
-      }
+
+  // Add ipsps with increasing letter-count (add ipsps first to prioritise epsps).
+  for (const auto& pos : potentials_at_position) {
+    int l = pos.first.first;
+    int c = pos.first.second;
+    // For each type (epsp/ ipsp) create add number of potentials (epsp: 1,2,..;
+    // ipsps: a,b,..) to field, if position is free. Add infinity symbol if more
+    // than 10 potentials of a kind on one field.
+    for (const auto& potential : pos.second) {
+      if (field[l][c] == SYMBOL_FREE && potential.second <= 10)
+        field[l][c] = potential.first + potential.second;
+      else if (field[l][c] == SYMBOL_FREE && potential.second > 10)
+        field[l][c] = ":";
     }
   }
 }
@@ -229,16 +226,15 @@ void Field::UpdateField(Player *player, std::vector<std::vector<std::string>>& f
 bool Field::CheckCollidingPotentials(Position pos, Player* player_one, Player* player_two) {
   std::string id_one = player_one->GetPotentialIdIfPotential(pos);
   std::string id_two = player_two->GetPotentialIdIfPotential(pos);
-  // Not colliding potentials as at atleast one position there is no potential.
+  // Not colliding potentials as at at least one position there is no potential.
   if (id_one == "" || id_two == "")
     return false;
-  //mvaddstr(0, 0, "Potential met");
 
-  if (player_one->epsps().count(id_one) > 0 && player_two->ipsps().count(id_two) > 0) {
+  if (id_one.find("epsp") != std::string::npos && id_two.find("ipsp") != std::string::npos) {
     player_one->NeutralizePotential(id_one, 1);
     player_two->NeutralizePotential(id_two, -1); // -1 increase potential.
   }
-  else if (player_one->ipsps().count(id_one) > 0 && player_two->epsps().count(id_two) > 0) {
+  else if (id_one.find("ipsp") != std::string::npos && id_two.find("epsp") != std::string::npos) {
     player_one->NeutralizePotential(id_one, -1);
     player_two->NeutralizePotential(id_two, 1); // -1 increase potential.
   }
@@ -261,18 +257,11 @@ void Field::PrintField(Player* player, Player* enemy) {
         attron(COLOR_PAIR(COLOR_HIGHLIGHT));
       // IPSP is on enemy neuron -> cyan.
       else if ((player->activated_neurons().count(cur) > 0 && player->activated_neurons().at(cur).blocked_)
-          || (enemy->activated_neurons().count(cur) > 0 && enemy->activated_neurons().at(cur).blocked_)) {
+          || (enemy->activated_neurons().count(cur) > 0 && enemy->activated_neurons().at(cur).blocked_))
           attron(COLOR_PAIR(COLOR_RESOURCES));
-          if (field_[l][c] == SYMBOL_DEN)
-            mvaddstr(0, 0, "blocked");
-      }
       // both players -> cyan
-      else if (CheckCollidingPotentials(cur, player, enemy)) {
+      else if (CheckCollidingPotentials(cur, player, enemy))
         attron(COLOR_PAIR(COLOR_RESOURCES));
-          if (field_[l][c] == SYMBOL_DEN)
-            mvaddstr(0, 0, "blocked");
-      }
-
       // player 2 -> red
       else if (enemy->neurons().count(cur) > 0 || enemy->GetPotentialIdIfPotential(cur) != "")
         attron(COLOR_PAIR(COLOR_PLAYER));
@@ -287,9 +276,6 @@ void Field::PrintField(Player* player, Player* enemy) {
             && player->IsActivatedResource(resources_symbol_mapping.at(field[l][c])) )
             || (dist_enemy < dist_player
             && enemy->IsActivatedResource(resources_symbol_mapping.at(field[l][c]))))
-          if (field_[l][c] == SYMBOL_DEN)
-            mvaddstr(0, 0, "activated resource");
-
          attron(COLOR_PAIR(COLOR_RESOURCES));
       }
       // range -> green

@@ -20,9 +20,9 @@ int utils::getrandom_int(int min, int max) {
   return ran;
 }
 
-std::string utils::create_id() {
-  std::string id = "";
-  for (int i=0; i<10; i++) {
+std::string utils::create_id(std::string type) {
+  std::string id = type;
+  for (int i=0; i<32; i++) {
     int ran = rand() % 9;
     id += std::to_string(ran);
   }

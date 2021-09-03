@@ -101,12 +101,13 @@ struct Nucleus : Neuron {
 struct Potential : Unit {
   int potential_;
   int speed_;  ///< lower number means higher speed.
+  int duration_; ///< only potential
   std::chrono::time_point<std::chrono::steady_clock> last_action_; 
   std::list<Position> way_;
 
   Potential() : Unit(), speed_(999), last_action_(std::chrono::steady_clock::now()) {}
-  Potential(Position pos, int attack, std::list<Position> way, int speed, int type) 
-    : Unit(pos, type), potential_(attack), speed_(speed), 
+  Potential(Position pos, int attack, std::list<Position> way, int speed, int type, int duration) 
+    : Unit(pos, type), potential_(attack), speed_(speed), duration_(duration),
     last_action_(std::chrono::steady_clock::now()), way_(way) {}
 };
 
@@ -122,7 +123,7 @@ struct Potential : Unit {
 struct Epsp : Potential {
   Epsp() : Potential() {}
   Epsp(Position pos, std::list<Position> way, int potential_boast, int speed_boast) 
-    : Potential(pos, 2+potential_boast, way, 370-speed_boast, UnitsTech::EPSP) {}
+    : Potential(pos, 2+potential_boast, way, 370-speed_boast, UnitsTech::EPSP, 0) {}
 };
 
 /**
@@ -135,12 +136,10 @@ struct Epsp : Potential {
  * - way (derived from Potential)
  */
 struct Ipsp: Potential {
-  int duration_;
 
   Ipsp() : Potential() {}
   Ipsp(Position pos, std::list<Position> way, int potential_boast, int speed_boast, int duration_boast) 
-    : Potential(pos, 3+potential_boast, way, 420-speed_boast, UnitsTech::IPSP), 
-    duration_(4+duration_boast) {}
+    : Potential(pos, 3+potential_boast, way, 420-speed_boast, UnitsTech::IPSP, 4+duration_boast) {}
 };
 
 #endif

@@ -16,6 +16,7 @@
 #define SYMBOL_FREE "\u22C5" // simple dot.
 #define SYMBOL_DEF "\u0398"
 #define SYMBOL_BARACK "\u0394"
+#define SYMBOL_INFINITY "\u221E"
 
 
 enum ViewRange {

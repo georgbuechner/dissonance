@@ -23,7 +23,7 @@ namespace utils {
   Paragraphs LoadWelcome();
   Paragraphs LoadHelp();
 
-  std::string create_id();
+  std::string create_id(std::string type);
 }
 
 #endif
