@@ -1,6 +1,7 @@
 #ifndef SRC_GAME_H_
 #define SRC_GAME_H_
 
+#include <cstddef>
 #include <curses.h>
 #include <mutex>
 #include <string>
@@ -88,8 +89,8 @@ class Game {
     void PrintCentered(Paragraphs paragraphs);
     void PrintCentered(int line, std::string txt);
 
-    int SelectInteger(std::string msg, bool omit, std::vector<int>, std::map<int, std::string> mapping={},
-        std::vector<int> splits = {});
+    int SelectInteger(std::string msg, bool omit, std::vector<size_t>, 
+        std::map<size_t, std::string> mapping={}, std::vector<size_t> splits = {});
 
     void ClearField();
 

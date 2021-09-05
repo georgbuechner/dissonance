@@ -18,6 +18,7 @@ set(SRC_FILES
   src/game.cc
   src/player.cc
   src/utils.cc
+  src/units.cc
 )
 
 # Add soruce files needed for game only
@@ -28,8 +29,10 @@ set(SRC_FILES_GAME
 
 # Add source files for testing only
 set(SRC_FILES_TEST
+  test/main.cc
   test/test_field.cc
   test/test_utils.cc
+  test/test_units.cc
   ${SRC_FILES}
 )
 
@@ -40,4 +43,4 @@ target_link_libraries(game PUBLIC ${CONAN_LIBS})
 target_link_libraries(tests PUBLIC ${CONAN_LIBS})
 
 target_include_directories(game PUBLIC "src")
-target_include_directories(tests PUBLIC "src", "test")
+target_include_directories(tests PUBLIC "src" "test")

@@ -1,6 +1,6 @@
 #include <iostream>
-#define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
+#include <map>
 #include "utils.h"
 
 TEST_CASE ("test_dist", "[utils]") {

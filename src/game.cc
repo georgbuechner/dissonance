@@ -120,11 +120,16 @@ void Game::DoActions() {
 void Game::HandleKi() {
   Ki* ki = new Ki(player_one_, player_two_);
   ki->SetUpKi(difficulty_);
+  auto last_action = std::chrono::steady_clock::now(); 
+   
 
   // Handle building neurons and potentials.
   while(!game_over_) {
-    if (!pause_)
+    auto cur_time = std::chrono::steady_clock::now(); 
+    if (!pause_ && utils::get_elapsed(last_action, cur_time) > 100) {
       ki->UpdateKi(field_);
+      last_action = cur_time;
+    }
   }
 }
 
@@ -218,7 +223,7 @@ void Game::GetPlayerChoice() {
           Position pos = SelectPosition(nucleus_pos, player_one_->cur_range());
           if (pos.first != -1) {
             Position epsp_target= player_two_->nucleus_pos();
-            Position ipsp_target = player_two_->activated_neurons().begin()->second.pos_; // random tower.
+            Position ipsp_target = player_two_->GetRandomActivatedNeuron(); // random tower.
             player_one_->AddNeuron(pos, UnitsTech::SYNAPSE, epsp_target, ipsp_target);
             field_->AddNewUnitToPos(pos, UnitsTech::SYNAPSE);
           }
@@ -251,7 +256,7 @@ void Game::GetPlayerChoice() {
     // N: new nucleus
     else if (choice == 'N') {
       std::string res = CheckMissingResources(player_one_->GetMissingResources(UnitsTech::NUCLEUS,
-            player_one_->all_nucleus().size()));
+            player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS).size()));
       if (res != "") 
         PrintMessage(res, true);
       else {
@@ -268,8 +273,8 @@ void Game::GetPlayerChoice() {
     // T: Technology
     else if (choice == 'T') {
       pause_ = true;
-      std::vector<int> options;
-      std::map<int, std::string> mapping;
+      std::vector<size_t> options;
+      std::map<size_t, std::string> mapping;
       for (const auto& it : player_one_->technologies()) {
         options.push_back(it.first-UnitsTech::NUCLEUS);
         mapping[it.first-UnitsTech::NUCLEUS] += units_tech_mapping.at(it.first) 
@@ -289,83 +294,36 @@ void Game::GetPlayerChoice() {
       if (pos.first == -1)
         PrintMessage("Invalid choice!", true);
       else {
-        Synapse synapse = player_one_->GetSynapse(pos);
+        // Create options and get player-choice.
+        Options options = player_one_->GetOptionsForSynapes(pos);
+        auto mapping_option_to_func = options.mapping_option_to_func_;
+        int choice = SelectInteger("What to do?", true, options.options_, options.mapping_option_to_desc_);
 
-        // Create options.
-        std::vector<int> options;
-        std::map<int, int> mapping_option_to_func;
-        std::map<int, std::string> mapping_option_to_desc;
-        int counter = 0;
-        
-        // Select (new) way/ Add way-point.
-        if (player_one_->technologies().at(UnitsTech::WAY).first > 0) {
-          options.push_back(++counter);
-          mapping_option_to_desc[counter] = "Select way.";
-          mapping_option_to_func[counter] = 1;
-          if (synapse.ways_.size() < synapse.availible_ways_) {
-            options.push_back(++counter);
-            mapping_option_to_desc[counter] = "Add way-point";
-            mapping_option_to_func[counter] = 2;
-          }
-        }
-
-        // Select target ipsp/ epsp
-        if (player_one_->technologies().at(UnitsTech::TARGET).first > 0) {
-          options.push_back(++counter);
-          mapping_option_to_desc[counter] = "Select target for ipsp.";
-          mapping_option_to_func[counter] = 3;
-        }
-        if (player_one_->technologies().at(UnitsTech::TARGET).first > 1) {
-          options.push_back(++counter);
-          mapping_option_to_desc[counter] = "Select target for epsp.";
-          mapping_option_to_func[counter] = 4;
-        }
-
-        // Switch swarm on/ off
-        int swarm = player_one_->technologies().at(UnitsTech::SWARM).first;
-        if (swarm > 0) {
-          options.push_back(++counter);
-          if (synapse.swarm_)
-            mapping_option_to_desc[counter] = "Turn swarm-attack off";
-          else 
-            mapping_option_to_desc[counter] = "Turn swarm-attack on";
-          mapping_option_to_func[counter] = 5;
-          mapping_option_to_desc[counter] += " (currently " + std::to_string(synapse.max_stored_) + ").";
-        }
-
-        int choice = SelectInteger("What to do?", true, options, mapping_option_to_desc);
+        // Do action after getting choice.
         if (mapping_option_to_func.count(choice) > 0) {
-          if (mapping_option_to_func[choice] == 1) {
-            auto new_way_point = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
-            player_one_->ResetWayForSynapse(pos, new_way_point);
-          }
-          else if (mapping_option_to_func[choice] == 2) {
-            auto new_way_point = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
-            player_one_->AddWayPosForSynapse(pos, new_way_point);
-          }
-          else if (mapping_option_to_func[choice] == 3) {
-            auto new_target_pos = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
-            player_one_->ChangeIpspTargetForSynapse(pos, new_target_pos);
-          }
-          else if (mapping_option_to_func[choice] == 4) {
-            auto new_target_pos = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
-            player_one_->ChangeEpspTargetForSynapse(pos, new_target_pos);
-          }
-          else if (mapping_option_to_func[choice] == 5) {
+          // if func=swarm, simply turn on/ off.
+          if (mapping_option_to_func[choice] == 5)
             player_one_->SwitchSwarmAttack(pos);
+          // Otherwise get new postion first.
+          else {
+            auto new_pos = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
+            if (mapping_option_to_func[choice] == 1)
+              player_one_->ResetWayForSynapse(pos, new_pos);
+            else if (mapping_option_to_func[choice] == 2)
+              player_one_->AddWayPosForSynapse(pos, new_pos);
+            else if (mapping_option_to_func[choice] == 3)
+              player_one_->ChangeIpspTargetForSynapse(pos, new_pos);
+            else if (mapping_option_to_func[choice] == 4)
+              player_one_->ChangeEpspTargetForSynapse(pos, new_pos);
           }
-          PrintMessage("Selected choice: " + std::to_string(choice), false);
         }
-        else {
+        else
           PrintMessage("Invalid choice: " + std::to_string(choice), true);
-        }
       }
     }
 
     else if (choice == 'd') {
-      pause_ = true;
       DistributeIron();
-      pause_= false; 
     }
   } 
 }
@@ -426,14 +384,8 @@ Position Game::SelectNeuron(Player* p, int type) {
   // create replacements (map barack position to letter a..z).
   std::map<Position, char> replacements;
   int counter = 0;
-  if (type == UnitsTech::SYNAPSE) {
-    for (auto it : p->synapses()) 
-      replacements[it.first] = (int)'a'+(counter++);
-  }
-  else if (type == UnitsTech::NUCLEUS) {
-    for (auto it : p->all_nucleus()) 
-      replacements[it.first] = (int)'a'+(counter++);
-  }
+  for (auto it : p->GetAllPositionsOfNeurons(type))
+    replacements[it] = (int)'a'+(counter++);
   field_->set_replace(replacements);
 
   // Print field and get player choice and reset replacements.
@@ -451,6 +403,7 @@ Position Game::SelectNeuron(Player* p, int type) {
 }
 
 void Game::DistributeIron() {
+  pause_ = true;
   ClearField();
   bool end = false;
   while(!end) {
@@ -485,10 +438,11 @@ void Game::DistributeIron() {
     if (player_one_->iron() == 0)
       end = true;
   }
+  pause_ = false;
 }
 
 int Game::SelectInteger(std::string msg, bool omit, 
-    std::vector<int> options, std::map<int, std::string> mapping, std::vector<int> splits) {
+    std::vector<size_t> options, std::map<size_t, std::string> mapping, std::vector<size_t> splits) {
   pause_ = true;
   ClearField();
   bool end = false;
@@ -554,10 +508,7 @@ void Game::PrintFieldAndStatus() {
     mvaddstr(10+i, COLS-28, lines[i].c_str());
   }
 
-  /*
-  std::string msg = "Enemy nucleus potential " + std::to_string(player_two_->nucleus_potential()) + "/9";
-  PrintCentered(2, msg.c_str());
-  msg = "Enemy iron: " + std::to_string(player_two_->resources().at(Resources::IRON).first);
+  std::string msg = "Enemy iron: " + std::to_string(player_two_->resources().at(Resources::IRON).first);
   PrintCentered(3, msg.c_str());
   msg = "Enemy oxygen: " + std::to_string(player_two_->resources().at(Resources::OXYGEN).first);
   PrintCentered(4, msg.c_str());
@@ -565,7 +516,6 @@ void Game::PrintFieldAndStatus() {
   PrintCentered(5, msg.c_str());
   msg = "Enemy glutamate: " + std::to_string(player_two_->resources().at(Resources::GLUTAMATE).first);
   PrintCentered(6, msg.c_str());
-  */
 
   refresh();
 }

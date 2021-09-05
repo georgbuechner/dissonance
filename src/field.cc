@@ -256,17 +256,16 @@ void Field::PrintField(Player* player, Player* enemy) {
       if (std::find(highlight_.begin(), highlight_.end(), cur) != highlight_.end())
         attron(COLOR_PAIR(COLOR_HIGHLIGHT));
       // IPSP is on enemy neuron -> cyan.
-      else if ((player->activated_neurons().count(cur) > 0 && player->activated_neurons().at(cur).blocked_)
-          || (enemy->activated_neurons().count(cur) > 0 && enemy->activated_neurons().at(cur).blocked_))
+      else if (player->IsNeuronBlocked(cur) || enemy->IsNeuronBlocked(cur))
           attron(COLOR_PAIR(COLOR_RESOURCES));
       // both players -> cyan
       else if (CheckCollidingPotentials(cur, player, enemy))
         attron(COLOR_PAIR(COLOR_RESOURCES));
       // player 2 -> red
-      else if (enemy->neurons().count(cur) > 0 || enemy->GetPotentialIdIfPotential(cur) != "")
+      else if (enemy->GetNeuronTypeAtPosition(cur) != -1 || enemy->GetPotentialIdIfPotential(cur) != "")
         attron(COLOR_PAIR(COLOR_PLAYER));
       // player 1 -> blue 
-      else if (player->neurons().count(cur) > 0 || player->GetPotentialIdIfPotential(cur) != "")
+      else if (player->GetNeuronTypeAtPosition(cur) != -1 || player->GetPotentialIdIfPotential(cur) != "")
         attron(COLOR_PAIR(COLOR_KI));
       // resources -> cyan
       else if (resources_symbol_mapping.count(field[l][c]) > 0) {
@@ -279,7 +278,7 @@ void Field::PrintField(Player* player, Player* enemy) {
          attron(COLOR_PAIR(COLOR_RESOURCES));
       }
       // range -> green
-      else if (InRange(cur, range_, range_center_) && player->all_nucleus().count(cur) == 0)
+      else if (InRange(cur, range_, range_center_) && player->GetNeuronTypeAtPosition(cur) != UnitsTech::NUCLEUS)
         attron(COLOR_PAIR(COLOR_OK));
       
       // Replace certain elements.

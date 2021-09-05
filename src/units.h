@@ -2,10 +2,15 @@
 #define SRC_SOLDIER_H_
 
 #include <chrono>
+#include <iostream>
 #include <list>
+#include <stdexcept>
 #include <vector>
+#include <spdlog/spdlog.h>
 
 #include "codes.h"
+
+#define LOGGER "logger"
 
 typedef std::pair<int, int> Position;
 
@@ -31,11 +36,47 @@ struct Unit {
  * - lp 
  */
 struct Neuron : Unit {
-  int lp_;
-  int max_lp_;
-  bool blocked_;
-  Neuron() : Unit() {}
-  Neuron(Position pos, int lp, int type) : Unit(pos, type), lp_(0), max_lp_(lp), blocked_(false) {}
+  public:
+    // getter 
+    int voltage();
+    int max_voltage();
+    bool blocked();
+    virtual int speed() { return -1; };
+    virtual int potential_slowdown() { return -1; };
+    virtual std::chrono::time_point<std::chrono::steady_clock> last_action() {return std::chrono::steady_clock::now(); }
+    virtual std::vector<Position> ways_points() {return {}; }
+    virtual bool swarm() { return false; }
+    virtual unsigned int num_availible_ways() { return 0; }
+    virtual unsigned int max_stored() { return 0; }
+
+    // setter
+    void set_blocked(bool blocked);
+    virtual void set_last_action(std::chrono::time_point<std::chrono::steady_clock> time) {};
+    virtual void set_way_points(std::vector<Position> pos) {};
+    virtual void set_swarm(bool swarm) {};
+    virtual void set_epsp_target_pos(Position pos) {};
+    virtual void set_ipsp_target_pos(Position pos) {};
+    virtual void set_availible_ways(unsigned int num_ways) {};
+    virtual void set_max_stored(unsigned int max_stored) {};
+
+    // methods
+
+    /**
+     * Increases voltage of neuron and returns whether neuron is destroyed.
+     */
+    bool IncreaseVoltage(int potential);
+
+    virtual std::vector<Position> GetWayWithTargetIncluded(int unit) { return {}; }
+    virtual unsigned int AddEpsp() { return 0; }
+
+    Neuron();
+    Neuron(Position pos, int lp, int type);
+    virtual ~Neuron() {}
+
+  private:
+    int lp_;
+    int max_lp_;
+    bool blocked_;
 };
 
 /** 
@@ -46,20 +87,38 @@ struct Neuron : Unit {
  * - lp (derived from Neuron)
  */
 struct Synapse : Neuron {
-  bool swarm_;
-  int max_stored_;
-  int stored_;
-  
-  Position epsp_target_;
-  Position ipsp_target_;
+  public: 
+    Synapse();
+    Synapse(Position pos, int max_stored, int num_availible_ways, Position epsp_target, Position ipsp_target);
 
-  unsigned int availible_ways_;
-  std::vector<Position> ways_;
+    // getter: 
+    std::vector<Position> ways_points();
+    bool swarm();
+    unsigned int num_availible_ways();
+    unsigned int max_stored();
+   
+    // setter: 
+    void set_way_points(std::vector<Position> way_points);
+    void set_swarm(bool swarm);
+    void set_epsp_target_pos(Position pos);
+    void set_ipsp_target_pos(Position pos);
+    void set_availible_ways(unsigned int num_availible_way_points);
+    void set_max_stored(unsigned int max_stored);
 
-  Synapse() : Neuron() {}
-  Synapse(Position pos, int max_stored, int availible_ways, Position epsp_target, Position ipsp_target) : 
-      Neuron(pos, 5, UnitsTech::SYNAPSE), swarm_(false), max_stored_(max_stored), 
-      stored_(0), epsp_target_(epsp_target), ipsp_target_(ipsp_target), availible_ways_(availible_ways) {}
+    // methods: 
+    std::vector<Position> GetWayWithTargetIncluded(int unit);
+    unsigned int AddEpsp();
+
+  private:
+    bool swarm_;
+    int max_stored_;
+    int stored_;
+    
+    Position epsp_target_;
+    Position ipsp_target_;
+
+    unsigned int num_availible_way_points_;
+    std::vector<Position> way_points_;
 };
 
 /** 
@@ -70,15 +129,22 @@ struct Synapse : Neuron {
  * - lp (derived from Neuron)
  */
 struct ActivatedNeuron : Neuron {
-  int speed_;  ///< lower number means higher speed.
-  int potential_slowdown_;
-  std::chrono::time_point<std::chrono::steady_clock> last_action_; 
+  public:
+    ActivatedNeuron();
+    ActivatedNeuron(Position pos, int slowdown_boast, int speed_boast);
 
-  ActivatedNeuron() : Neuron() {}
-  ActivatedNeuron(Position pos, int slowdown_boast, int speed_boast) : 
-    Neuron(pos, 17, UnitsTech::ACTIVATEDNEURON), 
-    speed_(700-speed_boast), potential_slowdown_(1+slowdown_boast), 
-    last_action_(std::chrono::steady_clock::now()) {}
+    // getter 
+    int speed();
+    int potential_slowdown();
+    std::chrono::time_point<std::chrono::steady_clock> last_action();
+    
+    // setter
+    void set_last_action(std::chrono::time_point<std::chrono::steady_clock> time);
+
+  private:
+    int speed_;  ///< lower number means higher speed.
+    int potential_slowdown_;
+    std::chrono::time_point<std::chrono::steady_clock> last_action_; 
 };
 
 /** 

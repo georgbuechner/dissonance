@@ -4,11 +4,21 @@
 #include <string>
 #include "game.h"
 
+#include <spdlog/spdlog.h>
+#include "spdlog/sinks/basic_file_sink.h"
+
+#define LOGGER "logger"
+
 
 #define ITERMAX 10000
 
 int main(void) {
-  
+
+  auto logger = spdlog::basic_logger_mt("logger", "logs/basic-log.txt");
+  spdlog::flush_every(std::chrono::seconds(1));
+  spdlog::flush_on(spdlog::level::err);
+  spdlog::set_level(spdlog::level::debug);
+
   srand (time(NULL));
 
   // initialize curses

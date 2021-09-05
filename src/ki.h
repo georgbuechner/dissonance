@@ -14,6 +14,9 @@
 #include <shared_mutex>
 #include <vector>
 #include <random>
+#include <spdlog/spdlog.h>
+
+#define LOGGER "logger"
 
 #define MIN_POTENTIAL_FREQUENCY 50
 #define MAX_ACTIVATED_NEURONS 8
@@ -91,48 +94,63 @@ class Ki {
     // methods
     
     void CreateSynapses(Field* field) {
-      if (ki_->synapses().size() == 0) {
+      spdlog::get(LOGGER)->debug("Ki::CreateSynapses");
+      if (ki_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() == 0) {
+        spdlog::get(LOGGER)->debug("Ki::CreateSynapses: createing synapses.");
         auto pos = field->FindFree(ki_->nucleus_pos().first, ki_->nucleus_pos().second, 1, 5);
         ki_->AddNeuron(pos, UnitsTech::SYNAPSE, player_one_->nucleus_pos());
         field->AddNewUnitToPos(pos, UnitsTech::SYNAPSE);
+        spdlog::get(LOGGER)->debug("Ki::CreateSynapses: done.");
       }
     }
 
     void CreateEpsp(Field* field) {
+      spdlog::get(LOGGER)->debug("Ki::CreateEpsp");
       // Check that atleast one synapses exists.
-      if (ki_->synapses().size() > 0) {
-        auto synapse_pos = ki_->synapses().begin()->first;
+      if (ki_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() > 0) {
+        spdlog::get(LOGGER)->debug("Ki::CreateEpsp: get closes position");
+        auto synapse_pos = ki_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).front();
+        // Get neares nucleus_pos
         int min_dist = 999;
         Position target_pos = {-1, -1}; 
-        for (const auto &it : player_one_->all_nucleus()) {
-          int dist = utils::dist(synapse_pos, it.first);
+        for (auto it : player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS)) {
+          int dist = utils::dist(synapse_pos, it);
           if(dist < min_dist) {
-            target_pos = it.first;
+            target_pos = it;
             min_dist = dist;
           }
         }
         ki_->ChangeEpspTargetForSynapse(synapse_pos, target_pos);
+        // Create epsps:
+        spdlog::get(LOGGER)->debug("Ki::CreateEpsp: create epsps.");
         while (ki_->GetMissingResources(UnitsTech::EPSP).size() == 0) {
           auto cur_time_b = std::chrono::steady_clock::now(); 
           if (utils::get_elapsed(last_potential_, cur_time_b) > new_potential_frequency_) 
             last_potential_ = std::chrono::steady_clock::now();
           else 
             continue;
+          spdlog::get(LOGGER)->debug("Ki::CreateEpsp: create one epsp.");
           ki_->AddPotential(synapse_pos, field, UnitsTech::EPSP);
         }
+        spdlog::get(LOGGER)->debug("Ki::CreateEpsp: done.");
         if (attacks_.size() > 1)
           attacks_.pop_front();
       }
     }
 
     void CreateActivatedNeuron(Field* field) {
-      if (max_activated_neurons_ >= ki_->activated_neurons().size()) {
+      spdlog::get(LOGGER)->debug("Ki::CreateActivatedNeuron.");
+      if (max_activated_neurons_ >= ki_->GetNumActivatedNeurons()) {
+        spdlog::get(LOGGER)->debug("Ki::CreateActivatedNeuron: checking resources");
         // Only add def, if a barrak already exists, or no def exists.
-        if (!(ki_->activated_neurons().size() > 0 && ki_->synapses().size() == 0)
+        if (!(ki_->GetNumActivatedNeurons() > 0 
+            && ki_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() == 0)
             || ki_->resources().at(Resources::OXYGEN).first > 40) {
+          spdlog::get(LOGGER)->debug("Ki::CreateActivatedNeuron: createing neuron");
           auto pos = field->FindFree(ki_->nucleus_pos().first, ki_->nucleus_pos().second, 1, 5);
           field->AddNewUnitToPos(pos, UnitsTech::ACTIVATEDNEURON);
           ki_->AddNeuron(pos, UnitsTech::ACTIVATEDNEURON);
+          spdlog::get(LOGGER)->debug("Ki::CreateActivatedNeuron: done");
         }
       }
     }
@@ -140,19 +158,27 @@ class Ki {
     void DistributeIron(Field* field) {
       if (ki_->oxygen_boast() > ki_->max_oxygen()-5 
           && ki_->technologies().at(UnitsTech::TOTAL_OXYGEN).first 
-          >= ki_->technologies().at(UnitsTech::TOTAL_OXYGEN).second)
+          >= ki_->technologies().at(UnitsTech::TOTAL_OXYGEN).second) {
+        spdlog::get(LOGGER)->debug("Ki::DistributeIron: increases total oxygen");
         ki_->AddTechnology(UnitsTech::TOTAL_OXYGEN);
-      else if (ki_->IsActivatedResource(Resources::POTASSIUM))
+      }
+      else if (ki_->IsActivatedResource(Resources::POTASSIUM)) {
+        spdlog::get(LOGGER)->debug("Ki::DistributeIron: increases oxygen boast");
         ki_->DistributeIron(Resources::OXYGEN);
-      else if (ki_->iron() == 2)
+      }
+      else if (ki_->iron() == 2) {
+        spdlog::get(LOGGER)->debug("Ki::DistributeIron: add receiving potassium");
         ki_->DistributeIron(Resources::POTASSIUM);
+      }
       if (ki_->oxygen_boast() > 5) {
+        spdlog::get(LOGGER)->debug("Ki::DistributeIron: getting technologies.");
         ki_->AddTechnology(technologies_.back());
         technologies_.pop_back();
       }
     }
 
     void Update() {
+      spdlog::get(LOGGER)->debug("Ki::Update stuff.");
       // Update new-potential-frequency
       if (new_potential_frequency_-POTENTIAL_FREQUENCY_UPDATE > MIN_POTENTIAL_FREQUENCY)
         new_potential_frequency_ -= POTENTIAL_FREQUENCY_UPDATE;
@@ -164,6 +190,8 @@ class Ki {
       // Update resource_curve
       if (ki_->resource_curve()-RESOURCE_CURVE_UPDATE > MIN_RESOURCE_CURVE)
         ki_->set_resource_curve(ki_->resource_curve()-RESOURCE_CURVE_UPDATE);
+      spdlog::get(LOGGER)->debug("Ki::Done.");
+      last_update_ = std::chrono::steady_clock::now(); 
     }
 };
 
