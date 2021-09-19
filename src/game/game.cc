@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <curses.h>
 #include <exception>
+#include <filesystem>
+#include <map>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -12,11 +14,10 @@
 #include <thread>
 #include <vector>
 
-#include "codes.h"
-#include "player.h"
-#include "units.h"
-#include "utils.h"
-#include "ki.h"
+#include "constants/codes.h"
+#include "objects/units.h"
+#include "spdlog/spdlog.h"
+#include "utils/utils.h"
 
 #define HELP "[e]psp, [i]psp | [A]ctivate neuron, build [S]ynapse | [d]istribute iron, [s]elect synapse | [h]elp | pause [space], [q]uit"
 #define COLOR_DEFAULT 3
@@ -43,66 +44,111 @@ std::string CheckMissingResources(Costs missing_costs) {
   return res;
 }
 
-Game::Game(int lines, int cols) : game_over_(false), pause_(false) {
-  field_ = new Field(lines, cols);
-  field_->AddHills();
-  player_one_ = new Player(field_->AddDen(lines/1.5, lines-5, cols/1.5, cols-5), 3);
-  player_two_ = new Player(field_->AddDen(5, lines/3, 5, cols/3), 4);
-  field_->BuildGraph(player_one_->nucleus_pos(), player_two_->nucleus_pos());
-}
+Game::Game(int lines, int cols) : game_over_(false), pause_(false), lines_(lines), cols_(cols) { }
 
 void Game::play() {
   // Print welcome text.
   PrintCentered(utils::LoadWelcome());
 
   // Select difficulty
-  difficulty_ = SelectInteger("Select difficulty", false, {1, 2, 3, 4, 5, 6, 7, 8, 9});
+  difficulty_ = 1;
 
+  // select song. 
+  std::vector<size_t> options;
+  std::map<size_t, std::string> mappings;
+  size_t counter = 0;
+  for (const auto& it : std::filesystem::directory_iterator("data/songs/")) {
+    options.push_back(++counter);
+    mappings[counter] = it.path().filename();
+  }
+  spdlog::get(LOGGER)->debug("Game::play: created {} options", options.size());
+  size_t source_path_index = SelectInteger("Select audio", false, options, mappings, {4, 8, 12});
+  std::string source_path = "data/songs/" + mappings[source_path_index];
+  spdlog::get(LOGGER)->debug("Game::play: loading audio {}", source_path);
+  audio_.set_source_path(source_path);
+  audio_.Analyze();
+
+  // Build fields
+  field_ = new Field(lines_, cols_);
+  field_->AddHills();
+  Position nucleus_pos = field_->AddDen(lines_/1.5, lines_-5, cols_/1.5, cols_-5);
+  player_one_ = new Player(nucleus_pos, field_, 3);
+  nucleus_pos = field_->AddDen(5, lines_/3, 5, cols_/3);
+  player_two_ = new AudioKi(nucleus_pos, 4, player_one_, field_, &audio_);
+  field_->BuildGraph(player_one_->nucleus_pos(), player_two_->nucleus_pos());
+  player_two_->SetUpTactics(audio_.analysed_data().intervals_.begin()->second);
+
+  // Let player one distribute initial iron.
   DistributeIron();
+  // Let player two distribute initial iron.
+  player_two_->DistributeIron(Resources::OXYGEN);
+  player_two_->HandleIron(audio_.analysed_data().data_per_beat_.front());
 
-  std::thread thread_actions([this]() { DoActions(); });
+  audio_.play();
+  std::thread thread_actions([this]() { RenderField(); });
   std::thread thread_choices([this]() { (GetPlayerChoice()); });
-  std::thread thread_ki([this]() { (HandleKi()); });
+  std::thread thread_ki([this]() { (HandleActions()); });
   thread_actions.join();
   thread_choices.join();
   thread_ki.join();
 }
 
-void Game::DoActions() {
+void Game::RenderField() {
+  spdlog::get(LOGGER)->debug("Game::RenderField: started");
+  auto audio_start_time = std::chrono::steady_clock::now();
+  auto analysed_data = audio_.analysed_data();
+  std::list<AudioDataTimePoint> data_per_beat = analysed_data.data_per_beat_;
+
   auto last_update = std::chrono::steady_clock::now();
   auto last_resource_player_one = std::chrono::steady_clock::now();
   auto last_resource_player_two = std::chrono::steady_clock::now();
 
-  int ki_update_frequency = RESOURCE_UPDATE_FREQUENCY;
-  ki_update_frequency -= 40*(difficulty_-2);
-  PrintCentered(1, "difficulty: " + std::to_string(difficulty_));
+  double ki_resource_update_frequency = data_per_beat.front().bpm_;
+  double player_resource_update_freqeuncy = data_per_beat.front().bpm_;
+  double render_frequency = 40;
+
+  bool off_notes = false;
  
   while (!game_over_) {
     auto cur_time = std::chrono::steady_clock::now();
 
     if (pause_) continue;
     
+    // Analyze audio data.
+    auto elapsed = utils::get_elapsed(audio_start_time, cur_time);
+    auto data_at_beat = data_per_beat.front();
+    if (elapsed >= data_at_beat.time_) {
+      render_frequency = 60000.0/(data_at_beat.bpm_*16);
+      ki_resource_update_frequency = (60000.0/data_at_beat.bpm_); //*(data_at_beat.level_/50.0);
+      player_resource_update_freqeuncy = 60000.0/data_at_beat.bpm_;
+    
+      off_notes = audio_.MoreOfNotes(data_at_beat);
+      data_per_beat.pop_front();
+    }
+    
     // Increase resources.
-    if (utils::get_elapsed(last_resource_player_one, cur_time) > RESOURCE_UPDATE_FREQUENCY) {
-      player_one_->IncreaseResources();
+    if (utils::get_elapsed(last_resource_player_one, cur_time) > player_resource_update_freqeuncy) {
+      player_one_->IncreaseResources(off_notes);
       last_resource_player_one = cur_time;
     }
-
-    if (utils::get_elapsed(last_resource_player_two, cur_time) > ki_update_frequency) {
-      player_two_->IncreaseResources();
+    if (utils::get_elapsed(last_resource_player_two, cur_time) > ki_resource_update_frequency) {
+      player_two_->IncreaseResources(off_notes);
       last_resource_player_two = cur_time;
     }
 
-    if (utils::get_elapsed(last_update, cur_time) > UPDATE_FREQUENCY) {
+    if (utils::get_elapsed(last_update, cur_time) > render_frequency) {
       // Move player soldiers and check if enemy den's lp is down to 0.
       player_one_->MovePotential(player_two_);
       if (player_two_->HasLost()) {
         SetGameOver("YOU WON");
+        audio_.Stop();
         break;
       }
+
       player_two_->MovePotential(player_one_);
       if (player_one_->HasLost()) {
         SetGameOver("YOU LOST");
+        audio_.Stop();
         break;
       }
 
@@ -117,23 +163,38 @@ void Game::DoActions() {
   } 
 }
 
-void Game::HandleKi() {
-  Ki* ki = new Ki(player_one_, player_two_);
-  ki->SetUpKi(difficulty_);
-  auto last_action = std::chrono::steady_clock::now(); 
-   
+void Game::HandleActions() {
+  spdlog::get(LOGGER)->debug("Game::HandleActions: started");
+  auto audio_start_time = std::chrono::steady_clock::now();
+  auto analysed_data = audio_.analysed_data();
+  std::list<AudioDataTimePoint> data_per_beat = analysed_data.data_per_beat_;
+
+  bool level_below_avarage = true;
+  bool level_switch = false;
 
   // Handle building neurons and potentials.
   while(!game_over_) {
     auto cur_time = std::chrono::steady_clock::now(); 
-    if (!pause_ && utils::get_elapsed(last_action, cur_time) > 100) {
-      ki->UpdateKi(field_);
-      last_action = cur_time;
+
+    if (pause_) continue;
+
+    // Analyze audio data.
+    auto elapsed = utils::get_elapsed(audio_start_time, cur_time);
+    auto data_at_beat = data_per_beat.front();
+    if (elapsed >= data_at_beat.time_) {
+      if ((level_below_avarage && analysed_data.average_level_ > data_at_beat.level_) 
+          || (!level_below_avarage && analysed_data.average_level_ < data_at_beat.level_)) {
+        level_below_avarage = data_at_beat.level_ < analysed_data.average_level_;
+        level_switch = true;
+      }
+      player_two_->DoAction(data_at_beat, level_switch);
+      data_per_beat.pop_front();
     }
   }
 }
 
 void Game::GetPlayerChoice() {
+  spdlog::get(LOGGER)->debug("Game::GetPlayerChoice: started");
   int choice;
   PrintFieldAndStatus();
   while (true) {
@@ -154,10 +215,12 @@ void Game::GetPlayerChoice() {
     else if (choice == ' ') {
       if (pause_) {
         pause_ = false;
+        audio_.Unpause();
         PrintMessage("Un-Paused game.", false);
       }
       else {
         pause_ = true;
+        audio_.Pause();
         PrintMessage("Paused game.", false);
       }
     }
@@ -174,7 +237,7 @@ void Game::GetPlayerChoice() {
 
     else if (choice == 'c') {
       for (int i=0; i<10; i++)
-        player_one_->IncreaseResources();
+        player_one_->IncreaseResources(true);
       player_one_->set_iron(player_one_->iron()+1);
     }
 
@@ -189,7 +252,7 @@ void Game::GetPlayerChoice() {
           PrintMessage("Invalid choice!", true);
         else {
           PrintMessage("Added epsp @synapse " + utils::PositionToString(pos), false);
-          player_one_->AddPotential(pos, field_, UnitsTech::EPSP);
+          player_one_->AddPotential(pos, UnitsTech::EPSP);
         }
       }
     }
@@ -204,7 +267,7 @@ void Game::GetPlayerChoice() {
           PrintMessage("Invalid choice!", true);
         else {
           PrintMessage("created isps @synapse: " + utils::PositionToString(pos), false);
-          player_one_->AddPotential(pos, field_, UnitsTech::IPSP);
+          player_one_->AddPotential(pos, UnitsTech::IPSP);
         }
       }
     }
@@ -276,12 +339,12 @@ void Game::GetPlayerChoice() {
       std::vector<size_t> options;
       std::map<size_t, std::string> mapping;
       for (const auto& it : player_one_->technologies()) {
-        options.push_back(it.first-UnitsTech::NUCLEUS);
-        mapping[it.first-UnitsTech::NUCLEUS] += units_tech_mapping.at(it.first) 
+        options.push_back(it.first-UnitsTech::IPSP);
+        mapping[it.first-UnitsTech::IPSP] += units_tech_mapping.at(it.first) 
           + " (" + utils::PositionToString(it.second) + ")";
       }
       int technology = SelectInteger("Select technology", true, options, mapping, {4, 7, 10, 12})
-        +UnitsTech::NUCLEUS;
+        +UnitsTech::IPSP;
       if (player_one_->AddTechnology(technology))
         PrintMessage("selected: " + units_tech_mapping.at(technology), false);
       else if (technology != -1)
@@ -307,14 +370,16 @@ void Game::GetPlayerChoice() {
           // Otherwise get new postion first.
           else {
             auto new_pos = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
-            if (mapping_option_to_func[choice] == 1)
-              player_one_->ResetWayForSynapse(pos, new_pos);
-            else if (mapping_option_to_func[choice] == 2)
-              player_one_->AddWayPosForSynapse(pos, new_pos);
-            else if (mapping_option_to_func[choice] == 3)
-              player_one_->ChangeIpspTargetForSynapse(pos, new_pos);
-            else if (mapping_option_to_func[choice] == 4)
-              player_one_->ChangeEpspTargetForSynapse(pos, new_pos);
+            if (new_pos.first != -1) {
+              if (mapping_option_to_func[choice] == 1)
+                player_one_->ResetWayForSynapse(pos, new_pos);
+              else if (mapping_option_to_func[choice] == 2)
+                player_one_->AddWayPosForSynapse(pos, new_pos);
+              else if (mapping_option_to_func[choice] == 3)
+                player_one_->ChangeIpspTargetForSynapse(pos, new_pos);
+              else if (mapping_option_to_func[choice] == 4)
+                player_one_->ChangeEpspTargetForSynapse(pos, new_pos);
+            }
           }
         }
         else
@@ -348,7 +413,7 @@ Position Game::SelectPosition(Position start, int range) {
         break;
       case 'q':
         end = true;
-        new_pos = {0, 0};
+        new_pos = {-1, -1};
         break;
       case KEY_UP:
         new_pos.first--; 
@@ -390,7 +455,8 @@ Position Game::SelectNeuron(Player* p, int type) {
 
   // Print field and get player choice and reset replacements.
   PrintFieldAndStatus();
-  PrintMessage("Choose barack: ", false);
+  std::string msg = "Choose " + units_tech_mapping.at(type) + ": ";
+  PrintMessage(msg.c_str(), false);
   char choice = getch();
   field_->set_replace({});
 
@@ -443,6 +509,7 @@ void Game::DistributeIron() {
 
 int Game::SelectInteger(std::string msg, bool omit, 
     std::vector<size_t> options, std::map<size_t, std::string> mapping, std::vector<size_t> splits) {
+  spdlog::get(LOGGER)->debug("Game::SelectInteger: {}", msg);
   pause_ = true;
   ClearField();
   bool end = false;
@@ -452,8 +519,11 @@ int Game::SelectInteger(std::string msg, bool omit,
     for (const auto& option : options) {
       char c_option = 'a'+option-1;
       availible_options+= c_option;
-      if (mapping.count(option) > 0)
+      if (mapping.count(option) > 0) {
+        spdlog::get(LOGGER)->debug("Game::SelectInteger: getting mapping {}", option);
         availible_options += ": " + mapping[option];
+        spdlog::get(LOGGER)->debug("Game::SelectInteger: got mapping {}", mapping[option]);
+      }
       availible_options+= "    ";
     }
     PrintCentered(LINES/2-1, msg);
@@ -465,8 +535,10 @@ int Game::SelectInteger(std::string msg, bool omit,
       s_split += c_split;
 
       size_t pos = availible_options.find(s_split + ": ");
-      PrintCentered(LINES/2+(counter+=2), availible_options.substr(0, pos));
-      availible_options = availible_options.substr(pos);
+      if (pos != std::string::npos) {
+        PrintCentered(LINES/2+(counter+=2), availible_options.substr(0, pos));
+        availible_options = availible_options.substr(pos);
+      }
     }
     PrintCentered(LINES/2+(counter+=2), availible_options);
     PrintCentered(LINES/2+counter+3, "> enter number...");
@@ -477,6 +549,7 @@ int Game::SelectInteger(std::string msg, bool omit,
       end = true;
     else if (std::find(options.begin(), options.end(), choice-'a'+1) != options.end()) {
       pause_ = false;
+      spdlog::get(LOGGER)->debug("Game::SelectInteger: done, retuning: {}", choice-'a'+1);
       return choice-'a'+1;
     }
     else 
@@ -508,7 +581,9 @@ void Game::PrintFieldAndStatus() {
     mvaddstr(10+i, COLS-28, lines[i].c_str());
   }
 
-  std::string msg = "Enemy iron: " + std::to_string(player_two_->resources().at(Resources::IRON).first);
+  std::string msg = "Enemy potential: (" + player_two_->GetNucleusLive() + ")";
+  PrintCentered(2, msg.c_str());
+  msg = "Enemy iron: " + std::to_string(player_two_->resources().at(Resources::IRON).first);
   PrintCentered(3, msg.c_str());
   msg = "Enemy oxygen: " + std::to_string(player_two_->resources().at(Resources::OXYGEN).first);
   PrintCentered(4, msg.c_str());

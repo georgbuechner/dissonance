@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <cstddef>
 #include <math.h>
 #include <vector>
 
@@ -28,6 +29,17 @@ std::string utils::create_id(std::string type) {
   }
   return id;
 
+}
+
+Options utils::CreateOptionsFromStrings(std::vector<std::string> option_strings) {
+  std::vector<size_t> options;
+  std::map<size_t, std::string> mappings;
+  size_t counter = 0;
+  for (const auto& it : option_strings) {
+    options.push_back(++counter);
+    mappings[counter] = it;
+  }
+  return Options({options, {}, mappings});
 }
 
 utils::Paragraphs utils::LoadWelcome() {
@@ -91,7 +103,7 @@ utils::Paragraphs utils::LoadHelp() {
       "",
       "--- TIPS ----", 
       "Iron is used to boast oxygen production (1 iron per boast) or to start gaining new resources (2 iron per new resource).",
-      "Iron is gained in relation to you oxygen-level: more oxygen = less iron per second",
+      "Iron is gained in relation to you oxygen-level: you only gain iron if oxygen is below 10 and you may never have more than 3 iron at a time!",
       "",
       "You should start investing into activate neurons to defend yourself: for this you need oxygen and glutamate.",
       "",

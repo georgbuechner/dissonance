@@ -1,5 +1,5 @@
 #include "spdlog/spdlog.h"
-#include <units.h>
+#include "objects/units.h"
 
 // Neurons
 Neuron::Neuron() : Unit() {}
@@ -82,17 +82,18 @@ void Synapse::set_max_stored(unsigned int max_stored) {
 }
 
 // methods: 
-std::vector<Position> Synapse::GetWayWithTargetIncluded(int unit) { 
-  spdlog::get(LOGGER)->debug("SYNAPSE::GetWayWithTargetIncluded");
+std::vector<Position> Synapse::GetWayPoints(int unit) { 
+  spdlog::get(LOGGER)->debug("SYNAPSE::GetWayPoints");
   auto way = way_points_;
   if (unit == UnitsTech::EPSP)
     way.push_back(epsp_target_);
   else if (unit == UnitsTech::IPSP)
-    way.push_back(epsp_target_);
+    way.push_back(ipsp_target_);
   else
    throw std::invalid_argument("Target neither epsp or ipsp:");
   return way;
 }
+
 unsigned int Synapse::AddEpsp() { 
   spdlog::get(LOGGER)->debug("Synapse::AddEpsp");
   if (swarm_) {

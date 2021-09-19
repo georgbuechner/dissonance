@@ -9,11 +9,10 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "field.h"
-#include "player.h"
-#include "units.h"
-#include "utils.h"
-#include "codes.h"
+
+#include "game/field.h"
+#include "utils/utils.h"
+#include "constants/codes.h"
 
 #define COLOR_DEFAULT 3
 #define COLOR_PLAYER 2 

@@ -10,10 +10,10 @@
 #include <shared_mutex>
 #include <vector>
 
-#include "codes.h"
-#include "costs.h"
-#include "data_structs.h"
-#include "units.h"
+#include "constants/codes.h"
+#include "constants/costs.h"
+#include "objects/data_structs.h"
+#include "objects/units.h"
 
 class Field;
 
@@ -33,7 +33,7 @@ class Player {
      * @param[in] nucleus_pos position of player's nucleus.
      * @param[in] silver initial silver value.
      */
-    Player(Position nucleus_pos, int iron);
+    Player(Position nucleus_pos, Field* field, int iron);
 
     // getter:
     std::map<std::string, Potential> potential();
@@ -52,6 +52,8 @@ class Player {
     void set_iron(int iron);
 
     // methods:
+    Position GetPositionOfClosestNeuron(Position pos, int unit) const;
+    std::string GetNucleusLive();
     
     /**
      * Checks whether player has lost.
@@ -140,8 +142,9 @@ class Player {
 
     /** 
      * Increase all resources by set amount.
+     * @param[in] inc_iron 
      */
-    void IncreaseResources();
+    void IncreaseResources(bool inc_iron);
 
     /**
      * Distributes iron to either boast oxygen production or activate neu
@@ -163,8 +166,9 @@ class Player {
      * Adds a newly create neuron to list of all neurons.
      * @param[in] pos position of newly added neurons.
      * @param[in] neuron (unit).
+     * @return success/ failiure.
      */
-    void AddNeuron(Position pos, int neuron, Position epsp_target={-1, -1}, Position ipsp_target={-1, -1});
+    bool AddNeuron(Position pos, int neuron, Position epsp_target={-1, -1}, Position ipsp_target={-1, -1});
 
     /**
      * Adds new potential and sets it's current position and the way to it's
@@ -174,8 +178,9 @@ class Player {
      * @param[in] pos start position of new potential.
      * @param[in] way to the enemies neuron.
      * @param[in] unit should be either ESPS or IPSP.
+     * @return success/ failiure.
      */
-    void AddPotential(Position pos, Field* field, int unit);
+    bool AddPotential(Position pos, int unit);
 
     /**
      * Adds a technology if resources availible. Returns false if resources not
@@ -243,7 +248,8 @@ class Player {
     bool IncreaseNeuronPotential(int potential, int neuron);
 
 
-  private: 
+  protected: 
+    Field* field_;
     int cur_range_;
 
     std::map<int, Resource> resources_;
@@ -254,8 +260,6 @@ class Player {
     double total_oxygen_;
     double bound_oxygen_;
     std::shared_mutex mutex_resources_;
-
-    std::chrono::time_point<std::chrono::steady_clock> last_iron_; 
 
     std::shared_mutex mutex_nucleus_;
     Nucleus nucleus_;

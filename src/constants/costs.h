@@ -54,114 +54,125 @@ namespace costs {
       }
     },
     {UnitsTech::WAY, {
+        {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 7.7}, 
+        {Resources::DOPAMINE, 17.7}, 
         {Resources::SEROTONIN, 0}
       }
     },
     {UnitsTech::SWARM, {
+        {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 9.9}, 
+        {Resources::DOPAMINE, 19.9}, 
         {Resources::SEROTONIN, 0}
       }
     },
     {UnitsTech::TARGET, {
+        {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 6.5}, 
+        {Resources::DOPAMINE, 16.5}, 
         {Resources::SEROTONIN, 0}
       }
     },
     {UnitsTech::TOTAL_OXYGEN, {
+        {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 7.5}, 
-        {Resources::SEROTONIN, 8.9}
+        {Resources::DOPAMINE, 17.5}, 
+        {Resources::SEROTONIN, 18.9}
       }
     },
     {UnitsTech::TOTAL_RESOURCE, {
+        {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 8.5}, 
-        {Resources::SEROTONIN, 7.9}
+        {Resources::DOPAMINE, 18.5}, 
+        {Resources::SEROTONIN, 17.9}
       }
     },
     {UnitsTech::CURVE, {
+        {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 11.0}, 
-        {Resources::SEROTONIN, 11.2}
+        {Resources::DOPAMINE, 21.0}, 
+        {Resources::SEROTONIN, 21.2}
       }
     },
     {UnitsTech::ATK_POTENIAL, {
+        {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 
-        {Resources::POTASSIUM, 0}, 
+        {Resources::POTASSIUM, 10}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 5.0}, 
-        {Resources::SEROTONIN, 11.2}
+        {Resources::DOPAMINE, 15.0}, 
+        {Resources::SEROTONIN, 21.2}
       }
     },
     {UnitsTech::ATK_SPEED, {
+        {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 
-        {Resources::POTASSIUM, 0}, 
+        {Resources::POTASSIUM, 10}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 3.0}, 
-        {Resources::SEROTONIN, 9.2}
+        {Resources::DOPAMINE, 13.0}, 
+        {Resources::SEROTONIN, 19.2}
       }
     },
     {UnitsTech::ATK_DURATION, {
+        {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 
-        {Resources::POTASSIUM, 0}, 
+        {Resources::POTASSIUM, 10}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 2.5}, 
-        {Resources::SEROTONIN, 11.2}
+        {Resources::DOPAMINE, 12.5}, 
+        {Resources::SEROTONIN, 17.2}
       }
     },
     {UnitsTech::DEF_SPEED, {
+        {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
-        {Resources::GLUTAMATE, 5.8}, 
-        {Resources::DOPAMINE, 6.5}, 
+        {Resources::GLUTAMATE, 15.8}, 
+        {Resources::DOPAMINE, 16.5}, 
         {Resources::SEROTONIN, 6.6}
       }
     },
     {UnitsTech::DEF_POTENTIAL, {
+        {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
-        {Resources::GLUTAMATE, 5.9}, 
-        {Resources::DOPAMINE, 4.5}, 
-        {Resources::SEROTONIN, 7.6}
+        {Resources::GLUTAMATE, 15.9}, 
+        {Resources::DOPAMINE, 14.5}, 
+        {Resources::SEROTONIN, 17.6}
       }
     },
     {UnitsTech::NUCLEUS_RANGE, {
-        {Resources::OXYGEN, 0}, 
+        {Resources::IRON, 1}, 
+        {Resources::OXYGEN, 10}, 
         {Resources::POTASSIUM, 0}, 
         {Resources::CHLORIDE, 0}, 
-        {Resources::GLUTAMATE, 6.9}, 
-        {Resources::DOPAMINE, 3.5}, 
-        {Resources::SEROTONIN, 7.9}
+        {Resources::GLUTAMATE, 0}, 
+        {Resources::DOPAMINE, 13.5}, 
+        {Resources::SEROTONIN, 17.9}
       }
     }
-
   };
 }
 

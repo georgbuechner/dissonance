@@ -10,9 +10,11 @@
 #include <shared_mutex>
 #include <vector>
 
-#include "field.h"
-#include "player.h"
-#include "units.h"
+#include "audio/audio.h"
+#include "game/field.h"
+#include "player/audio_ki.h"
+#include "player/player.h"
+#include "objects/units.h"
 
 
 class Game {
@@ -32,9 +34,13 @@ class Game {
   private: 
     Field* field_;
     Player* player_one_;
-    Player* player_two_;
+    AudioKi* player_two_;
     bool game_over_;
     bool pause_;
+    Audio audio_;
+
+    const int lines_;
+    const int cols_;
 
     int difficulty_;
 
@@ -50,7 +56,7 @@ class Game {
      * - ki: add defence tower
      * - ki: lower time to add new soldier/ defence tower.
      */
-    void DoActions();
+    void RenderField();
 
     /**
      * Handls player input (Runs as thread).
@@ -66,7 +72,7 @@ class Game {
     /**
      * Handles ki-towers and soldiers.
      */
-    void HandleKi();
+    void HandleActions();
 
     /**
      * Print help line, field and status player's status line.

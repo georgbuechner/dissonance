@@ -12,9 +12,9 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "player.h"
-#include "graph.h"
-#include "units.h"
+#include "player/player.h"
+#include "utils/graph.h"
+#include "objects/units.h"
 
 class Field {
   public:

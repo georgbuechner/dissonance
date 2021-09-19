@@ -1,11 +1,6 @@
 #ifndef SRC_KI_H_H
 #define SRC_KI_H_H
 
-#include "codes.h"
-#include "field.h"
-#include "player.h"
-#include "units.h"
-#include "utils.h"
 #include <algorithm>
 #include <chrono>
 #include <iterator>
@@ -15,6 +10,12 @@
 #include <vector>
 #include <random>
 #include <spdlog/spdlog.h>
+
+#include "constants/codes.h"
+#include "game/field.h"
+#include "player/player.h"
+#include "objects/units.h"
+#include "utils/utils.h"
 
 #define LOGGER "logger"
 
@@ -56,10 +57,6 @@ class Ki {
       ki_->DistributeIron(Resources::OXYGEN);
       ki_->DistributeIron(Resources::GLUTAMATE);
 
-      // Add extra stating resources to ki.
-      for (int i=0; i<2*difficulty; i++) 
-        ki_->IncreaseResources();
-
       // Increase update-frequency depending on difficulty.
       update_frequency_ -= 1000*(difficulty-1);
     }
@@ -78,7 +75,7 @@ class Ki {
         Update();
     }
 
-  private:
+  protected:
     Player* player_one_;
     Player* ki_;
 

@@ -1,6 +1,7 @@
 #ifndef SRC_UTILS_H_
 #define SRC_UTILS_H_
 
+#include "objects/data_structs.h"
 #include <chrono>
 #include <string>
 #include <utility>
@@ -24,6 +25,8 @@ namespace utils {
   Paragraphs LoadHelp();
 
   std::string create_id(std::string type);
+
+  Options CreateOptionsFromStrings(std::vector<std::string> option_strings);
 }
 
 #endif

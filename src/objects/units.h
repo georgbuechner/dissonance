@@ -8,7 +8,7 @@
 #include <vector>
 #include <spdlog/spdlog.h>
 
-#include "codes.h"
+#include "constants/codes.h"
 
 #define LOGGER "logger"
 
@@ -66,7 +66,7 @@ struct Neuron : Unit {
      */
     bool IncreaseVoltage(int potential);
 
-    virtual std::vector<Position> GetWayWithTargetIncluded(int unit) { return {}; }
+    virtual std::vector<Position> GetWayPoints(int unit) { return {}; }
     virtual unsigned int AddEpsp() { return 0; }
 
     Neuron();
@@ -106,7 +106,7 @@ struct Synapse : Neuron {
     void set_max_stored(unsigned int max_stored);
 
     // methods: 
-    std::vector<Position> GetWayWithTargetIncluded(int unit);
+    std::vector<Position> GetWayPoints(int unit);
     unsigned int AddEpsp();
 
   private:

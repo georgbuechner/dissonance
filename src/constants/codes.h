@@ -28,9 +28,9 @@ enum ViewRange {
 enum UnitsTech {
   ACTIVATEDNEURON = 0,
   SYNAPSE,
+  NUCLEUS, 
   EPSP,
   IPSP,
-  NUCLEUS, 
 
   WAY,
   SWARM,
@@ -54,6 +54,38 @@ enum Resources {
   GLUTAMATE,
   DOPAMINE,
   SEROTONIN,
+};
+
+enum Tactics {
+  EPSP_FOCUSED = 0,
+  IPSP_FOCUSED,
+  AIM_NUCLEUS,
+  DESTROY_ACTIVATED_NEURONS,
+  DESTROY_SYNAPSES,
+  BLOCK_ACTIVATED_NEURON,
+  BLOCK_SYNAPSES,
+  DEF_FRONT_FOCUS,
+  DEF_SURROUNG_FOCUS,
+  DEF_IPSP_BLOCK,
+};
+
+enum Signitue {
+  UNSIGNED = 0,
+  SHARP = 1,
+  FLAT = 0,
+};
+
+const std::map<int, std::string> tactics_mapping = {
+  {EPSP_FOCUSED, "EPSP_FOCUSED"},
+  {IPSP_FOCUSED,"IPSP_FOCUSED"},
+  {AIM_NUCLEUS,"AIM_NUCLEUS"},
+  {DESTROY_ACTIVATED_NEURONS,"DESTROY_ACTIVATED_NEURONS"},
+  {DESTROY_SYNAPSES,"DESTROY_SYNAPSES"},
+  {BLOCK_ACTIVATED_NEURON,"BLOCK_ACTIVATED_NEURON"},
+  {BLOCK_SYNAPSES,"BLOCK_SYNAPSES"},
+  {DEF_FRONT_FOCUS,"DEF_FRONT_FOCUS"},
+  {DEF_SURROUNG_FOCUS,"DEF_SURROUNG_FOCUS"},
+  {DEF_IPSP_BLOCK,"DEF_IPSP_BLOCK"}
 };
 
 const std::map<int, std::string> resources_name_mapping = {
@@ -94,7 +126,7 @@ const std::map<int, std::string> units_tech_mapping = {
   {ATK_DURATION, "Increase ipsp duration"},
   {DEF_POTENTIAL, "Increase potential of activated neuron"},
   {DEF_SPEED, "Increase cooldown of activated neuron"},
-  {NUCLEUS_RANGE, "Increase cooldown of activated neuron"},
+  {NUCLEUS_RANGE, "Increase range of nucleus"},
 };
 
 #endif
