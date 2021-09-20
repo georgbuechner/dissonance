@@ -1,10 +1,28 @@
 #include <iostream>
 #include <catch2/catch.hpp>
 #include <map>
-#include "utils.h"
+#include "utils/utils.h"
 
 TEST_CASE ("test_dist", "[utils]") {
   REQUIRE(utils::dist({1,1}, {5,5}) == utils::dist({5,5}, {1,1}));
+}
+
+TEST_CASE("loops", "[utils]") {
+  std::vector<int> vec_a = {2};
+  std::vector<int> vec_b = {};
+  int c=0;
+  for (size_t i=0; i<vec_a.size() && i<vec_b.size(); i++)
+    c++;
+  REQUIRE(c==0);
+}
+TEST_CASE("bitwise", "[utils]") {
+  int num = 0;
+  num |= 1UL << 0;
+  REQUIRE(num == 1);
+  num |= 1UL << 1;
+  REQUIRE(num == 3);
+  num = 0;
+  REQUIRE(num == 0);
 }
 
 TEST_CASE("test_map", "[general]") {

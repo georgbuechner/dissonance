@@ -1,6 +1,7 @@
 #ifndef SRC_PLAYER_H_
 #define SRC_PLAYER_H_
 
+#include <cstddef>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -22,7 +23,7 @@ using namespace costs;
 typedef std::vector<std::vector<std::string>> Paragraphs;
 typedef std::pair<int, int> Position;
 typedef std::pair<double, bool> Resource;
-typedef std::pair<int, int> TechXOf;
+typedef std::pair<size_t, size_t> TechXOf;
 
 class Player {
   public:
@@ -87,12 +88,6 @@ class Player {
      * @return Position of a random activated neuron.
      */
     Position GetRandomActivatedNeuron();
-
-    /**
-     * Gets number of activated neurons
-     * @return number of activated neurons.
-     */
-    unsigned int GetNumActivatedNeurons();
 
     /**
      * Resets way-points for synapse at given position to contain only given way-point.

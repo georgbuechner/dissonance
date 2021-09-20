@@ -12,7 +12,8 @@
 #define LOGGER "logger"
 
 
-std::atomic<bool> pause{false};
+std::atomic<bool> pause_audio(false);
+
 const std::vector<std::string> Audio::note_names_ = {
   "C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"
 };
@@ -174,11 +175,11 @@ void Audio::play() {
 }
 
 void Audio::Pause() {
-  pause = true;
+  pause_audio = true;
 }
 
 void Audio::Unpause() {
-  pause = false;
+  pause_audio = false;
 }
 
 void Audio::Stop() {
@@ -190,7 +191,7 @@ void Audio::data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
   ma_decoder* pDecoder = (ma_decoder*)pDevice->pUserData;
   if (pDecoder == NULL)
     return;
-  if (!pause) {
+  if (!pause_audio) {
     ma_decoder_read_pcm_frames(pDecoder, pOutput, frameCount);
     (void)pInput;
   }
@@ -228,10 +229,10 @@ void Audio::CreateLevels(int intervals) {
   // 1. Sort notes by frequency:
   std::map<std::string, int> notes_by_frequency;
   long unsigned int counter = 0;
-  int cur_interval = 0;
+  size_t cur_interval = 0;
   size_t darkness = 0;
   size_t total = 0;
-  for (const auto& it : analysed_data_.data_per_beat_) {
+  for (auto& it : analysed_data_.data_per_beat_) {
     for (const auto& note : it.notes_) {
       notes_by_frequency[note.note_name_]++;
       darkness += note.ocatve_*note.ocatve_;
@@ -239,6 +240,7 @@ void Audio::CreateLevels(int intervals) {
     }
     // If next intervals was reached, calc key and increase current level.
     if (++counter > analysed_data_.data_per_beat_.size()/intervals*(cur_interval+1)) {
+      it.interval_ = cur_interval;
       darkness /= total;
       CalcLevel(cur_interval++, notes_by_frequency, darkness);
       notes_by_frequency.clear();
@@ -248,7 +250,7 @@ void Audio::CreateLevels(int intervals) {
   }
 }
 
-void Audio::CalcLevel(int interval, std::map<std::string, int> notes_by_frequency, size_t darkness) {
+void Audio::CalcLevel(size_t interval, std::map<std::string, int> notes_by_frequency, size_t darkness) {
   spdlog::get(LOGGER)->debug("Audio::CalcLevel");
   std::list<std::pair<int, std::string>> sorted_notes_by_frequency;
   // Transfor to ordered list
@@ -257,11 +259,10 @@ void Audio::CalcLevel(int interval, std::map<std::string, int> notes_by_frequenc
   sorted_notes_by_frequency.sort();
   sorted_notes_by_frequency.reverse();
 
-  // Get note with highes frequency.
+  // Get note with highest frequency.
   std::string key = sorted_notes_by_frequency.front().second; 
   auto it = std::find(note_names_.begin(), note_names_.end(), key);
   size_t key_note = it - note_names_.begin();
-
 
   // Check minor/ major
   size_t notes_in_minor = 0;
@@ -284,7 +285,7 @@ void Audio::CalcLevel(int interval, std::map<std::string, int> notes_by_frequenc
       notes_in_key++;
 
   // Add new interval information.
-  analysed_data_.intervals_[interval] = Interval({key, key_note, 
+  analysed_data_.intervals_[interval] = Interval({interval, key, key_note, 
       Signitue::UNSIGNED, key.find("Major") != std::string::npos, notes_in_key, 
       sorted_notes_by_frequency.size()-notes_in_key, darkness}
     );
@@ -294,13 +295,19 @@ void Audio::CalcLevel(int interval, std::map<std::string, int> notes_by_frequenc
     analysed_data_.intervals_[interval].signature_ = Signitue::FLAT;
 }
 
-bool Audio::MoreOfNotes(const AudioDataTimePoint &data_at_beat) const {
+bool Audio::MoreOfNotes(const AudioDataTimePoint &data_at_beat, bool off) const {
   std::string cur_key = analysed_data_.intervals_.at(data_at_beat.interval_).key_;
   auto notes_in_cur_key = keys_.at(cur_key);
   size_t off_notes_counter = 0;
   for (const auto& note : data_at_beat.notes_) {
-    if (std::find(notes_in_cur_key.begin(), notes_in_cur_key.end(), note.note_name_) == notes_in_cur_key.end())
-      off_notes_counter++;
+    if (off) {
+      if (std::find(notes_in_cur_key.begin(), notes_in_cur_key.end(), note.note_name_) == notes_in_cur_key.end())
+        off_notes_counter++;
+    }
+    else {
+      if (std::find(notes_in_cur_key.begin(), notes_in_cur_key.end(), note.note_name_) != notes_in_cur_key.end())
+        off_notes_counter++;
+    }
   }
   return off_notes_counter == data_at_beat.notes_.size() && off_notes_counter > 0;
 }
