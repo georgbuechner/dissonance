@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "game/field.h"
+#include "spdlog/spdlog.h"
 #include "utils/utils.h"
 #include "constants/codes.h"
 
@@ -230,11 +231,15 @@ bool Field::CheckCollidingPotentials(Position pos, Player* player_one, Player* p
     return false;
 
   if (id_one.find("epsp") != std::string::npos && id_two.find("ipsp") != std::string::npos) {
+    spdlog::get(LOGGER)->debug("Field::CheckCollidingPotentials: calling neutralize potential 1");
     player_one->NeutralizePotential(id_one, 1);
+    spdlog::get(LOGGER)->debug("Field::CheckCollidingPotentials: calling neutralize potential 2");
     player_two->NeutralizePotential(id_two, -1); // -1 increase potential.
   }
   else if (id_one.find("ipsp") != std::string::npos && id_two.find("epsp") != std::string::npos) {
+    spdlog::get(LOGGER)->debug("Field::CheckCollidingPotentials: calling neutralize potential 1");
     player_one->NeutralizePotential(id_one, -1);
+    spdlog::get(LOGGER)->debug("Field::CheckCollidingPotentials: calling neutralize potential 2");
     player_two->NeutralizePotential(id_two, 1); // -1 increase potential.
   }
   return true;

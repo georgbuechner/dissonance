@@ -30,6 +30,7 @@ struct AudioDataTimePoint {
 };
 
 struct Interval {
+  size_t id_;
   std::string key_;
   size_t key_note_;
   size_t signature_;  ///< 0=unsigned, 1=sharp, 2=flat
@@ -66,7 +67,7 @@ class Audio {
     void Unpause();
     void Stop();
 
-    bool MoreOfNotes(const AudioDataTimePoint& data_at_beat) const;
+    bool MoreOfNotes(const AudioDataTimePoint& data_at_beat, bool off=true) const;
     size_t NextOfNotesIn(double cur_time) const;
 
     static void CreateKeys();
@@ -87,7 +88,7 @@ class Audio {
     static Note ConvertMidiToNote(int midi_note);
 
     void CreateLevels(int intervals);
-    void CalcLevel(int quater, std::map<std::string, int> notes_by_frequency, size_t darkness);
+    void CalcLevel(size_t quater, std::map<std::string, int> notes_by_frequency, size_t darkness);
 };
 
 #endif

@@ -216,15 +216,6 @@ Position Player::GetRandomActivatedNeuron() {
   return activated_neuron_postions[utils::getrandom_int(0, activated_neuron_postions.size()-1)];
 }
 
-unsigned int Player::GetNumActivatedNeurons() {
-  std::shared_lock sl(mutex_all_neurons_);
-  size_t counter = 0;
-  for (const auto& it : neurons_)
-    if (it.second->type_ == UnitsTech::ACTIVATEDNEURON)
-      counter++;
-  return counter;
-}
-
 void Player::ResetWayForSynapse(Position pos, Position way_position) {
   std::unique_lock ul(mutex_all_neurons_);
   if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE)
@@ -259,7 +250,6 @@ void Player::ChangeEpspTargetForSynapse(Position pos, Position target_pos) {
 }
 
 double Player::Faktor(int limit, double cur) {
-  spdlog::get(LOGGER)->debug("Player::Faktor: limit:{}, cur: {}, resource_curve_: {}", limit, cur, resource_curve_);
   return (limit-cur)/(resource_curve_*limit);
 }
 
@@ -271,7 +261,7 @@ void Player::IncreaseResources(bool inc_iron) {
   int cur_oxygen = resources_[Resources::OXYGEN].first;
   total_oxygen_ = bound_oxygen_ + cur_oxygen;
   // Add iron if inc_iron=True, the player has less than 10 oxygen and only max 2 irons.
-  if (inc_iron && cur_oxygen < 15)  // && resources_[Resources::IRON].first < 3)
+  if (inc_iron && resources_[Resources::IRON].first < 3)
     resources_[Resources::IRON].first++;
   // Add other resources based on current oxygen.
   for (auto& it : resources_) {
@@ -383,7 +373,7 @@ bool Player::AddPotential(Position synapes_pos, int unit) {
   std::shared_lock sl_technologies(mutex_technologies_);
   // Get boast from technologies.
   int potential_boast = technologies_.at(UnitsTech::ATK_POTENIAL).first;
-  int speed_boast = technologies_.at(UnitsTech::ATK_POTENIAL).first;
+  int speed_boast = 50*technologies_.at(UnitsTech::ATK_POTENIAL).first;
   int duration_boast = technologies_.at(UnitsTech::ATK_DURATION).first;
   sl_technologies.unlock();
   if (unit == UnitsTech::EPSP) {
@@ -465,7 +455,7 @@ void Player::MovePotential(Player* enemy) {
         enemy->SetBlockForNeuron(it.second.pos_, false);  // unblock target.
         potential_to_remove.push_back(it.first); // remove 
       }
-      else
+      else if (it.second.way_.size() == 0)
         enemy->SetBlockForNeuron(it.second.pos_, true);  // block target
     }
   }

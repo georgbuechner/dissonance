@@ -39,6 +39,8 @@ current voltage level determines how fast technologies are researched.
 ### Game Details 
 
 #### Resources 
+- ideal distribute oxygen to resources to increase resource-gain.
+
 | name        | group   | description   | production | effect |
 |:-----------:|:-------:|---------------| ------ | ----- |
 | FE (iron)   | Resources| metalloprotein | automatic income every 30sec (random factor) | used for gaining O2; when converted Hemoglobin, allows gaining new resources. |
@@ -76,3 +78,81 @@ current voltage level determines how fast technologies are researched.
 - how does voltage increase (suggestions: binding oxygen, destroying enemy
   position, occupying enemy neurons). Each player could also have the possibility
   to decide for the one or the other technique.
+
+## Strategies
+Prioritize:
+- attack strategies (*Minor*)
+- defence strategies (*Major*)
+- refinement (sharp)
+- resources (flat)
+- expansion (*Minor* & *signed*)
+
+### ATTACK STRATEGIES
+Choose between:
+- targets (*flat*)
+- brute force (*unsigned*)
+- intelligent way (*sharp*)
+Choose between:
+- epsp focus (potassium+1) (*unsigned*)
+- ipsp involvement (chloride+1) (*signed*)
+*resources*:
+- potassium
+- dopamine
+
+#### targets
+*technologies*: TARGET
+*resources*: potassium
+Choose between:
+- Aim nucleus (resources: potassium+1) (*unsigned*)
+- Destroy Activated neurons (resources: potassium+1, dopamine+1) (darkness > 4)
+- Destroy Synapses (resources: potassium+1, dopamine+1) (darkness < 4)
+- Block activated neurons (_always+1 if **ipsp involvement** selected_, resources: glutamate+1, dopamine+1) (notes_out_key_<=4)
+- Block synapses (_always+1 if **ipsp involvement** selected_, resources: glutamate+1, dopamine+1) (notes_out_key_>4)
+
+tactics 
+
+#### way 
+*technologies*: WAY
+Always selecting way with most least activated neurons
+
+#### Brute force
+*technologies*: SWARM
+
+### DEFENCE STRATEGIES
+Choose between:
+- block front focus (sharp)
+- block every focus (flat)
+- ipsp-block (
+-> *resources* glutamate+1
+*resources*:
+- glutamate
+
+
+### REFINEMENT
+Choose between:
+- defence (*Major*)
+- attack (*Minor*)
+*resources*:
+- serotonin
+- dopamine
+
+#### Defence
+*technologies*: DEF_POTENTIAL (darkness > 4), DEF_SPEED (darkness <= 4)
+*resources*:
+- glutamate 
+
+#### Attack
+*technologies*: ATK_POTENIAL, ATK_SPEED, ATK_DURATION
+- potassium
+
+#### RESOURCES
+*technologies*: TOTAL_OXYGEN, TOTAL_RESOURCE, CURVE
+- serotonin
+- dopamine
+
+#### EXPANSION
+*technologies*: NUCLEUS_RANGE
+*buildings*: nucleus
+- serotonin
+- dopamine
+

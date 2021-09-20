@@ -12,6 +12,20 @@ double utils::dist(Position pos1, Position pos2) {
   return std::sqrt(pow(pos2.first - pos1.first, 2) + pow(pos2.second - pos1.second, 2));
 }
 
+std::vector<std::string> utils::Split(std::string str, std::string delimiter) {
+  std::vector<std::string> v_strs;
+  size_t pos=0;
+  while ((pos = str.find(delimiter)) != std::string::npos) {
+    if(pos!=0)
+        v_strs.push_back(str.substr(0, pos));
+    str.erase(0, pos + delimiter.length());
+  }
+  v_strs.push_back(str);
+
+  return v_strs;
+}
+
+
 std::string utils::PositionToString(Position pos) {
   return std::to_string(pos.first) + "|" + std::to_string(pos.second);
 }

@@ -1,8 +1,8 @@
 #include <catch2/catch.hpp>
 #include <iterator>
-#include "field.h"
-#include "units.h"
-#include "utils.h"
+#include "game/field.h"
+#include "objects/units.h"
+#include "utils/utils.h"
 
 TEST_CASE("test_get_way_for_soldier", "[test_field]") {
   int lines = 100;

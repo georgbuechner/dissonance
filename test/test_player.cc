@@ -1,6 +1,6 @@
 #include <catch2/catch.hpp>
-#include "field.h"
-#include "player.h"
+#include "game/field.h"
+#include "player/player.h"
 
 TEST_CASE("test_ipsp_takes_epsp_potential", "[test_player]") {
   int lines = 100;

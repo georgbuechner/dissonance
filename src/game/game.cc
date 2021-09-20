@@ -1,5 +1,6 @@
 #include "game.h"
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstddef>
 #include <cstdlib>
@@ -20,9 +21,6 @@
 #include "utils/utils.h"
 
 #define HELP "[e]psp, [i]psp | [A]ctivate neuron, build [S]ynapse | [d]istribute iron, [s]elect synapse | [h]elp | pause [space], [q]uit"
-#define COLOR_DEFAULT 3
-#define COLOR_ERROR 2 
-#define COLOR_MSG 4
 
 #define LINE_HELP 8
 #define LINE_STATUS LINES-9
@@ -76,7 +74,7 @@ void Game::play() {
   nucleus_pos = field_->AddDen(5, lines_/3, 5, cols_/3);
   player_two_ = new AudioKi(nucleus_pos, 4, player_one_, field_, &audio_);
   field_->BuildGraph(player_one_->nucleus_pos(), player_two_->nucleus_pos());
-  player_two_->SetUpTactics(audio_.analysed_data().intervals_.begin()->second);
+  player_two_->SetUpTactics();
 
   // Let player one distribute initial iron.
   DistributeIron();
@@ -169,9 +167,6 @@ void Game::HandleActions() {
   auto analysed_data = audio_.analysed_data();
   std::list<AudioDataTimePoint> data_per_beat = analysed_data.data_per_beat_;
 
-  bool level_below_avarage = true;
-  bool level_switch = false;
-
   // Handle building neurons and potentials.
   while(!game_over_) {
     auto cur_time = std::chrono::steady_clock::now(); 
@@ -182,12 +177,8 @@ void Game::HandleActions() {
     auto elapsed = utils::get_elapsed(audio_start_time, cur_time);
     auto data_at_beat = data_per_beat.front();
     if (elapsed >= data_at_beat.time_) {
-      if ((level_below_avarage && analysed_data.average_level_ > data_at_beat.level_) 
-          || (!level_below_avarage && analysed_data.average_level_ < data_at_beat.level_)) {
-        level_below_avarage = data_at_beat.level_ < analysed_data.average_level_;
-        level_switch = true;
-      }
-      player_two_->DoAction(data_at_beat, level_switch);
+      player_two_->DoAction(data_at_beat);
+      player_two_->set_last_time_point(data_at_beat);
       data_per_beat.pop_front();
     }
   }
@@ -340,7 +331,10 @@ void Game::GetPlayerChoice() {
       std::map<size_t, std::string> mapping;
       for (const auto& it : player_one_->technologies()) {
         options.push_back(it.first-UnitsTech::IPSP);
-        mapping[it.first-UnitsTech::IPSP] += units_tech_mapping.at(it.first) 
+        size_t status = COLOR_DEFAULT;
+        if (it.second.first < it.second.second && player_one_->GetMissingResources(it.first, it.second.first).size() == 0)
+          status = COLOR_AVAILIBLE;
+        mapping[it.first-UnitsTech::IPSP] += std::to_string(status) + "$" + units_tech_mapping.at(it.first) 
           + " (" + utils::PositionToString(it.second) + ")";
       }
       int technology = SelectInteger("Select technology", true, options, mapping, {4, 7, 10, 12})
@@ -520,9 +514,7 @@ int Game::SelectInteger(std::string msg, bool omit,
       char c_option = 'a'+option-1;
       availible_options+= c_option;
       if (mapping.count(option) > 0) {
-        spdlog::get(LOGGER)->debug("Game::SelectInteger: getting mapping {}", option);
         availible_options += ": " + mapping[option];
-        spdlog::get(LOGGER)->debug("Game::SelectInteger: got mapping {}", mapping[option]);
       }
       availible_options+= "    ";
     }
@@ -573,7 +565,8 @@ void Game::PrintMessage(std::string msg, bool error) {
 
 void Game::PrintFieldAndStatus() {
   std::unique_lock ul(mutex_print_field_);
-  mvaddstr(LINE_HELP, 10, HELP);
+  // mvaddstr(LINE_HELP, 10, HELP);
+  PrintHelpLine();
   field_->PrintField(player_one_, player_two_);
   
   auto lines = player_one_->GetCurrentStatusLine();
@@ -621,6 +614,89 @@ void Game::PrintCentered(Paragraphs paragraphs) {
 
 void Game::PrintCentered(int line, std::string txt) {
   mvaddstr(line, COLS/2-txt.length()/2, txt.c_str());
+}
+
+void Game::PrintCenteredColored(int line, std::vector<std::pair<std::string, int>> txt_with_color) {
+  // Get total length.
+  unsigned int total_length = 0;
+  for (const auto& it : txt_with_color) 
+    total_length += it.first.length();
+
+  // Print parts one by one and update color for each part.
+  unsigned int position = COLS/2-total_length/2;
+  for (const auto& it : txt_with_color) {
+    attron(COLOR_PAIR(it.second));
+    mvaddstr(line, position, it.first.c_str());
+    position += it.first.length();
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+  }
+}
+
+void Game::PrintHelpLine() {
+
+  bool technology_availible = false;
+  for (const auto& it : player_one_->technologies()) {
+    if (player_one_->GetMissingResources(it.first).size() == 0 && it.second.first < it.second.second) {
+      technology_availible = true;
+      break;
+    }
+  }
+
+  if (player_one_->GetMissingResources(UnitsTech::EPSP).size() > 0 || player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() == 0)
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+  else 
+    attron(COLOR_PAIR(1));
+  mvaddstr(LINE_HELP, 10, "[e]psp");
+  attron(COLOR_PAIR(COLOR_DEFAULT));
+  mvaddstr(LINE_HELP, 16, ", ");
+  if (player_one_->GetMissingResources(UnitsTech::IPSP).size() > 0 || player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() == 0)
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+  else 
+    attron(COLOR_PAIR(1));
+  mvaddstr(LINE_HELP, 18, "[i]psp");
+  attron(COLOR_PAIR(COLOR_DEFAULT));
+  mvaddstr(LINE_HELP, 24, " | ");
+
+  if (player_one_->GetMissingResources(UnitsTech::ACTIVATEDNEURON).size() > 0)
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+  else 
+    attron(COLOR_PAIR(1));
+  mvaddstr(LINE_HELP, 27, "[A]ctivated neuron");
+  attron(COLOR_PAIR(COLOR_DEFAULT));
+  mvaddstr(LINE_HELP, 45, ", ");
+
+  if (player_one_->GetMissingResources(UnitsTech::SYNAPSE).size() > 0)
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+  else 
+    attron(COLOR_PAIR(1));
+  mvaddstr(LINE_HELP, 47, "[S]ynapse");
+  attron(COLOR_PAIR(COLOR_DEFAULT));
+  mvaddstr(LINE_HELP, 56, " | ");
+
+  if (player_one_->resources().at(Resources::IRON).first == 0)
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+  else 
+    attron(COLOR_PAIR(1));
+  mvaddstr(LINE_HELP, 59, "[d]istribute iron");
+  attron(COLOR_PAIR(COLOR_DEFAULT));
+  mvaddstr(LINE_HELP, 76, ", ");
+
+  if (player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() == 0)
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+  else 
+    attron(COLOR_PAIR(1));
+  mvaddstr(LINE_HELP, 78, "[s]elect synapse");
+  attron(COLOR_PAIR(COLOR_DEFAULT));
+  mvaddstr(LINE_HELP, 94, ", ");
+
+  if (!technology_availible)
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+  else 
+    attron(COLOR_PAIR(1));
+  mvaddstr(LINE_HELP, 96, "[t]echnology");
+  attron(COLOR_PAIR(COLOR_DEFAULT));
+
+  mvaddstr(LINE_HELP, 108, " | [h]elp, pause [space], [q]uit");
 }
 
 void Game::ClearField() {

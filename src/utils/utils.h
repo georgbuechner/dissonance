@@ -12,6 +12,13 @@ namespace utils {
   typedef std::pair<int, int> Position;
   typedef std::vector<std::vector<std::string>> Paragraphs;
 
+  /**
+  * @param[in] str string to be splitet
+  * @param[in] delimitter 
+  * @return vector
+  */
+  std::vector<std::string> Split(std::string str, std::string delimiter);
+
   double get_elapsed(std::chrono::time_point<std::chrono::steady_clock> start,
     std::chrono::time_point<std::chrono::steady_clock> end);
 
