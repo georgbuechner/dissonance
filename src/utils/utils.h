@@ -23,6 +23,7 @@ namespace utils {
     std::chrono::time_point<std::chrono::steady_clock> end);
 
   double dist(Position pos1, Position pos2);
+  bool InRange(Position pos1, Position pos2, double min_dist, double max_dist);
 
   std::string PositionToString(Position pos);
 

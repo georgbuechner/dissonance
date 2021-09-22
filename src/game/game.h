@@ -16,13 +16,6 @@
 #include "player/player.h"
 #include "objects/units.h"
 
-#define COLOR_AVAILIBLE 1
-#define COLOR_ERROR 2 
-#define COLOR_DEFAULT 3
-#define COLOR_MSG 4
-#define COLOR_SUCCESS 5
-#define COLOR_MARKED 6
-
 class Game {
   public:
     /** 
@@ -104,8 +97,7 @@ class Game {
 
     void PrintHelpLine();
 
-    int SelectInteger(std::string msg, bool omit, std::vector<size_t>, 
-        std::map<size_t, std::string> mapping={}, std::vector<size_t> splits = {});
+    int SelectInteger(std::string msg, bool omit, choice_mapping_t& mapping, std::vector<size_t> splits);
 
     void ClearField();
 

@@ -38,7 +38,7 @@ class Graph {
       return nodes_.count(pos) > 0;
     }
 
-    void RemoveInvalid(Position pos_a) {
+    int RemoveInvalid(Position pos_a) {
       // Initialize all nodes as not-vistited.
       std::map<Position, bool> visited; 
       for (auto node : nodes_) {
@@ -61,12 +61,15 @@ class Graph {
         }
       }
       // erase all nodes not visited
+      int removed_nodes = 0;
       for (auto it : visited) {
         if (!it.second) {
           delete nodes_[it.first];
           nodes_.erase(it.first);
+          removed_nodes++;
         }
       }
+      return removed_nodes;
     }
 
     std::list<Position> find_way(Position pos_a, Position pos_b) const {

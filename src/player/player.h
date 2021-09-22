@@ -20,6 +20,14 @@ class Field;
 
 using namespace costs;
 
+#define COLOR_AVAILIBLE 1
+#define COLOR_ERROR 2 
+#define COLOR_DEFAULT 3
+#define COLOR_MSG 4
+#define COLOR_SUCCESS 5
+#define COLOR_MARKED 6
+
+typedef std::map<size_t, std::pair<std::string, int>> choice_mapping_t;
 typedef std::vector<std::vector<std::string>> Paragraphs;
 typedef std::pair<int, int> Position;
 typedef std::pair<double, bool> Resource;
@@ -128,7 +136,7 @@ class Player {
      * @param[in] pos position of synapse
      * @return options.
      */
-    Options GetOptionsForSynapes(Position pos);
+    choice_mapping_t GetOptionsForSynapes(Position pos);
    
     /**
      * Show current status (resources, gatherers, den-lp ...)

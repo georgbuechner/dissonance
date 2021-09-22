@@ -1,6 +1,8 @@
 #include <bits/types/FILE.h>
 #include <cctype>
 #include <cmath>
+#include <cstddef>
+#include <cstdlib>
 #include <curses.h>
 #include <exception>
 #include <iostream>
@@ -11,6 +13,7 @@
 #include <vector>
 
 #include "game/field.h"
+#include "objects/units.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 #include "constants/codes.h"
@@ -67,20 +70,12 @@ void Field::set_replace(std::map<Position, char> replacements) {
 Position Field::AddDen(int min_line, int max_line, int min_col, int max_col) {
   Position pos = {utils::getrandom_int(min_line, max_line), utils::getrandom_int(min_col, max_col-5)};
   field_[pos.first][pos.second] = SYMBOL_DEN;
-  ClearField(pos);
+  // Mark positions surrounding nucleus as free:
+  auto positions_arround_nucleus = GetAllInRange({pos.first, pos.second}, 1.5, 1);
+  for (const auto& it : positions_arround_nucleus)
+    field_[it.first][it.second] = SYMBOL_FREE;
   AddResources(pos);
   return pos;
-}
-
-void Field::ClearField(Position pos) {
-  field_[pos.first][pos.second+1] = SYMBOL_FREE;
-  field_[pos.first+1][pos.second] = SYMBOL_FREE;
-  field_[pos.first][pos.second-1] = SYMBOL_FREE;
-  field_[pos.first-1][pos.second] = SYMBOL_FREE;
-  field_[pos.first+1][pos.second+1] = SYMBOL_FREE;
-  field_[pos.first+1][pos.second-1] = SYMBOL_FREE;
-  field_[pos.first-1][pos.second+1] = SYMBOL_FREE;
-  field_[pos.first-1][pos.second-1] = SYMBOL_FREE;
 }
 
 void Field::AddResources(Position start_pos) {
@@ -107,42 +102,16 @@ void Field::BuildGraph(Position player_den, Position enemy_den) {
 
   // For each node, add edges.
   for (auto node : graph_.nodes()) {
-    // Node above 
-    Position pos = {node.second->line_-1, node.second->col_};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
+    std::vector<Position> neighbors = GetAllInRange({node.second->line_, node.second->col_}, 1.5, 1);
+    for (const auto& pos : neighbors) {
+      if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL 
+          && graph_.InGraph(pos))
       graph_.AddEdge(node.second, graph_.nodes().at(pos));
-    // Node below
-    pos = {node.second->line_+1, node.second->col_};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
-      graph_.AddEdge(node.second, graph_.nodes().at(pos));
-    // Node left
-    pos = {node.second->line_, node.second->col_-1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
-      graph_.AddEdge(node.second, graph_.nodes().at(pos));
-    // Node right 
-    pos = {node.second->line_, node.second->col_+1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
-      graph_.AddEdge(node.second, graph_.nodes().at(pos));
-    // Upper left
-    pos = {node.second->line_-1, node.second->col_-1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
-      graph_.AddEdge(node.second, graph_.nodes().at(pos));
-    // lower left 
-    pos = {node.second->line_+1, node.second->col_-1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
-      graph_.AddEdge(node.second, graph_.nodes().at(pos));
-    // Upper right
-    pos = {node.second->line_-1, node.second->col_+1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
-      graph_.AddEdge(node.second, graph_.nodes().at(pos));
-    // lower right 
-    pos = {node.second->line_+1, node.second->col_+1};
-    if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
-      graph_.AddEdge(node.second, graph_.nodes().at(pos));
+    }
   }
 
   // Remove all nodes not in main circle
-  graph_.RemoveInvalid(player_den);
+  std::cout << "Removed: " << graph_.RemoveInvalid(player_den) << " unreachable nodes.";
   if (graph_.nodes().count(enemy_den) == 0)
     throw "Invalid world.";
 }
@@ -173,16 +142,24 @@ Position Field::GetNewSoldierPos(Position pos) {
 }
 
 std::list<Position> Field::GetWayForSoldier(Position start_pos, std::vector<Position> way_points) {
-  std::map<int, Position> sorted_way;
-  for (const auto& it : way_points) 
-    sorted_way[lines_+cols_-utils::dist(it, way_points.back())] = it;
+  Position target_pos = way_points.back();
+  way_points.pop_back();
   std::list<Position> way = {start_pos};
-  for (const auto& it : sorted_way) {
-    auto cur_start = way.back();
-    way.pop_back();
-    auto new_part = graph_.find_way(cur_start, it.second);
-    way.insert(way.end(), new_part.begin(), new_part.end());
+  // If there are way_points left, sort way-points by distance, then create way.
+  if (way_points.size() > 0) {
+    std::map<int, Position> sorted_way;
+    for (const auto& it : way_points) 
+      sorted_way[lines_+cols_-utils::dist(it, target_pos)] = it;
+    for (const auto& it : sorted_way) {
+      auto new_part = graph_.find_way(way.back(), it.second);
+      way.pop_back();
+      way.insert(way.end(), new_part.begin(), new_part.end());
+    }
   }
+  // Create way from last position to target.
+  auto new_part = graph_.find_way(way.back(), target_pos);
+  way.pop_back();
+  way.insert(way.end(), new_part.begin(), new_part.end());
   return way;
 }
 
@@ -352,3 +329,17 @@ int random_coordinate_shift(int x, int min, int max) {
   return x + pow(-1, plus_minus)*random_faktor;
 }
 
+
+std::vector<Position> Field::GetAllInRange(Position start, double max_dist, double min_dist, bool free) {
+  std::vector<Position> positions_in_range;
+  Position upper_corner = {start.first-max_dist, start.second-max_dist};
+  for (int i=0; i<=max_dist*2; i++) {
+    for (int j=0; j<=max_dist*2; j++) {
+      Position pos = {upper_corner.first+i, upper_corner.second+j};
+      if (InField(pos.first, pos.second) && utils::InRange(start, pos, min_dist, max_dist)
+          && (!free || field_[pos.first][pos.second] == SYMBOL_FREE))
+        positions_in_range.push_back(pos);
+    }
+  }
+  return positions_in_range;
+}

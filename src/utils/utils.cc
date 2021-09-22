@@ -12,6 +12,11 @@ double utils::dist(Position pos1, Position pos2) {
   return std::sqrt(pow(pos2.first - pos1.first, 2) + pow(pos2.second - pos1.second, 2));
 }
 
+bool utils::InRange(Position pos1, Position pos2, double min_dist, double max_dist) {
+  double dist = utils::dist(pos1, pos2);
+  return dist >= min_dist && dist <= max_dist;
+}
+
 std::vector<std::string> utils::Split(std::string str, std::string delimiter) {
   std::vector<std::string> v_strs;
   size_t pos=0;
