@@ -52,17 +52,12 @@ void Game::play() {
   difficulty_ = 1;
 
   // select song. 
-  std::vector<size_t> options;
-  std::map<size_t, std::string> mappings;
+  choice_mapping_t mappings;
   size_t counter = 0;
-  for (const auto& it : std::filesystem::directory_iterator("data/songs/")) {
-    options.push_back(++counter);
-    mappings[counter] = it.path().filename();
-  }
-  spdlog::get(LOGGER)->debug("Game::play: created {} options", options.size());
-  size_t source_path_index = SelectInteger("Select audio", false, options, mappings, {4, 8, 12});
-  std::string source_path = "data/songs/" + mappings[source_path_index];
-  spdlog::get(LOGGER)->debug("Game::play: loading audio {}", source_path);
+  for (const auto& it : std::filesystem::directory_iterator("data/songs/"))
+    mappings[counter++] = {it.path().filename(), COLOR_DEFAULT};
+  size_t source_path_index = SelectInteger("Select audio", false, mappings, {3, 7, 11});
+  std::string source_path = "data/songs/" + mappings[source_path_index].first;
   audio_.set_source_path(source_path);
   audio_.Analyze();
 
@@ -327,17 +322,16 @@ void Game::GetPlayerChoice() {
     // T: Technology
     else if (choice == 'T') {
       pause_ = true;
-      std::vector<size_t> options;
-      std::map<size_t, std::string> mapping;
+      choice_mapping_t mapping;
       for (const auto& it : player_one_->technologies()) {
-        options.push_back(it.first-UnitsTech::IPSP);
-        size_t status = COLOR_DEFAULT;
-        if (it.second.first < it.second.second && player_one_->GetMissingResources(it.first, it.second.first).size() == 0)
-          status = COLOR_AVAILIBLE;
-        mapping[it.first-UnitsTech::IPSP] += std::to_string(status) + "$" + units_tech_mapping.at(it.first) 
-          + " (" + utils::PositionToString(it.second) + ")";
+        size_t color = COLOR_DEFAULT;
+        size_t missing_costs = player_one_->GetMissingResources(it.first, it.second.first+1).size();
+        if (it.second.first < it.second.second && missing_costs == 0)
+          color = COLOR_AVAILIBLE;
+        mapping[it.first-UnitsTech::IPSP] = {units_tech_mapping.at(it.first) 
+          + " (" + utils::PositionToString(it.second) + ")", color};
       }
-      int technology = SelectInteger("Select technology", true, options, mapping, {4, 7, 10, 12})
+      int technology = SelectInteger("Select technology", true, mapping, {3, 6, 9, 11})
         +UnitsTech::IPSP;
       if (player_one_->AddTechnology(technology))
         PrintMessage("selected: " + units_tech_mapping.at(technology), false);
@@ -352,26 +346,25 @@ void Game::GetPlayerChoice() {
         PrintMessage("Invalid choice!", true);
       else {
         // Create options and get player-choice.
-        Options options = player_one_->GetOptionsForSynapes(pos);
-        auto mapping_option_to_func = options.mapping_option_to_func_;
-        int choice = SelectInteger("What to do?", true, options.options_, options.mapping_option_to_desc_);
+        auto mapping = player_one_->GetOptionsForSynapes(pos);
+        int choice = SelectInteger("What to do?", true, mapping, {mapping.size()});
 
         // Do action after getting choice.
-        if (mapping_option_to_func.count(choice) > 0) {
+        if (mapping.count(choice) > 0) {
           // if func=swarm, simply turn on/ off.
-          if (mapping_option_to_func[choice] == 5)
+          if (choice == 5)
             player_one_->SwitchSwarmAttack(pos);
           // Otherwise get new postion first.
           else {
             auto new_pos = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
             if (new_pos.first != -1) {
-              if (mapping_option_to_func[choice] == 1)
+              if (choice == 1)
                 player_one_->ResetWayForSynapse(pos, new_pos);
-              else if (mapping_option_to_func[choice] == 2)
+              else if (choice == 2)
                 player_one_->AddWayPosForSynapse(pos, new_pos);
-              else if (mapping_option_to_func[choice] == 3)
+              else if (choice == 3)
                 player_one_->ChangeIpspTargetForSynapse(pos, new_pos);
-              else if (mapping_option_to_func[choice] == 4)
+              else if (choice == 4)
                 player_one_->ChangeEpspTargetForSynapse(pos, new_pos);
             }
           }
@@ -501,51 +494,53 @@ void Game::DistributeIron() {
   pause_ = false;
 }
 
-int Game::SelectInteger(std::string msg, bool omit, 
-    std::vector<size_t> options, std::map<size_t, std::string> mapping, std::vector<size_t> splits) {
-  spdlog::get(LOGGER)->debug("Game::SelectInteger: {}", msg);
+int Game::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapping, std::vector<size_t> splits) {
+  spdlog::get(LOGGER)->debug("Game::SelectInteger: {}, size: {}", msg, mapping.size());
   pause_ = true;
   ClearField();
   bool end = false;
+
+  std::vector<std::pair<std::string, int>> options;
+  for (const auto& option : mapping) {
+    char c_option = 'a'+option.first;
+    std::string txt = "";
+    txt += c_option; 
+    txt += ": " + option.second.first + "    ";
+    options.push_back({txt, option.second.second});
+  }
+  spdlog::get(LOGGER)->debug("Game::SelectInteger: created options {}", options.size());
+  
+  // Print matching the splits.
+  spdlog::get(LOGGER)->debug("Game::SelectInteger: printing in splits {}", splits.size());
+  int counter = 0;
+  int last_split = 0;
+  for (const auto& split : splits) {
+    spdlog::get(LOGGER)->debug("Game::SelectInteger: printing upto split {}", split);
+    std::vector<std::pair<std::string, int>> option_part; 
+    for (unsigned int i=last_split; i<split && i<options.size(); i++)
+      option_part.push_back(options[i]);
+    spdlog::get(LOGGER)->debug("Game::SelectInteger: printing {} parts", option_part.size());
+    PrintCenteredColored(LINES/2+(counter+=2), option_part);
+    last_split = split;
+  }
+  PrintCentered(LINES/2-1, msg);
+  PrintCentered(LINES/2+counter+3, "> enter number...");
+
   while (!end) {
-    // Print options.
-    std::string availible_options = "";
-    for (const auto& option : options) {
-      char c_option = 'a'+option-1;
-      availible_options+= c_option;
-      if (mapping.count(option) > 0) {
-        availible_options += ": " + mapping[option];
-      }
-      availible_options+= "    ";
-    }
-    PrintCentered(LINES/2-1, msg);
-
-    int counter = 1;
-    for (const auto& split : splits) {
-      std::string s_split;
-      char c_split = 'a'+split-1;
-      s_split += c_split;
-
-      size_t pos = availible_options.find(s_split + ": ");
-      if (pos != std::string::npos) {
-        PrintCentered(LINES/2+(counter+=2), availible_options.substr(0, pos));
-        availible_options = availible_options.substr(pos);
-      }
-    }
-    PrintCentered(LINES/2+(counter+=2), availible_options);
-    PrintCentered(LINES/2+counter+3, "> enter number...");
-
     // Get choice.
     char choice = getch();
+    int int_choice = choice-'a';
     if (choice == 'q' && omit)
       end = true;
-    else if (std::find(options.begin(), options.end(), choice-'a'+1) != options.end()) {
+    else if (mapping.count(int_choice) > 0 && (mapping.at(int_choice).second == COLOR_AVAILIBLE || !omit)) {
       pause_ = false;
-      spdlog::get(LOGGER)->debug("Game::SelectInteger: done, retuning: {}", choice-'a'+1);
-      return choice-'a'+1;
+      spdlog::get(LOGGER)->debug("Game::SelectInteger: done, retuning: {}", int_choice);
+      return int_choice;
     }
+    else if (mapping.count(int_choice) > 0 && mapping.at(int_choice).second != COLOR_AVAILIBLE && omit)
+      PrintCentered(LINES/2+counter+5, "Selection not available (not enough resources?): " + std::to_string(int_choice));
     else 
-      PrintCentered(LINES/2+5, "Wrong selection: " + std::to_string(choice-'a'+1));
+      PrintCentered(LINES/2+counter+5, "Wrong selection: " + std::to_string(int_choice));
   }
   pause_ = false;
   return -1;

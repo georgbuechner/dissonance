@@ -302,6 +302,7 @@ bool Player::DistributeIron(int resource) {
 }
 
 Costs Player::GetMissingResources(int unit, int boast) {
+  spdlog::get(LOGGER)->debug("Player::GetMissingResources: {}, {}", unit, boast);
   std::shared_lock sl(mutex_resources_);
   // Get costs for desired unit
   Costs needed = units_costs_.at(unit);
@@ -311,6 +312,7 @@ Costs Player::GetMissingResources(int unit, int boast) {
   for (const auto& it : needed)
     if (resources_.at(it.first).first < it.second*boast) 
       missing[it.first] = it.second - resources_.at(it.first).first;
+  spdlog::get(LOGGER)->debug("Player::GetMissingResources: returnin {} missing resources", missing.size());
   return missing;
 }
 
@@ -579,28 +581,19 @@ bool Player::IsActivatedResource(int resource) {
   return resources_.at(resource).second;
 }
 
-Options Player::GetOptionsForSynapes(Position pos) {
+choice_mapping_t Player::GetOptionsForSynapes(Position pos) {
   std::shared_lock sl_technologies(mutex_technologies_);
-  Options options; 
   auto synapse = GetNeuron(pos);
-  size_t counter = 0;
+  choice_mapping_t mapping;
   
-  // Select (new) way/ add way-point.
-  if (technologies_.at(UnitsTech::WAY).first > 0) {
-    options.AddOption(++counter, 1, "(Re-)set way.");
-    if (synapse->ways_points().size() < synapse->num_availible_ways())
-      options.AddOption(++counter, 2, "Add way-point.");
-  }
-  // Select target ipsp/ epsp
-  if (technologies_.at(UnitsTech::TARGET).first > 0)
-    options.AddOption(++counter, 3, "Select target for ipsp.");
-  if (technologies_.at(UnitsTech::TARGET).first > 1)
-    options.AddOption(++counter, 4, "Select target for epsp.");
-  // Switch swarm on/ off
-  if (technologies_.at(UnitsTech::SWARM).first > 0) {
-    std::string desc = (synapse->swarm()) ? "Turn swarm-attack off" : "Turn swarm-attack on";
-    desc += " (currently " + std::to_string(synapse->max_stored()) + ").";
-    options.AddOption(++counter, 5, desc);
-  }
-  return options;
+  mapping[1] = {"(Re-)set way.", (technologies_.at(UnitsTech::WAY).first > 0) ? COLOR_AVAILIBLE : COLOR_DEFAULT};
+  mapping[2] = {"Add way-point.", (synapse->ways_points().size() < synapse->num_availible_ways()) 
+    ? COLOR_AVAILIBLE : COLOR_DEFAULT};
+  mapping[3] = {"Select target for ipsp.", (technologies_.at(UnitsTech::TARGET).first > 0) 
+    ? COLOR_AVAILIBLE : COLOR_DEFAULT};
+  mapping[4] = {"Select target for epsp.", (technologies_.at(UnitsTech::TARGET).first > 1) 
+    ? COLOR_AVAILIBLE : COLOR_DEFAULT};
+  mapping[5] = {(synapse->swarm()) ? "Turn swarm-attack off" : "Turn swarm-attack on", 
+    (technologies_.at(UnitsTech::SWARM).first > 0) ? COLOR_AVAILIBLE : COLOR_DEFAULT};
+  return mapping;
 }

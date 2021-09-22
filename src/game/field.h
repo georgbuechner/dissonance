@@ -112,6 +112,8 @@ class Field {
 
     Position GetSelected(char replace, int num);
 
+    std::vector<Position> GetAllInRange(Position start, double max_dist, double min_dist, bool free=false);
+
   private: 
     int lines_;
     int cols_;
@@ -158,13 +160,6 @@ class Field {
      * @return boolen indicating, whether given position is inside of field.
      */
     bool InField(int l, int c);
-
-    /**
-     * Function clearing field (set positions to FREE) in a certain radius around 
-     * a given position.
-     * @param pos position which surrounding to clear.
-     */ 
-    void ClearField(Position pos);
 };
 
 
