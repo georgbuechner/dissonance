@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # set the project name and version
-project(strategy VERSION 1.0)
+project(disonance VERSION 1.0)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
@@ -39,11 +39,11 @@ set(SRC_FILES_TEST
   ${SRC_FILES}
 )
 
-add_executable(game ${SRC_FILES_GAME})
+add_executable(disonance ${SRC_FILES_GAME})
 add_executable(tests ${SRC_FILES_TEST})
 
-target_link_libraries(game PUBLIC aubio ${CONAN_LIBS})
+target_link_libraries(disonance PUBLIC aubio ${CONAN_LIBS})
 target_link_libraries(tests PUBLIC aubio ${CONAN_LIBS})
 
-target_include_directories(game PUBLIC "src")
+target_include_directories(disonance PUBLIC "src")
 target_include_directories(tests PUBLIC "src" "test")
