@@ -23,7 +23,7 @@ class Game {
      * @param[in] lines availible lines.
      * @param[in] cols availible cols
      */
-    Game(int lines, int cols);
+    Game(int lines, int cols, int left_border, std::string audio_base_path);
 
     /**
      * Starts game.
@@ -37,9 +37,11 @@ class Game {
     bool game_over_;
     bool pause_;
     Audio audio_;
+    const std::string audio_base_path_;
 
     const int lines_;
     const int cols_;
+    const int left_border_;
 
     int difficulty_;
 

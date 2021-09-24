@@ -43,17 +43,18 @@ std::string CheckMissingResources(Costs missing_costs) {
   return res;
 }
 
-Game::Game(int lines, int cols) : game_over_(false), pause_(false), lines_(lines), cols_(cols) { 
-}
+Game::Game(int lines, int cols, int left_border, std::string audio_base_path) 
+  : game_over_(false), pause_(false), audio_base_path_(audio_base_path + "/audio_files/"), 
+  lines_(lines), cols_(cols), left_border_(left_border) {}
 
 void Game::play() {
   spdlog::get(LOGGER)->info("Started game with {}, {}, {}, {}", lines_, cols_, LINES, COLS);
 
-  if (LINES < lines_ || (COLS) < cols_ || lines_ < 25 || cols_ < 40) {
+  if (LINES < lines_+20 || COLS < (cols_*2)+40) { //|| lines_ < 25 || cols_ < 40) {
     Paragraphs paragraphs = {{
         {"You terminal size is to small to play the game properly."},
-        {"Expected width: " + std::to_string(cols_) + ", actual: " + std::to_string(COLS)},
-        {"Expected hight: " + std::to_string(lines_) + ", actual: " + std::to_string(LINES)},
+        {"Expected width: " + std::to_string(cols_*2+50) + ", actual: " + std::to_string(COLS)},
+        {"Expected hight: " + std::to_string(lines_+20) + ", actual: " + std::to_string(LINES)},
     }};
     PrintCentered(paragraphs);
     clear();
@@ -72,15 +73,15 @@ void Game::play() {
   // select song. 
   choice_mapping_t mappings;
   size_t counter = 0;
-  for (const auto& it : std::filesystem::directory_iterator("data/songs/"))
+  for (const auto& it : std::filesystem::directory_iterator(audio_base_path_))
     mappings[counter++] = {it.path().filename(), COLOR_DEFAULT};
   size_t source_path_index = SelectInteger("Select audio", false, mappings, {3, 7, 11});
-  std::string source_path = "data/songs/" + mappings[source_path_index].first;
+  std::string source_path = audio_base_path_ + mappings[source_path_index].first;
   audio_.set_source_path(source_path);
   audio_.Analyze();
 
   // Build fields
-  field_ = new Field(lines_, cols_, &audio_);
+  field_ = new Field(lines_, cols_, left_border_, &audio_);
   field_->AddHills();
   Position nucleus_pos = field_->AddNucleus((int)audio_.analysed_data().average_bpm_%8+1);
   player_one_ = new Player(nucleus_pos, field_, 3, &audio_);
@@ -629,7 +630,7 @@ void Game::PrintMessage(std::string msg, bool error) {
     attron(COLOR_PAIR(COLOR_MSG));
   msg.insert(msg.length(), field_->cols()*2-msg.length(), char(46));
   std::unique_lock ul(mutex_print_field_);
-  mvaddstr(LINE_MSG, 10, msg.c_str());
+  mvaddstr(LINE_MSG, left_border_+10, msg.c_str());
   attron(COLOR_PAIR(COLOR_DEFAULT));
   refresh();
 }
@@ -642,7 +643,7 @@ void Game::PrintFieldAndStatus() {
   
   auto lines = player_one_->GetCurrentStatusLine();
   for (unsigned int i=0; i<lines.size(); i++) {
-    mvaddstr(10+i, COLS-28, lines[i].c_str());
+    mvaddstr(10+i, left_border_ + cols_*2 + 2, lines[i].c_str());
   }
 
   std::string msg = "Enemy potential: (" + player_two_->GetNucleusLive() + ")";
@@ -712,61 +713,28 @@ void Game::PrintHelpLine() {
     }
   }
 
-  if (player_one_->GetMissingResources(UnitsTech::EPSP).size() > 0 || player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() == 0)
-    attron(COLOR_PAIR(COLOR_DEFAULT));
-  else 
-    attron(COLOR_PAIR(1));
-  mvaddstr(LINE_HELP, 10, "[e]psp");
-  attron(COLOR_PAIR(COLOR_DEFAULT));
-  mvaddstr(LINE_HELP, 16, ", ");
-  if (player_one_->GetMissingResources(UnitsTech::IPSP).size() > 0 || player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() == 0)
-    attron(COLOR_PAIR(COLOR_DEFAULT));
-  else 
-    attron(COLOR_PAIR(1));
-  mvaddstr(LINE_HELP, 18, "[i]psp");
-  attron(COLOR_PAIR(COLOR_DEFAULT));
-  mvaddstr(LINE_HELP, 24, " | ");
+  std::vector<std::pair<std::string, bool>> parts;
+  parts.push_back({"[e]psp", player_one_->GetMissingResources(UnitsTech::EPSP).size() == 0 
+      && player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() > 0});
+  parts.push_back({", ", false});
+  parts.push_back({"[i]psp", player_one_->GetMissingResources(UnitsTech::IPSP).size() == 0 
+      && player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() > 0});
+  parts.push_back({" | ", false});
+  parts.push_back({"[A]ctivated neuron", player_one_->GetMissingResources(UnitsTech::ACTIVATEDNEURON).size() == 0});
+  parts.push_back({", ", false});
+  parts.push_back({"[S]ynapse", player_one_->GetMissingResources(UnitsTech::SYNAPSE).size() == 0});
+  parts.push_back({" | ", false});
+  parts.push_back({"[D]istribute iron", player_one_->resources().at(Resources::IRON).first > 0});
+  parts.push_back({", ", false});
+  parts.push_back({"[s]elect synapse", player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() > 0});
+  parts.push_back({", ", false});
+  parts.push_back({"[t]echnology", technology_availible});
+  parts.push_back({" | [h]elp, pause [space], [q]uit", false});
 
-  if (player_one_->GetMissingResources(UnitsTech::ACTIVATEDNEURON).size() > 0)
-    attron(COLOR_PAIR(COLOR_DEFAULT));
-  else 
-    attron(COLOR_PAIR(1));
-  mvaddstr(LINE_HELP, 27, "[A]ctivated neuron");
-  attron(COLOR_PAIR(COLOR_DEFAULT));
-  mvaddstr(LINE_HELP, 45, ", ");
-
-  if (player_one_->GetMissingResources(UnitsTech::SYNAPSE).size() > 0)
-    attron(COLOR_PAIR(COLOR_DEFAULT));
-  else 
-    attron(COLOR_PAIR(1));
-  mvaddstr(LINE_HELP, 47, "[S]ynapse");
-  attron(COLOR_PAIR(COLOR_DEFAULT));
-  mvaddstr(LINE_HELP, 56, " | ");
-
-  if (player_one_->resources().at(Resources::IRON).first == 0)
-    attron(COLOR_PAIR(COLOR_DEFAULT));
-  else 
-    attron(COLOR_PAIR(1));
-  mvaddstr(LINE_HELP, 59, "[d]istribute iron");
-  attron(COLOR_PAIR(COLOR_DEFAULT));
-  mvaddstr(LINE_HELP, 76, ", ");
-
-  if (player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() == 0)
-    attron(COLOR_PAIR(COLOR_DEFAULT));
-  else 
-    attron(COLOR_PAIR(1));
-  mvaddstr(LINE_HELP, 78, "[s]elect synapse");
-  attron(COLOR_PAIR(COLOR_DEFAULT));
-  mvaddstr(LINE_HELP, 94, ", ");
-
-  if (!technology_availible)
-    attron(COLOR_PAIR(COLOR_DEFAULT));
-  else 
-    attron(COLOR_PAIR(1));
-  mvaddstr(LINE_HELP, 96, "[t]echnology");
-  attron(COLOR_PAIR(COLOR_DEFAULT));
-
-  mvaddstr(LINE_HELP, 108, " | [h]elp, pause [space], [q]uit");
+  std::vector<std::pair<std::string, int>> parts_with_color;
+  for (const auto& it : parts)
+    parts_with_color.push_back({it.first, (it.second) ? COLOR_AVAILIBLE : COLOR_DEFAULT});
+  PrintCenteredColored(LINE_HELP, parts_with_color);
 }
 
 void Game::ClearField() {

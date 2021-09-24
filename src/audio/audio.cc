@@ -344,7 +344,9 @@ size_t Audio::NextOfNotesIn(double cur_time) const {
 std::string Audio::GetOutPath(std::string source_path) {
   std::string out_path = source_path;
   out_path.replace(out_path.length()-3, out_path.length(), "json");
-  out_path.replace(5, 5, "analysis");
+  std::string files_folder = "audio_files";
+  out_path.replace(source_path.find("data/")+5, files_folder.length(), "analysis");
+  spdlog::get(LOGGER)->info("Using out path: {}", out_path);
   return out_path;
 }
 

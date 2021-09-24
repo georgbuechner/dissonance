@@ -30,10 +30,11 @@
 #define SECTIONS 8
 
 
-Field::Field(int lines, int cols, Audio* audio) {
+Field::Field(int lines, int cols, int left_border, Audio* audio) {
   lines_ = lines;
   cols_ = cols;
   audio_ = audio;
+  left_border_ = left_border;
 
   // initialize empty field.
   for (int l=0; l<=lines_; l++) {
@@ -286,11 +287,11 @@ void Field::PrintField(Player* player, Player* enemy) {
       
       // Replace certain elements.
       if (replacements_.count(cur) > 0)
-        mvaddch(10+l, 10+2*c, replacements_.at(cur));
+        mvaddch(10+l, left_border_ + 2*c, replacements_.at(cur));
       else {
-        mvaddstr(10+l, 10+2*c, field[l][c].c_str());
+        mvaddstr(10+l, left_border_ + 2*c, field[l][c].c_str());
       }
-      mvaddch(10+l, 10+2*c+1, ' ' );
+      mvaddch(10+l, left_border_ + 2*c+1, ' ' );
       attron(COLOR_PAIR(COLOR_DEFAULT));
     }
   }

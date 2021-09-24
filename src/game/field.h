@@ -23,7 +23,7 @@ class Field {
      * @param[in] lines availible lines.
      * @param[in] cols availible cols
      */
-    Field(int lines, int cols, Audio* audio=nullptr);
+    Field(int lines, int cols, int left_border=0, Audio* audio=nullptr);
 
     // getter:
     int lines();
@@ -115,6 +115,7 @@ class Field {
     std::vector<Position> GetAllPositionsOfSection(unsigned int interval);
 
   private: 
+    int left_border_;
     int lines_;
     int cols_;
     Audio* audio_;

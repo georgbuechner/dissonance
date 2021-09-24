@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string>
 #include <sstream>
+#include <stdlib.h>
 #include <lyra/lyra.hpp>
 #include "audio/audio.h"
 #include "game/game.h"
@@ -29,8 +30,12 @@ int main(int argc, const char** argv) {
   // Command line arguments 
   bool relative_size = false;
   bool show_help = false;
+  std::string audio_base_path = getenv("HOME");
+  audio_base_path += "/.disonance/data";
+
   auto cli = lyra::cli() 
-    | lyra::opt(relative_size) ["-r"]["--relative-size"]("If set, adjusts map size to terminal size.");
+    | lyra::opt(relative_size) ["-r"]["--relative-size"]("If set, adjusts map size to terminal size.")
+    | lyra::opt(audio_base_path, "path to audio files") ["-p"]["--audio-base-path"]("Set path to audio data");
     
   cli.add_argument(lyra::help(show_help));
   auto result = cli.parse({ argc, argv });
@@ -74,12 +79,14 @@ int main(int argc, const char** argv) {
   // Setup map-size
   int lines = 52;
   int cols  = 74;
+  int left_border = (COLS - cols) /2 - 40;
   if (relative_size) {
     lines = LINES-20;
     cols = (COLS-40)/2;
+    left_border = 10;
   }
   // Initialize game.
-  Game game(lines, cols);
+  Game game(lines, cols, left_border, audio_base_path);
   // Start game
   game.play();
   
