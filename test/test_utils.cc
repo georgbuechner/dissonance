@@ -2,6 +2,7 @@
 #include <catch2/catch.hpp>
 #include <map>
 #include <list>
+#include <vector>
 #include "utils/utils.h"
 
 TEST_CASE ("test_dist", "[utils]") {
@@ -43,4 +44,21 @@ TEST_CASE("test advance.", "") {
   auto it = list.begin();
   std::advance(it, 6);
   REQUIRE(*it == 2);
+}
+
+TEST_CASE("test cycle", "") {
+
+  REQUIRE((((-1)%6)+6)%6 == 5);
+  unsigned int cur = 0;
+  std::vector<unsigned int> expected = {1,2,3,4,5,0};
+  for (unsigned int i=0; i<6; i++) {
+    cur = (((cur+1)%6) + 6)%6 ;
+    REQUIRE(cur == expected[i]);
+  }
+  expected = {5, 4, 3, 2, 1, 0};
+  for (unsigned int i=0; i<6; i++) {
+    int n = cur - 1;
+    cur = ((n%6)+6)%6;
+    REQUIRE(cur == expected[i]);
+  }
 }

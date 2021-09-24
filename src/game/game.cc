@@ -17,6 +17,7 @@
 
 #include "constants/codes.h"
 #include "objects/units.h"
+#include "player/player.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 
@@ -42,9 +43,26 @@ std::string CheckMissingResources(Costs missing_costs) {
   return res;
 }
 
-Game::Game(int lines, int cols) : game_over_(false), pause_(false), lines_(lines), cols_(cols) { }
+Game::Game(int lines, int cols) : game_over_(false), pause_(false), lines_(lines), cols_(cols) { 
+}
 
 void Game::play() {
+  spdlog::get(LOGGER)->info("Started game with {}, {}, {}, {}", lines_, cols_, LINES, COLS);
+
+  if (LINES < lines_ || (COLS) < cols_ || lines_ < 25 || cols_ < 40) {
+    Paragraphs paragraphs = {{
+        {"You terminal size is to small to play the game properly."},
+        {"Expected width: " + std::to_string(cols_) + ", actual: " + std::to_string(COLS)},
+        {"Expected hight: " + std::to_string(lines_) + ", actual: " + std::to_string(LINES)},
+    }};
+    PrintCentered(paragraphs);
+    clear();
+    PrintCentered(LINES/2, "Can you increase? (Enter play anyway, q to quit)");
+    char c = getch();
+    if (c == 'q')
+      return;
+  }
+
   // Print welcome text.
   PrintCentered(utils::LoadWelcome());
 
@@ -488,7 +506,7 @@ void Game::DistributeIron() {
   ClearField();
   bool end = false;
   // Get iron and print options.
-  PrintCentered(LINES/2-1, "(use space to circle through resources)");
+  PrintCentered(LINES/2-1, "(use space j(←) and k(→) to circle through resources)");
   std::vector<std::string> symbols = {"O", SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, 
     SYMBOL_GLUTAMATE, SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};
   Position c = {LINES/2, COLS/2};
@@ -525,15 +543,26 @@ void Game::DistributeIron() {
     // Get players choice.
     char choice = getch();
 
-    if (choice == ' ')
+    if (choice == 'k')
       current = (current+1)%symbols.size();
+    else if (choice == 'j') {
+      int n = current-1;
+      int m = symbols.size();
+      current = ((n%m)+m)%m;
+    }
     else if (choice == 'q')
       end = true;
     else if (std::to_string(choice) == "10") {
       int resource = (resources_symbol_mapping.contains(current_symbol)) 
         ? resources_symbol_mapping.at(current_symbol) : Resources::OXYGEN;
-      if (!player_one_->DistributeIron(resource))
+      if (!player_one_->DistributeIron(resource)) {
+        attron(COLOR_ERROR);
         PrintCentered(LINES/2+2, "Not enough iron!");
+      }
+      else {
+        attron(COLOR_SUCCESS);
+        PrintCentered(LINES/2+2, "    Selected!    ");
+      }
     }
     if (player_one_->iron() == 0)
       end = true;
