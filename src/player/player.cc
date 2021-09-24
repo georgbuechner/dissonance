@@ -29,10 +29,13 @@
 #define FREE char(46)
 #define DEF 'T'
 
-Player::Player(Position nucleus_pos, Field* field, int iron) : cur_range_(4), resource_curve_(3), 
+Player::Player(Position nucleus_pos, Field* field, int iron, Audio* audio) 
+    : cur_range_(4), resource_curve_(3), 
     oxygen_boast_(0), max_oxygen_(100), max_resources_(70),  total_oxygen_(5.5), bound_oxygen_(0){
 
   field_ = field;
+  audio_ = audio;
+
   nucleus_ = Nucleus(nucleus_pos); 
   neurons_[nucleus_pos] = std::make_shared<Nucleus>(nucleus_);
   resources_ = {
@@ -133,6 +136,10 @@ std::map<int, TechXOf> Player::technologies() {
 }
 
 // setter 
+void Player::set_enemy(Player *enemy) {
+  enemy_ = enemy;
+}
+
 void Player::set_resource_curve(int resource_curve) {
   std::unique_lock ul(mutex_resources_);
   resource_curve_ = resource_curve;
@@ -199,12 +206,12 @@ std::vector<Position> Player::GetAllPositionsOfNeurons(int type) {
   return positions;
 }
 
-Position Player::GetRandomActivatedNeuron() {
+Position Player::GetRandomNeuron(std::vector<int> type) {
   std::shared_lock sl(mutex_all_neurons_);
   // Get all positions at which there are activated neurons
   std::vector<Position> activated_neuron_postions;
   for (const auto& it : neurons_)
-    if (it.second->type_ == UnitsTech::ACTIVATEDNEURON)
+    if (std::find(type.begin(), type.end(), it.second->type_) != type.end())
       activated_neuron_postions.push_back(it.first);
   // If none return invalied position.
   if (activated_neuron_postions.size() == 0)
@@ -213,7 +220,10 @@ Position Player::GetRandomActivatedNeuron() {
   if (activated_neuron_postions.size() == 1)
     return activated_neuron_postions.front();
   // Otherwise, get random index and return position at index.
-  return activated_neuron_postions[utils::getrandom_int(0, activated_neuron_postions.size()-1)];
+  int ran = utils::getrandom_int(0, activated_neuron_postions.size()-1);
+  if (audio_ != nullptr)
+    ran = audio_->RandomInt(0, activated_neuron_postions.size()-1);
+  return activated_neuron_postions[ran];
 }
 
 void Player::ResetWayForSynapse(Position pos, Position way_position) {
@@ -368,6 +378,8 @@ bool Player::AddPotential(Position synapes_pos, int unit) {
   // Create way.
   spdlog::get(LOGGER)->debug("Player::AddPotential: get way for potential.");
   // TODO: Move calculating way to creating synapses/ chanding target.
+  synapse->UpdateIpspTargetIfNotSet(enemy_->GetRandomNeuron(
+        {UnitsTech::ACTIVATEDNEURON, UnitsTech::SYNAPSE, UnitsTech::NUCLEUS}));
   auto way = field_->GetWayForSoldier(synapes_pos, synapse->GetWayPoints(unit));
 
   // Add potential.

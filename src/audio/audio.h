@@ -55,6 +55,7 @@ class Audio {
     // getter
     AudioData& analysed_data();
     static std::map<std::string, std::vector<std::string>> keys();
+
     
     // setter 
     void set_source_path(std::string source_path);
@@ -72,7 +73,8 @@ class Audio {
 
     static void CreateKeys();
 
-    void Safe();
+    int RandomInt(size_t min, size_t max);
+
 
   private:
     // members:
@@ -82,6 +84,7 @@ class Audio {
     ma_decoder decoder_;
     static std::map<std::string, std::vector<std::string>> keys_;
     static const std::vector<std::string> note_names_;
+    size_t last_point_;
 
     // methods:
     static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount);
@@ -89,6 +92,11 @@ class Audio {
 
     void CreateLevels(int intervals);
     void CalcLevel(size_t quater, std::map<std::string, int> notes_by_frequency, size_t darkness);
+
+    static AudioData AnalyzeFile(std::string source_path);
+    static AudioData Load(std::string source_path);
+    static void Safe(AudioData audio_data, std::string source_path);
+    static std::string GetOutPath(std::string source_path);
 };
 
 #endif

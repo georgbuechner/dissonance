@@ -1,13 +1,16 @@
 #include <atomic>
 #include <algorithm>
 #include <cstddef>
+#include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
 #include "audio/audio.h"
 #include "constants/codes.h"
 #include "spdlog/spdlog.h"
+#include "utils/utils.h"
 
 #define LOGGER "logger"
 
@@ -38,18 +41,31 @@ void Audio::set_source_path(std::string source_path) {
 
 void Audio::Analyze() {
   spdlog::get(LOGGER)->debug("Audio::Analyze: starting analyses. Starting audi-data extraction");
-  std::list<AudioDataTimePoint> data_per_beat;
 
+  // Load or analyse data.
+  std::string out_path = GetOutPath(source_path_);
+  if (std::filesystem::exists(out_path))
+    analysed_data_ = Load(out_path);
+  else 
+    analysed_data_ = AnalyzeFile(source_path_);
+
+  // Create analysed_data.
+  // Add information on keys
+  CreateLevels(8);
+}
+
+AudioData Audio::AnalyzeFile(std::string source_path) {
+  std::list<AudioDataTimePoint> data_per_beat;
   uint_t samplerate = 0;
   uint_t win_size = 1024; // window size
   uint_t hop_size = win_size / 4;
   uint_t n_frames = 0, read = 0;
 
   // Load audio-file
-  aubio_source_t * source = new_aubio_source(source_path_.c_str(), samplerate, hop_size);
+  aubio_source_t * source = new_aubio_source(source_path.c_str(), samplerate, hop_size);
   if (!source) { 
     aubio_cleanup();
-    return;
+    throw "Could not load audio-source";
   }
   // Update samplerate.
   samplerate = aubio_source_get_samplerate(source);
@@ -66,7 +82,7 @@ void Audio::Analyze() {
     del_fvec(in);
     del_fvec(out);
     del_aubio_source(source);
-    return;
+    throw "Could not create notes or bpm object.";
   }
 
   float average_bpm = 0.0f;
@@ -106,39 +122,38 @@ void Audio::Analyze() {
 
   average_bpm /= data_per_beat.size();
   average_level /= data_per_beat.size();
-
-  // Create analysed_data.
-  analysed_data_ = AudioData({data_per_beat, average_bpm, average_level});
-  // Add information on keys
-  CreateLevels(8);
-  Safe();
+  auto analysed_data = AudioData({data_per_beat, average_bpm, average_level});
+  Safe(analysed_data, source_path);
+  return analysed_data;
 }
 
-void Audio::Safe() {
-  nlohmann::json data = {{"average_bpm", analysed_data_.average_bpm_}, {"average_level", analysed_data_.average_level_}};
-  data["bpms"] = nlohmann::json::array();
-  data["levels"] = nlohmann::json::array();
-  data["notes"] = nlohmann::json::array();
-  for (const auto& it : analysed_data_.data_per_beat_) {
-    data["bpms"].push_back(it.bpm_);
-    data["levels"].push_back(it.level_);
+void Audio::Safe(AudioData analysed_data, std::string source_path) {
+  nlohmann::json data = {{"average_bpm", analysed_data.average_bpm_}, {"average_level", analysed_data.average_level_}};
+  data["time_points"] = nlohmann::json::array();
+  for (const auto& it : analysed_data.data_per_beat_) {
     std::vector<int> midis;
     for (const auto& note : it.notes_)
       midis.push_back(note.midi_note_);
-    data["notes"].push_back(midis);
+    data["time_points"].push_back({{"time", it.time_}, {"bpm", it.bpm_}, {"level", it.level_}, {"notes", midis}});
   }
-  std::string out_path = source_path_;
-  out_path.replace(out_path.length()-3, out_path.length(), "json");
-  out_path.replace(5, 5, "analysis");
+  utils::WriteJsonFromDisc(GetOutPath(source_path), data);
+}
 
-  std::ofstream write(out_path.c_str());
-  if (!write)
-    spdlog::get(LOGGER)->error("Audio::Safe: Could not safe at {}", out_path);
-  else {
-    spdlog::get(LOGGER)->info("Audio::Safe: safeing at {}", out_path);
-    write << data;
+AudioData Audio::Load(std::string source_path) {
+  AudioData audio_data;
+  nlohmann::json data = utils::LoadJsonFromDisc(source_path);
+  audio_data.average_bpm_ = data["average_bpm"];
+  audio_data.average_level_ = data["average_level"];
+  std::list<AudioDataTimePoint> data_per_beat;
+  for (const auto& it : data["time_points"]) {
+    std::vector<int> midis = it["notes"];
+    std::vector<Note> notes;
+    for (const auto& midi_note : midis) 
+      notes.push_back(ConvertMidiToNote(midi_note));
+    data_per_beat.push_back({it["time"], it["bpm"], it["level"], notes});
   }
-  write.close();
+  audio_data.data_per_beat_ = data_per_beat;
+  return audio_data;
 }
 
 void Audio::play() {
@@ -289,6 +304,8 @@ void Audio::CalcLevel(size_t interval, std::map<std::string, int> notes_by_frequ
       Signitue::UNSIGNED, key.find("Major") != std::string::npos, notes_in_key, 
       sorted_notes_by_frequency.size()-notes_in_key, darkness}
     );
+  spdlog::get(LOGGER)->debug("Created level with darkness: {}, now: {}", darkness, 
+      analysed_data_.intervals_[interval].darkness_);
   if (key.find("#") != std::string::npos)
     analysed_data_.intervals_[interval].signature_ = Signitue::SHARP;
   else if (key.find("b") != std::string::npos)
@@ -322,4 +339,29 @@ size_t Audio::NextOfNotesIn(double cur_time) const {
     counter++;
   }
   return counter;
+}
+
+std::string Audio::GetOutPath(std::string source_path) {
+  std::string out_path = source_path;
+  out_path.replace(out_path.length()-3, out_path.length(), "json");
+  out_path.replace(5, 5, "analysis");
+  return out_path;
+}
+
+int Audio::RandomInt(size_t min, size_t max) {
+  if (last_point_ > analysed_data_.data_per_beat_.size())
+    last_point_ = 0;
+  auto it = analysed_data_.data_per_beat_.begin();
+  std::advance(it, last_point_++);
+  while (it->notes_.size() == 0) {
+    std::advance(it, 1);
+  }
+  unsigned int random_faktor = it->notes_.front().midi_note_;
+  if (max > random_faktor) 
+    random_faktor *= it->bpm_;
+  if (max > random_faktor)
+    random_faktor += it->level_;
+  int ran = min + (random_faktor % (max - min + 1)); 
+  spdlog::get(LOGGER)->debug("Got random int between {} and {}: {}", min, max, ran);
+  return ran;
 }

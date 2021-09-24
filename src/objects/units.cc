@@ -1,5 +1,6 @@
 #include "spdlog/spdlog.h"
 #include "objects/units.h"
+#include "utils/utils.h"
 #include <cstddef>
 
 // Neurons
@@ -99,14 +100,20 @@ unsigned int Synapse::AddEpsp() {
   spdlog::get(LOGGER)->debug("Synapse::AddEpsp");
   if (swarm_) {
     if (++stored_ >= max_stored_) {
-      size_t max_stored = max_stored_;
-      max_stored_ = 0;
-      return max_stored;
+      stored_ = 0;
+      return max_stored_;
     }
     return 0;
   }
   return 1; 
 };
+
+void Synapse::UpdateIpspTargetIfNotSet(Position pos) {
+  if (ipsp_target_.first == -1) {
+    ipsp_target_ = pos;
+    spdlog::get(LOGGER)->info("Updated ipsp target to: {}", utils::PositionToString(pos));
+  }
+}
 
 // Activated neurons...
 ActivatedNeuron::ActivatedNeuron() : Neuron() {}

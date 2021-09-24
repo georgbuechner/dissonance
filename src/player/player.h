@@ -11,6 +11,7 @@
 #include <shared_mutex>
 #include <vector>
 
+#include "audio/audio.h"
 #include "constants/codes.h"
 #include "constants/costs.h"
 #include "objects/data_structs.h"
@@ -42,7 +43,7 @@ class Player {
      * @param[in] nucleus_pos position of player's nucleus.
      * @param[in] silver initial silver value.
      */
-    Player(Position nucleus_pos, Field* field, int iron);
+    Player(Position nucleus_pos, Field* field, int iron, Audio* audo=nullptr);
 
     // getter:
     std::map<std::string, Potential> potential();
@@ -57,6 +58,7 @@ class Player {
     std::map<int, TechXOf> technologies();
 
     // setter
+    void set_enemy(Player* enemy);
     void set_resource_curve(int resource_curve);
     void set_iron(int iron);
 
@@ -93,9 +95,10 @@ class Player {
 
     /**
      * Gets position of a random activated neuron.
+     * @param[in] type
      * @return Position of a random activated neuron.
      */
-    Position GetRandomActivatedNeuron();
+    Position GetRandomNeuron(std::vector<int> type={UnitsTech::ACTIVATEDNEURON});
 
     /**
      * Resets way-points for synapse at given position to contain only given way-point.
@@ -253,6 +256,8 @@ class Player {
 
   protected: 
     Field* field_;
+    Audio* audio_;
+    Player* enemy_;
     int cur_range_;
 
     std::map<int, Resource> resources_;

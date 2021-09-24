@@ -68,6 +68,7 @@ struct Neuron : Unit {
 
     virtual std::vector<Position> GetWayPoints(int unit) const { return {}; }
     virtual unsigned int AddEpsp() { return 0; }
+    virtual void UpdateIpspTargetIfNotSet(Position pos) { }
 
     Neuron();
     Neuron(Position pos, int lp, int type);
@@ -108,6 +109,7 @@ struct Synapse : Neuron {
     // methods: 
     std::vector<Position> GetWayPoints(int unit) const;
     unsigned int AddEpsp();
+    void UpdateIpspTargetIfNotSet(Position pos);
 
   private:
     bool swarm_;

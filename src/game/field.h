@@ -15,6 +15,7 @@
 #include "player/player.h"
 #include "utils/graph.h"
 #include "objects/units.h"
+#include "audio/audio.h"
 
 class Field {
   public:
@@ -22,7 +23,7 @@ class Field {
      * @param[in] lines availible lines.
      * @param[in] cols availible cols
      */
-    Field(int lines, int cols);
+    Field(int lines, int cols, Audio* audio=nullptr);
 
     // getter:
     int lines();
@@ -44,13 +45,10 @@ class Field {
 
     /**
      * Adds position for player den and random position for player resources.
-     * @param[in] min_line
-     * @param[in] max_line
-     * @param[in] min_col
-     * @param[in] max_col
+     * @param[in] section
      * @return position of player den.
      */
-    Position AddDen(int min_line, int max_line, int min_col, int max_col);
+    Position AddNucleus(int section);
 
     /**
      * Builds graph to calculate ways.
@@ -75,7 +73,6 @@ class Field {
      * @param unit integer to identify unit.
      */
     void AddNewUnitToPos(Position pos, int unit);
-
 
     /** 
      * Prints current field. 
@@ -114,9 +111,13 @@ class Field {
 
     std::vector<Position> GetAllInRange(Position start, double max_dist, double min_dist, bool free=false);
 
+    std::vector<Position> GetAllCenterPositionsOfSections();
+    std::vector<Position> GetAllPositionsOfSection(unsigned int interval);
+
   private: 
     int lines_;
     int cols_;
+    Audio* audio_;
     Graph graph_;
     std::vector<std::vector<std::string>> field_;
     std::shared_mutex mutex_field_;
@@ -160,6 +161,10 @@ class Field {
      * @return boolen indicating, whether given position is inside of field.
      */
     bool InField(int l, int c);
+
+    int getrandom_int(int min, int max);
+    int random_coordinate_shift(int x, int min, int max);
+
 };
 
 
