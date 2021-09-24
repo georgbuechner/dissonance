@@ -487,35 +487,54 @@ void Game::DistributeIron() {
   pause_ = true;
   ClearField();
   bool end = false;
-  while(!end) {
-    // Get iron and print options.
-    int iron = player_one_->iron();
-    std::string msg = "You can distribute " + std::to_string(iron) + " iron.";
-    PrintCentered(LINES/2-1, msg);
+  // Get iron and print options.
+  PrintCentered(LINES/2-1, "(use space to circle through resources)");
+  std::vector<std::string> symbols = {"O", SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, 
+    SYMBOL_GLUTAMATE, SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};
+  Position c = {LINES/2, COLS/2};
+  std::vector<Position> positions = { {c.first-10, c.second}, {c.first-6, c.second+15}, {c.first+6, c.second+15}, 
+    {c.first+10, c.second}, {c.first+6, c.second-15}, {c.first-6, c.second-15}, };
 
-    auto resources = player_one_->resources();
-    std::map<int, std::string> selection = {{Resources::OXYGEN, "oxygen-boast c=FE"}};
-    for (const auto& it : resources) {
-      if (it.first!= Resources::IRON && !it.second.second)
-        selection[it.first] = resources_name_mapping.at(it.first) + " c=FE2";
+  unsigned int current = 0;
+  while(!end) {
+    std::string msg = "You can distribute " + std::to_string(player_one_->iron()) + " iron (FE).";
+    PrintCentered(LINES/2-2, msg);
+    std::string current_symbol = symbols[current];
+    if (current_symbol == "O")
+      msg = "oxygen. Costs: FE, current: " + std::to_string(player_one_->oxygen_boast());
+    else {
+      int resource = resources_symbol_mapping.at(current_symbol);
+      msg = resources_name_mapping.at(resource) + ". Costs FE2. current: " + 
+        ((player_one_->resources().at(resource).second) ? "active" : "inactive");
     }
-    std::string options = "";
-    for (const auto& it : selection) {
-      options += it.second + " (" + std::to_string(it.first) + ")    ";
+    PrintCentered(LINES/2+1, "                                         ");
+    PrintCentered(LINES/2+1, msg.c_str());
+
+    for (unsigned int i=0; i<symbols.size(); i++) {
+      if (symbols[i]== "O")
+        attron(COLOR_PAIR(COLOR_SUCCESS));
+      else if (player_one_->resources().at(resources_symbol_mapping.at(symbols[i])).second)
+        attron(COLOR_PAIR(COLOR_SUCCESS));
+      if (i == current)
+        attron(COLOR_PAIR(COLOR_MARKED));
+      mvaddstr(positions[i].first, positions[i].second, symbols[i].c_str());
+      attron(COLOR_PAIR(COLOR_DEFAULT));
+      refresh();
     }
-    PrintCentered(LINES/2+1, options);
 
     // Get players choice.
-    char c = getch();
-    PrintCentered(LINES/2+2, "selection: " + std::to_string(c-49));
-    if (c == 'q')
-      end = true;
-    else {
-      ClearField();
-      if (!player_one_->DistributeIron(c-48))
-        PrintCentered(LINES/2, "Invalid selection or not enough iron!");
-    }
+    char choice = getch();
 
+    if (choice == ' ')
+      current = (current+1)%symbols.size();
+    else if (choice == 'q')
+      end = true;
+    else if (std::to_string(choice) == "10") {
+      int resource = (resources_symbol_mapping.contains(current_symbol)) 
+        ? resources_symbol_mapping.at(current_symbol) : Resources::OXYGEN;
+      if (!player_one_->DistributeIron(resource))
+        PrintCentered(LINES/2+2, "Not enough iron!");
+    }
     if (player_one_->iron() == 0)
       end = true;
   }
