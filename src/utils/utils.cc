@@ -1,7 +1,12 @@
 #include "utils.h"
+#include "nlohmann/json.hpp"
 #include <cstddef>
+#include <fstream>
 #include <math.h>
 #include <vector>
+#include "spdlog/spdlog.h"
+
+#define LOGGER "logger"
 
 double utils::get_elapsed(std::chrono::time_point<std::chrono::steady_clock> start,
     std::chrono::time_point<std::chrono::steady_clock> end) {
@@ -59,6 +64,37 @@ Options utils::CreateOptionsFromStrings(std::vector<std::string> option_strings)
     mappings[counter] = it;
   }
   return Options({options, {}, mappings});
+}
+
+nlohmann::json utils::LoadJsonFromDisc(std::string path) {
+  nlohmann::json json;
+  std::ifstream read(path.c_str());
+  if (!read) {
+    spdlog::get(LOGGER)->error("Audio::Safe: Could not open file at {}", path);
+    return json;
+  }
+  try {
+    read >> json;
+  } 
+  catch (std::exception& e) {
+    spdlog::get(LOGGER)->error("Audio::Safe: Could not read json.");
+    read.close();
+    return json;
+  }
+  // Success 
+  read.close();
+  return json;
+}
+
+void utils::WriteJsonFromDisc(std::string path, nlohmann::json& json) {
+  std::ofstream write(path.c_str());
+  if (!write)
+    spdlog::get(LOGGER)->error("Audio::Safe: Could not safe at {}", path);
+  else {
+    spdlog::get(LOGGER)->info("Audio::Safe: safeing at {}", path);
+    write << json;
+  }
+  write.close();
 }
 
 utils::Paragraphs utils::LoadWelcome() {

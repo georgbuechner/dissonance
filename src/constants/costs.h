@@ -119,8 +119,8 @@ namespace costs {
         {Resources::POTASSIUM, 10}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 15.0}, 
-        {Resources::SEROTONIN, 21.2}
+        {Resources::DOPAMINE, 16.0}, 
+        {Resources::SEROTONIN, 11.2}
       }
     },
     {UnitsTech::ATK_SPEED, {
@@ -129,8 +129,8 @@ namespace costs {
         {Resources::POTASSIUM, 10}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 13.0}, 
-        {Resources::SEROTONIN, 19.2}
+        {Resources::DOPAMINE, 19.0}, 
+        {Resources::SEROTONIN, 13.2}
       }
     },
     {UnitsTech::ATK_DURATION, {
@@ -139,8 +139,8 @@ namespace costs {
         {Resources::POTASSIUM, 10}, 
         {Resources::CHLORIDE, 0}, 
         {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 12.5}, 
-        {Resources::SEROTONIN, 17.2}
+        {Resources::DOPAMINE, 17.5}, 
+        {Resources::SEROTONIN, 12.2}
       }
     },
     {UnitsTech::DEF_SPEED, {

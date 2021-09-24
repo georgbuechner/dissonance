@@ -8,12 +8,14 @@
 #include <iostream>
 #include <locale>
 #include <shared_mutex>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "game/field.h"
 #include "objects/units.h"
+#include "player/player.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 #include "constants/codes.h"
@@ -25,11 +27,13 @@
 #define COLOR_OK 5 
 #define COLOR_HIGHLIGHT 6 
 
-int random_coordinate_shift(int x, int min, int max);
+#define SECTIONS 8
 
-Field::Field(int lines, int cols) {
+
+Field::Field(int lines, int cols, Audio* audio) {
   lines_ = lines;
   cols_ = cols;
+  audio_ = audio;
 
   // initialize empty field.
   for (int l=0; l<=lines_; l++) {
@@ -67,20 +71,34 @@ void Field::set_replace(std::map<Position, char> replacements) {
   replacements_ = replacements;
 }
 
-Position Field::AddDen(int min_line, int max_line, int min_col, int max_col) {
-  Position pos = {utils::getrandom_int(min_line, max_line), utils::getrandom_int(min_col, max_col-5)};
+Position Field::AddNucleus(int section) {
+  spdlog::get(LOGGER)->debug("Field::AddNucleus");
+  auto positions_in_section = GetAllPositionsOfSection(section);
+  Position pos = positions_in_section[getrandom_int(0, positions_in_section.size())];
   field_[pos.first][pos.second] = SYMBOL_DEN;
   // Mark positions surrounding nucleus as free:
   auto positions_arround_nucleus = GetAllInRange({pos.first, pos.second}, 1.5, 1);
   for (const auto& it : positions_arround_nucleus)
     field_[it.first][it.second] = SYMBOL_FREE;
   AddResources(pos);
+  spdlog::get(LOGGER)->debug("Field::AddNucleus: done");
   return pos;
 }
 
 void Field::AddResources(Position start_pos) {
-  auto pos = FindFree(start_pos.first, start_pos.second, 2, 4);
-  field_[pos.first][pos.second] = SYMBOL_POTASSIUM;
+  spdlog::get(LOGGER)->debug("Field::AddResources");
+  std::vector<Position> positions = GetAllInRange(start_pos, 4, 2);
+  std::vector<std::string> symbols = {SYMBOL_POTASSIUM, SYMBOL_CHLORIDE, SYMBOL_GLUTAMATE, SYMBOL_SEROTONIN, 
+    SYMBOL_DOPAMINE};
+  for (const auto& symbol : symbols) {
+    Position pos = positions[getrandom_int(0, positions.size()-1)];
+    while (!IsFree(pos)) {
+      pos = positions[getrandom_int(0, positions.size()-1)];
+    }
+    field_[pos.first][pos.second] = symbol;
+  }
+  /*
+  field_[positions[0].first][positions[0]] = SYMBOL_POTASSIUM;
   pos = FindFree(start_pos.first, start_pos.second, 2, 4);
   field_[pos.first][pos.second] = SYMBOL_CHLORIDE;
   pos = FindFree(start_pos.first, start_pos.second, 2, 4);
@@ -89,6 +107,8 @@ void Field::AddResources(Position start_pos) {
   field_[pos.first][pos.second] = SYMBOL_DOPAMINE;
   pos = FindFree(start_pos.first, start_pos.second, 2, 4);
   field_[pos.first][pos.second] = SYMBOL_SEROTONIN;
+  */
+  spdlog::get(LOGGER)->debug("Field::AddResources: done");
 }
 
 void Field::BuildGraph(Position player_den, Position enemy_den) {
@@ -111,18 +131,19 @@ void Field::BuildGraph(Position player_den, Position enemy_den) {
   }
 
   // Remove all nodes not in main circle
-  std::cout << "Removed: " << graph_.RemoveInvalid(player_den) << " unreachable nodes.";
+  graph_.RemoveInvalid(player_den);
   if (graph_.nodes().count(enemy_den) == 0)
     throw "Invalid world.";
 }
 
 void Field::AddHills() {
+  spdlog::get(LOGGER)->debug("Field::AddHills");
   int num_hils = (lines_ + cols_) * 2;
   // Generate lines*2 mountains.
   for (int i=0; i<num_hils; i++) {
     // Generate random hill.
-    int start_y = utils::getrandom_int(0, lines_);
-    int start_x = utils::getrandom_int(0, cols_);
+    int start_y = getrandom_int(0, lines_);
+    int start_x = getrandom_int(0, cols_);
     field_[start_y][start_x] = SYMBOL_HILL;
 
     // Generate random 5 hills around this hill.
@@ -132,6 +153,7 @@ void Field::AddHills() {
       field_[y][x] = SYMBOL_HILL;
     }
   }
+  spdlog::get(LOGGER)->debug("Field::AddHills: done");
 }
 
 Position Field::GetNewSoldierPos(Position pos) {
@@ -299,15 +321,12 @@ bool Field::InField(int l, int c) {
 
 Position Field::FindFree(int l, int c, int min, int max) {
   std::shared_lock sl_field(mutex_field_);
-  for (int attempts=0; attempts<100; attempts++) {
-    for (int i=0; i<max; i++) {
-      int y = GetXInRange(random_coordinate_shift(l, min, min+i), 0, lines_);
-      int x = GetXInRange(random_coordinate_shift(c, min, min+i), 0, cols_);
-      if (field_[y][x] == SYMBOL_FREE)
-        return {y, x};
-    }
-  }    
-  exit(400);
+
+  auto positions = GetAllInRange({l, c}, max, min, true);
+  if (positions.size() == 0)
+    throw std::runtime_error("Game came to an strange end. No free positions!");
+
+  return positions[getrandom_int(0, positions.size())];
 }
 
 bool Field::IsFree(Position pos) {
@@ -322,10 +341,10 @@ int Field::GetXInRange(int x, int min, int max) {
   return x;
 }
 
-int random_coordinate_shift(int x, int min, int max) {
+int Field::random_coordinate_shift(int x, int min, int max) {
   // Determine decrease or increase of values.
-  int plus_minus = utils::getrandom_int(0, 1);
-  int random_faktor = utils::getrandom_int(min, max);
+  int plus_minus = getrandom_int(0, 1);
+  int random_faktor = getrandom_int(min, max);
   return x + pow(-1, plus_minus)*random_faktor;
 }
 
@@ -337,9 +356,37 @@ std::vector<Position> Field::GetAllInRange(Position start, double max_dist, doub
     for (int j=0; j<=max_dist*2; j++) {
       Position pos = {upper_corner.first+i, upper_corner.second+j};
       if (InField(pos.first, pos.second) && utils::InRange(start, pos, min_dist, max_dist)
-          && (!free || field_[pos.first][pos.second] == SYMBOL_FREE))
+          && (!free || field_[pos.first][pos.second] == SYMBOL_FREE)
+          && (!free || graph_.InGraph(pos)))
         positions_in_range.push_back(pos);
     }
   }
   return positions_in_range;
+}
+
+std::vector<Position> Field::GetAllCenterPositionsOfSections() {
+  std::vector<Position> positions;
+  for (int i=1; i<=SECTIONS; i++) {
+    int l = (i-1)%(SECTIONS/2)*(cols_/4);
+    int c = (i < (SECTIONS/2)+1) ? 0 : lines_/2;
+    positions.push_back({(c+c+lines_/2)/2, (l+l+cols_/4)/2});
+  }
+  return positions;
+}
+
+std::vector<Position> Field::GetAllPositionsOfSection(unsigned int interval) {
+  std::vector<Position> positions;
+  int l = (interval-1)%(SECTIONS/2)*(cols_/4);
+  int c = (interval < (SECTIONS/2)+1) ? 0 : lines_/2;
+  for (int i=l; i<l+cols_/4; i++) {
+    for (int j=c; j<c+lines_/2; j++)
+      positions.push_back({j, i});
+  }
+  return positions;
+}
+
+int Field::getrandom_int(int min, int max) {
+  if (audio_) 
+    return audio_->RandomInt(min, max);
+  return utils::getrandom_int(min, max);
 }

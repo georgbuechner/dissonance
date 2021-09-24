@@ -1,9 +1,11 @@
 #include <catch2/catch.hpp>
+#include <cstddef>
 #include <iterator>
 #include <algorithm>
 #include "constants/codes.h"
 #include "game/field.h"
 #include "objects/units.h"
+#include "player/player.h"
 #include "utils/utils.h"
 
 TEST_CASE("test_field", "[main]") {
@@ -12,41 +14,55 @@ TEST_CASE("test_field", "[main]") {
   Field* field = new Field(lines, cols);
 
   SECTION("tests based on graph", "[main, graph]") {
-    Position start_pos = field->AddDen(lines/1.5, lines-5, cols/1.5, cols-5);
-    Position target_pos = field->AddDen(5, lines/3, 5, cols/3);
+    Position start_pos = field->AddNucleus(8);
+    Position target_pos = field->AddNucleus(1);
     field->BuildGraph(start_pos, target_pos);
 
     SECTION("test_get_way_for_soldier") {
-      // Create two way-points, where wp_1 should be following wp_2, so we expect
-      // way_point_2 to be passed before wp_1, altough adding wp_1 first.
-      Position way_point_1 = {10, 20};
-      Position way_point_2 = {90, 80};
-      // Make sure that we selected wp_1 and wp_2 correctly (wp1 is acctually nearer
-      // to target postion.
-      REQUIRE(utils::dist(way_point_1, target_pos) < utils::dist(way_point_2, target_pos));
-      std::vector<Position> way_points = {way_point_1, way_point_2};
+      SECTION("test way-points are sorted") {
+        // Create two way-points, where wp_1 should be following wp_2, so we expect
+        // way_point_2 to be passed before wp_1, altough adding wp_1 first.
+        Position way_point_1 = {10, 20};
+        Position way_point_2 = {90, 80};
+        // Make sure that we selected wp_1 and wp_2 correctly (wp1 is acctually nearer
+        // to target postion.
+        REQUIRE(utils::dist(way_point_1, target_pos) < utils::dist(way_point_2, target_pos));
+        std::vector<Position> way_points = {way_point_1, way_point_2};
 
-      // Create way
-      way_points.push_back(target_pos);
-      auto way = field->GetWayForSoldier(start_pos, way_points);
+        // Create way
+        way_points.push_back(target_pos);
+        auto way = field->GetWayForSoldier(start_pos, way_points);
 
-      REQUIRE(way.size() > 4);
+        REQUIRE(way.size() > 4);
 
-      // Get indexes of start, way_points and target
-      auto it = std::find(way.begin(), way.end(), start_pos);
-      int index_start = std::distance(way.begin(), it);
-      it = std::find(way.begin(), way.end(), way_points[0]);
-      int index_wp_1 = std::distance(way.begin(), it);
-      it = std::find(way.begin(), way.end(), way_points[1]);
-      int index_wp_2 = std::distance(way.begin(), it);
-      it = std::find(way.begin(), way.end(), target_pos);
-      int index_target = std::distance(way.begin(), it);
+        // Get indexes of start, way_points and target
+        auto it = std::find(way.begin(), way.end(), start_pos);
+        int index_start = std::distance(way.begin(), it);
+        it = std::find(way.begin(), way.end(), way_points[0]);
+        int index_wp_1 = std::distance(way.begin(), it);
+        it = std::find(way.begin(), way.end(), way_points[1]);
+        int index_wp_2 = std::distance(way.begin(), it);
+        it = std::find(way.begin(), way.end(), target_pos);
+        int index_target = std::distance(way.begin(), it);
 
-      // Make sure order is correct.
-      REQUIRE(index_start == 0);
-      REQUIRE(index_start < index_wp_2);
-      REQUIRE(index_wp_2 < index_wp_1);
-      REQUIRE(index_wp_1 < index_target);
+        // Make sure order is correct.
+        REQUIRE(index_start == 0);
+        REQUIRE(index_start < index_wp_2);
+        REQUIRE(index_wp_2 < index_wp_1);
+        REQUIRE(index_wp_1 < index_target);
+      }
+      SECTION("test way is optimal") {
+        std::vector<Position> way_points = {{10,12}, {63, 64}, {70,74}};
+        Position start_pos = {0, 0};
+        auto way = field->GetWayForSoldier(start_pos, way_points);
+
+        size_t expected_length = 0;
+        for (const auto& it : way_points) {
+          expected_length += field->GetWayForSoldier(start_pos, {it}).size();
+          start_pos = it;
+        }
+        REQUIRE(way.size() == expected_length - (way_points.size()-1));
+      }
     }
   }
 
@@ -111,11 +127,36 @@ TEST_CASE("test_field", "[main]") {
     }
 
     SECTION("Check free, range=3") {
+      field->BuildGraph({0, 0}, {lines-1, cols-1}); // Check free also checks in graph.
       auto positions_to_block = field->GetAllInRange({50, 50}, 2, 0, true);
       for (const auto& it : positions_to_block) 
         field->AddNewUnitToPos(it, UnitsTech::ACTIVATEDNEURON);
       auto positions_in_range = field->GetAllInRange({50, 50}, 3, 0, true);
       REQUIRE(positions_in_range.size() == 29-positions_to_block.size());
+    }
+  }
+
+  SECTION("test intervals centeres") {
+    int lines = 50;
+    int cols = 100;
+    Field* field = new Field(lines, cols);
+    auto positions= field->GetAllCenterPositionsOfSections();
+    REQUIRE(positions.size() == 8);
+    REQUIRE(std::find(positions.begin(), positions.end(), (Position){12,12}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (Position){12,37}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (Position){12,62}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (Position){12,87}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (Position){37,12}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (Position){37,37}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (Position){37,62}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (Position){37,87}) != positions.end());
+  }
+
+  SECTION("test intervals") {
+    auto center_positions = field->GetAllCenterPositionsOfSections();
+    auto positions = field->GetAllPositionsOfSection(1);
+    for (const auto& it : positions) {
+      REQUIRE(utils::dist(center_positions[0], it) <= 30);
     }
   }
 }

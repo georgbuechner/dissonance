@@ -1,7 +1,6 @@
 #ifndef SRC_PLAYER_AUDIOKI_H_
 #define SRC_PLAYER_AUDIOKI_H_
 
-#include "audio/audio.h"
 #include "game/field.h"
 #include "objects/units.h"
 #include "player/player.h"
@@ -10,7 +9,7 @@
 
 class AudioKi : public Player {
   public:
-    AudioKi(Position nucleus_pos, int iron, Player* player, Field* field, Audio* audio);
+    AudioKi(Position nucleus_pos, int iron, Field* field, Audio* audio);
 
     // getter 
     
@@ -22,8 +21,6 @@ class AudioKi : public Player {
     void HandleIron(const AudioDataTimePoint& data_at_beat);
 
   private:
-    Player* player_;
-    Audio* audio_;
     const float average_bpm_;
     const float average_level_;
     size_t max_activated_neurons_;
@@ -46,6 +43,8 @@ class AudioKi : public Player {
     size_t balancing_;
     size_t epsp_target_strategy_;
     size_t ipsp_target_strategy_;
+
+    std::map<unsigned int, unsigned int> extra_nucleus_;
 
     void LaunchAttack(const AudioDataTimePoint& data_at_beat);
 

@@ -1,6 +1,7 @@
 #ifndef SRC_UTILS_H_
 #define SRC_UTILS_H_
 
+#include "nlohmann/json.hpp"
 #include "objects/data_structs.h"
 #include <chrono>
 #include <string>
@@ -35,6 +36,22 @@ namespace utils {
   std::string create_id(std::string type);
 
   Options CreateOptionsFromStrings(std::vector<std::string> option_strings);
+
+  /** 
+   * @brief Loads json from disc
+   * @param[in] path path to json.
+   * @return boolean indicating success.
+   */
+  nlohmann::json LoadJsonFromDisc(std::string path);
+
+  /** 
+   * @brief Loads json from disc
+   * @param[in] path path to json.
+   * @param[out] reference to json.
+   * @return boolean indicating success.
+   */
+  void WriteJsonFromDisc(std::string path, nlohmann::json& json);
+
 }
 
 #endif

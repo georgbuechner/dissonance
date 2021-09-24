@@ -62,12 +62,14 @@ void Game::play() {
   audio_.Analyze();
 
   // Build fields
-  field_ = new Field(lines_, cols_);
+  field_ = new Field(lines_, cols_, &audio_);
   field_->AddHills();
-  Position nucleus_pos = field_->AddDen(lines_/1.5, lines_-5, cols_/1.5, cols_-5);
-  player_one_ = new Player(nucleus_pos, field_, 3);
-  nucleus_pos = field_->AddDen(5, lines_/3, 5, cols_/3);
-  player_two_ = new AudioKi(nucleus_pos, 4, player_one_, field_, &audio_);
+  Position nucleus_pos = field_->AddNucleus((int)audio_.analysed_data().average_bpm_%8+1);
+  player_one_ = new Player(nucleus_pos, field_, 3, &audio_);
+  nucleus_pos = field_->AddNucleus((int)audio_.analysed_data().average_level_%8+1);
+  player_two_ = new AudioKi(nucleus_pos, 4, field_, &audio_);
+  player_one_->set_enemy(player_two_);
+  player_two_->set_enemy(player_one_);
   field_->BuildGraph(player_one_->nucleus_pos(), player_two_->nucleus_pos());
   player_two_->SetUpTactics();
 
@@ -118,7 +120,13 @@ void Game::RenderField() {
       off_notes = audio_.MoreOfNotes(data_at_beat);
       data_per_beat.pop_front();
     }
-    
+
+    if (player_two_->HasLost() || player_one_->HasLost() || data_per_beat.size() == 0) {
+      SetGameOver((player_two_->HasLost()) ? "YOU WON" : "YOU LOST");
+      audio_.Stop();
+      break;
+    }
+   
     // Increase resources.
     if (utils::get_elapsed(last_resource_player_one, cur_time) > player_resource_update_freqeuncy) {
       player_one_->IncreaseResources(off_notes);
@@ -132,18 +140,7 @@ void Game::RenderField() {
     if (utils::get_elapsed(last_update, cur_time) > render_frequency) {
       // Move player soldiers and check if enemy den's lp is down to 0.
       player_one_->MovePotential(player_two_);
-      if (player_two_->HasLost()) {
-        SetGameOver("YOU WON");
-        audio_.Stop();
-        break;
-      }
-
       player_two_->MovePotential(player_one_);
-      if (player_one_->HasLost()) {
-        SetGameOver("YOU LOST");
-        audio_.Stop();
-        break;
-      }
 
       // Remove enemy soldiers in renage of defence towers.
       player_one_->HandleDef(player_two_);
@@ -170,6 +167,8 @@ void Game::HandleActions() {
 
     // Analyze audio data.
     auto elapsed = utils::get_elapsed(audio_start_time, cur_time);
+    if (data_per_beat.size() == 0)
+      continue;
     auto data_at_beat = data_per_beat.front();
     if (elapsed >= data_at_beat.time_) {
       player_two_->DoAction(data_at_beat);
@@ -196,7 +195,11 @@ void Game::GetPlayerChoice() {
     else if (game_over_) {
       continue;
     }
-    
+
+    else if (std::isdigit(choice)) {
+      field_->set_highlight(field_->GetAllPositionsOfSection(choice-'0'));
+    }
+
     // SPACE: pause/ unpause game
     else if (choice == ' ') {
       if (pause_) {
@@ -252,7 +255,8 @@ void Game::GetPlayerChoice() {
         if (pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
-          PrintMessage("created isps @synapse: " + utils::PositionToString(pos), false);
+          PrintMessage("created ipsp @synapse: " + utils::PositionToString(pos), false);
+          spdlog::get(LOGGER)->debug("Game::GetPlayerChoice: Creating potential.");
           player_one_->AddPotential(pos, UnitsTech::IPSP);
         }
       }
@@ -264,7 +268,9 @@ void Game::GetPlayerChoice() {
       if (res != "") 
         PrintMessage(res, true);
       else {
-        Position nucleus_pos = SelectNeuron(player_one_, UnitsTech::NUCLEUS);
+        Position nucleus_pos = player_one_->nucleus_pos();
+        if (player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS).size() > 1)
+          nucleus_pos = SelectNeuron(player_one_, UnitsTech::NUCLEUS);
         if (nucleus_pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
@@ -272,7 +278,7 @@ void Game::GetPlayerChoice() {
           Position pos = SelectPosition(nucleus_pos, player_one_->cur_range());
           if (pos.first != -1) {
             Position epsp_target= player_two_->nucleus_pos();
-            Position ipsp_target = player_two_->GetRandomActivatedNeuron(); // random tower.
+            Position ipsp_target = player_two_->GetRandomNeuron(); // random tower.
             player_one_->AddNeuron(pos, UnitsTech::SYNAPSE, epsp_target, ipsp_target);
             field_->AddNewUnitToPos(pos, UnitsTech::SYNAPSE);
           }
@@ -287,7 +293,9 @@ void Game::GetPlayerChoice() {
       if (res != "") 
         PrintMessage(res, true);
       else {
-        Position nucleus_pos = SelectNeuron(player_one_, UnitsTech::NUCLEUS);
+        Position nucleus_pos = player_one_->nucleus_pos();
+        if (player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS).size() > 1)
+          nucleus_pos = SelectNeuron(player_one_, UnitsTech::NUCLEUS);
         if (nucleus_pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
@@ -341,7 +349,15 @@ void Game::GetPlayerChoice() {
     }
 
     else if (choice == 's') {
-      auto pos = SelectNeuron(player_one_, UnitsTech::SYNAPSE);
+
+      auto all_synapse_position = player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE);
+      if (all_synapse_position.size() == 0) {
+        PrintMessage("You do not have any synapses yet. Use [S] to create one!", true);
+        continue;
+      }
+      Position pos = all_synapse_position.front(); 
+      if (all_synapse_position.size() > 1) 
+        pos = SelectNeuron(player_one_, UnitsTech::SYNAPSE);
       if (pos.first == -1)
         PrintMessage("Invalid choice!", true);
       else {
@@ -355,14 +371,22 @@ void Game::GetPlayerChoice() {
           if (choice == 5)
             player_one_->SwitchSwarmAttack(pos);
           // Otherwise get new postion first.
+          else if (choice == 1 || choice == 2) {
+            auto start_position = SelectFieldPositionByAlpha(field_->GetAllCenterPositionsOfSections(), "Select start");
+            if (start_position.first != -1) {
+              auto new_pos = SelectPosition(start_position, ViewRange::GRAPH);
+              if (new_pos.first != -1) {
+                if (choice == 1)
+                  player_one_->ResetWayForSynapse(pos, new_pos);
+                else if (choice == 2)
+                  player_one_->AddWayPosForSynapse(pos, new_pos);
+              }
+            }
+          }
           else {
             auto new_pos = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
             if (new_pos.first != -1) {
-              if (choice == 1)
-                player_one_->ResetWayForSynapse(pos, new_pos);
-              else if (choice == 2)
-                player_one_->AddWayPosForSynapse(pos, new_pos);
-              else if (choice == 3)
+              if (choice == 3)
                 player_one_->ChangeIpspTargetForSynapse(pos, new_pos);
               else if (choice == 4)
                 player_one_->ChangeEpspTargetForSynapse(pos, new_pos);
@@ -433,20 +457,24 @@ Position Game::SelectPosition(Position start, int range) {
 }
 
 Position Game::SelectNeuron(Player* p, int type) {
-  // create replacements (map barack position to letter a..z).
+  std::string msg = "Choose " + units_tech_mapping.at(type) + ": ";
+  return SelectFieldPositionByAlpha(p->GetAllPositionsOfNeurons(type), msg);
+}
+
+Position Game::SelectFieldPositionByAlpha(std::vector<Position> positions, std::string msg) {
   std::map<Position, char> replacements;
   int counter = 0;
-  for (auto it : p->GetAllPositionsOfNeurons(type))
+  for (auto it : positions)
     replacements[it] = (int)'a'+(counter++);
   field_->set_replace(replacements);
+  field_->set_highlight(positions);
 
-  // Print field and get player choice and reset replacements.
   PrintFieldAndStatus();
-  std::string msg = "Choose " + units_tech_mapping.at(type) + ": ";
   PrintMessage(msg.c_str(), false);
   char choice = getch();
   field_->set_replace({});
-
+  field_->set_highlight({});
+  
   // Find selected barack in replacements and return.
   for (auto it : replacements) {
     if (it.second == choice)
@@ -571,15 +599,14 @@ void Game::PrintFieldAndStatus() {
 
   std::string msg = "Enemy potential: (" + player_two_->GetNucleusLive() + ")";
   PrintCentered(2, msg.c_str());
-  msg = "Enemy iron: " + std::to_string(player_two_->resources().at(Resources::IRON).first);
+  msg = "Enemy resources: ";
+  for (const auto& it : player_two_->resources()) 
+    msg += resources_name_mapping.at(it.first) + ": " + std::to_string(it.second.first) + ", ";
   PrintCentered(3, msg.c_str());
-  msg = "Enemy oxygen: " + std::to_string(player_two_->resources().at(Resources::OXYGEN).first);
+  msg = "Enemy technologies: ";
+  for (const auto& it : player_two_->technologies()) 
+    msg += std::to_string(it.first) + ": " + std::to_string(it.second.first) + ", ";
   PrintCentered(4, msg.c_str());
-  msg = "Enemy potassium: " + std::to_string(player_two_->resources().at(Resources::POTASSIUM).first);
-  PrintCentered(5, msg.c_str());
-  msg = "Enemy glutamate: " + std::to_string(player_two_->resources().at(Resources::GLUTAMATE).first);
-  PrintCentered(6, msg.c_str());
-
   refresh();
 }
 

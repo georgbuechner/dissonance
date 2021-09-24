@@ -65,6 +65,7 @@ class Game {
     Position SelectPosition(Position start, int range);
 
     Position SelectNeuron(Player* p, int type);
+    Position SelectFieldPositionByAlpha(std::vector<Position> positions, std::string msg);
 
     void DistributeIron();
 

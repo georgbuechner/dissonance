@@ -1,6 +1,7 @@
 #include <iostream>
 #include <catch2/catch.hpp>
 #include <map>
+#include <list>
 #include "utils/utils.h"
 
 TEST_CASE ("test_dist", "[utils]") {
@@ -35,4 +36,11 @@ TEST_CASE("test_map", "[general]") {
   my_map["test_2"]++;
   REQUIRE(my_map["test"] == 3);
   REQUIRE(my_map["test_2"] == 1);
+}
+
+TEST_CASE("test advance.", "") {
+  std::list<int> list = {1, 2, 3, 4};
+  auto it = list.begin();
+  std::advance(it, 6);
+  REQUIRE(*it == 2);
 }
