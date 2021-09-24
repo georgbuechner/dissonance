@@ -71,7 +71,7 @@ class Audio {
     bool MoreOfNotes(const AudioDataTimePoint& data_at_beat, bool off=true) const;
     size_t NextOfNotesIn(double cur_time) const;
 
-    static void CreateKeys();
+    static void Initialize();
 
     int RandomInt(size_t min, size_t max);
 

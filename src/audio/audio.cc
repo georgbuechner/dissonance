@@ -221,7 +221,7 @@ Note Audio::ConvertMidiToNote(int midi_note) {
   return note;
 }
 
-void Audio::CreateKeys() {
+void Audio::Initialize() {
   spdlog::get(LOGGER)->debug("Audio::CreateKeys");
   std::map<std::string, std::vector<std::string>> keys;
   for (size_t i=0; i<note_names_.size(); i++) {

@@ -4,10 +4,12 @@
 #include <stdlib.h>
 #include <string>
 #include <sstream>
+#include <lyra/lyra.hpp>
 #include "audio/audio.h"
 #include "game/game.h"
 
 #include <spdlog/spdlog.h>
+#include "lyra/help.hpp"
 #include "spdlog/common.h"
 #include "spdlog/sinks/basic_file_sink.h"
 
@@ -16,53 +18,50 @@
 
 #define ITERMAX 10000
 
-int main(void) {
+int main(int argc, const char** argv) {
 
+  // Logger 
   auto logger = spdlog::basic_logger_mt("logger", "logs/basic-log.txt");
   spdlog::flush_every(std::chrono::seconds(1));
   spdlog::flush_on(spdlog::level::debug);
   spdlog::set_level(spdlog::level::debug);
-  // std::stringstream buffer;
-  // std::streambuf * old = std::cout.rdbuf(buffer.rdbuf());
-  // std::cout << old << std::endl;
 
-  Audio::CreateKeys();
-  /*
-  for (const auto& key : Audio::keys()) {
-    std::cout << key.first << ": ";
-    for (const auto& note : key.second) 
-      std::cout << note << ", ";
-    std::cout << std::endl;
+  // Command line arguments 
+  bool relative_size = false;
+  bool show_help = false;
+  auto cli = lyra::cli() 
+    | lyra::opt(relative_size) ["-r"]["--relative-size"]("If set, adjusts map size to terminal size.");
+    
+  cli.add_argument(lyra::help(show_help));
+  auto result = cli.parse({ argc, argv });
+
+  if (show_help) {
+      std::cout << cli;
+      return 0;
   }
-  Audio audio;
-
-  for (const auto& path : std::filesystem::directory_iterator("data/songs/")) {
-    audio.set_source_path(path.path());
-    audio.Analyze();
-    // spdlog::get(LOGGER)->info("{}: Tactics: ", path.path().filename().string());
-    // AudioKi ki = AudioKi({1, 1}, 1, audio.analysed_data().average_bpm_, audio.analysed_data().average_level_, NULL);
-    // ki.SetUpTactics(audio.analysed_data().intervals_.begin()->second);
-
-    // for (const auto& it : audio.analysed_data().intervals_) 
-    //   std::cout << "key: " << it.second.key_ << ", darkness: " << it.second.darkness_ << std::endl;
-    // std::cout << std::endl;
+  // The parser with the one option argument:
+  if (relative_size) {
+    relative_size = true;
+    spdlog::get(LOGGER)->info("using relative size.");
   }
+  else 
+    spdlog::get(LOGGER)->info("using fixed size.");
 
-  return 0;
-  */
+  // Initialize audio
+  Audio::Initialize();
 
+  // Initialize random numbers.
   srand (time(NULL));
 
-  // initialize curses
+  // Initialize curses
   setlocale(LC_ALL, "");
   initscr();
   cbreak();
   noecho();
   keypad(stdscr, true);
-
   clear();
-
-  // init colors
+  
+  // Initialize colors.
   use_default_colors();
   start_color();
   init_pair(COLOR_AVAILIBLE, COLOR_BLUE, -1);
@@ -72,15 +71,21 @@ int main(void) {
   init_pair(COLOR_SUCCESS, COLOR_GREEN, -1);
   init_pair(COLOR_MARKED, COLOR_MAGENTA, -1);
 
-  // initialize game.
-  Game game((LINES-20), (COLS-40) / 2);
-
-  // start game
+  // Setup map-size
+  int lines = 52;
+  int cols  = 74;
+  if (relative_size) {
+    lines = LINES-20;
+    cols = (COLS-40)/2;
+  }
+  // Initialize game.
+  Game game(lines, cols);
+  // Start game
   game.play();
   
+  // Wrap up.
   refresh();
-
+  clear();
   endwin();
-
   exit(0);
 }
