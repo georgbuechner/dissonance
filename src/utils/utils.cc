@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "nlohmann/json.hpp"
+#include <cctype>
 #include <cstddef>
 #include <fstream>
 #include <math.h>
@@ -43,6 +44,18 @@ std::string utils::PositionToString(Position pos) {
 int utils::getrandom_int(int min, int max) {
   int ran = min + (rand() % (max - min + 1)); 
   return ran;
+}
+
+unsigned int utils::mod(int n, int m) {
+  return ((n%m)+m)%m;
+}
+
+std::string utils::ToUpper(std::string str) {
+  std::string upper;
+  for (const auto& c : str) {
+    upper += std::toupper(c); 
+  }
+  return upper;
 }
 
 std::string utils::create_id(std::string type) {

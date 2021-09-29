@@ -29,6 +29,10 @@ namespace utils {
   std::string PositionToString(Position pos);
 
   int getrandom_int(int min, int max);
+
+  unsigned int mod(int n, int m);
+
+  std::string ToUpper(std::string str);
   
   Paragraphs LoadWelcome();
   Paragraphs LoadHelp();
