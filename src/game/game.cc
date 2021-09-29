@@ -43,9 +43,23 @@ std::string CheckMissingResources(Costs missing_costs) {
   return res;
 }
 
-Game::Game(int lines, int cols, int left_border, std::string audio_base_path) 
-  : game_over_(false), pause_(false), audio_base_path_(audio_base_path + "/audio_files/"), 
-  lines_(lines), cols_(cols), left_border_(left_border) {}
+Game::Game(int lines, int cols, int left_border, std::string base_path) 
+  : game_over_(false), pause_(false), audio_(base_path), base_path_(base_path), 
+  lines_(lines), cols_(cols), left_border_(left_border) {
+
+  spdlog::get(LOGGER)->info("Loading music paths at {}", base_path + "/settings/music_paths.json");
+  std::vector<std::string> paths = utils::LoadJsonFromDisc(base_path + "/settings/music_paths.json");
+  spdlog::get(LOGGER)->info("Got music paths: {}", paths.size());
+
+  for (const auto& it : paths) {
+    if (it.find("$(HOME)") != std::string::npos)
+      audio_paths_.push_back(getenv("HOME") + it.substr(it.find("/")));
+    else if (it.find("$(DISSONANCE)") != std::string::npos)
+      audio_paths_.push_back(base_path + it.substr(it.find("/")));
+    else
+      audio_paths_.push_back(it);
+  }
+}
 
 void Game::play() {
   spdlog::get(LOGGER)->info("Started game with {}, {}, {}, {}", lines_, cols_, LINES, COLS);
@@ -71,12 +85,8 @@ void Game::play() {
   difficulty_ = 1;
 
   // select song. 
-  choice_mapping_t mappings;
-  size_t counter = 0;
-  for (const auto& it : std::filesystem::directory_iterator(audio_base_path_))
-    mappings[counter++] = {it.path().filename(), COLOR_DEFAULT};
-  size_t source_path_index = SelectInteger("Select audio", false, mappings, {3, 7, 11});
-  std::string source_path = audio_base_path_ + mappings[source_path_index].first;
+  std::string source_path = SelectAudio();
+  spdlog::get(LOGGER)->info("Selected path: {}", source_path);
   audio_.set_source_path(source_path);
   audio_.Analyze();
 
@@ -87,11 +97,8 @@ void Game::play() {
   int player_two_section = (int)audio_.analysed_data().average_level_%8+1;
   if (player_one_section == player_two_section)
     player_two_section = (player_two_section+1)%8;
-  Position nucleus_pos = field_->AddNucleus(player_one_section);
-  nucleus_pos = field_->AddNucleus(player_two_section);
-
-  player_one_ = new Player(nucleus_pos, field_, 3, &audio_);
-  player_two_ = new AudioKi(nucleus_pos, 4, field_, &audio_);
+  player_one_ = new Player(field_->AddNucleus(player_one_section), field_, 3, &audio_);
+  player_two_ = new AudioKi(field_->AddNucleus(player_two_section), 4, field_, &audio_);
   player_one_->set_enemy(player_two_);
   player_two_->set_enemy(player_one_);
   field_->BuildGraph(player_one_->nucleus_pos(), player_two_->nucleus_pos());
@@ -512,7 +519,7 @@ void Game::DistributeIron() {
   ClearField();
   bool end = false;
   // Get iron and print options.
-  PrintCentered(LINES/2-1, "(use space j(←) and k(→) to circle through resources)");
+  PrintCentered(LINES/2-1, "(use 'q' to quit, ENTER to select and h/l or ←/→ to circle through resources)");
   std::vector<std::string> symbols = {"O", SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, 
     SYMBOL_GLUTAMATE, SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};
   Position c = {LINES/2, COLS/2};
@@ -549,9 +556,9 @@ void Game::DistributeIron() {
     // Get players choice.
     char choice = getch();
 
-    if (choice == 'k')
+    if (choice == 'j')
       current = (current+1)%symbols.size();
-    else if (choice == 'j') {
+    else if (choice == 'k') {
       int n = current-1;
       int m = symbols.size();
       current = ((n%m)+m)%m;
@@ -746,4 +753,80 @@ void Game::ClearField() {
   std::unique_lock ul(mutex_print_field_);
   clear();
   refresh();
+}
+
+std::string Game::SelectAudio() {
+  ClearField();
+  AudioSelector selector = SetupAudioSelector("", "select audio", audio_paths_);
+  std::string error = "";
+  std::string help = "(use ENTER to select,  h/l or ←/→ to change directory and j/k or ↓/↑ to circle through songs)";
+  unsigned int selected = 0;
+  int level = 0;
+
+  while(true) {
+    PrintCentered(10, utils::ToUpper(selector.title_));
+    PrintCentered(11, selector.path_);
+    PrintCentered(12, help);
+
+    attron(COLOR_PAIR(COLOR_ERROR));
+    PrintCentered(13, error);
+    error = "";
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+
+    for (unsigned int i=0; i<selector.options_.size(); i++) {
+      if (i == selected)
+        attron(COLOR_PAIR(COLOR_MARKED));
+      PrintCentered(15 + i, selector.options_[i].second);
+      attron(COLOR_PAIR(COLOR_DEFAULT));
+    }
+
+    // Get players choice.
+    char choice = getch();
+    if (choice == 'l') {
+      level++;
+      std::vector<std::string> paths;
+      for (const auto& it : std::filesystem::directory_iterator(selector.options_[selected].first))
+        paths.push_back(it.path().string());
+      selector = SetupAudioSelector(selector.options_[selected].first, selector.options_[selected].second, paths);
+    }
+    else if (choice == 'h') {
+      level--;
+      if (level == -1) {
+        error = "No parent directory.";
+        level = 0;
+      }
+      else if (level == 0) {
+        selector = SetupAudioSelector("", "select audio", audio_paths_);
+      }
+      else {
+        std::filesystem::path p = selector.path_;
+        std::vector<std::string> paths;
+        for (const auto& it : std::filesystem::directory_iterator(p.parent_path()))
+          paths.push_back(it.path().string());
+        selector = SetupAudioSelector(p.parent_path().string(), p.parent_path().filename().string(), paths);
+      }
+    }
+    else if (choice == 'j')
+      selected = utils::mod(selected+1, selector.options_.size());
+    else if (choice == 'k')
+      selected = utils::mod(selected-1, selector.options_.size());
+    else if (std::to_string(choice) == "10") {
+      std::filesystem::path select_path = selector.options_[selected].first;
+      if (select_path.filename().extension() == ".mp3" || select_path.filename().extension() == ".wav")
+        break;
+      else 
+        error = "Wrong file type. Select mp3 or wav";
+    }
+    ClearField();
+  }
+  return selector.options_[selected].first; 
+}
+
+Game::AudioSelector Game::SetupAudioSelector(std::string path, std::string title, std::vector<std::string> paths) {
+  std::vector<std::pair<std::string, std::string>> options;
+  for (const auto& it : paths) {
+    std::filesystem::path path = it;
+    options.push_back({it, path.filename()});
+  }
+  return AudioSelector({path, title, options});
 }

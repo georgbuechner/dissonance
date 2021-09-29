@@ -23,7 +23,7 @@ const std::vector<std::string> Audio::note_names_ = {
 std::map<std::string, std::vector<std::string>> Audio::keys_ = {};
 
 
-Audio::Audio() {}
+Audio::Audio(std::string base_path) : base_path_(base_path) {}
 
 // getter 
 AudioData& Audio::analysed_data() {
@@ -341,12 +341,10 @@ size_t Audio::NextOfNotesIn(double cur_time) const {
   return counter;
 }
 
-std::string Audio::GetOutPath(std::string source_path) {
-  std::string out_path = source_path;
-  out_path.replace(out_path.length()-3, out_path.length(), "json");
-  std::string files_folder = "audio_files";
-  out_path.replace(source_path.find("data/")+5, files_folder.length(), "analysis");
-  spdlog::get(LOGGER)->info("Using out path: {}", out_path);
+std::string Audio::GetOutPath(std::filesystem::path source_path) {
+  source_path.replace_extension(".json");
+  std::string out_path = base_path_ + "/data/analysis/" + source_path.filename().string();
+  spdlog::get(LOGGER)->info("Audio::GetOutPath: got out_path: {}", out_path);
   return out_path;
 }
 

@@ -7,6 +7,7 @@
 #include <aubio/pitch/pitch.h>
 #include <aubio/tempo/tempo.h>
 #include <cstddef>
+#include <filesystem>
 #include <iostream>
 #include <list>
 #include <map>
@@ -50,7 +51,7 @@ struct AudioData {
 
 class Audio {
   public:
-    Audio();
+    Audio(std::string base_path);
     
     // getter
     AudioData& analysed_data();
@@ -79,6 +80,7 @@ class Audio {
   private:
     // members:
     std::string source_path_;
+    const std::string base_path_;
     AudioData analysed_data_;
     ma_device device_;
     ma_decoder decoder_;
@@ -93,10 +95,10 @@ class Audio {
     void CreateLevels(int intervals);
     void CalcLevel(size_t quater, std::map<std::string, int> notes_by_frequency, size_t darkness);
 
-    static AudioData AnalyzeFile(std::string source_path);
-    static AudioData Load(std::string source_path);
-    static void Safe(AudioData audio_data, std::string source_path);
-    static std::string GetOutPath(std::string source_path);
+    AudioData AnalyzeFile(std::string source_path);
+    AudioData Load(std::string source_path);
+    void Safe(AudioData audio_data, std::string source_path);
+    std::string GetOutPath(std::filesystem::path source_path);
 };
 
 #endif

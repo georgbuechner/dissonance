@@ -37,7 +37,8 @@ class Game {
     bool game_over_;
     bool pause_;
     Audio audio_;
-    const std::string audio_base_path_;
+    const std::string base_path_;
+    std::vector<std::string> audio_paths_;
 
     const int lines_;
     const int cols_;
@@ -101,6 +102,16 @@ class Game {
     void PrintHelpLine();
 
     int SelectInteger(std::string msg, bool omit, choice_mapping_t& mapping, std::vector<size_t> splits);
+
+    std::string SelectAudio();
+
+    struct AudioSelector {
+      std::string path_;
+      std::string title_;
+      std::vector<std::pair<std::string, std::string>> options_;
+    };
+
+    AudioSelector SetupAudioSelector(std::string path, std::string title, std::vector<std::string> paths);
 
     void ClearField();
 

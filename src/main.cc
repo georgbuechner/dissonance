@@ -20,25 +20,24 @@
 #define ITERMAX 10000
 
 int main(int argc, const char** argv) {
-
-  // Logger 
-  auto logger = spdlog::basic_logger_mt("logger", "logs/basic-log.txt");
-  spdlog::flush_every(std::chrono::seconds(1));
-  spdlog::flush_on(spdlog::level::debug);
-  spdlog::set_level(spdlog::level::debug);
-
   // Command line arguments 
   bool relative_size = false;
   bool show_help = false;
-  std::string audio_base_path = getenv("HOME");
-  audio_base_path += "/.disonance/data";
+  std::string base_path = getenv("HOME");
+  base_path += "/.disonance/";
 
   auto cli = lyra::cli() 
     | lyra::opt(relative_size) ["-r"]["--relative-size"]("If set, adjusts map size to terminal size.")
-    | lyra::opt(audio_base_path, "path to audio files") ["-p"]["--audio-base-path"]("Set path to audio data");
+    | lyra::opt(base_path, "path to disonance files") ["-p"]["--base-path"]("Set path to disonance files (logs, settings, data)");
     
   cli.add_argument(lyra::help(show_help));
   auto result = cli.parse({ argc, argv });
+  
+  // Logger 
+  auto logger = spdlog::basic_logger_mt("logger", base_path + "/logs/basic-log.txt");
+  spdlog::flush_every(std::chrono::seconds(1));
+  spdlog::flush_on(spdlog::level::debug);
+  spdlog::set_level(spdlog::level::debug);
 
   if (show_help) {
       std::cout << cli;
@@ -86,7 +85,7 @@ int main(int argc, const char** argv) {
     left_border = 10;
   }
   // Initialize game.
-  Game game(lines, cols, left_border, audio_base_path);
+  Game game(lines, cols, left_border, base_path);
   // Start game
   game.play();
   
