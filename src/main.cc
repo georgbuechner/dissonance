@@ -24,11 +24,11 @@ int main(int argc, const char** argv) {
   bool relative_size = false;
   bool show_help = false;
   std::string base_path = getenv("HOME");
-  base_path += "/.disonance/";
+  base_path += "/.dissonance/";
 
   auto cli = lyra::cli() 
     | lyra::opt(relative_size) ["-r"]["--relative-size"]("If set, adjusts map size to terminal size.")
-    | lyra::opt(base_path, "path to disonance files") ["-p"]["--base-path"]("Set path to disonance files (logs, settings, data)");
+    | lyra::opt(base_path, "path to dissonance files") ["-p"]["--base-path"]("Set path to dissonance files (logs, settings, data)");
     
   cli.add_argument(lyra::help(show_help));
   auto result = cli.parse({ argc, argv });
