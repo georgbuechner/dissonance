@@ -559,7 +559,7 @@ void Game::DistributeIron() {
     else if (choice == 'q')
       end = true;
     else if (std::to_string(choice) == "10") {
-      int resource = (resources_symbol_mapping.contains(current_symbol)) 
+      int resource = (resources_symbol_mapping.count(current_symbol) > 0) 
         ? resources_symbol_mapping.at(current_symbol) : Resources::OXYGEN;
       if (!player_one_->DistributeIron(resource)) {
         attron(COLOR_ERROR);
