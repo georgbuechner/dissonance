@@ -33,6 +33,15 @@ namespace utils {
   unsigned int mod(int n, int m);
 
   std::string ToUpper(std::string str);
+  std::vector<std::string> GetAllPathsInDirectory(std::string path);
+
+  template<class T>
+  std::vector<T> SliceVector(std::vector<T> in_vec, unsigned int begin, unsigned int len) {
+    std::vector<T> out_vec;
+    for (unsigned int i=begin; i<begin+len && i<in_vec.size(); i++)
+      out_vec.push_back(in_vec[i]);
+    return out_vec;
+  }
   
   Paragraphs LoadWelcome();
   Paragraphs LoadHelp();

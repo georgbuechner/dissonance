@@ -115,6 +115,8 @@ class Game {
 
     void ClearField();
 
+    std::string InputString(std::string msg);
+
 };
 
 #endif

@@ -62,3 +62,17 @@ TEST_CASE("test cycle", "") {
     REQUIRE(cur == expected[i]);
   }
 }
+
+TEST_CASE("test slicing vector", "") {
+  std::vector<int> vec = {1,2,3,4,5,6,7,8,9};
+  auto sliced_vec = utils::SliceVector(vec, 1, 3);
+  std::cout << "sliced vector: ";
+  for (const auto& it : sliced_vec) 
+    std::cout << it << ", ";
+  std::cout << std::endl;
+  REQUIRE(sliced_vec.size() == 3);
+  REQUIRE(sliced_vec[0] == 2);
+  REQUIRE(sliced_vec[1] == 3);
+  REQUIRE(sliced_vec[2] == 4);
+
+}
