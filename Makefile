@@ -2,6 +2,7 @@ build:
 	# Create build folder and install conan-dependencies.
 	rm -rf build
 	mkdir build
+	conan profile update settings.compiler.libcxx=libstdc++11 default
 	cd build && conan install ..
 	# Create deps folder and install other dependencies.
 	mkdir deps
@@ -16,16 +17,15 @@ build:
 	cd build && make
 
 install:
-	if [ -d "~/.disonance" ]; then mkdir ~/.disonance; fi
-	cp -r data/ ~/.disonance/
-	chmod +x build/bin/disonance
-	cp build/bin/disonance /usr/bin/
+	mkdir -p ~/.dissonance
+	cp -r dissonance/* ~/.dissonance/
+	chmod +x build/bin/dissonance
+	cp build/bin/dissonance /usr/bin/
 
 uninstall: 
 	cd deps/aubio-0.4.7 && ./waf uninstall
 	rm -rf deps/
 	sudo rm /usr/lib/libaubio.so.5
+	sudo rm /usr/bin/dissonance
 	rm -rf build/
-	rm -rf ~/.disonance
-
-
+	rm -rf ~/.dissonance

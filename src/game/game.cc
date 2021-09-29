@@ -66,7 +66,7 @@ void Game::play() {
 
   if (LINES < lines_+20 || COLS < (cols_*2)+40) { //|| lines_ < 25 || cols_ < 40) {
     Paragraphs paragraphs = {{
-        {"You terminal size is to small to play the game properly."},
+        {"Your terminal size is to small to play the game properly."},
         {"Expected width: " + std::to_string(cols_*2+50) + ", actual: " + std::to_string(COLS)},
         {"Expected hight: " + std::to_string(lines_+20) + ", actual: " + std::to_string(LINES)},
     }};
