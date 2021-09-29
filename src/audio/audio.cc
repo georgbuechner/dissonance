@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -343,7 +344,9 @@ size_t Audio::NextOfNotesIn(double cur_time) const {
 
 std::string Audio::GetOutPath(std::filesystem::path source_path) {
   source_path.replace_extension(".json");
-  std::string out_path = base_path_ + "/data/analysis/" + source_path.filename().string();
+  std::hash<std::string> hasher;
+  size_t hash = hasher(source_path);
+  std::string out_path = base_path_ + "/data/analysis/" + std::to_string(hash) + source_path.filename().string();
   spdlog::get(LOGGER)->info("Audio::GetOutPath: got out_path: {}", out_path);
   return out_path;
 }
