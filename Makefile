@@ -1,10 +1,4 @@
-build:
-	# Create build folder and install conan-dependencies.
-	rm -rf build
-	mkdir build
-	conan profile update settings.compiler.libcxx=libstdc++11 default
-	cd build && conan install ..
-	# Create deps folder and install other dependencies.
+audio:
 	mkdir deps
 	# Install aubio
 	wget -O deps/aubio-0.4.7.tar.bz2 https://aubio.org/pub/aubio-0.4.7.tar.bz2
@@ -12,6 +6,14 @@ build:
 	cd deps/aubio-0.4.7 && ./waf configure build
 	cd deps/aubio-0.4.7 && sudo ./waf install
 	sudo cp /usr/local/lib/libaubio.so.5 /usr/lib/
+
+build:
+	# Create build folder and install conan-dependencies.
+	rm -rf build
+	mkdir build
+	conan profile update settings.compiler.libcxx=libstdc++11 default
+	cd build && conan install ..
+	# Create deps folder and install other dependencies.
 	# Build projekt
 	cd build && cmake ..
 	cd build && make
@@ -29,3 +31,4 @@ uninstall:
 	sudo rm /usr/bin/dissonance
 	rm -rf build/
 	rm -rf ~/.dissonance
+
