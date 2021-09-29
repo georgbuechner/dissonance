@@ -542,15 +542,10 @@ std::vector<Position> AudioKi::GetAllActivatedNeuronsOnWay(std::list<Position> w
   auto enemy_activated_neurons = enemy_->GetAllPositionsOfNeurons(UnitsTech::ACTIVATEDNEURON);
   std::vector<Position> result_positions;
   for (const auto& way_point : way) {
-    std::vector<Position> added;
     for (const auto& activated_neuron_pos : enemy_activated_neurons) {
-      if (utils::dist(way_point, activated_neuron_pos) < 3) {
+      if (utils::dist(way_point, activated_neuron_pos) < 3)
         result_positions.push_back(activated_neuron_pos);
-        added.push_back(activated_neuron_pos);
-      }
     }
-    for (const auto& it : added)
-      std::erase(enemy_activated_neurons, it);
   }
   spdlog::get(LOGGER)->debug("AudioKi::GetAllActivatedNeuronsOnWay: got {} activated neurons on way.", result_positions.size());
   return result_positions;

@@ -51,7 +51,6 @@ namespace utils {
    * @return boolean indicating success.
    */
   void WriteJsonFromDisc(std::string path, nlohmann::json& json);
-
 }
 
 #endif
