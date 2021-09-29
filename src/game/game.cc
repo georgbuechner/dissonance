@@ -790,10 +790,14 @@ std::string Game::SelectAudio() {
     char choice = getch();
     if (choice == 'l') {
       level++;
-      selector = SetupAudioSelector(visible_options[selected].first, visible_options[selected].second, 
-          utils::GetAllPathsInDirectory(visible_options[selected].first));
-      selected = 0;
-      print_start = 0;
+      if (std::filesystem::is_directory(visible_options[selected].first)) {
+        selector = SetupAudioSelector(visible_options[selected].first, visible_options[selected].second, 
+            utils::GetAllPathsInDirectory(visible_options[selected].first));
+        selected = 0;
+        print_start = 0;
+      }
+      else 
+        error = "Not a directory!";
     }
     else if (choice == 'h') {
       if (level == 0)
