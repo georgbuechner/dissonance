@@ -83,9 +83,14 @@ void Game::play() {
   // Build fields
   field_ = new Field(lines_, cols_, left_border_, &audio_);
   field_->AddHills();
-  Position nucleus_pos = field_->AddNucleus((int)audio_.analysed_data().average_bpm_%8+1);
+  int player_one_section = (int)audio_.analysed_data().average_bpm_%8+1;
+  int player_two_section = (int)audio_.analysed_data().average_level_%8+1;
+  if (player_one_section == player_two_section)
+    player_two_section = (player_two_section+1)%8;
+  Position nucleus_pos = field_->AddNucleus(player_one_section);
+  nucleus_pos = field_->AddNucleus(player_two_section);
+
   player_one_ = new Player(nucleus_pos, field_, 3, &audio_);
-  nucleus_pos = field_->AddNucleus((int)audio_.analysed_data().average_level_%8+1);
   player_two_ = new AudioKi(nucleus_pos, 4, field_, &audio_);
   player_one_->set_enemy(player_two_);
   player_two_->set_enemy(player_one_);
