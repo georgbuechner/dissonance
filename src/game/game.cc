@@ -759,11 +759,17 @@ std::string Game::SelectAudio() {
   ClearField();
   AudioSelector selector = SetupAudioSelector("", "select audio", audio_paths_);
   std::string error = "";
-  std::string help = "(use ENTER to select,  h/l or ←/→ to change directory and j/k or ↓/↑ to circle through songs)";
+  std::string help = "(use + to add paths, ENTER to select,  h/l or ←/→ to change directory and j/k or ↓/↑ to circle through songs,)";
   unsigned int selected = 0;
   int level = 0;
+  unsigned int print_start = 0;
+  unsigned int max = LINES/2;
+  std::vector<std::pair<std::string, std::string>> visible_options;
 
   while(true) {
+    unsigned int print_max = std::min((unsigned int)selector.options_.size(), max);
+    visible_options = utils::SliceVector(selector.options_, print_start, print_max);
+    
     PrintCentered(10, utils::ToUpper(selector.title_));
     PrintCentered(11, selector.path_);
     PrintCentered(12, help);
@@ -773,10 +779,10 @@ std::string Game::SelectAudio() {
     error = "";
     attron(COLOR_PAIR(COLOR_DEFAULT));
 
-    for (unsigned int i=0; i<selector.options_.size(); i++) {
+    for (unsigned int i=0; i<visible_options.size(); i++) {
       if (i == selected)
         attron(COLOR_PAIR(COLOR_MARKED));
-      PrintCentered(15 + i, selector.options_[i].second);
+      PrintCentered(15 + i, visible_options[i].second);
       attron(COLOR_PAIR(COLOR_DEFAULT));
     }
 
@@ -784,38 +790,58 @@ std::string Game::SelectAudio() {
     char choice = getch();
     if (choice == 'l') {
       level++;
-      std::vector<std::string> paths;
-      for (const auto& it : std::filesystem::directory_iterator(selector.options_[selected].first))
-        paths.push_back(it.path().string());
-      selector = SetupAudioSelector(selector.options_[selected].first, selector.options_[selected].second, paths);
+      selector = SetupAudioSelector(visible_options[selected].first, visible_options[selected].second, 
+          utils::GetAllPathsInDirectory(visible_options[selected].first));
+      selected = 0;
+      print_start = 0;
     }
     else if (choice == 'h') {
-      level--;
-      if (level == -1) {
+      if (level == 0)
         error = "No parent directory.";
-        level = 0;
-      }
-      else if (level == 0) {
+      level--;
+      selected = 0;
+      print_start = 0;
+      if (level == 0)
         selector = SetupAudioSelector("", "select audio", audio_paths_);
-      }
       else {
         std::filesystem::path p = selector.path_;
-        std::vector<std::string> paths;
-        for (const auto& it : std::filesystem::directory_iterator(p.parent_path()))
-          paths.push_back(it.path().string());
-        selector = SetupAudioSelector(p.parent_path().string(), p.parent_path().filename().string(), paths);
+        selector = SetupAudioSelector(p.parent_path().string(), p.parent_path().filename().string(), 
+            utils::GetAllPathsInDirectory(p.parent_path()));
       }
     }
-    else if (choice == 'j')
-      selected = utils::mod(selected+1, selector.options_.size());
-    else if (choice == 'k')
-      selected = utils::mod(selected-1, selector.options_.size());
+    else if (choice == 'j') {
+      if (selected == print_max-1 && selector.options_.size() > max)
+        print_start++;
+      else 
+        selected = utils::mod(selected+1, visible_options.size());
+    }
+    else if (choice == 'k') {
+      if (selected == 0 && print_start > 0)
+        print_start--;
+      else 
+        selected = utils::mod(selected-1, print_max);
+    }
     else if (std::to_string(choice) == "10") {
-      std::filesystem::path select_path = selector.options_[selected].first;
+      std::filesystem::path select_path = visible_options[selected].first;
       if (select_path.filename().extension() == ".mp3" || select_path.filename().extension() == ".wav")
         break;
       else 
         error = "Wrong file type. Select mp3 or wav";
+    }
+    else if (choice == '+') {
+      std::string input = InputString("Absolute path: ");
+      if (std::filesystem::exists(input)) {
+        if (input.back() == '/')
+          input.pop_back();
+        audio_paths_.push_back(input);
+        nlohmann::json audio_paths = utils::LoadJsonFromDisc(base_path_ + "/settings/music_paths.json");
+        audio_paths.push_back(input);
+        utils::WriteJsonFromDisc(base_path_ + "/settings/music_paths.json", audio_paths);
+        selector = SetupAudioSelector("", "select audio", audio_paths_);
+      }
+      else {
+        error = "Path does not exist.";
+      }
     }
     ClearField();
   }
@@ -829,4 +855,18 @@ Game::AudioSelector Game::SetupAudioSelector(std::string path, std::string title
     options.push_back({it, path.filename()});
   }
   return AudioSelector({path, title, options});
+}
+
+std::string Game::InputString(std::string msg) {
+  ClearField();
+  PrintCentered(LINES/2, msg.c_str());
+  echo();
+  std::string input;
+  int ch = getch();
+  while (ch != '\n') {
+    input.push_back(ch);
+    ch = getch();
+  }
+  noecho();
+  return input;
 }

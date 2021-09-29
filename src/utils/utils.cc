@@ -3,6 +3,7 @@
 #include <cctype>
 #include <cstddef>
 #include <fstream>
+#include <filesystem>
 #include <math.h>
 #include <vector>
 #include "spdlog/spdlog.h"
@@ -56,6 +57,13 @@ std::string utils::ToUpper(std::string str) {
     upper += std::toupper(c); 
   }
   return upper;
+}
+
+std::vector<std::string> utils::GetAllPathsInDirectory(std::string path) {
+  std::vector<std::string> paths;
+  for (const auto& it : std::filesystem::directory_iterator(path))
+    paths.push_back(it.path().string());
+  return paths;
 }
 
 std::string utils::create_id(std::string type) {
