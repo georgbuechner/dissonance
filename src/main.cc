@@ -34,7 +34,7 @@ int main(int argc, const char** argv) {
   auto result = cli.parse({ argc, argv });
   
   // Logger 
-  auto logger = spdlog::basic_logger_mt("logger", base_path + "/logs/basic-log.txt");
+  auto logger = spdlog::basic_logger_mt("logger", base_path + "logs/basic-log.txt");
   spdlog::flush_every(std::chrono::seconds(1));
   spdlog::flush_on(spdlog::level::debug);
   spdlog::set_level(spdlog::level::debug);
