@@ -2,7 +2,7 @@
 
 ## Premise 
 Several parts of the brain are in dissonance and started attacking each-other
-with strong potentials, aiming to destroy each-other. 
+with strong potentials, aiming to destroy the others nucleus. 
 
 Each player starts with a nucleus. One nucleus has control over a few cells surrounding it.
 By gathering different resources (iron, oxygen, 
@@ -11,11 +11,10 @@ enemies nucleus. When a certain amount of potential has reached the enemies nucl
 your enemy is destroyed. By activating cells you control, these cells can
 neutralize incoming potential.
 
-You randomly gain iron every few seconds (the more the game advances the less
-iron you gain). Iron can be used to activate the process of gathering new
-resources or to boost your oxygen production. Depending on your current oxygen
+You randomly gain iron every few seconds. Iron can be used to activate the process of 
+gathering new resources or to boost your oxygen production. Depending on your current oxygen
 level, you gain more or less resources. Oxygen is also needed to create Synapses
-or to activate sells for your defences. But be careful: the more oxygen you
+or to activate neurons for your defences. But be careful: the more oxygen you
 spend on building advanced neurons (Synapses/ activated neurons) the less
 resources you gain per seconds!
 
@@ -42,7 +41,11 @@ current voltage level determines how fast technologies are researched.
 ### Installation
 
 First:
+```
+make audio
+```
 
+Then 
 ```
 make build
 ```
