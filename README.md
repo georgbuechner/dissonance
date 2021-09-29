@@ -35,6 +35,38 @@ current voltage level determines how fast technologies are researched.
 
 ## Installation 
 
+### Requirements 
+- gcc/11.1.0 (availible in most package manegers)  
+- conan (f.e. `pip install conan`)
+
+### Installation
+
+First:
+
+```
+make build
+```
+You may need to run with the `-B` option in case you're experiencing the following 
+error: `make: 'build' is up to date` 
+
+Finally:
+
+```
+sudo make install
+```
+
+Installs `dissonance` system wide and create `.dissonance` in the home folder to
+store settings and analysed musical data.
+
+### Usage
+
+To play, simply run `dissonance` in you terminal. 
+
+You can run `dissonance` with the `-r` option, to create the map based on your
+current terminal size. Doing this will however change the game experience and
+two identical songs will no longer produce an identical map and experience. 
+
+
 
 ### Game Details 
 
