@@ -18,11 +18,16 @@ build:
 	cd build && cmake ..
 	cd build && make
 
-install:
+setup:
 	mkdir -p ~/.dissonance
 	cp -r dissonance/. ~/.dissonance/
 	chmod +x build/bin/dissonance
 	sudo cp build/bin/dissonance /usr/bin/
+
+install:
+	make audio
+	make build
+	make install
 
 uninstall: 
 	cd deps/aubio-0.4.7 && ./waf uninstall
