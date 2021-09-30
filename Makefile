@@ -20,9 +20,9 @@ build:
 
 install:
 	mkdir -p ~/.dissonance
-	cp -r dissonance/* ~/.dissonance/
+	cp -r dissonance/. ~/.dissonance/
 	chmod +x build/bin/dissonance
-	cp build/bin/dissonance /usr/bin/
+	sudo cp build/bin/dissonance /usr/bin/
 
 uninstall: 
 	cd deps/aubio-0.4.7 && ./waf uninstall

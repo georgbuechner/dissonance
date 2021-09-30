@@ -2,13 +2,16 @@
 #include "nlohmann/json.hpp"
 #include <cctype>
 #include <cstddef>
+#include <cstdlib>
 #include <fstream>
 #include <filesystem>
+#include <iostream>
 #include <math.h>
 #include <vector>
 #include "spdlog/spdlog.h"
 
 #define LOGGER "logger"
+
 
 double utils::get_elapsed(std::chrono::time_point<std::chrono::steady_clock> start,
     std::chrono::time_point<std::chrono::steady_clock> end) {
