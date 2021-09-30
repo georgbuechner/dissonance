@@ -40,22 +40,9 @@ current voltage level determines how fast technologies are researched.
 
 ### Installation
 
-First:
+You can simply install by running:
 ```
-make audio
-```
-
-Then 
-```
-make build
-```
-You may need to run with the `-B` option in case you're experiencing the following 
-error: `make: 'build' is up to date` 
-
-Finally:
-
-```
-sudo make install
+make install
 ```
 
 Installs `dissonance` system wide and create `.dissonance` in the home folder to

@@ -94,7 +94,7 @@ int main(int argc, const char** argv) {
   init_pair(COLOR_MARKED, COLOR_MAGENTA, -1);
 
   // Setup map-size
-  int lines = 52;
+  int lines = 40;
   int cols  = 74;
   int left_border = (COLS - cols) /2 - 40;
   if (relative_size) {
