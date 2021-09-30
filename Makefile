@@ -27,7 +27,7 @@ setup:
 install:
 	make audio
 	make build
-	make install
+	make setup
 
 uninstall: 
 	cd deps/aubio-0.4.7 && ./waf uninstall
