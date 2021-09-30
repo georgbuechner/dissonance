@@ -6,7 +6,6 @@
 #include "objects/units.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
-#include <compare>
 #include <cstddef>
 #include <iterator>
 #include <mutex>
