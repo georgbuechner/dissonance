@@ -37,10 +37,23 @@ current voltage level determines how fast technologies are researched.
 ### Requirements 
 - gcc/11.1.0 (availible in most package manegers)  
 - conan (f.e. `pip install conan`)
+You might also need to install the following media libraries to play audio which
+is not in `.wav` format: 
+- [libav](https://libav.org/) (Ubuntu: ```sudo apt install libavlibav-tools```, Arch Linux: ```yay -S gst-libav```)
 
 ### Installation
 
-You can simply install by running:
+Clone project: 
+```
+git clone git@github.com:georgbuechner/fast_bsg.git
+```
+
+cd into the project
+```
+cd fast_bsg
+```
+
+And then you can simply install by running:
 ```
 make install
 ```
@@ -55,7 +68,6 @@ To play, simply run `dissonance` in you terminal.
 You can run `dissonance` with the `-r` option, to create the map based on your
 current terminal size. Doing this will however change the game experience and
 two identical songs will no longer produce an identical map and experience. 
-
 
 
 ### Game Details 
@@ -100,81 +112,3 @@ two identical songs will no longer produce an identical map and experience.
 - how does voltage increase (suggestions: binding oxygen, destroying enemy
   position, occupying enemy neurons). Each player could also have the possibility
   to decide for the one or the other technique.
-
-## Strategies
-Prioritize:
-- attack strategies (*Minor*)
-- defence strategies (*Major*)
-- refinement (sharp)
-- resources (flat)
-- expansion (*Minor* & *signed*)
-
-### ATTACK STRATEGIES
-Choose between:
-- targets (*flat*)
-- brute force (*unsigned*)
-- intelligent way (*sharp*)
-Choose between:
-- epsp focus (potassium+1) (*unsigned*)
-- ipsp involvement (chloride+1) (*signed*)
-*resources*:
-- potassium
-- dopamine
-
-#### targets
-*technologies*: TARGET
-*resources*: potassium
-Choose between:
-- Aim nucleus (resources: potassium+1) (*unsigned*)
-- Destroy Activated neurons (resources: potassium+1, dopamine+1) (darkness > 4)
-- Destroy Synapses (resources: potassium+1, dopamine+1) (darkness < 4)
-- Block activated neurons (_always+1 if **ipsp involvement** selected_, resources: glutamate+1, dopamine+1) (notes_out_key_<=4)
-- Block synapses (_always+1 if **ipsp involvement** selected_, resources: glutamate+1, dopamine+1) (notes_out_key_>4)
-
-tactics 
-
-#### way 
-*technologies*: WAY
-Always selecting way with most least activated neurons
-
-#### Brute force
-*technologies*: SWARM
-
-### DEFENCE STRATEGIES
-Choose between:
-- block front focus (sharp)
-- block every focus (flat)
-- ipsp-block (
--> *resources* glutamate+1
-*resources*:
-- glutamate
-
-
-### REFINEMENT
-Choose between:
-- defence (*Major*)
-- attack (*Minor*)
-*resources*:
-- serotonin
-- dopamine
-
-#### Defence
-*technologies*: DEF_POTENTIAL (darkness > 4), DEF_SPEED (darkness <= 4)
-*resources*:
-- glutamate 
-
-#### Attack
-*technologies*: ATK_POTENIAL, ATK_SPEED, ATK_DURATION
-- potassium
-
-#### RESOURCES
-*technologies*: TOTAL_OXYGEN, TOTAL_RESOURCE, CURVE
-- serotonin
-- dopamine
-
-#### EXPANSION
-*technologies*: NUCLEUS_RANGE
-*buildings*: nucleus
-- serotonin
-- dopamine
-
