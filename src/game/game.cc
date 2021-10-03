@@ -25,7 +25,6 @@
 
 #define LINE_HELP 8
 #define LINE_STATUS LINES-9
-#define LINE_MSG LINES-9
 
 #define RESOURCE_UPDATE_FREQUENCY 500
 #define UPDATE_FREQUENCY 50
@@ -102,7 +101,7 @@ void Game::play() {
   player_one_->set_enemy(player_two_);
   player_two_->set_enemy(player_one_);
   field_->BuildGraph(player_one_->nucleus_pos(), player_two_->nucleus_pos());
-  player_two_->SetUpTactics();
+  player_two_->SetUpTactics(true); 
 
   // Let player one distribute initial iron.
   DistributeIron();
@@ -215,7 +214,9 @@ void Game::GetPlayerChoice() {
   int choice;
   PrintFieldAndStatus();
   while (true) {
+
     choice = getch();
+    PrintMessage("", false);  // clear message line after each input.
     // q: quit game
     if (choice == 'q') {
       refresh();
@@ -548,7 +549,6 @@ void Game::DistributeIron() {
     info = resources_name_mapping.at(resource) + ": FE" 
       + std::to_string(player_one_->resources().at(resource).distributed_iron())
       + ((player_one_->resources().at(resource).Active()) ? " (active)" : " (inactive)");
-    PrintCentered(LINES/2+1, "                                         ");
     PrintCentered(LINES/2+1, info);
 
     if (error != "") {
@@ -559,8 +559,6 @@ void Game::DistributeIron() {
       attron(COLOR_SUCCESS);
       PrintCentered(LINES/2+2, success);
     }
-    else 
-      PrintCentered(LINES/2+2, "                                       ");
     attron(COLOR_DEFAULT);
     success = "";
     error = "";
@@ -659,9 +657,10 @@ void Game::PrintMessage(std::string msg, bool error) {
     attron(COLOR_PAIR(COLOR_ERROR));
   else
     attron(COLOR_PAIR(COLOR_MSG));
-  msg.insert(msg.length(), field_->cols()*2-msg.length(), char(46));
   std::unique_lock ul(mutex_print_field_);
-  mvaddstr(LINE_MSG, left_border_+10, msg.c_str());
+  std::string clear_string(COLS, ' ');
+  mvaddstr(lines_+11, 0, clear_string.c_str());
+  mvaddstr(lines_+11, left_border_, msg.c_str());
   attron(COLOR_PAIR(COLOR_DEFAULT));
   refresh();
 }
@@ -713,6 +712,8 @@ void Game::PrintCentered(Paragraphs paragraphs) {
 }
 
 void Game::PrintCentered(int line, std::string txt) {
+  std::string clear_string(COLS, ' ');
+  mvaddstr(line, 0, clear_string.c_str());
   mvaddstr(line, COLS/2-txt.length()/2, txt.c_str());
 }
 

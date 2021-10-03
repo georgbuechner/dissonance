@@ -16,7 +16,7 @@ class AudioKi : public Player {
     // setter
     void set_last_time_point(const AudioDataTimePoint& data_at_beat);
 
-    void SetUpTactics();
+    void SetUpTactics(bool economy_tactics);
     void DoAction(const AudioDataTimePoint& data_at_beat);
     void HandleIron(const AudioDataTimePoint& data_at_beat);
 
@@ -78,6 +78,9 @@ class AudioKi : public Player {
     std::vector<Position> GetEnemySynapsesSortedByLeastDef(Position start);
     size_t GetMaxLevelExeedance() const;
     void SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length);
+
+    void SetBattleTactics();
+    void SetEconomyTactics();
 };
 
 #endif
