@@ -28,13 +28,13 @@ class Field {
     // getter:
     int lines();
     int cols();
-    std::vector<Position> highlight();
+    std::vector<position_t> highlight();
 
     // setter:
-    void set_highlight(std::vector<Position> positions);
+    void set_highlight(std::vector<position_t> positions);
     void set_range(int);
-    void set_range_center(Position pos);
-    void set_replace(std::map<Position, char> replacements);
+    void set_range_center(position_t pos);
+    void set_replace(std::map<position_t, char> replacements);
 
     // methods:
 
@@ -48,7 +48,7 @@ class Field {
      * @param[in] section
      * @return position of player den.
      */
-    Position AddNucleus(int section);
+    position_t AddNucleus(int section);
 
     /**
      * Builds graph to calculate ways.
@@ -57,14 +57,14 @@ class Field {
      * @param[in] player_den position of player's den.
      * @param[in] enemy_den position of enemy's den.
      */
-    void BuildGraph(Position player_den, Position enemy_den);
+    void BuildGraph(position_t player_den, position_t enemy_den);
 
     /**
      * Finds a free position for a new soldier.
      * @param pos position around which to add soldier.
      * @return position of new soldier.
      */
-    Position GetNewSoldierPos(Position pos);
+    position_t GetNewSoldierPos(position_t pos);
 
     /**
      * Finds a free position for a defence tower and adds tower to player/ ki
@@ -72,7 +72,7 @@ class Field {
      * @param pos position of new defence tower.
      * @param unit integer to identify unit.
      */
-    void AddNewUnitToPos(Position pos, int unit);
+    void AddNewUnitToPos(position_t pos, int unit);
 
     /** 
      * Prints current field. 
@@ -90,7 +90,7 @@ class Field {
      * @param target_pos target position.
      * @return list of positions.
      */ 
-    std::list<Position> GetWayForSoldier(Position start_pos, std::vector<Position> way_points);
+    std::list<position_t> GetWayForSoldier(position_t start_pos, std::vector<position_t> way_points);
 
     /** 
      * Finds the next free position near a given position with min and max
@@ -101,18 +101,18 @@ class Field {
      * @param max distance
      * @return free position in given range.
      */
-    Position FindFree(int l, int c, int min, int max);
+    position_t FindFree(int l, int c, int min, int max);
 
-    bool IsFree(Position pos);
+    bool IsFree(position_t pos);
 
-    bool InRange(Position pos, int range, Position start = {-1, -1});
+    bool InRange(position_t pos, int range, position_t start = {-1, -1});
 
-    Position GetSelected(char replace, int num);
+    position_t GetSelected(char replace, int num);
 
-    std::vector<Position> GetAllInRange(Position start, double max_dist, double min_dist, bool free=false);
+    std::vector<position_t> GetAllInRange(position_t start, double max_dist, double min_dist, bool free=false);
 
-    std::vector<Position> GetAllCenterPositionsOfSections();
-    std::vector<Position> GetAllPositionsOfSection(unsigned int interval);
+    std::vector<position_t> GetAllCenterPositionsOfSections();
+    std::vector<position_t> GetAllPositionsOfSection(unsigned int interval);
 
   private: 
     int left_border_;
@@ -123,16 +123,16 @@ class Field {
     std::vector<std::vector<std::string>> field_;
     std::shared_mutex mutex_field_;
 
-    std::vector<Position> highlight_;
+    std::vector<position_t> highlight_;
     volatile int range_;
-    Position range_center_;
-    std::map<Position, char> replacements_;
+    position_t range_center_;
+    std::map<position_t, char> replacements_;
 
     /** 
      * Adds resources ([G]old, [S]ilver, [B]ronze) near given position.
      * @param start_pos position near which to create resources.
      */
-    void AddResources(Position start_pos);
+    void AddResources(position_t start_pos);
 
     /**
      * Places moving units (soldiers) on the field, by taking units from given
@@ -144,7 +144,7 @@ class Field {
      */
     void UpdateField(Player* player, std::vector<std::vector<std::string>>& field);
 
-    bool CheckCollidingPotentials(Position pos, Player* player_one, Player* player_two);
+    bool CheckCollidingPotentials(position_t pos, Player* player_one, Player* player_two);
 
     /**
      * Gets x in range, returning 0 if x<min, max ist x > max, and x otherwise.

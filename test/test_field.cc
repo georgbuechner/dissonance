@@ -14,20 +14,20 @@ TEST_CASE("test_field", "[main]") {
   Field* field = new Field(lines, cols);
 
   SECTION("tests based on graph", "[main, graph]") {
-    Position start_pos = field->AddNucleus(8);
-    Position target_pos = field->AddNucleus(1);
+    position_t start_pos = field->AddNucleus(8);
+    position_t target_pos = field->AddNucleus(1);
     field->BuildGraph(start_pos, target_pos);
 
     SECTION("test_get_way_for_soldier") {
       SECTION("test way-points are sorted") {
         // Create two way-points, where wp_1 should be following wp_2, so we expect
         // way_point_2 to be passed before wp_1, altough adding wp_1 first.
-        Position way_point_1 = {10, 20};
-        Position way_point_2 = {90, 80};
+        position_t way_point_1 = {10, 20};
+        position_t way_point_2 = {90, 80};
         // Make sure that we selected wp_1 and wp_2 correctly (wp1 is acctually nearer
         // to target postion.
-        REQUIRE(utils::dist(way_point_1, target_pos) < utils::dist(way_point_2, target_pos));
-        std::vector<Position> way_points = {way_point_1, way_point_2};
+        REQUIRE(utils::Dist(way_point_1, target_pos) < utils::Dist(way_point_2, target_pos));
+        std::vector<position_t> way_points = {way_point_1, way_point_2};
 
         // Create way
         way_points.push_back(target_pos);
@@ -52,8 +52,8 @@ TEST_CASE("test_field", "[main]") {
         REQUIRE(index_wp_1 < index_target);
       }
       SECTION("test way is optimal") {
-        std::vector<Position> way_points = {{10,12}, {63, 64}, {70,74}};
-        Position start_pos = {0, 0};
+        std::vector<position_t> way_points = {{10,12}, {63, 64}, {70,74}};
+        position_t start_pos = {0, 0};
         auto way = field->GetWayForSoldier(start_pos, way_points);
 
         size_t expected_length = 0;
@@ -97,14 +97,14 @@ TEST_CASE("test_field", "[main]") {
     SECTION("Don't check free, range=1.5") {
       auto positions = field->GetAllInRange({50, 50}, 1.5, 1);
       REQUIRE(positions.size() == 8);
-      REQUIRE(std::find(positions.begin(), positions.end(), (Position){49, 49}) != positions.end());
-      REQUIRE(std::find(positions.begin(), positions.end(), (Position){49, 50}) != positions.end());
-      REQUIRE(std::find(positions.begin(), positions.end(), (Position){49, 51}) != positions.end());
-      REQUIRE(std::find(positions.begin(), positions.end(), (Position){50, 49}) != positions.end());
-      REQUIRE(std::find(positions.begin(), positions.end(), (Position){50, 51}) != positions.end());
-      REQUIRE(std::find(positions.begin(), positions.end(), (Position){51, 51}) != positions.end());
-      REQUIRE(std::find(positions.begin(), positions.end(), (Position){51, 50}) != positions.end());
-      REQUIRE(std::find(positions.begin(), positions.end(), (Position){51, 49}) != positions.end());
+      REQUIRE(std::find(positions.begin(), positions.end(), (position_t){49, 49}) != positions.end());
+      REQUIRE(std::find(positions.begin(), positions.end(), (position_t){49, 50}) != positions.end());
+      REQUIRE(std::find(positions.begin(), positions.end(), (position_t){49, 51}) != positions.end());
+      REQUIRE(std::find(positions.begin(), positions.end(), (position_t){50, 49}) != positions.end());
+      REQUIRE(std::find(positions.begin(), positions.end(), (position_t){50, 51}) != positions.end());
+      REQUIRE(std::find(positions.begin(), positions.end(), (position_t){51, 51}) != positions.end());
+      REQUIRE(std::find(positions.begin(), positions.end(), (position_t){51, 50}) != positions.end());
+      REQUIRE(std::find(positions.begin(), positions.end(), (position_t){51, 49}) != positions.end());
     }
 
     SECTION("Test for each position.") {
@@ -142,21 +142,21 @@ TEST_CASE("test_field", "[main]") {
     Field* field = new Field(lines, cols);
     auto positions= field->GetAllCenterPositionsOfSections();
     REQUIRE(positions.size() == 8);
-    REQUIRE(std::find(positions.begin(), positions.end(), (Position){12,12}) != positions.end());
-    REQUIRE(std::find(positions.begin(), positions.end(), (Position){12,37}) != positions.end());
-    REQUIRE(std::find(positions.begin(), positions.end(), (Position){12,62}) != positions.end());
-    REQUIRE(std::find(positions.begin(), positions.end(), (Position){12,87}) != positions.end());
-    REQUIRE(std::find(positions.begin(), positions.end(), (Position){37,12}) != positions.end());
-    REQUIRE(std::find(positions.begin(), positions.end(), (Position){37,37}) != positions.end());
-    REQUIRE(std::find(positions.begin(), positions.end(), (Position){37,62}) != positions.end());
-    REQUIRE(std::find(positions.begin(), positions.end(), (Position){37,87}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (position_t){12,12}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (position_t){12,37}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (position_t){12,62}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (position_t){12,87}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (position_t){37,12}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (position_t){37,37}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (position_t){37,62}) != positions.end());
+    REQUIRE(std::find(positions.begin(), positions.end(), (position_t){37,87}) != positions.end());
   }
 
   SECTION("test intervals") {
     auto center_positions = field->GetAllCenterPositionsOfSections();
     auto positions = field->GetAllPositionsOfSection(1);
     for (const auto& it : positions) {
-      REQUIRE(utils::dist(center_positions[0], it) <= 30);
+      REQUIRE(utils::Dist(center_positions[0], it) <= 30);
     }
   }
 }
