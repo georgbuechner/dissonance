@@ -14,19 +14,19 @@ struct Node {
   std::list<Node*> nodes_;
 };
 
-typedef std::pair<int, int> Position;
+typedef std::pair<int, int> position_t;
 
 class Graph {
   public:
     Graph() { }
 
     // getter:
-    const std::map<Position, Node*>& nodes() const {
+    const std::map<position_t, Node*>& nodes() const {
       return nodes_; 
     }
 
     void AddNode(int line, int col) {
-      Position pos = {line, col};
+      position_t pos = {line, col};
       nodes_[pos] = new Node({line, col, {}});
     };
 
@@ -34,15 +34,15 @@ class Graph {
       a->nodes_.push_back(b);
     }
 
-    bool InGraph(Position pos) const {
+    bool InGraph(position_t pos) const {
       return nodes_.count(pos) > 0;
     }
 
-    int RemoveInvalid(Position pos_a) {
+    int RemoveInvalid(position_t pos_a) {
       // Initialize all nodes as not-vistited.
-      std::map<Position, bool> visited; 
+      std::map<position_t, bool> visited; 
       for (auto node : nodes_) {
-        Position pos = {node.second->line_, node.second->col_};
+        position_t pos = {node.second->line_, node.second->col_};
         visited[pos] = false;
       }
       // Get all nodes which can be visited from player-den.
@@ -53,7 +53,7 @@ class Graph {
         auto cur = queue.front();
         queue.pop_front();
         for (auto node : cur->nodes_) {
-          Position pos = {node->line_, node->col_};
+          position_t pos = {node->line_, node->col_};
           if (!visited[pos]) {
             visited[pos] = true;
             queue.push_back(node);
@@ -72,10 +72,10 @@ class Graph {
       return removed_nodes;
     }
 
-    std::list<Position> find_way(Position pos_a, Position pos_b) const {
-      std::map<Position, Position> visited; 
+    std::list<position_t> find_way(position_t pos_a, position_t pos_b) const {
+      std::map<position_t, position_t> visited; 
       for (auto node : nodes_) {
-        Position pos = {node.second->line_, node.second->col_};
+        position_t pos = {node.second->line_, node.second->col_};
         visited[pos] = {-1, -1};
       }
 
@@ -91,7 +91,7 @@ class Graph {
           break;
         // iterate over children.
         for (auto node : cur->nodes_) {
-          Position pos = {node->line_, node->col_};
+          position_t pos = {node->line_, node->col_};
           if (visited[pos] == std::make_pair(-1, -1)) {
             visited[pos] = {cur->line_, cur->col_};
             queue.push_back(node);
@@ -101,7 +101,7 @@ class Graph {
       if (visited[pos_b] == std::make_pair(-1, -1))
         throw "Could not find enemy den!.";
       
-      std::list<Position> way = { pos_b };
+      std::list<position_t> way = { pos_b };
       while (way.back() != pos_a) {
         way.push_back({visited[way.back()].first, visited[way.back()].second});
       }
@@ -111,7 +111,7 @@ class Graph {
     }
 
   private:
-    std::map<Position, Node*> nodes_;
+    std::map<position_t, Node*> nodes_;
 };
 
 #endif

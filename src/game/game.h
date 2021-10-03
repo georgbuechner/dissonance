@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "audio/audio.h"
+#include "constants/texts.h"
 #include "game/field.h"
 #include "player/audio_ki.h"
 #include "player/player.h"
@@ -65,10 +66,10 @@ class Game {
      */
     void GetPlayerChoice();
 
-    Position SelectPosition(Position start, int range);
+    position_t SelectPosition(position_t start, int range);
 
-    Position SelectNeuron(Player* p, int type);
-    Position SelectFieldPositionByAlpha(std::vector<Position> positions, std::string msg);
+    position_t SelectNeuron(Player* p, int type);
+    position_t SelectFieldPositionByAlpha(std::vector<position_t> positions, std::string msg);
 
     void DistributeIron();
 
@@ -95,7 +96,7 @@ class Game {
      */
     void SetGameOver(std::string msg);
 
-    void PrintCentered(Paragraphs paragraphs);
+    void PrintCentered(texts::paragraphs_t paragraphs);
     void PrintCentered(int line, std::string txt);
     void PrintCenteredColored(int line, std::vector<std::pair<std::string, int>> txt_with_color);
 

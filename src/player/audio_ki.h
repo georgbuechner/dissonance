@@ -9,7 +9,7 @@
 
 class AudioKi : public Player {
   public:
-    AudioKi(Position nucleus_pos, Field* field, Audio* audio);
+    AudioKi(position_t nucleus_pos, Field* field, Audio* audio);
 
     // getter 
     
@@ -25,7 +25,7 @@ class AudioKi : public Player {
     const float average_bpm_;
     const float average_level_;
     size_t max_activated_neurons_;
-    Position nucleus_pos_;
+    position_t nucleus_pos_;
 
     AudioDataTimePoint last_data_point_;
     Interval cur_interval_;
@@ -44,8 +44,8 @@ class AudioKi : public Player {
     void LaunchAttack(const AudioDataTimePoint& data_at_beat);
 
     // Create potental/ neurons. Add technology
-    void CreateEpsps(Position synapse_pos, Position target_pos, int bpm);
-    void CreateIpsps(Position synapse_pos, Position target_pos, int num_ipsp_to_create, int bpm);
+    void CreateEpsps(position_t synapse_pos, position_t target_pos, int bpm);
+    void CreateIpsps(position_t synapse_pos, position_t target_pos, int num_ipsp_to_create, int bpm);
     void CreateIpspThenEpsp(const AudioDataTimePoint& data_at_beat);
     void CreateSynapses(bool force=false);
     void CreateActivatedNeuron(bool force=false);
@@ -54,11 +54,11 @@ class AudioKi : public Player {
 
     size_t AvailibleIpsps();
     size_t AvailibleEpsps(size_t ipsps_to_create);
-    std::vector<Position> AvailibleIpspLaunches(std::vector<Position>& synapses, int min);
+    std::vector<position_t> AvailibleIpspLaunches(std::vector<position_t>& synapses, int min);
     size_t GetLaunchAttack(const AudioDataTimePoint& data_at_beat, size_t ipsps_to_create);
 
-    std::vector<Position> GetEpspTargets(Position synapse_pos, std::list<Position> way, size_t ignore_strategy=-1);
-    std::vector<Position> GetIpspTargets(std::list<Position> way, std::vector<Position>& synapses, 
+    std::vector<position_t> GetEpspTargets(position_t synapse_pos, std::list<position_t> way, size_t ignore_strategy=-1);
+    std::vector<position_t> GetIpspTargets(std::list<position_t> way, std::vector<position_t>& synapses, 
         size_t ignore_strategy=-1);
 
     // Other stretegies
@@ -73,9 +73,9 @@ class AudioKi : public Player {
     // helpers
     typedef std::list<std::pair<size_t, size_t>> sorted_stragety;
     sorted_stragety SortStrategy(std::map<size_t, size_t> strategy);
-    std::vector<Position> GetAllActivatedNeuronsOnWay(std::list<Position> way);
-    std::vector<Position> SortPositionsByDistance(Position start, std::vector<Position> positions, bool reverse=false);
-    std::vector<Position> GetEnemySynapsesSortedByLeastDef(Position start);
+    std::vector<position_t> GetAllActivatedNeuronsOnWay(std::list<position_t> way);
+    std::vector<position_t> SortPositionsByDistance(position_t start, std::vector<position_t> positions, bool reverse=false);
+    std::vector<position_t> GetEnemySynapsesSortedByLeastDef(position_t start);
     size_t GetMaxLevelExeedance() const;
     void SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length);
 

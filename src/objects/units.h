@@ -12,7 +12,7 @@
 
 #define LOGGER "logger"
 
-typedef std::pair<int, int> Position;
+typedef std::pair<int, int> position_t;
 
 /**
  * Abstrackt class for all neurons or potentials.
@@ -20,11 +20,11 @@ typedef std::pair<int, int> Position;
  * - pos
  */
 struct Unit {
-  Position pos_;
+  position_t pos_;
   int type_;
 
   Unit() : pos_({}) {}
-  Unit(Position pos, int type) : pos_(pos), type_(type) {}
+  Unit(position_t pos, int type) : pos_(pos), type_(type) {}
 };
 
 /**
@@ -44,7 +44,7 @@ struct Neuron : Unit {
     virtual int speed() { return -1; };
     virtual int potential_slowdown() { return -1; };
     virtual std::chrono::time_point<std::chrono::steady_clock> last_action() {return std::chrono::steady_clock::now(); }
-    virtual std::vector<Position> ways_points() {return {}; }
+    virtual std::vector<position_t> ways_points() {return {}; }
     virtual bool swarm() { return false; }
     virtual unsigned int num_availible_ways() { return 0; }
     virtual unsigned int max_stored() { return 0; }
@@ -52,10 +52,10 @@ struct Neuron : Unit {
     // setter
     void set_blocked(bool blocked);
     virtual void set_last_action(std::chrono::time_point<std::chrono::steady_clock> time) {};
-    virtual void set_way_points(std::vector<Position> pos) {};
+    virtual void set_way_points(std::vector<position_t> pos) {};
     virtual void set_swarm(bool swarm) {};
-    virtual void set_epsp_target_pos(Position pos) {};
-    virtual void set_ipsp_target_pos(Position pos) {};
+    virtual void set_epsp_target_pos(position_t pos) {};
+    virtual void set_ipsp_target_pos(position_t pos) {};
     virtual void set_availible_ways(unsigned int num_ways) {};
     virtual void set_max_stored(unsigned int max_stored) {};
 
@@ -66,12 +66,12 @@ struct Neuron : Unit {
      */
     bool IncreaseVoltage(int potential);
 
-    virtual std::vector<Position> GetWayPoints(int unit) const { return {}; }
+    virtual std::vector<position_t> GetWayPoints(int unit) const { return {}; }
     virtual unsigned int AddEpsp() { return 0; }
-    virtual void UpdateIpspTargetIfNotSet(Position pos) { }
+    virtual void UpdateIpspTargetIfNotSet(position_t pos) { }
 
     Neuron();
-    Neuron(Position pos, int lp, int type);
+    Neuron(position_t pos, int lp, int type);
     virtual ~Neuron() {}
 
   private:
@@ -90,37 +90,37 @@ struct Neuron : Unit {
 struct Synapse : Neuron {
   public: 
     Synapse();
-    Synapse(Position pos, int max_stored, int num_availible_ways, Position epsp_target, Position ipsp_target);
+    Synapse(position_t pos, int max_stored, int num_availible_ways, position_t epsp_target, position_t ipsp_target);
 
     // getter: 
-    std::vector<Position> ways_points();
+    std::vector<position_t> ways_points();
     bool swarm();
     unsigned int num_availible_ways();
     unsigned int max_stored();
    
     // setter: 
-    void set_way_points(std::vector<Position> way_points);
+    void set_way_points(std::vector<position_t> way_points);
     void set_swarm(bool swarm);
-    void set_epsp_target_pos(Position pos);
-    void set_ipsp_target_pos(Position pos);
+    void set_epsp_target_pos(position_t pos);
+    void set_ipsp_target_pos(position_t pos);
     void set_availible_ways(unsigned int num_availible_way_points);
     void set_max_stored(unsigned int max_stored);
 
     // methods: 
-    std::vector<Position> GetWayPoints(int unit) const;
+    std::vector<position_t> GetWayPoints(int unit) const;
     unsigned int AddEpsp();
-    void UpdateIpspTargetIfNotSet(Position pos);
+    void UpdateIpspTargetIfNotSet(position_t pos);
 
   private:
     bool swarm_;
     int max_stored_;
     int stored_;
     
-    Position epsp_target_;
-    Position ipsp_target_;
+    position_t epsp_target_;
+    position_t ipsp_target_;
 
     unsigned int num_availible_way_points_;
-    std::vector<Position> way_points_;
+    std::vector<position_t> way_points_;
 };
 
 /** 
@@ -133,7 +133,7 @@ struct Synapse : Neuron {
 struct ActivatedNeuron : Neuron {
   public:
     ActivatedNeuron();
-    ActivatedNeuron(Position pos, int slowdown_boast, int speed_boast);
+    ActivatedNeuron(position_t pos, int slowdown_boast, int speed_boast);
 
     // getter 
     int speed();
@@ -158,7 +158,7 @@ struct ActivatedNeuron : Neuron {
  */
 struct Nucleus : Neuron {
   Nucleus() : Neuron() {}
-  Nucleus(Position pos) : Neuron(pos, 9, UnitsTech::NUCLEUS) {}
+  Nucleus(position_t pos) : Neuron(pos, 9, UnitsTech::NUCLEUS) {}
 };
 
 /**
@@ -171,10 +171,10 @@ struct Potential : Unit {
   int speed_;  ///< lower number means higher speed.
   int duration_; ///< only potential
   std::chrono::time_point<std::chrono::steady_clock> last_action_; 
-  std::list<Position> way_;
+  std::list<position_t> way_;
 
   Potential() : Unit(), speed_(999), last_action_(std::chrono::steady_clock::now()) {}
-  Potential(Position pos, int attack, std::list<Position> way, int speed, int type, int duration) 
+  Potential(position_t pos, int attack, std::list<position_t> way, int speed, int type, int duration) 
     : Unit(pos, type), potential_(attack), speed_(speed), duration_(duration),
     last_action_(std::chrono::steady_clock::now()), way_(way) {}
 };
@@ -190,7 +190,7 @@ struct Potential : Unit {
  */
 struct Epsp : Potential {
   Epsp() : Potential() {}
-  Epsp(Position pos, std::list<Position> way, int potential_boast, int speed_boast) 
+  Epsp(position_t pos, std::list<position_t> way, int potential_boast, int speed_boast) 
     : Potential(pos, 2+potential_boast, way, 370-speed_boast, UnitsTech::EPSP, 0) {}
 };
 
@@ -206,7 +206,7 @@ struct Epsp : Potential {
 struct Ipsp: Potential {
 
   Ipsp() : Potential() {}
-  Ipsp(Position pos, std::list<Position> way, int potential_boast, int speed_boast, int duration_boast) 
+  Ipsp(position_t pos, std::list<position_t> way, int potential_boast, int speed_boast, int duration_boast) 
     : Potential(pos, 3+potential_boast, way, 420-speed_boast, UnitsTech::IPSP, 4+duration_boast) {}
 };
 

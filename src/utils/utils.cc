@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "curses.h"
 #include "nlohmann/json.hpp"
 #include <cctype>
 #include <cstddef>
@@ -13,17 +14,33 @@
 #define LOGGER "logger"
 
 
-double utils::get_elapsed(std::chrono::time_point<std::chrono::steady_clock> start,
+bool utils::IsDown(char choice) {
+  return choice == 'j' || choice == (char)KEY_DOWN;
+}
+
+bool utils::IsUp(char choice) {
+  return choice == 'k' || choice == (char)KEY_UP;
+}
+
+bool utils::IsLeft(char choice) {
+  return choice == 'h' || choice == (char)KEY_LEFT;
+}
+
+bool utils::IsRight(char choice) {
+  return choice == 'l' || choice == (char)KEY_RIGHT;
+}
+
+double utils::GetElapsed(std::chrono::time_point<std::chrono::steady_clock> start,
     std::chrono::time_point<std::chrono::steady_clock> end) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
 }
 
-double utils::dist(Position pos1, Position pos2) {
+double utils::Dist(position_t pos1, position_t pos2) {
   return std::sqrt(pow(pos2.first - pos1.first, 2) + pow(pos2.second - pos1.second, 2));
 }
 
-bool utils::InRange(Position pos1, Position pos2, double min_dist, double max_dist) {
-  double dist = utils::dist(pos1, pos2);
+bool utils::InRange(position_t pos1, position_t pos2, double min_dist, double max_dist) {
+  double dist = utils::Dist(pos1, pos2);
   return dist >= min_dist && dist <= max_dist;
 }
 
@@ -40,16 +57,16 @@ std::vector<std::string> utils::Split(std::string str, std::string delimiter) {
   return v_strs;
 }
 
-std::string utils::PositionToString(Position pos) {
+std::string utils::PositionToString(position_t pos) {
   return std::to_string(pos.first) + "|" + std::to_string(pos.second);
 }
 
-int utils::getrandom_int(int min, int max) {
+int utils::GetRandomInt(int min, int max) {
   int ran = min + (rand() % (max - min + 1)); 
   return ran;
 }
 
-unsigned int utils::mod(int n, int m) {
+unsigned int utils::Mod(int n, int m) {
   return ((n%m)+m)%m;
 }
 
@@ -68,13 +85,13 @@ std::vector<std::string> utils::GetAllPathsInDirectory(std::string path) {
   return paths;
 }
 
-std::string utils::dtos(double value) {
+std::string utils::Dtos(double value, unsigned int precision) {
   std::stringstream stream;
-  stream << std::fixed << std::setprecision(2) << value;
+  stream << std::fixed << std::setprecision(precision) << value;
   return stream.str();
 }
 
-std::string utils::create_id(std::string type) {
+std::string utils::CreateId(std::string type) {
   std::string id = type;
   for (int i=0; i<32; i++) {
     int ran = rand() % 9;
@@ -113,77 +130,4 @@ void utils::WriteJsonFromDisc(std::string path, nlohmann::json& json) {
     write << json;
   }
   write.close();
-}
-
-utils::Paragraphs utils::LoadWelcome() {
-  return {
-    {
-      "Welcome to DISSONANCE"
-    },
-    {
-      "Each player starts with a nucleus.",
-      "One nucleus has control over a few cells surrounding it.",
-      "By gathering different resources (iron, oxygen, potassium, ...) you can create Synapses to generate potential, advancing towards the enemies nucleus.",
-      "When a certain amount of potential has reached the enemies nucleus, your enemy is destroyed.",
-      "By activating cells you control, these cells can neutralize incoming potential."
-    },
-    {
-      "You randomly gain iron every few seconds (the more the game advances the less iron you gain).",
-      "Iron can be used to activate the process of gathering new resources or to boost your oxygen production.",
-      "Depending on your current oxygen level, you gain more or less resources.",
-      "Oxygen is also needed to create Synapses or to activate sells for your defences. But be careful:",
-      "the more oxygen you spend on building advanced neurons (Synapses/ activated neurons) the less resources you gain per seconds!"
-    },
-    {
-      "Once you started gaining dopamine and serotonin, you can develop advanced technologies, allowing you f.e. to target specific enemy neurons and hence destroy enemy synapses or activated neurons.",
-      "Other technologies or advanced use of potentials are waiting for you...\n\n"
-    },
-    {
-      "When dissonance starts, remember you should boast oxygen and activate production of glutamate, to start defending yourself.",
-      "Also keep in mind, that there are two kinds of potential: ",
-      "EPSP (strong in attack) and IPSP (blocks buildings); you should start with EPSP."
-    }
-  };
-}
-
-utils::Paragraphs utils::LoadHelp() {
-  return {
-    {
-      "##### HELP #####",
-      "",
-      "--- COSTS (Potential/ Neurons) ----", 
-      "ACTIVATE NEURON: oxygen=8.9, glutamate=19.1",
-      "SYNAPSE: oxygen=13.4, potassium=6.6",
-      "EPSP: potassium=4.4",
-      "IPSP: potassium=3.4, chloride=6.8",
-    },
-    {
-      "##### HELP #####",
-      "",
-      "--- COSTS (Potential/ Neurons) ----", 
-      "WAY (select way/ way-points for neurosn): dopamine=7.7",
-      "SWARM (launch swarm attacks +3): dopamine=9.9",
-      "TARGET (choose target: ipsp/ epsp): dopamine=6.5",
-      "TOTAL OXYGEN (max allowed oxygen bound+free): dopamine=7.5, serotonin=8.9",
-      "TOTAL RESOURCE (max allowed resources: each): dopamine=8.5, serotonin=7.9",
-      "CURVE (resource curve slowdown): dopamine=11.0, serotonin=11.2",
-      "POTENIAL (increases potential of ipsp/ epsp): dopamine=5.0, serotonin=11.2",
-      "SPEED (increases speed of ipsp/ epsp): dopamine=3.0, serotonin=11.2",
-      "DURATION (increases duration at target of ipsp): dopamine=2.5, serotonin=11.2)",
-    },
-    {
-      "##### HELP #####",
-      "",
-      "--- TIPS ----", 
-      "Iron is used to boast oxygen production (1 iron per boast) or to start gaining new resources (2 iron per new resource).",
-      "Iron is gained in relation to you oxygen-level: you only gain iron if oxygen is below 10 and you may never have more than 3 iron at a time!",
-      "",
-      "You should start investing into activate neurons to defend yourself: for this you need oxygen and glutamate.",
-      "",
-      "To start building units, you first need to build a synapse.",
-      "EPSP aims to destroy enemy buildings, while IPSP blocks buildings.",
-      "",
-      "Also remember you gain resources from FREE oxygen. The more bound oxygen you have, then less resources you gain!"
-    }
-  };
 }
