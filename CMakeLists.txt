@@ -20,6 +20,7 @@ set(SRC_FILES
   src/player/audio_ki.cc
   src/utils/utils.cc
   src/objects/units.cc
+  src/objects/resource.cc
   src/audio/audio.cc
   src/audio/miniaudio.cc
 )

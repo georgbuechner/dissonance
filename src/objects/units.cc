@@ -5,7 +5,7 @@
 
 // Neurons
 Neuron::Neuron() : Unit() {}
-Neuron::Neuron(Position pos, int lp, int type) : Unit(pos, type) {
+Neuron::Neuron(position_t pos, int lp, int type) : Unit(pos, type) {
   lp_ = 0;
   max_lp_ = lp;
   blocked_ = false;
@@ -39,7 +39,7 @@ bool Neuron::IncreaseVoltage(int potential) {
 
 // Synapses ...
 Synapse::Synapse() : Neuron() {}
-Synapse::Synapse(Position pos, int max_stored, int num_availible_ways, Position epsp_target, Position ipsp_target) :
+Synapse::Synapse(position_t pos, int max_stored, int num_availible_ways, position_t epsp_target, position_t ipsp_target) :
     Neuron(pos, 5, UnitsTech::SYNAPSE) {
   swarm_ =false;
   max_stored_ = max_stored;
@@ -50,7 +50,7 @@ Synapse::Synapse(Position pos, int max_stored, int num_availible_ways, Position 
 }
 
 // getter: 
-std::vector<Position> Synapse::ways_points() { 
+std::vector<position_t> Synapse::ways_points() { 
   return way_points_; 
 }
 bool Synapse::swarm() { 
@@ -64,16 +64,16 @@ unsigned int Synapse::max_stored() {
 }
 
 // setter: 
-void Synapse::set_way_points(std::vector<Position> way_points) { 
+void Synapse::set_way_points(std::vector<position_t> way_points) { 
   way_points_ = way_points; 
 }
 void Synapse::set_swarm(bool swarm) {
   swarm_ = swarm;
 }
-void Synapse::set_epsp_target_pos(Position pos) {
+void Synapse::set_epsp_target_pos(position_t pos) {
   epsp_target_ = pos;
 }
-void Synapse::set_ipsp_target_pos(Position pos) {
+void Synapse::set_ipsp_target_pos(position_t pos) {
   ipsp_target_ = pos;
 }
 void Synapse::set_availible_ways(unsigned int num_availible_way_points) {
@@ -84,7 +84,7 @@ void Synapse::set_max_stored(unsigned int max_stored) {
 }
 
 // methods: 
-std::vector<Position> Synapse::GetWayPoints(int unit) const { 
+std::vector<position_t> Synapse::GetWayPoints(int unit) const { 
   spdlog::get(LOGGER)->debug("SYNAPSE::GetWayPoints");
   auto way = way_points_;
   if (unit == UnitsTech::EPSP)
@@ -108,7 +108,7 @@ unsigned int Synapse::AddEpsp() {
   return 1; 
 };
 
-void Synapse::UpdateIpspTargetIfNotSet(Position pos) {
+void Synapse::UpdateIpspTargetIfNotSet(position_t pos) {
   if (ipsp_target_.first == -1) {
     ipsp_target_ = pos;
     spdlog::get(LOGGER)->info("Updated ipsp target to: {}", utils::PositionToString(pos));
@@ -117,7 +117,7 @@ void Synapse::UpdateIpspTargetIfNotSet(Position pos) {
 
 // Activated neurons...
 ActivatedNeuron::ActivatedNeuron() : Neuron() {}
-ActivatedNeuron::ActivatedNeuron(Position pos, int slowdown_boast, int speed_boast) : 
+ActivatedNeuron::ActivatedNeuron(position_t pos, int slowdown_boast, int speed_boast) : 
     Neuron(pos, 17, UnitsTech::ACTIVATEDNEURON) {
   speed_ = 700-speed_boast;
   potential_slowdown_ = 1+slowdown_boast;

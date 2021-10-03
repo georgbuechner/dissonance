@@ -29,9 +29,8 @@ using namespace costs;
 #define COLOR_MARKED 6
 
 typedef std::map<size_t, std::pair<std::string, int>> choice_mapping_t;
-typedef std::vector<std::vector<std::string>> Paragraphs;
-typedef std::pair<int, int> Position;
-typedef std::pair<size_t, size_t> TechXOf;
+typedef std::pair<int, int> position_t;
+typedef std::pair<size_t, size_t> tech_of_t;
 
 class Player {
   public:
@@ -42,20 +41,20 @@ class Player {
      * @param[in] nucleus_pos position of player's nucleus.
      * @param[in] silver initial silver value.
      */
-    Player(Position nucleus_pos, Field* field, Audio* audo=nullptr);
+    Player(position_t nucleus_pos, Field* field, Audio* audo=nullptr);
 
     // getter:
     std::map<std::string, Potential> potential();
-    Position nucleus_pos();
+    position_t nucleus_pos();
     int cur_range();
     std::map<int, Resource> resources();
-    std::map<int, TechXOf> technologies();
+    std::map<int, tech_of_t> technologies();
 
     // setter
     void set_enemy(Player* enemy);
 
     // methods:
-    Position GetPositionOfClosestNeuron(Position pos, int unit) const;
+    position_t GetPositionOfClosestNeuron(position_t pos, int unit) const;
     std::string GetNucleusLive();
     
     /**
@@ -69,61 +68,61 @@ class Player {
      * @param[in] pos 
      * @return returns type of neuron at given position or -1 if no neuron at position.
      */
-    int GetNeuronTypeAtPosition(Position pos);
+    int GetNeuronTypeAtPosition(position_t pos);
 
     /**
      * Checks whether neuron at given position is currently blocked.
      * @param[in] pos
      * @returns whether a neuron at a given position is blocked.
      */
-    bool IsNeuronBlocked(Position pos);
+    bool IsNeuronBlocked(position_t pos);
 
     /**
      * Gets vector of all position at which player has a nucleus.
      * @param[in] type (if included, returns only positions of neurons of this type)
      * @return vector of positions
      */
-    std::vector<Position> GetAllPositionsOfNeurons(int type=-1);
+    std::vector<position_t> GetAllPositionsOfNeurons(int type=-1);
 
     /**
      * Gets position of a random activated neuron.
      * @param[in] type
      * @return Position of a random activated neuron.
      */
-    Position GetRandomNeuron(std::vector<int> type={UnitsTech::ACTIVATEDNEURON});
+    position_t GetRandomNeuron(std::vector<int> type={UnitsTech::ACTIVATEDNEURON});
 
     /**
      * Resets way-points for synapse at given position to contain only given way-point.
      * @param[in] pos position of synapse.
      * @param[in] way_point
      */
-    void ResetWayForSynapse(Position pos, Position way_point);
+    void ResetWayForSynapse(position_t pos, position_t way_point);
 
     /**
      * Adds a way point to way_points of a synapse.
      * @param[in] pos position of synapse.
      * @param[in] way_point
      */
-    void AddWayPosForSynapse(Position pos, Position way_position);
+    void AddWayPosForSynapse(position_t pos, position_t way_position);
 
     /**
      * Switch swarm-attack on/ off.
      * @param[in] pos position of synapse.
      */
-    void SwitchSwarmAttack(Position pos);
+    void SwitchSwarmAttack(position_t pos);
 
     /**
      * Sets target position for ipsp.
      * @param[in] position of synapse
      * @param[in] target position 
      */
-    void ChangeIpspTargetForSynapse(Position pos, Position target_pos);
+    void ChangeIpspTargetForSynapse(position_t pos, position_t target_pos);
     /**
      * Sets target position for epsp.
      * @param[in] position of synapse
      * @param[in] target position 
      */
-    void ChangeEpspTargetForSynapse(Position pos, Position target_pos);
+    void ChangeEpspTargetForSynapse(position_t pos, position_t target_pos);
 
     /**
      * Gets availible option (depending of current synapse-state and
@@ -131,7 +130,7 @@ class Player {
      * @param[in] pos position of synapse
      * @return options.
      */
-    choice_mapping_t GetOptionsForSynapes(Position pos);
+    choice_mapping_t GetOptionsForSynapes(position_t pos);
    
     /**
      * Show current status (resources, gatherers, den-lp ...)
@@ -169,7 +168,7 @@ class Player {
      * @param[in] neuron (unit).
      * @return success/ failiure.
      */
-    bool AddNeuron(Position pos, int neuron, Position epsp_target={-1, -1}, Position ipsp_target={-1, -1});
+    bool AddNeuron(position_t pos, int neuron, position_t epsp_target={-1, -1}, position_t ipsp_target={-1, -1});
 
     /**
      * Adds new potential and sets it's current position and the way to it's
@@ -181,7 +180,7 @@ class Player {
      * @param[in] unit should be either ESPS or IPSP.
      * @return success/ failiure.
      */
-    bool AddPotential(Position pos, int unit);
+    bool AddPotential(position_t pos, int unit);
 
     /**
      * Adds a technology if resources availible. Returns false if resources not
@@ -199,7 +198,7 @@ class Player {
      */
     void MovePotential(Player* enemy);
 
-    void SetBlockForNeuron(Position pos, bool block);
+    void SetBlockForNeuron(position_t pos, bool block);
 
     /**
      * Function checking whether a tower has defeted a soldier.
@@ -219,7 +218,7 @@ class Player {
      * @param[in] pos 
      * @param[in] potential
      */
-    void AddPotentialToNeuron(Position pos, int potential);
+    void AddPotentialToNeuron(position_t pos, int potential);
 
     /**
      * When a nucleus is destroyed, all neurons, which are not in the range of
@@ -231,7 +230,7 @@ class Player {
      * Returns id of potential iof unit at given position is potential.
      * @param[in] pos position to check for.
      */
-    std::string GetPotentialIdIfPotential(Position pos, int unit=-1);
+    std::string GetPotentialIdIfPotential(position_t pos, int unit=-1);
 
     /** 
      * Increase potential of neuron.
@@ -257,13 +256,13 @@ class Player {
     std::shared_mutex mutex_nucleus_;
     Nucleus nucleus_;
     std::shared_mutex mutex_all_neurons_;
-    std::map<Position, std::shared_ptr<Neuron>> neurons_;
+    std::map<position_t, std::shared_ptr<Neuron>> neurons_;
 
     std::shared_mutex mutex_potentials_;
     std::map<std::string, Potential> potential_;
 
     std::shared_mutex mutex_technologies_;
-    std::map<int, TechXOf> technologies_;
+    std::map<int, tech_of_t> technologies_;
 
     // methods
     bool TakeResources(int type, bool bind_resources, int boast=1);
@@ -283,7 +282,7 @@ class Player {
      * @param[in] unit
      * @return Neuron at given position.
      */
-    std::shared_ptr<Neuron> GetNeuron(Position pos, int unit=-1);
+    std::shared_ptr<Neuron> GetNeuron(position_t pos, int unit=-1);
 };
 
 #endif

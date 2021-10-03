@@ -13,7 +13,7 @@
 #include <shared_mutex>
 #include <vector>
 
-AudioKi::AudioKi(Position nucleus_pos, Field* field, Audio* audio) : Player(nucleus_pos, field, audio), 
+AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio) : Player(nucleus_pos, field, audio), 
     average_bpm_(audio->analysed_data().average_bpm_), average_level_(audio->analysed_data().average_level_) {
   max_activated_neurons_ = 3;
   nucleus_pos_ = nucleus_pos;
@@ -221,7 +221,7 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
   auto ipsp_targets = GetIpspTargets(epsp_way, sorted_synapses);  // using epsp-way, since we want to clear this way.
   spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: Got {} ipsp targets.", ipsp_targets.size());
   spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: Get epsp target");
-  Position epsp_target;
+  position_t epsp_target;
   // Take first target which is not already ipsp target.
   for (const auto& it : GetEpspTargets(sorted_synapses.back(), epsp_way))
     if (std::find(ipsp_targets.begin(), ipsp_targets.end(), it) == ipsp_targets.end())
@@ -263,7 +263,7 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
   }
 }
 
-std::vector<Position> AudioKi::GetEpspTargets(Position synapse_pos, std::list<Position> way, size_t ignore_strategy) {
+std::vector<position_t> AudioKi::GetEpspTargets(position_t synapse_pos, std::list<position_t> way, size_t ignore_strategy) {
   spdlog::get(LOGGER)->debug("AudioKi::GetEpspTargets");
   if (technologies_.at(UnitsTech::TARGET).first < 2)  {
     spdlog::get(LOGGER)->debug("AudioKi::GetEpspTargets: using default.");
@@ -288,13 +288,13 @@ std::vector<Position> AudioKi::GetEpspTargets(Position synapse_pos, std::list<Po
   }
 }
 
-std::vector<Position> AudioKi::GetIpspTargets(std::list<Position> way, std::vector<Position>& synapses, size_t ignore_strategy) {
+std::vector<position_t> AudioKi::GetIpspTargets(std::list<position_t> way, std::vector<position_t>& synapses, size_t ignore_strategy) {
   spdlog::get(LOGGER)->debug("AudioKi::GetIpspTargets");
   if (technologies_.at(UnitsTech::TARGET).first == 0) {
   spdlog::get(LOGGER)->debug("AudioKi::GetIpspTargets: using default.");
     return {enemy_->GetRandomNeuron()};
   }
-  std::vector<Position> isps_targets;
+  std::vector<position_t> isps_targets;
   if (ipsp_target_strategy_ == BLOCK_ACTIVATED_NEURON && ignore_strategy != BLOCK_ACTIVATED_NEURON) {
   spdlog::get(LOGGER)->debug("AudioKi::GetIpspTargets: using BLOCK_ACTIVATED_NEURON.");
     auto activated_neurons_on_way = GetAllActivatedNeuronsOnWay(way);
@@ -313,7 +313,7 @@ std::vector<Position> AudioKi::GetIpspTargets(std::list<Position> way, std::vect
   return isps_targets;
 }
 
-void AudioKi::CreateEpsps(Position synapse_pos, Position target_pos, int bpm) {
+void AudioKi::CreateEpsps(position_t synapse_pos, position_t target_pos, int bpm) {
   spdlog::get(LOGGER)->debug("AudioKi::CreateEpsp.");
   ChangeEpspTargetForSynapse(synapse_pos, target_pos);
   // Calculate update number of epsps to create and update interval
@@ -321,14 +321,14 @@ void AudioKi::CreateEpsps(Position synapse_pos, Position target_pos, int bpm) {
   auto last_epsp = std::chrono::steady_clock::now();  
   while (GetMissingResources(UnitsTech::EPSP).size() == 0) {
     // Add epsp in certain interval.
-    if (utils::get_elapsed(last_epsp, std::chrono::steady_clock::now()) < update_interval) {
+    if (utils::GetElapsed(last_epsp, std::chrono::steady_clock::now()) < update_interval) {
       AddPotential(synapse_pos, UnitsTech::EPSP);
       last_epsp = std::chrono::steady_clock::now();
     }
   }
 }
 
-void AudioKi::CreateIpsps(Position synapse_pos, Position target_pos, int num_ipsp_to_create, int bpm) {
+void AudioKi::CreateIpsps(position_t synapse_pos, position_t target_pos, int num_ipsp_to_create, int bpm) {
   spdlog::get(LOGGER)->debug("AudioKi::CreateIpsp.");
   ChangeIpspTargetForSynapse(synapse_pos, target_pos);
 
@@ -337,7 +337,7 @@ void AudioKi::CreateIpsps(Position synapse_pos, Position target_pos, int num_ips
   auto last_ipsp = std::chrono::steady_clock::now();  
   while (GetMissingResources(UnitsTech::IPSP).size() == 0) {
     // Add ipsp in certain interval.
-    if (utils::get_elapsed(last_ipsp, std::chrono::steady_clock::now()) >= update_interval) {
+    if (utils::GetElapsed(last_ipsp, std::chrono::steady_clock::now()) >= update_interval) {
       AddPotential(synapse_pos, UnitsTech::IPSP);
       last_ipsp = std::chrono::steady_clock::now();
     }
@@ -370,7 +370,7 @@ void AudioKi::CreateActivatedNeuron(bool force) {
 
   spdlog::get(LOGGER)->debug("AudioKi::CreateActivatedNeuron: createing neuron");
   // Find position to place neuron coresponding to tactics.
-  Position pos;
+  position_t pos;
   if (SortStrategy(defence_strategies_).front().second == DEF_SURROUNG_FOCUS) {
     for (int i=1; i<cur_range_; i++) {
       auto positions = field_->GetAllInRange(nucleus_pos_, i, i-1, true);
@@ -392,7 +392,7 @@ void AudioKi::CreateActivatedNeuron(bool force) {
       for (const auto& way_point : way) {
         if (counter++ > cur_range_+3) 
           break;
-        if (utils::dist(position, way_point) <= 3)
+        if (utils::Dist(position, way_point) <= 3)
           way_points_in_range++;
       }
       if (way_points_in_range > max_way_points_in_range) {
@@ -495,23 +495,23 @@ size_t AudioKi::AvailibleEpsps(size_t ipsps_to_create) {
 }
 
 
-std::vector<Position> AudioKi::AvailibleIpspLaunches(std::vector<Position>& synapses, int min) {
+std::vector<position_t> AudioKi::AvailibleIpspLaunches(std::vector<position_t>& synapses, int min) {
   spdlog::get(LOGGER)->debug("AudioKi::AvailibleIpspLaunches.");
   size_t available_ipsps = AvailibleIpsps();  
-  std::vector<Position> result_positions;
+  std::vector<position_t> result_positions;
   for (size_t i=0; i<available_ipsps; i+=min)
     result_positions.push_back(synapses[i]);
   spdlog::get(LOGGER)->debug("AudioKi::AvailibleIpspLaunches: got {} launch positions", result_positions.size());
   return result_positions;
 }
 
-std::vector<Position> AudioKi::GetAllActivatedNeuronsOnWay(std::list<Position> way) {
+std::vector<position_t> AudioKi::GetAllActivatedNeuronsOnWay(std::list<position_t> way) {
   spdlog::get(LOGGER)->debug("AudioKi::GetAllActivatedNeuronsOnWay.");
   auto enemy_activated_neurons = enemy_->GetAllPositionsOfNeurons(UnitsTech::ACTIVATEDNEURON);
-  std::vector<Position> result_positions;
+  std::vector<position_t> result_positions;
   for (const auto& way_point : way) {
     for (const auto& activated_neuron_pos : enemy_activated_neurons) {
-      if (utils::dist(way_point, activated_neuron_pos) < 3)
+      if (utils::Dist(way_point, activated_neuron_pos) < 3)
         result_positions.push_back(activated_neuron_pos);
     }
   }
@@ -519,32 +519,32 @@ std::vector<Position> AudioKi::GetAllActivatedNeuronsOnWay(std::list<Position> w
   return result_positions;
 }
 
-std::vector<Position> AudioKi::SortPositionsByDistance(Position start, std::vector<Position> positions, bool reverse) {
+std::vector<position_t> AudioKi::SortPositionsByDistance(position_t start, std::vector<position_t> positions, bool reverse) {
   spdlog::get(LOGGER)->debug("AudioKi::SortPositionsByDistance.");
-  std::list<std::pair<size_t, Position>> sorted_positions;
+  std::list<std::pair<size_t, position_t>> sorted_positions;
   for (const auto& it : positions)
-    sorted_positions.push_back({utils::dist(start, it), it});
+    sorted_positions.push_back({utils::Dist(start, it), it});
   sorted_positions.sort();
   if (reverse)
     sorted_positions.reverse();
-  std::vector<Position> result_positions;
+  std::vector<position_t> result_positions;
   for (const auto& it : sorted_positions)
     result_positions.push_back(it.second);
   spdlog::get(LOGGER)->debug("AudioKi::SortPositionsByDistance: done.");
   return result_positions; 
 }
 
-std::vector<Position> AudioKi::GetEnemySynapsesSortedByLeastDef(Position start) {
+std::vector<position_t> AudioKi::GetEnemySynapsesSortedByLeastDef(position_t start) {
   spdlog::get(LOGGER)->debug("AudioKi::GetEnemySynapsesSortedByLeastDef.");
   auto enemy_synapses = enemy_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE);
-  std::list<std::pair<size_t, Position>> sorted_positions;
+  std::list<std::pair<size_t, position_t>> sorted_positions;
   for (const auto& it : enemy_synapses) {
     auto way = field_->GetWayForSoldier(start, {it});
     sorted_positions.push_back({GetAllActivatedNeuronsOnWay(way).size(), it});
   }
   sorted_positions.sort();
   sorted_positions.reverse();
-  std::vector<Position> result_positions;
+  std::vector<position_t> result_positions;
   for (const auto& it : sorted_positions)
     result_positions.push_back(it.second);
   return result_positions; 
@@ -593,7 +593,7 @@ void AudioKi::SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length) {
   int wait_time = (ipsp_duration-epsp_duration) + 100;
   spdlog::get(LOGGER)->info("AudioKi::SynchAttacks: Waiting for {} millisecond.", wait_time);
   auto start = std::chrono::steady_clock::now();  
-  while (utils::get_elapsed(start, std::chrono::steady_clock::now()) < wait_time) { continue; }
+  while (utils::GetElapsed(start, std::chrono::steady_clock::now()) < wait_time) { continue; }
   spdlog::get(LOGGER)->info("AudioKi::SynchAttacks: Done waiting.");
 }
 

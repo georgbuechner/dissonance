@@ -5,10 +5,10 @@
 #include "constants/codes.h"
 
 TEST_CASE("calling getting way has target included", "[units]") {
-  std::map<Position, std::shared_ptr<Neuron>> neurons;
-  Position pos = {1, 1};
-  Position epsp_target = {2,2};
-  Position ipsp_target = {2,2};
+  std::map<position_t, std::shared_ptr<Neuron>> neurons;
+  position_t pos = {1, 1};
+  position_t epsp_target = {2,2};
+  position_t ipsp_target = {2,2};
   neurons[pos] = std::make_shared<Synapse>(pos, 0, 0, epsp_target, ipsp_target);
 
   auto way_to_epsp_target = neurons[pos]->GetWayPoints(UnitsTech::EPSP);

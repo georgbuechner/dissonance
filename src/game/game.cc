@@ -64,7 +64,7 @@ void Game::play() {
   spdlog::get(LOGGER)->info("Started game with {}, {}, {}, {}", lines_, cols_, LINES, COLS);
 
   if (LINES < lines_+20 || COLS < (cols_*2)+40) { //|| lines_ < 25 || cols_ < 40) {
-    Paragraphs paragraphs = {{
+    texts::paragraphs_t paragraphs = {{
         {"Your terminal size is to small to play the game properly."},
         {"Expected width: " + std::to_string(cols_*2+50) + ", actual: " + std::to_string(COLS)},
         {"Expected hight: " + std::to_string(lines_+20) + ", actual: " + std::to_string(LINES)},
@@ -78,7 +78,7 @@ void Game::play() {
   }
 
   // Print welcome text.
-  PrintCentered(utils::LoadWelcome());
+  PrintCentered(texts::welcome);
 
   // Select difficulty
   difficulty_ = 1;
@@ -141,7 +141,7 @@ void Game::RenderField() {
     if (pause_) continue;
     
     // Analyze audio data.
-    auto elapsed = utils::get_elapsed(audio_start_time, cur_time);
+    auto elapsed = utils::GetElapsed(audio_start_time, cur_time);
     auto data_at_beat = data_per_beat.front();
     if (elapsed >= data_at_beat.time_) {
       render_frequency = 60000.0/(data_at_beat.bpm_*16);
@@ -159,16 +159,16 @@ void Game::RenderField() {
     }
    
     // Increase resources.
-    if (utils::get_elapsed(last_resource_player_one, cur_time) > player_resource_update_freqeuncy) {
+    if (utils::GetElapsed(last_resource_player_one, cur_time) > player_resource_update_freqeuncy) {
       player_one_->IncreaseResources(off_notes);
       last_resource_player_one = cur_time;
     }
-    if (utils::get_elapsed(last_resource_player_two, cur_time) > ki_resource_update_frequency) {
+    if (utils::GetElapsed(last_resource_player_two, cur_time) > ki_resource_update_frequency) {
       player_two_->IncreaseResources(off_notes);
       last_resource_player_two = cur_time;
     }
 
-    if (utils::get_elapsed(last_update, cur_time) > render_frequency) {
+    if (utils::GetElapsed(last_update, cur_time) > render_frequency) {
       // Move player soldiers and check if enemy den's lp is down to 0.
       player_one_->MovePotential(player_two_);
       player_two_->MovePotential(player_one_);
@@ -197,7 +197,7 @@ void Game::HandleActions() {
     if (pause_) continue;
 
     // Analyze audio data.
-    auto elapsed = utils::get_elapsed(audio_start_time, cur_time);
+    auto elapsed = utils::GetElapsed(audio_start_time, cur_time);
     if (data_per_beat.size() == 0)
       continue;
     auto data_at_beat = data_per_beat.front();
@@ -253,7 +253,7 @@ void Game::GetPlayerChoice() {
 
     else if (choice == 'h') {
       pause_ = true;
-      PrintCentered(utils::LoadHelp());
+      PrintCentered(texts::help);
       pause_ = false;
     }
 
@@ -300,17 +300,17 @@ void Game::GetPlayerChoice() {
       if (res != "") 
         PrintMessage(res, true);
       else {
-        Position nucleus_pos = player_one_->nucleus_pos();
+        position_t nucleus_pos = player_one_->nucleus_pos();
         if (player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS).size() > 1)
           nucleus_pos = SelectNeuron(player_one_, UnitsTech::NUCLEUS);
         if (nucleus_pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
           PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
-          Position pos = SelectPosition(nucleus_pos, player_one_->cur_range());
+          position_t pos = SelectPosition(nucleus_pos, player_one_->cur_range());
           if (pos.first != -1) {
-            Position epsp_target= player_two_->nucleus_pos();
-            Position ipsp_target = player_two_->GetRandomNeuron(); // random tower.
+            position_t epsp_target= player_two_->nucleus_pos();
+            position_t ipsp_target = player_two_->GetRandomNeuron(); // random tower.
             player_one_->AddNeuron(pos, UnitsTech::SYNAPSE, epsp_target, ipsp_target);
             field_->AddNewUnitToPos(pos, UnitsTech::SYNAPSE);
           }
@@ -325,14 +325,14 @@ void Game::GetPlayerChoice() {
       if (res != "") 
         PrintMessage(res, true);
       else {
-        Position nucleus_pos = player_one_->nucleus_pos();
+        position_t nucleus_pos = player_one_->nucleus_pos();
         if (player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS).size() > 1)
           nucleus_pos = SelectNeuron(player_one_, UnitsTech::NUCLEUS);
         if (nucleus_pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
           PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
-          Position pos = SelectPosition(nucleus_pos, player_one_->cur_range());
+          position_t pos = SelectPosition(nucleus_pos, player_one_->cur_range());
           if (pos.first != -1) {
             player_one_->AddNeuron(pos, UnitsTech::ACTIVATEDNEURON);
             field_->AddNewUnitToPos(pos, UnitsTech::ACTIVATEDNEURON);
@@ -353,7 +353,7 @@ void Game::GetPlayerChoice() {
         PrintMessage(res, true);
       else {
         PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
-        Position pos = SelectPosition(player_one_->nucleus_pos(), ViewRange::GRAPH);
+        position_t pos = SelectPosition(player_one_->nucleus_pos(), ViewRange::GRAPH);
         if (pos.first != -1) {
           player_one_->AddNeuron(pos, UnitsTech::NUCLEUS);
           field_->AddNewUnitToPos(pos, UnitsTech::NUCLEUS);
@@ -390,7 +390,7 @@ void Game::GetPlayerChoice() {
         PrintMessage("You do not have any synapses yet. Use [S] to create one!", true);
         continue;
       }
-      Position pos = all_synapse_position.front(); 
+      position_t pos = all_synapse_position.front(); 
       if (all_synapse_position.size() > 1) 
         pos = SelectNeuron(player_one_, UnitsTech::SYNAPSE);
       if (pos.first == -1)
@@ -439,10 +439,10 @@ void Game::GetPlayerChoice() {
   } 
 }
 
-Position Game::SelectPosition(Position start, int range) {
+position_t Game::SelectPosition(position_t start, int range) {
   spdlog::get(LOGGER)->info("Game::SelectPosition");
   bool end = false;
-  Position new_pos = {-1, -1};
+  position_t new_pos = {-1, -1};
   field_->set_highlight({start});
   field_->set_range(range);
   field_->set_range_center(start);
@@ -451,33 +451,33 @@ Position Game::SelectPosition(Position start, int range) {
     int choice = getch();
     new_pos = field_->highlight().front();
 
-    switch (choice) {
-      case 10:
-        if (field_->IsFree(new_pos) || range == ViewRange::GRAPH)
-          end = true;
-        else 
-          PrintMessage("Invalid position (not free)!", false); 
-        break;
-      case 'q':
+    if (std::to_string(choice) == "10") {
+      if (field_->IsFree(new_pos) || range == ViewRange::GRAPH)
         end = true;
-        new_pos = {-1, -1};
-        break;
-      case KEY_UP:
-        new_pos.first--; 
-        PrintFieldAndStatus();
-        break;
-      case KEY_DOWN:
-        new_pos.first++; 
-        PrintFieldAndStatus();
-        break;
-      case KEY_LEFT:
-        new_pos.second--;
-        PrintFieldAndStatus();
-        break;
-      case KEY_RIGHT:
-        new_pos.second++;
-        break;
+      else 
+        PrintMessage("Invalid position (not free)!", false); 
     }
+    else if (choice == 'q') {
+      end = true;
+      new_pos = {-1, -1};
+    }
+    else if (utils::IsUp(choice)) {
+      new_pos.first--; 
+      PrintFieldAndStatus();
+    }
+    else if (utils::IsDown(choice)) {
+      new_pos.first++; 
+      PrintFieldAndStatus();
+    }
+    else if (utils::IsLeft(choice)) {
+      new_pos.second--;
+      PrintFieldAndStatus();
+    }
+    else if (utils::IsRight(choice)) {
+      new_pos.second++;
+      PrintFieldAndStatus();
+    }
+    
     // Update highlight only if in range.
     if (field_->InRange(new_pos, range, start) || range == ViewRange::GRAPH) {
       field_->set_highlight({new_pos});
@@ -492,13 +492,13 @@ Position Game::SelectPosition(Position start, int range) {
   return new_pos;
 }
 
-Position Game::SelectNeuron(Player* p, int type) {
+position_t Game::SelectNeuron(Player* p, int type) {
   std::string msg = "Choose " + units_tech_mapping.at(type) + ": ";
   return SelectFieldPositionByAlpha(p->GetAllPositionsOfNeurons(type), msg);
 }
 
-Position Game::SelectFieldPositionByAlpha(std::vector<Position> positions, std::string msg) {
-  std::map<Position, char> replacements;
+position_t Game::SelectFieldPositionByAlpha(std::vector<position_t> positions, std::string msg) {
+  std::map<position_t, char> replacements;
   int counter = 0;
   for (auto it : positions)
     replacements[it] = (int)'a'+(counter++);
@@ -528,8 +528,8 @@ void Game::DistributeIron() {
   PrintCentered(LINES/2-1, "(use 'q' to quit, ENTER to select and h/l or ←/→ to circle through resources)");
   std::vector<std::string> symbols = {"O", SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, SYMBOL_GLUTAMATE, 
     SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};
-  Position c = {LINES/2, COLS/2};
-  std::vector<Position> positions = { {c.first-10, c.second}, {c.first-6, c.second+15}, {c.first+6, c.second+15}, 
+  position_t c = {LINES/2, COLS/2};
+  std::vector<position_t> positions = { {c.first-10, c.second}, {c.first-6, c.second+15}, {c.first+6, c.second+15}, 
     {c.first+10, c.second}, {c.first+6, c.second-15}, {c.first-6, c.second-15}, };
 
   std::string help = "";
@@ -577,9 +577,9 @@ void Game::DistributeIron() {
     // Get players choice.
     char choice = getch();
 
-    if (choice == 'j')
+    if (utils::IsDown(choice))
       current = (current+1)%symbols.size();
-    else if (choice == 'k') {
+    else if (utils::IsUp(choice)) {
       int n = current-1;
       int m = symbols.size();
       current = ((n%m)+m)%m;
@@ -695,7 +695,7 @@ void Game::SetGameOver(std::string msg) {
   game_over_ = true;
 }
 
-void Game::PrintCentered(Paragraphs paragraphs) {
+void Game::PrintCentered(texts::paragraphs_t paragraphs) {
   std::unique_lock ul(mutex_print_field_);
   for (const auto& paragraph : paragraphs) {
     refresh();
@@ -806,7 +806,7 @@ std::string Game::SelectAudio() {
 
     // Get players choice.
     char choice = getch();
-    if (choice == 'l') {
+    if (utils::IsRight(choice)) {
       level++;
       if (std::filesystem::is_directory(visible_options[selected].first)) {
         selector = SetupAudioSelector(visible_options[selected].first, visible_options[selected].second, 
@@ -817,7 +817,7 @@ std::string Game::SelectAudio() {
       else 
         error = "Not a directory!";
     }
-    else if (choice == 'h') {
+    else if (utils::IsLeft(choice)) {
       if (level == 0)
         error = "No parent directory.";
       level--;
@@ -831,17 +831,17 @@ std::string Game::SelectAudio() {
             utils::GetAllPathsInDirectory(p.parent_path()));
       }
     }
-    else if (choice == 'j') {
+    else if (utils::IsDown(choice)) {
       if (selected == print_max-1 && selector.options_.size() > max)
         print_start++;
       else 
-        selected = utils::mod(selected+1, visible_options.size());
+        selected = utils::Mod(selected+1, visible_options.size());
     }
-    else if (choice == 'k') {
+    else if (utils::IsUp(choice)) {
       if (selected == 0 && print_start > 0)
         print_start--;
       else 
-        selected = utils::mod(selected-1, print_max);
+        selected = utils::Mod(selected-1, print_max);
     }
     else if (std::to_string(choice) == "10") {
       std::filesystem::path select_path = visible_options[selected].first;
