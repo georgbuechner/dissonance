@@ -8,59 +8,33 @@ import random
 from typing import List, Tuple
 
 def gen_resource_stable_oxygen(
-        boast: int, seconds: int, o_limit: int, r_limit: int, curve: int
+    boast: int, seconds: int, limit: int, curve: int
 ) -> Tuple[List[float], List[float]]:
-    resource = [0]
     oxygen = [5.5]
-    bound_oxygen = [0]
-    iron = [0]
-    reached = False
     for i in range(seconds-1):
-        oxygen.append(oxygen[-1] + (boast * (o_limit-(oxygen[-1]+bound_oxygen[-1]))/(curve*o_limit)/1.5))
-        resource.append(resource[-1] + (np.log(oxygen[-1]) * (r_limit-resource[-1])/(curve*r_limit))/1.5)
-        # if i % 100 == 0 and oxygen[-1] > 10:
-        #     bound_oxygen.append(bound_oxygen[-1]+10)
-        #     cur = oxygen.pop()
-        #     oxygen.append(cur-10)
-        # else:
-        bound_oxygen.append(bound_oxygen[-1])
-        if i % 100 == 0 and random.randrange(int(oxygen[-1])) == 0:
-            iron.append(iron[-1]+1)
+        if i % 2 in [0, 1]:
+            cur_oxygen = oxygen[-1]
+            gain = np.log((cur_oxygen+0.5)/curve)
+            boast = 1+boast/10
+            negative_factor = 1-cur_oxygen/limit
+            oxygen.append(cur_oxygen + boast * gain * negative_factor)
         else:
-            iron.append(iron[-1])
-        if resource[-1] > 40 and not reached:
-            print(f"at curve={curve} reached 40 after {i} seconds")
-            reached = True
-    return oxygen, resource, bound_oxygen, iron
+            oxygen.append(oxygen[-1])
+
+    return oxygen
 
 
 @click.command()
 @click.option('--boast', default=1)
 @click.option('--seconds', default=100)
-@click.option('--o_limit', default=100)
-@click.option('--r_limit', default=100)
-@click.option('--curve', default=5)
+@click.option('--limit', default=100)
+@click.option('--curve', default=3)
 @click.option('--data', default="resources")
-def run(boast, seconds, o_limit, r_limit, curve, data):
+def run(boast, seconds, limit, curve, data):
 
     if data == "resources":
-        oxygen, resources, bound_oxygen, iron = gen_resource_stable_oxygen(
-            boast, seconds, o_limit, r_limit, curve
-        )
-        # oxygen_b, resources_b = gen_resource_stable_oxygen(
-        #     boast, seconds, o_limit, r_limit, 2
-        # )
-        # oxygen_c, resources_c = gen_resource_stable_oxygen(
-        #     boast, seconds, o_limit, r_limit, 1 
-        # )
+        oxygen = gen_resource_stable_oxygen(boast, seconds, limit, curve)
         plt.plot(range(seconds), oxygen, label=f"oxygen @boast={boast}")
-        plt.plot(range(seconds), bound_oxygen, label=f"bound oxygen")
-        plt.plot(range(seconds), resources, label="dopamine")
-        plt.plot(range(seconds), iron, label="iron")
-        # plt.plot(range(seconds), oxygen_b, label=f"oxygen b @boast={boast}")
-        # plt.plot(range(seconds), resources_b, label="dopamine b")
-        # plt.plot(range(seconds), oxygen_c, label=f"oxygen c @boast={boast}")
-        # plt.plot(range(seconds), resources_c, label="dopamine c")
 
     else:
         analysis = {}

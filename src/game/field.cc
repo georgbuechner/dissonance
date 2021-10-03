@@ -276,9 +276,9 @@ void Field::PrintField(Player* player, Player* enemy) {
         int dist_player = utils::dist(cur, player->nucleus_pos());
         int dist_enemy = utils::dist(cur, enemy->nucleus_pos());
         if ((dist_player < dist_enemy 
-            && player->IsActivatedResource(resources_symbol_mapping.at(field[l][c])) )
+            && player->resources().at(resources_symbol_mapping.at(field[l][c])).Active())
             || (dist_enemy < dist_player
-            && enemy->IsActivatedResource(resources_symbol_mapping.at(field[l][c]))))
+            && enemy->resources().at(resources_symbol_mapping.at(field[l][c])).Active()) )
          attron(COLOR_PAIR(COLOR_RESOURCES));
       }
       // range -> green

@@ -12,6 +12,7 @@
 #include <vector>
 #include <spdlog/spdlog.h>
 
+#include "constants/codes.h"
 #include "objects/units.h"
 #include "spdlog/logger.h"
 #include "curses.h"
@@ -29,23 +30,20 @@
 #define FREE char(46)
 #define DEF 'T'
 
-Player::Player(Position nucleus_pos, Field* field, int iron, Audio* audio) 
-    : cur_range_(4), resource_curve_(3), 
-    oxygen_boast_(0), max_oxygen_(100), max_resources_(70),  total_oxygen_(5.5), bound_oxygen_(0){
-
+Player::Player(Position nucleus_pos, Field* field, Audio* audio) : cur_range_(4), resource_curve_(3) {
   field_ = field;
   audio_ = audio;
 
   nucleus_ = Nucleus(nucleus_pos); 
   neurons_[nucleus_pos] = std::make_shared<Nucleus>(nucleus_);
   resources_ = {
-    { Resources::IRON, {iron, false}},
-    { Resources::OXYGEN, {5.5, true}},
-    { Resources::POTASSIUM, {0, false}},
-    { Resources::CHLORIDE, {0, false}},
-    { Resources::GLUTAMATE, {0, false}},
-    { Resources::DOPAMINE, {0, false}},
-    { Resources::SEROTONIN, {0, false}},
+    { Resources::IRON, Resource(3, 22, 2, true)},  // max only 20 as iron should be rare.
+    { Resources::OXYGEN, Resource(5.5, 100, 0, false)}, 
+    { Resources::POTASSIUM, Resource(0, 100, 0, false)}, 
+    { Resources::CHLORIDE, Resource(0, 100, 0, false)}, 
+    { Resources::GLUTAMATE,Resource(0, 150, 0, false)}, // max 150: allows 7 activated neurons withput updates.
+    { Resources::DOPAMINE, Resource(0, 70, 0, false)}, // max low, dopamine is never bound.
+    { Resources::SEROTONIN, Resource(0, 70, 0, false)}, // max low, as serotonin is never bound.
   };
   technologies_ = {
     {UnitsTech::WAY, {0,3}},
@@ -64,22 +62,26 @@ Player::Player(Position nucleus_pos, Field* field, int iron, Audio* audio)
 }
 
 std::vector<std::string> Player::GetCurrentStatusLine() {
-  std::scoped_lock scoped_lock(mutex_resources_);
+  std::shared_lock sl(mutex_resources_);
   std::string end = ": ";
   return { 
     "RESOURCES",
     "",
-    "Iron " SYMBOL_IRON + end, std::to_string(resources_.at(Resources::IRON).first), "",
-    "oxygen boast: ", std::to_string(oxygen_boast_), "",
-    "resource curve slowdown: ", std::to_string(resource_curve_), "",
-    "total oxygen " SYMBOL_OXYGEN + end, std::to_string(total_oxygen_), "",
-    "bound oxygen: ", std::to_string(bound_oxygen_), "",
-    "oxygen: ", std::to_string(resources_.at(Resources::OXYGEN).first), "",
-    "potassium " SYMBOL_POTASSIUM + end, std::to_string(resources_.at(Resources::POTASSIUM).first), "",
-    "chloride " SYMBOL_CHLORIDE + end, std::to_string(resources_.at(Resources::CHLORIDE).first), "",
-    "glutamate " SYMBOL_GLUTAMATE + end, std::to_string(resources_.at(Resources::GLUTAMATE).first), "",
-    "dopamine " SYMBOL_DOPAMINE + end, std::to_string(resources_.at(Resources::DOPAMINE).first), "",
-    "serotonin " SYMBOL_SEROTONIN + end, std::to_string(resources_.at(Resources::SEROTONIN).first), "",
+    "slowdown: ", std::to_string(resource_curve_), "",
+    "resources format: ", "[cur]+[bound]/[max]", "++[boast]", "",
+    "Iron " SYMBOL_IRON + end, resources_.at(IRON).Print(), "",
+    "oxygen: ", resources_.at(OXYGEN).Print(),
+      "+" + utils::dtos(resources_.at(OXYGEN).distributed_iron()), "",
+    "potassium " SYMBOL_POTASSIUM + end, resources_.at(POTASSIUM).Print(), 
+      "+" + utils::dtos(resources_.at(POTASSIUM).distributed_iron()), "",
+    "chloride " SYMBOL_CHLORIDE + end, resources_.at(CHLORIDE).Print(),
+      "+" + utils::dtos(resources_.at(CHLORIDE).distributed_iron()), "",
+    "glutamate " SYMBOL_GLUTAMATE + end, resources_.at(GLUTAMATE).Print(),
+      "+" + utils::dtos(resources_.at(GLUTAMATE).distributed_iron()), "",
+    "dopamine " SYMBOL_DOPAMINE + end, resources_.at(DOPAMINE).Print(),
+      "+" + utils::dtos(resources_.at(DOPAMINE).distributed_iron()), "",
+    "serotonin " SYMBOL_SEROTONIN + end, resources_.at(SEROTONIN).Print(),
+      "+" + utils::dtos(resources_.at(SEROTONIN).distributed_iron()), "",
     "nucleus " SYMBOL_DEN " potential" + end, std::to_string(nucleus_.voltage()) + "/" + 
       std::to_string(nucleus_.max_voltage()),
   };
@@ -100,31 +102,6 @@ int Player::cur_range() {
   return cur_range_;
 }
 
-int Player::resource_curve() {
-  std::shared_lock sl(mutex_resources_);
-  return resource_curve_;
-}
-
-int Player::iron() {
-  std::shared_lock sl(mutex_resources_);
-  return resources_.at(Resources::IRON).first;
-}
-
-int Player::bound_oxygen() {
-  std::shared_lock sl(mutex_resources_);
-  return bound_oxygen_;
-}
-
-int Player::max_oxygen() {
-  std::shared_lock sl(mutex_resources_);
-  return max_oxygen_;
-}
-
-int Player::oxygen_boast() {
-  std::shared_lock sl(mutex_resources_);
-  return oxygen_boast_;
-}
-
 std::map<int, Resource> Player::resources() {
   std::shared_lock sl(mutex_resources_);
   return resources_;
@@ -138,16 +115,6 @@ std::map<int, TechXOf> Player::technologies() {
 // setter 
 void Player::set_enemy(Player *enemy) {
   enemy_ = enemy;
-}
-
-void Player::set_resource_curve(int resource_curve) {
-  std::unique_lock ul(mutex_resources_);
-  resource_curve_ = resource_curve;
-}
-
-void Player::set_iron(int iron) {
-  std::unique_lock ul(mutex_resources_);
-  resources_[Resources::IRON].first = iron;
 }
 
 // methods 
@@ -259,60 +226,53 @@ void Player::ChangeEpspTargetForSynapse(Position pos, Position target_pos) {
     neurons_.at(pos)->set_epsp_target_pos(target_pos);
 }
 
-double Player::Faktor(int limit, double cur) {
-  return (limit-cur)/(resource_curve_*limit);
-}
-
 void Player::IncreaseResources(bool inc_iron) {
   std::unique_lock ul_resources(mutex_resources_);
-  // Add oxygen based on oxygen-boast and current oxygen.
-  auto faktor = Faktor(max_oxygen_, total_oxygen_) * 1;
-  resources_[Resources::OXYGEN].first += oxygen_boast_* faktor;
-  int cur_oxygen = resources_[Resources::OXYGEN].first;
-  total_oxygen_ = bound_oxygen_ + cur_oxygen;
-  // Add iron if inc_iron=True, the player has less than 10 oxygen and only max 2 irons.
-  if (inc_iron && resources_[Resources::IRON].first < 3)
-    resources_[Resources::IRON].first++;
-  // Add other resources based on current oxygen.
+  double gain = std::abs(log(resources_.at(Resources::OXYGEN).cur()+0.5));
   for (auto& it : resources_) {
-    if (it.first != Resources::IRON && it.first != OXYGEN && it.second.second)
-      it.second.first += log(cur_oxygen+1) * Faktor(max_resources_, it.second.first) * 1;
+    // Inc only if min 2 iron is distributed, inc iron only depending on audio.
+    if (it.second.Active() && (it.first != IRON || inc_iron))  
+      it.second.IncreaseResource(gain, resource_curve_);
   }
 }
 
 bool Player::DistributeIron(int resource) {
   spdlog::get(LOGGER)->debug("Player::DistributeIron: resource={}", resource);
   std::unique_lock ul(mutex_resources_);
-  if (resources_.count(resource) == 0) {
+  if (resources_.count(resource) == 0 || resource == IRON) {
     spdlog::get(LOGGER)->error("Player::DistributeIron: invalid resource!");
     return false;
   }
-  else if (resource == Resources::OXYGEN) {
-    if (resources_.at(Resources::IRON).first > 0) {
-      spdlog::get(LOGGER)->info("Player::DistributeIron: updating oxygen!");
-      oxygen_boast_++;
-      resources_[Resources::IRON].first--;
-    }
-    else  {
-      spdlog::get(LOGGER)->info("Player::DistributeIron: oxygen: not enough iron!");
-      return false;
-    }
-  }
-  else if (resources_[Resources::IRON].first < 2 || resources_[resource].second) {
-    spdlog::get(LOGGER)->info("Player::DistributeIron: other: not enough or already enabled!");
+  else if (resources_.at(IRON).cur() < 1) {
+    spdlog::get(LOGGER)->info("Player::DistributeIron: not enough iron!");
     return false;
   }
-  else {
-    spdlog::get(LOGGER)->info("Player::DistributeIron: updating other resource!");
-    resources_[resource].second = true;
-    resources_[Resources::IRON].first-=2;
-  }
+  resources_.at(resource).set_distribited_iron(resources_.at(resource).distributed_iron()+1);
+  resources_.at(IRON).set_cur(resources_.at(IRON).cur() - 1);
+  resources_.at(IRON).set_bound(resources_.at(IRON).bound() + 1);
   spdlog::get(LOGGER)->info("Player::DistributeIron: success!");
   return true;
 }
 
+bool Player::RemoveIron(int resource) {
+  spdlog::get(LOGGER)->debug("Player::RemoveIron: resource={}", resource);
+  std::unique_lock ul(mutex_resources_);
+  if (resources_.count(resource) == 0 || resource == IRON) {
+    spdlog::get(LOGGER)->error("Player::RemoveIron: invalid resource!");
+    return false;
+  }
+  if (resources_.at(resource).distributed_iron() == 0) {
+    spdlog::get(LOGGER)->error("Player::RemoveIron: no iron distributed to this resource!");
+    return false;
+  }
+  resources_.at(resource).set_distribited_iron(resources_.at(resource).distributed_iron()-1);
+  resources_.at(IRON).set_cur(resources_.at(IRON).cur() + 1);
+  resources_.at(IRON).set_bound(resources_.at(IRON).bound() -1);
+  spdlog::get(LOGGER)->info("Player::RemoveIron: success!");
+  return true;
+}
+
 Costs Player::GetMissingResources(int unit, int boast) {
-  spdlog::get(LOGGER)->debug("Player::GetMissingResources: {}, {}", unit, boast);
   std::shared_lock sl(mutex_resources_);
   // Get costs for desired unit
   Costs needed = units_costs_.at(unit);
@@ -320,30 +280,29 @@ Costs Player::GetMissingResources(int unit, int boast) {
   // Check costs and add to missing.
   std::map<int, double> missing;
   for (const auto& it : needed)
-    if (resources_.at(it.first).first < it.second*boast) 
-      missing[it.first] = it.second - resources_.at(it.first).first;
-  spdlog::get(LOGGER)->debug("Player::GetMissingResources: returnin {} missing resources", missing.size());
+    if (resources_.at(it.first).cur() < it.second*boast) 
+      missing[it.first] = it.second - resources_.at(it.first).cur();
   return missing;
 }
 
-bool Player::TakeResources(int type, int boast) {
+bool Player::TakeResources(int type, bool bind_resources, int boast) {
   if (GetMissingResources(type, boast).size() > 0) {
-    spdlog::get(LOGGER)->error("Player::TakeResources: taking resources with out enough resources!");
+    spdlog::get(LOGGER)->warn("Player::TakeResources: taking resources with out enough resources!");
     return false;
   }
   std::unique_lock ul_resources(mutex_resources_);
   auto costs = units_costs_.at(type);
   for (const auto& it : costs) {
-    resources_[it.first].first -= it.second*boast;
-    if (it.first == Resources::OXYGEN && (type == UnitsTech::SYNAPSE || type == UnitsTech::ACTIVATEDNEURON))
-      bound_oxygen_ += it.second;
+    resources_.at(it.first).set_cur(resources_.at(it.first).cur() - it.second*boast);
+    if (bind_resources)
+      resources_.at(it.first).set_bound(resources_.at(it.first).bound() + it.second*boast);
   }
   return true;
 }
 
 bool Player::AddNeuron(Position pos, int neuron_type, Position epsp_target, Position ipsp_target) {
   std::unique_lock ul(mutex_all_neurons_);
-  if (!TakeResources(neuron_type))
+  if (!TakeResources(neuron_type, true))
     return false;
   if (neuron_type == UnitsTech::ACTIVATEDNEURON) {
     std::shared_lock sl(mutex_technologies_);
@@ -356,17 +315,14 @@ bool Player::AddNeuron(Position pos, int neuron_type, Position epsp_target, Posi
         technologies_.at(UnitsTech::WAY).first, epsp_target, ipsp_target);
   else if (neuron_type == UnitsTech::NUCLEUS) {
     neurons_[pos] = std::make_shared<Nucleus>(pos);
-    std::shared_lock ul_resources(mutex_resources_);
-    // Increase max resource if new nucleus is built.
-    max_oxygen_ += 10;
-    max_resources_ += 10;
+    UpdateResourceLimits(0.1); // Increase max resource if new nucleus is built.
   }
   return true;
 }
 
 bool Player::AddPotential(Position synapes_pos, int unit) {
   spdlog::get(LOGGER)->debug("Player::AddPotential.");
-  if (!TakeResources(unit))
+  if (!TakeResources(unit, false))
     return false;
   // Get way and target:
   auto synapse = GetNeuron(synapes_pos, UnitsTech::SYNAPSE);
@@ -408,6 +364,7 @@ bool Player::AddPotential(Position synapes_pos, int unit) {
 
 bool Player::AddTechnology(int technology) {
   std::unique_lock ul(mutex_technologies_);
+  spdlog::get(LOGGER)->debug("Player::AddTechnology.");
 
   // Check if technology exists, resources are missing and whether already fully researched.
   if (technologies_.count(technology) == 0)
@@ -415,10 +372,11 @@ bool Player::AddTechnology(int technology) {
   if (GetMissingResources(technology, technologies_[technology].first+1).size() > 0 
       || technologies_[technology].first == technologies_[technology].second)
     return false;
-  if (!TakeResources(technology,  technologies_[technology].first+1))
+  if (!TakeResources(technology, technologies_[technology].first+1))
     return false;
  
   // Handle technology.
+  spdlog::get(LOGGER)->debug("Player::AddTechnology: Adding new technology");
   std::unique_lock ul_resources(mutex_resources_);
   technologies_[technology].first++;
   if (technology == UnitsTech::WAY) {
@@ -431,14 +389,16 @@ bool Player::AddTechnology(int technology) {
       if (it.second->type_ == UnitsTech::SYNAPSE)
         it.second->set_max_stored(technologies_[technology].first*3+1);
   }
-  else if (technology == UnitsTech::TOTAL_OXYGEN)
-    max_oxygen_ += 20;
-  else if (technology == UnitsTech::TOTAL_RESOURCE)
-    max_resources_ += 20;
+  else if (technology == UnitsTech::TOTAL_RESOURCE) {
+    ul_resources.unlock();
+    UpdateResourceLimits(0.2);
+    ul_resources.lock();
+  }
   else if (technology == UnitsTech::CURVE)
     resource_curve_--;
   else if (technology == UnitsTech::NUCLEUS_RANGE)
     cur_range_++;
+  spdlog::get(LOGGER)->debug("Player::AddTechnology: success");
   return true;
 }
 
@@ -541,10 +501,7 @@ void Player::AddPotentialToNeuron(Position pos, int potential) {
       if (type == UnitsTech::NUCLEUS) {
         ul_all_neurons.unlock();
         CheckNeuronsAfterNucleusDies();
-        // Remove added max resources when nucleus dies.
-        std::unique_lock ul_resources(mutex_resources_);
-        max_oxygen_ -= 10;
-        max_resources_ -= 10;
+        UpdateResourceLimits(-0.1);  // Remove added max resources when nucleus dies.
       }
       spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: done.");
     }
@@ -585,14 +542,6 @@ std::string Player::GetPotentialIdIfPotential(Position pos, int unit) {
   return "";
 }
 
-bool Player::IsActivatedResource(int resource) {
-  if (resources_.count(resource) == 0) {
-    spdlog::get(LOGGER)->error("Player::IsActivatedResource: Checking for resource which doesn't exist: {}", resource);
-    return false;
-  }
-  return resources_.at(resource).second;
-}
-
 choice_mapping_t Player::GetOptionsForSynapes(Position pos) {
   std::shared_lock sl_technologies(mutex_technologies_);
   auto synapse = GetNeuron(pos);
@@ -608,4 +557,17 @@ choice_mapping_t Player::GetOptionsForSynapes(Position pos) {
   mapping[5] = {(synapse->swarm()) ? "Turn swarm-attack off" : "Turn swarm-attack on", 
     (technologies_.at(UnitsTech::SWARM).first > 0) ? COLOR_AVAILIBLE : COLOR_DEFAULT};
   return mapping;
+}
+
+void Player::UpdateResourceLimits(float faktor) {
+  std::unique_lock ul(mutex_resources_); 
+  for (auto& it : resources_)
+    it.second.set_limit(it.second.limit() + it.second.limit()*faktor);
+}
+
+std::string Player::GetCurrentResources() {
+  std::string msg = "resources: ";
+  for (const auto& it : resources()) 
+    msg += resources_name_mapping.at(it.first) + ": " + std::to_string(it.second.cur()) + ", ";
+  return msg;
 }

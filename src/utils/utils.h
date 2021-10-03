@@ -2,7 +2,6 @@
 #define SRC_UTILS_H_
 
 #include "nlohmann/json.hpp"
-#include "objects/data_structs.h"
 #include <chrono>
 #include <string>
 #include <utility>
@@ -35,6 +34,8 @@ namespace utils {
   std::string ToUpper(std::string str);
   std::vector<std::string> GetAllPathsInDirectory(std::string path);
 
+  std::string dtos(double value);
+
   template<class T>
   std::vector<T> SliceVector(std::vector<T> in_vec, unsigned int begin, unsigned int len) {
     std::vector<T> out_vec;
@@ -47,8 +48,6 @@ namespace utils {
   Paragraphs LoadHelp();
 
   std::string create_id(std::string type);
-
-  Options CreateOptionsFromStrings(std::vector<std::string> option_strings);
 
   /** 
    * @brief Loads json from disc

@@ -14,7 +14,7 @@
 #include "audio/audio.h"
 #include "constants/codes.h"
 #include "constants/costs.h"
-#include "objects/data_structs.h"
+#include "objects/resource.h"
 #include "objects/units.h"
 
 class Field;
@@ -31,7 +31,6 @@ using namespace costs;
 typedef std::map<size_t, std::pair<std::string, int>> choice_mapping_t;
 typedef std::vector<std::vector<std::string>> Paragraphs;
 typedef std::pair<int, int> Position;
-typedef std::pair<double, bool> Resource;
 typedef std::pair<size_t, size_t> TechXOf;
 
 class Player {
@@ -43,24 +42,17 @@ class Player {
      * @param[in] nucleus_pos position of player's nucleus.
      * @param[in] silver initial silver value.
      */
-    Player(Position nucleus_pos, Field* field, int iron, Audio* audo=nullptr);
+    Player(Position nucleus_pos, Field* field, Audio* audo=nullptr);
 
     // getter:
     std::map<std::string, Potential> potential();
     Position nucleus_pos();
     int cur_range();
-    int iron();
-    int resource_curve();
-    int bound_oxygen();
-    int max_oxygen();
-    int oxygen_boast();
     std::map<int, Resource> resources();
     std::map<int, TechXOf> technologies();
 
     // setter
     void set_enemy(Player* enemy);
-    void set_resource_curve(int resource_curve);
-    void set_iron(int iron);
 
     // methods:
     Position GetPositionOfClosestNeuron(Position pos, int unit) const;
@@ -147,7 +139,8 @@ class Player {
     std::vector<std::string> GetCurrentStatusLine();
 
     /** 
-     * Increase all resources by set amount.
+     * Increases all resources by a the current boast*gain*negative-faktor.
+     * gain is calculated as: log((current-oxygen+0.5)/slowdown)
      * @param[in] inc_iron 
      */
     void IncreaseResources(bool inc_iron);
@@ -159,6 +152,8 @@ class Player {
      * @return whether distribution was successfull.
      */
     bool DistributeIron(int resource);
+
+    bool RemoveIron(int resource);
 
     /**
      * Returns missing resources for given unit.
@@ -239,13 +234,6 @@ class Player {
     std::string GetPotentialIdIfPotential(Position pos, int unit=-1);
 
     /** 
-     * Checks if a resource is activated.
-     * @param[in] resource which to check
-     * @return whether resource is activated.
-     */
-    bool IsActivatedResource(int resource);
-
-    /** 
      * Increase potential of neuron.
      * @param[in] potential which to add to neuron.
      * @param[in] neuron which neuron to add potential to.
@@ -253,6 +241,7 @@ class Player {
      */
     bool IncreaseNeuronPotential(int potential, int neuron);
 
+    std::string GetCurrentResources();
 
   protected: 
     Field* field_;
@@ -262,11 +251,7 @@ class Player {
 
     std::map<int, Resource> resources_;
     int resource_curve_;
-    int oxygen_boast_;
-    int max_oxygen_;
-    int max_resources_;
-    double total_oxygen_;
-    double bound_oxygen_;
+
     std::shared_mutex mutex_resources_;
 
     std::shared_mutex mutex_nucleus_;
@@ -281,8 +266,14 @@ class Player {
     std::map<int, TechXOf> technologies_;
 
     // methods
-    bool TakeResources(int type, int boast=1);
-    double Faktor(int limit, double cur);
+    bool TakeResources(int type, bool bind_resources, int boast=1);
+
+    /**
+     * Increases limit for each resource by given faktor. Faktor should be
+     * between 0 and 1.
+     * @param[in] faktor (between -1 and 1)
+     */
+    void UpdateResourceLimits(float faktor);
 
     /**
      * Gets a neuron at given position. If unit is specified, only returns, if

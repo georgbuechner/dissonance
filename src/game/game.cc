@@ -3,7 +3,7 @@
 #include <cctype>
 #include <chrono>
 #include <cstddef>
-#include <cstdlib>
+#include<cstdlib>
 #include <curses.h>
 #include <exception>
 #include <filesystem>
@@ -97,8 +97,8 @@ void Game::play() {
   int player_two_section = (int)audio_.analysed_data().average_level_%8+1;
   if (player_one_section == player_two_section)
     player_two_section = (player_two_section+1)%8;
-  player_one_ = new Player(field_->AddNucleus(player_one_section), field_, 3, &audio_);
-  player_two_ = new AudioKi(field_->AddNucleus(player_two_section), 4, field_, &audio_);
+  player_one_ = new Player(field_->AddNucleus(player_one_section), field_, &audio_);
+  player_two_ = new AudioKi(field_->AddNucleus(player_two_section), field_, &audio_);
   player_one_->set_enemy(player_two_);
   player_two_->set_enemy(player_one_);
   field_->BuildGraph(player_one_->nucleus_pos(), player_two_->nucleus_pos());
@@ -107,6 +107,7 @@ void Game::play() {
   // Let player one distribute initial iron.
   DistributeIron();
   // Let player two distribute initial iron.
+  player_two_->DistributeIron(Resources::OXYGEN);
   player_two_->DistributeIron(Resources::OXYGEN);
   player_two_->HandleIron(audio_.analysed_data().data_per_beat_.front());
 
@@ -146,9 +147,9 @@ void Game::RenderField() {
     if (elapsed >= data_at_beat.time_) {
       render_frequency = 60000.0/(data_at_beat.bpm_*16);
       ki_resource_update_frequency = (60000.0/data_at_beat.bpm_); //*(data_at_beat.level_/50.0);
-      player_resource_update_freqeuncy = 60000.0/data_at_beat.bpm_;
+      player_resource_update_freqeuncy = 60000.0/(static_cast<double>(data_at_beat.bpm_)/2);
     
-      off_notes = audio_.MoreOfNotes(data_at_beat);
+      off_notes = audio_.MoreOffNotes(data_at_beat);
       data_per_beat.pop_front();
     }
 
@@ -258,7 +259,6 @@ void Game::GetPlayerChoice() {
     else if (choice == 'c') {
       for (int i=0; i<10; i++)
         player_one_->IncreaseResources(true);
-      player_one_->set_iron(player_one_->iron()+1);
     }
 
     // e: add epsp
@@ -343,8 +343,11 @@ void Game::GetPlayerChoice() {
 
     // N: new nucleus
     else if (choice == 'N') {
-      std::string res = CheckMissingResources(player_one_->GetMissingResources(UnitsTech::NUCLEUS,
-            player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS).size()));
+      spdlog::get(LOGGER)->debug("Game::AddNucleus");
+      auto num_nucleus = player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS).size();
+      spdlog::get(LOGGER)->debug("Game::AddNucleus: current num of nucleus: {}", num_nucleus);
+      std::string res = CheckMissingResources(player_one_->GetMissingResources(UnitsTech::NUCLEUS,num_nucleus));
+      spdlog::get(LOGGER)->debug("Game::AddNucleus: missing resources: {}", res);
       if (res != "") 
         PrintMessage(res, true);
       else {
@@ -436,6 +439,7 @@ void Game::GetPlayerChoice() {
 }
 
 Position Game::SelectPosition(Position start, int range) {
+  spdlog::get(LOGGER)->info("Game::SelectPosition");
   bool end = false;
   Position new_pos = {-1, -1};
   field_->set_highlight({start});
@@ -515,36 +519,55 @@ Position Game::SelectFieldPositionByAlpha(std::vector<Position> positions, std::
 }
 
 void Game::DistributeIron() {
+  spdlog::get(LOGGER)->info("Game::DistributeIron.");
   pause_ = true;
   ClearField();
   bool end = false;
   // Get iron and print options.
   PrintCentered(LINES/2-1, "(use 'q' to quit, ENTER to select and h/l or ←/→ to circle through resources)");
-  std::vector<std::string> symbols = {"O", SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, 
-    SYMBOL_GLUTAMATE, SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};
+  std::vector<std::string> symbols = {"O", SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, SYMBOL_GLUTAMATE, 
+    SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};
   Position c = {LINES/2, COLS/2};
   std::vector<Position> positions = { {c.first-10, c.second}, {c.first-6, c.second+15}, {c.first+6, c.second+15}, 
     {c.first+10, c.second}, {c.first+6, c.second-15}, {c.first-6, c.second-15}, };
 
+  std::string help = "";
+  std::string info = "";
+  std::string error = "";
+  std::string success = "";
+
   unsigned int current = 0;
   while(!end) {
-    std::string msg = "You can distribute " + std::to_string(player_one_->iron()) + " iron (FE).";
-    PrintCentered(LINES/2-2, msg);
+    // Get current resource and symbol.
     std::string current_symbol = symbols[current];
-    if (current_symbol == "O")
-      msg = "oxygen. Costs: FE, current: " + std::to_string(player_one_->oxygen_boast());
-    else {
-      int resource = resources_symbol_mapping.at(current_symbol);
-      msg = resources_name_mapping.at(resource) + ". Costs FE2. current: " + 
-        ((player_one_->resources().at(resource).second) ? "active" : "inactive");
-    }
-    PrintCentered(LINES/2+1, "                                         ");
-    PrintCentered(LINES/2+1, msg.c_str());
+    int resource = resources_symbol_mapping.at(current_symbol);
 
+    // Print texts (help, current resource info)
+    help = "You can distribute " + std::to_string(player_one_->resources().at(IRON).cur()) + " iron (FE).";
+    PrintCentered(LINES/2-2, help);
+    info = resources_name_mapping.at(resource) + ": FE" 
+      + std::to_string(player_one_->resources().at(resource).distributed_iron())
+      + ((player_one_->resources().at(resource).Active()) ? " (active)" : " (inactive)");
+    PrintCentered(LINES/2+1, "                                         ");
+    PrintCentered(LINES/2+1, info);
+
+    if (error != "") {
+      attron(COLOR_ERROR);
+      PrintCentered(LINES/2+2, error);
+    }
+    else if (success != "") {
+      attron(COLOR_SUCCESS);
+      PrintCentered(LINES/2+2, success);
+    }
+    else 
+      PrintCentered(LINES/2+2, "                                       ");
+    attron(COLOR_DEFAULT);
+    success = "";
+    error = "";
+
+    // Print resource circle.
     for (unsigned int i=0; i<symbols.size(); i++) {
-      if (symbols[i]== "O")
-        attron(COLOR_PAIR(COLOR_SUCCESS));
-      else if (player_one_->resources().at(resources_symbol_mapping.at(symbols[i])).second)
+      if (player_one_->resources().at(resources_symbol_mapping.at(symbols[i])).Active())
         attron(COLOR_PAIR(COLOR_SUCCESS));
       if (i == current)
         attron(COLOR_PAIR(COLOR_MARKED));
@@ -568,16 +591,12 @@ void Game::DistributeIron() {
     else if (std::to_string(choice) == "10") {
       int resource = (resources_symbol_mapping.count(current_symbol) > 0) 
         ? resources_symbol_mapping.at(current_symbol) : Resources::OXYGEN;
-      if (!player_one_->DistributeIron(resource)) {
-        attron(COLOR_ERROR);
-        PrintCentered(LINES/2+2, "Not enough iron!");
-      }
-      else {
-        attron(COLOR_SUCCESS);
-        PrintCentered(LINES/2+2, "    Selected!    ");
-      }
+      if (!player_one_->DistributeIron(resource))
+        error = "Not enough iron!";
+      else
+        success = "    Selected!    ";
     }
-    if (player_one_->iron() == 0)
+    if (player_one_->resources().at(IRON).cur() == 0)
       end = true;
   }
   pause_ = false;
@@ -655,14 +674,12 @@ void Game::PrintFieldAndStatus() {
   
   auto lines = player_one_->GetCurrentStatusLine();
   for (unsigned int i=0; i<lines.size(); i++) {
-    mvaddstr(10+i, left_border_ + cols_*2 + 2, lines[i].c_str());
+    mvaddstr(10+i, left_border_ + cols_*2 + 1, lines[i].c_str());
   }
 
   std::string msg = "Enemy potential: (" + player_two_->GetNucleusLive() + ")";
   PrintCentered(2, msg.c_str());
-  msg = "Enemy resources: ";
-  for (const auto& it : player_two_->resources()) 
-    msg += resources_name_mapping.at(it.first) + ": " + std::to_string(it.second.first) + ", ";
+  msg = "Enemy " + player_two_->GetCurrentResources();
   PrintCentered(3, msg.c_str());
   msg = "Enemy technologies: ";
   for (const auto& it : player_two_->technologies()) 
@@ -736,7 +753,7 @@ void Game::PrintHelpLine() {
   parts.push_back({", ", false});
   parts.push_back({"[S]ynapse", player_one_->GetMissingResources(UnitsTech::SYNAPSE).size() == 0});
   parts.push_back({" | ", false});
-  parts.push_back({"[D]istribute iron", player_one_->resources().at(Resources::IRON).first > 0});
+  parts.push_back({"[D]istribute iron", player_one_->resources().at(Resources::IRON).cur() > 0});
   parts.push_back({", ", false});
   parts.push_back({"[s]elect synapse", player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() > 0});
   parts.push_back({", ", false});

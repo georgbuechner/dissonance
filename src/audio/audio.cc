@@ -313,7 +313,7 @@ void Audio::CalcLevel(size_t interval, std::map<std::string, int> notes_by_frequ
     analysed_data_.intervals_[interval].signature_ = Signitue::FLAT;
 }
 
-bool Audio::MoreOfNotes(const AudioDataTimePoint &data_at_beat, bool off) const {
+bool Audio::MoreOffNotes(const AudioDataTimePoint &data_at_beat, bool off) const {
   std::string cur_key = analysed_data_.intervals_.at(data_at_beat.interval_).key_;
   auto notes_in_cur_key = keys_.at(cur_key);
   size_t off_notes_counter = 0;
@@ -335,7 +335,7 @@ size_t Audio::NextOfNotesIn(double cur_time) const {
   for (const auto& it : analysed_data_.data_per_beat_) {
     if (it.time_ <= cur_time) 
       continue;
-    if (MoreOfNotes(it))
+    if (MoreOffNotes(it))
       break;
     counter++;
   }
