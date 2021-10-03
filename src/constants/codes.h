@@ -100,6 +100,7 @@ const std::map<int, std::string> resources_name_mapping = {
 };
 
 const std::map<std::string, int> resources_symbol_mapping = {
+  {"O", OXYGEN},
   {SYMBOL_IRON, IRON},
   {SYMBOL_OXYGEN, OXYGEN},
   {SYMBOL_POTASSIUM, POTASSIUM},

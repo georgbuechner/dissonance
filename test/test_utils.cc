@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <iostream>
 #include <catch2/catch.hpp>
 #include <map>
@@ -74,5 +75,13 @@ TEST_CASE("test slicing vector", "") {
   REQUIRE(sliced_vec[0] == 2);
   REQUIRE(sliced_vec[1] == 3);
   REQUIRE(sliced_vec[2] == 4);
+}
+
+TEST_CASE("erase from vector", "") {
+  std::vector<int> vec = {1,2,3,4,5,6,7,8,9};
+  size_t size = vec.size();
+  vec.erase(vec.begin());
+  REQUIRE(vec.size() == size-1);
+  REQUIRE(vec.front() == 2);
 
 }

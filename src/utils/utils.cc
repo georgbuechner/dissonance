@@ -40,7 +40,6 @@ std::vector<std::string> utils::Split(std::string str, std::string delimiter) {
   return v_strs;
 }
 
-
 std::string utils::PositionToString(Position pos) {
   return std::to_string(pos.first) + "|" + std::to_string(pos.second);
 }
@@ -69,6 +68,12 @@ std::vector<std::string> utils::GetAllPathsInDirectory(std::string path) {
   return paths;
 }
 
+std::string utils::dtos(double value) {
+  std::stringstream stream;
+  stream << std::fixed << std::setprecision(2) << value;
+  return stream.str();
+}
+
 std::string utils::create_id(std::string type) {
   std::string id = type;
   for (int i=0; i<32; i++) {
@@ -77,17 +82,6 @@ std::string utils::create_id(std::string type) {
   }
   return id;
 
-}
-
-Options utils::CreateOptionsFromStrings(std::vector<std::string> option_strings) {
-  std::vector<size_t> options;
-  std::map<size_t, std::string> mappings;
-  size_t counter = 0;
-  for (const auto& it : option_strings) {
-    options.push_back(++counter);
-    mappings[counter] = it;
-  }
-  return Options({options, {}, mappings});
 }
 
 nlohmann::json utils::LoadJsonFromDisc(std::string path) {

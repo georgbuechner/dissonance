@@ -69,7 +69,7 @@ class Audio {
     void Unpause();
     void Stop();
 
-    bool MoreOfNotes(const AudioDataTimePoint& data_at_beat, bool off=true) const;
+    bool MoreOffNotes(const AudioDataTimePoint& data_at_beat, bool off=true) const;
     size_t NextOfNotesIn(double cur_time) const;
 
     static void Initialize();
