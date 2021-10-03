@@ -54,28 +54,28 @@ int Field::lines() {
 int Field::cols() { 
   return cols_; 
 }
-std::vector<Position> Field::highlight() {
+std::vector<position_t> Field::highlight() {
   return highlight_;
 }
 
 // setter:
-void Field::set_highlight(std::vector<Position> positions) {
+void Field::set_highlight(std::vector<position_t> positions) {
   highlight_ = positions;
 }
 void Field::set_range(int range) {
   range_ = range;
 }
-void Field::set_range_center(Position pos) {
+void Field::set_range_center(position_t pos) {
   range_center_ = pos;
 }
-void Field::set_replace(std::map<Position, char> replacements) {
+void Field::set_replace(std::map<position_t, char> replacements) {
   replacements_ = replacements;
 }
 
-Position Field::AddNucleus(int section) {
+position_t Field::AddNucleus(int section) {
   spdlog::get(LOGGER)->debug("Field::AddNucleus");
   auto positions_in_section = GetAllPositionsOfSection(section);
-  Position pos = positions_in_section[getrandom_int(0, positions_in_section.size())];
+  position_t pos = positions_in_section[getrandom_int(0, positions_in_section.size())];
   field_[pos.first][pos.second] = SYMBOL_DEN;
   // Mark positions surrounding nucleus as free:
   auto positions_arround_nucleus = GetAllInRange({pos.first, pos.second}, 1.5, 1);
@@ -86,13 +86,13 @@ Position Field::AddNucleus(int section) {
   return pos;
 }
 
-void Field::AddResources(Position start_pos) {
+void Field::AddResources(position_t start_pos) {
   spdlog::get(LOGGER)->debug("Field::AddResources");
-  std::vector<Position> positions = GetAllInRange(start_pos, 4, 2);
+  std::vector<position_t> positions = GetAllInRange(start_pos, 4, 2);
   std::vector<std::string> symbols = {SYMBOL_POTASSIUM, SYMBOL_CHLORIDE, SYMBOL_GLUTAMATE, SYMBOL_SEROTONIN, 
     SYMBOL_DOPAMINE};
   for (const auto& symbol : symbols) {
-    Position pos = positions[getrandom_int(0, positions.size()-1)];
+    position_t pos = positions[getrandom_int(0, positions.size()-1)];
     while (!IsFree(pos)) {
       pos = positions[getrandom_int(0, positions.size()-1)];
     }
@@ -112,7 +112,7 @@ void Field::AddResources(Position start_pos) {
   spdlog::get(LOGGER)->debug("Field::AddResources: done");
 }
 
-void Field::BuildGraph(Position player_den, Position enemy_den) {
+void Field::BuildGraph(position_t player_den, position_t enemy_den) {
   // Add all nodes.
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
@@ -123,7 +123,7 @@ void Field::BuildGraph(Position player_den, Position enemy_den) {
 
   // For each node, add edges.
   for (auto node : graph_.nodes()) {
-    std::vector<Position> neighbors = GetAllInRange({node.second->line_, node.second->col_}, 1.5, 1);
+    std::vector<position_t> neighbors = GetAllInRange({node.second->line_, node.second->col_}, 1.5, 1);
     for (const auto& pos : neighbors) {
       if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL 
           && graph_.InGraph(pos))
@@ -157,22 +157,22 @@ void Field::AddHills() {
   spdlog::get(LOGGER)->debug("Field::AddHills: done");
 }
 
-Position Field::GetNewSoldierPos(Position pos) {
+position_t Field::GetNewSoldierPos(position_t pos) {
   auto new_pos = FindFree(pos.first, pos.second, 1, 3);
   while(!graph_.InGraph(new_pos))
     new_pos = FindFree(pos.first, pos.second, 1, 3);
   return new_pos;
 }
 
-std::list<Position> Field::GetWayForSoldier(Position start_pos, std::vector<Position> way_points) {
-  Position target_pos = way_points.back();
+std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<position_t> way_points) {
+  position_t target_pos = way_points.back();
   way_points.pop_back();
-  std::list<Position> way = {start_pos};
+  std::list<position_t> way = {start_pos};
   // If there are way_points left, sort way-points by distance, then create way.
   if (way_points.size() > 0) {
-    std::map<int, Position> sorted_way;
+    std::map<int, position_t> sorted_way;
     for (const auto& it : way_points) 
-      sorted_way[lines_+cols_-utils::dist(it, target_pos)] = it;
+      sorted_way[lines_+cols_-utils::Dist(it, target_pos)] = it;
     for (const auto& it : sorted_way) {
       auto new_part = graph_.find_way(way.back(), it.second);
       way.pop_back();
@@ -186,7 +186,7 @@ std::list<Position> Field::GetWayForSoldier(Position start_pos, std::vector<Posi
   return way;
 }
 
-void Field::AddNewUnitToPos(Position pos, int unit) {
+void Field::AddNewUnitToPos(position_t pos, int unit) {
   std::unique_lock ul_field(mutex_field_);
   if (unit == UnitsTech::ACTIVATEDNEURON)
     field_[pos.first][pos.second] = SYMBOL_DEF;
@@ -199,7 +199,7 @@ void Field::AddNewUnitToPos(Position pos, int unit) {
 void Field::UpdateField(Player *player, std::vector<std::vector<std::string>>& field) {
   // Accumulate all ipsps and epsps at their current positions.
   // Accumulate epsps with start symbol '0' and ipsps with start symbol 'a'.
-  std::map<Position, std::map<char, int>> potentials_at_position;
+  std::map<position_t, std::map<char, int>> potentials_at_position;
   for (const auto& it : player->potential()) {
     if (it.second.type_ == UnitsTech::EPSP) 
       potentials_at_position[it.second.pos_]['0']++;
@@ -223,7 +223,7 @@ void Field::UpdateField(Player *player, std::vector<std::vector<std::string>>& f
   }
 }
 
-bool Field::CheckCollidingPotentials(Position pos, Player* player_one, Player* player_two) {
+bool Field::CheckCollidingPotentials(position_t pos, Player* player_one, Player* player_two) {
   std::string id_one = player_one->GetPotentialIdIfPotential(pos);
   std::string id_two = player_two->GetPotentialIdIfPotential(pos);
   // Not colliding potentials as at at least one position there is no potential.
@@ -255,7 +255,7 @@ void Field::PrintField(Player* player, Player* enemy) {
 
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
-      Position cur = {l, c};
+      position_t cur = {l, c};
       // highlight -> magenta
       if (std::find(highlight_.begin(), highlight_.end(), cur) != highlight_.end())
         attron(COLOR_PAIR(COLOR_HIGHLIGHT));
@@ -273,8 +273,8 @@ void Field::PrintField(Player* player, Player* enemy) {
         attron(COLOR_PAIR(COLOR_KI));
       // resources -> cyan
       else if (resources_symbol_mapping.count(field[l][c]) > 0) {
-        int dist_player = utils::dist(cur, player->nucleus_pos());
-        int dist_enemy = utils::dist(cur, enemy->nucleus_pos());
+        int dist_player = utils::Dist(cur, player->nucleus_pos());
+        int dist_enemy = utils::Dist(cur, enemy->nucleus_pos());
         if ((dist_player < dist_enemy 
             && player->resources().at(resources_symbol_mapping.at(field[l][c])).Active())
             || (dist_enemy < dist_player
@@ -297,13 +297,13 @@ void Field::PrintField(Player* player, Player* enemy) {
   }
 }
 
-bool Field::InRange(Position pos, int range, Position start) {
+bool Field::InRange(position_t pos, int range, position_t start) {
   if (range == ViewRange::GRAPH)
     return graph_.InGraph(pos);
-  return utils::dist(pos, start) <= range;
+  return utils::Dist(pos, start) <= range;
 }
 
-Position Field::GetSelected(char replace, int num) {
+position_t Field::GetSelected(char replace, int num) {
   int counter = int('a')-1;
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
@@ -320,7 +320,7 @@ bool Field::InField(int l, int c) {
   return (l >= 0 && l <= lines_ && c >= 0 && c <= cols_);
 }
 
-Position Field::FindFree(int l, int c, int min, int max) {
+position_t Field::FindFree(int l, int c, int min, int max) {
   std::shared_lock sl_field(mutex_field_);
 
   auto positions = GetAllInRange({l, c}, max, min, true);
@@ -330,7 +330,7 @@ Position Field::FindFree(int l, int c, int min, int max) {
   return positions[getrandom_int(0, positions.size())];
 }
 
-bool Field::IsFree(Position pos) {
+bool Field::IsFree(position_t pos) {
   return field_[pos.first][pos.second] == SYMBOL_FREE;
 }
 
@@ -350,12 +350,12 @@ int Field::random_coordinate_shift(int x, int min, int max) {
 }
 
 
-std::vector<Position> Field::GetAllInRange(Position start, double max_dist, double min_dist, bool free) {
-  std::vector<Position> positions_in_range;
-  Position upper_corner = {start.first-max_dist, start.second-max_dist};
+std::vector<position_t> Field::GetAllInRange(position_t start, double max_dist, double min_dist, bool free) {
+  std::vector<position_t> positions_in_range;
+  position_t upper_corner = {start.first-max_dist, start.second-max_dist};
   for (int i=0; i<=max_dist*2; i++) {
     for (int j=0; j<=max_dist*2; j++) {
-      Position pos = {upper_corner.first+i, upper_corner.second+j};
+      position_t pos = {upper_corner.first+i, upper_corner.second+j};
       if (InField(pos.first, pos.second) && utils::InRange(start, pos, min_dist, max_dist)
           && (!free || field_[pos.first][pos.second] == SYMBOL_FREE)
           && (!free || graph_.InGraph(pos)))
@@ -365,8 +365,8 @@ std::vector<Position> Field::GetAllInRange(Position start, double max_dist, doub
   return positions_in_range;
 }
 
-std::vector<Position> Field::GetAllCenterPositionsOfSections() {
-  std::vector<Position> positions;
+std::vector<position_t> Field::GetAllCenterPositionsOfSections() {
+  std::vector<position_t> positions;
   for (int i=1; i<=SECTIONS; i++) {
     int l = (i-1)%(SECTIONS/2)*(cols_/4);
     int c = (i < (SECTIONS/2)+1) ? 0 : lines_/2;
@@ -375,8 +375,8 @@ std::vector<Position> Field::GetAllCenterPositionsOfSections() {
   return positions;
 }
 
-std::vector<Position> Field::GetAllPositionsOfSection(unsigned int interval) {
-  std::vector<Position> positions;
+std::vector<position_t> Field::GetAllPositionsOfSection(unsigned int interval) {
+  std::vector<position_t> positions;
   int l = (interval-1)%(SECTIONS/2)*(cols_/4);
   int c = (interval < (SECTIONS/2)+1) ? 0 : lines_/2;
   for (int i=l; i<l+cols_/4; i++) {
@@ -389,5 +389,5 @@ std::vector<Position> Field::GetAllPositionsOfSection(unsigned int interval) {
 int Field::getrandom_int(int min, int max) {
   if (audio_) 
     return audio_->RandomInt(min, max);
-  return utils::getrandom_int(min, max);
+  return utils::GetRandomInt(min, max);
 }

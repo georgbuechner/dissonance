@@ -7,8 +7,8 @@
 #include "utils/utils.h"
 
 TEST_CASE ("test_dist", "[utils]") {
-  REQUIRE(utils::dist({1,1}, {5,5}) == utils::dist({5,5}, {1,1}));
-  std::cout << "48|48 -> 50|50: " << utils::dist({48,48}, {50,50});
+  REQUIRE(utils::Dist({1,1}, {5,5}) == utils::Dist({5,5}, {1,1}));
+  std::cout << "48|48 -> 50|50: " << utils::Dist({48,48}, {50,50});
   REQUIRE(utils::InRange({48,48}, {50,50}, 1, 2) == false);  // sqrt(8) > 2
 }
 

@@ -1,6 +1,7 @@
 #ifndef SRC_UTILS_H_
 #define SRC_UTILS_H_
 
+#include "curses.h"
 #include "nlohmann/json.hpp"
 #include <chrono>
 #include <string>
@@ -9,33 +10,102 @@
 
 namespace utils {
 
-  typedef std::pair<int, int> Position;
-  typedef std::vector<std::vector<std::string>> Paragraphs;
+  typedef std::pair<int, int> position_t;
 
   /**
-  * @param[in] str string to be splitet
-  * @param[in] delimitter 
+   * Is up
+   */
+  bool IsDown(char choice);
+  bool IsUp(char choice);
+  bool IsLeft(char choice);
+  bool IsRight(char choice);
+
+  /**
+  * @param[in] str string to be split.
+  * @param[in] delimiter 
   * @return vector
   */
   std::vector<std::string> Split(std::string str, std::string delimiter);
 
-  double get_elapsed(std::chrono::time_point<std::chrono::steady_clock> start,
+  /**
+   * Gets elapsed milliseconds.
+   * @param[in] start 
+   * @param[in] end
+   * @return elepased milliseconds between start and end.
+   */
+  double GetElapsed(std::chrono::time_point<std::chrono::steady_clock> start,
     std::chrono::time_point<std::chrono::steady_clock> end);
 
-  double dist(Position pos1, Position pos2);
-  bool InRange(Position pos1, Position pos2, double min_dist, double max_dist);
+  /** 
+   * Euclidean distance between two two-dimensional points.
+   * @param[in] pos1
+   * @param[in] pos2
+   * @return euclidean distance.
+   */
+  double Dist(position_t pos1, position_t pos2);
 
-  std::string PositionToString(Position pos);
+  /**
+   * Checks if euclidean distance between given positions satisfies given min and
+   * max distance.
+   * @param[in] pos1
+   * @param[in] pos2
+   * @param[in] min_dist
+   * @param[in] max_dist
+   * @return whether euclidean distance between given positions satisfies range.
+   */
+  bool InRange(position_t pos1, position_t pos2, double min_dist, double max_dist);
 
-  int getrandom_int(int min, int max);
+  /**
+   * Gets string representation of a position in format `x|y`.
+   * @param[in] pos
+   * @return string representation of a position in format `x|y`.
+   */
+  std::string PositionToString(position_t pos);
 
-  unsigned int mod(int n, int m);
+  /**
+   * Gets random integer in given range.
+   * @param[in] min
+   * @param[in] max
+   * @return random integer in given range.
+   */
+  int GetRandomInt(int min, int max);
 
+  /**
+   * Calculates true modulo of n in congruence class m.
+   * @param[in] n 
+   * @param[in] m (congruence class)
+   * @return modulo of n in congruence class m.
+   */
+  unsigned int Mod(int n, int m);
+
+  /**
+   * Converts all chars to upper case.
+   * @param[in] str
+   * @returns given string with all chars to upper case.
+   */
   std::string ToUpper(std::string str);
+
+  /**
+   * Gets array of paths in given directory.
+   * @param[in] path
+   * @return array of paths in given directory.
+   */
   std::vector<std::string> GetAllPathsInDirectory(std::string path);
 
-  std::string dtos(double value);
+  /**
+   * Gets string representation of double value with given precision.
+   * @param[in] value
+   * @param[in] precision (default: 2)
+   * @return string representation of double value with given precision.
+   */
+  std::string Dtos(double value, unsigned int precision=2);
 
+  /**
+   * Slices vector from `begin` to `begin+len`.
+   * @param[in] begin
+   * @param[in] len
+   * @return slices vector.
+   */
   template<class T>
   std::vector<T> SliceVector(std::vector<T> in_vec, unsigned int begin, unsigned int len) {
     std::vector<T> out_vec;
@@ -44,10 +114,12 @@ namespace utils {
     return out_vec;
   }
   
-  Paragraphs LoadWelcome();
-  Paragraphs LoadHelp();
-
-  std::string create_id(std::string type);
+  /**
+   * Creates id in format: [type][random(0, 9) x 39].
+   * @param[in] type
+   * @return id in format: [type][random(0, 9) x 39].
+   */
+  std::string CreateId(std::string type);
 
   /** 
    * @brief Loads json from disc
