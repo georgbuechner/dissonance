@@ -13,8 +13,9 @@ env:
 jobs:
   setup:
     steps:
-      - name: install
-        run: pip install conan
+     - uses: actions/checkout@v2
+     - name: install conan
+       run: pip install conan
 
   build:
     # The CMake configure and build commands are platform agnostic and should work equally
