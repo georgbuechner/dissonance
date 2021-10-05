@@ -63,14 +63,6 @@ namespace utils {
   std::string PositionToString(position_t pos);
 
   /**
-   * Gets random integer in given range.
-   * @param[in] min
-   * @param[in] max
-   * @return random integer in given range.
-   */
-  int GetRandomInt(int min, int max);
-
-  /**
    * Calculates true modulo of n in congruence class m.
    * @param[in] n 
    * @param[in] m (congruence class)

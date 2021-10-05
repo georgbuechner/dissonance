@@ -72,9 +72,9 @@ class Audio {
     bool MoreOffNotes(const AudioDataTimePoint& data_at_beat, bool off=true) const;
     size_t NextOfNotesIn(double cur_time) const;
 
-    static void Initialize();
+    static std::vector<unsigned short> GetInterval(std::vector<Note> notes);
 
-    int RandomInt(size_t min, size_t max);
+    static void Initialize();
 
 
   private:
@@ -86,7 +86,6 @@ class Audio {
     ma_decoder decoder_;
     static std::map<std::string, std::vector<std::string>> keys_;
     static const std::vector<std::string> note_names_;
-    size_t last_point_;
 
     // methods:
     static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount);
@@ -99,6 +98,9 @@ class Audio {
     AudioData Load(std::string source_path);
     void Safe(AudioData audio_data, std::string source_path);
     std::string GetOutPath(std::filesystem::path source_path);
+
+    static std::map<unsigned short, std::vector<Note>> GetNotesInSimilarOctave(std::vector<Note> notes);
+
 };
 
 #endif

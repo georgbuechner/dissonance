@@ -216,8 +216,8 @@ void Audio::data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
 Note Audio::ConvertMidiToNote(int midi_note) {
   Note note = Note();
   note.midi_note_ = midi_note;
-  note.note_name_ = note_names_[(midi_note-24)%12];
   note.note_ = (midi_note-24)%12;
+  note.note_name_ = note_names_[note.note_];
   note.ocatve_ = (midi_note-12)/12;
   return note;
 }
@@ -351,20 +351,42 @@ std::string Audio::GetOutPath(std::filesystem::path source_path) {
   return out_path;
 }
 
-int Audio::RandomInt(size_t min, size_t max) {
-  if (last_point_ > analysed_data_.data_per_beat_.size())
-    last_point_ = 0;
-  auto it = analysed_data_.data_per_beat_.begin();
-  std::advance(it, last_point_++);
-  while (it->notes_.size() == 0) {
-    std::advance(it, 1);
+
+std::map<unsigned short, std::vector<Note>> Audio::GetNotesInSimilarOctave(std::vector<Note> notes) {
+  // Initialize.
+  std::map<unsigned short, std::vector<Note>> notes_in_ocatve;
+  for (const auto& note : notes)
+    notes_in_ocatve[note.ocatve_].push_back(note);
+  // Add notes to ocatve_ above and below.
+  for (const auto& it : notes_in_ocatve) {
+    if (notes_in_ocatve.count(it.first-1) > 0)
+      notes_in_ocatve[it.first-1].insert(notes_in_ocatve[it.first-1].end(), it.second.begin(), it.second.end());
+    if (notes_in_ocatve.count(it.first+1) > 0)
+      notes_in_ocatve[it.first+1].insert(notes_in_ocatve[it.first+1].end(), it.second.begin(), it.second.end());
   }
-  unsigned int random_faktor = it->notes_.front().midi_note_;
-  if (max > random_faktor) 
-    random_faktor *= it->bpm_;
-  if (max > random_faktor)
-    random_faktor += it->level_;
-  int ran = min + (random_faktor % (max - min + 1)); 
-  spdlog::get(LOGGER)->debug("Got random int between {} and {}: {}", min, max, ran);
-  return ran;
+  return notes_in_ocatve;
+}
+
+std::vector<unsigned short> Audio::GetInterval(std::vector<Note> notes) {
+  auto notes_in_ocatve = GetNotesInSimilarOctave(notes);
+  std::vector<unsigned short> intervals;
+  for (const auto& it : notes_in_ocatve) {
+    if (it.second.size() < 2)
+      continue;
+    for (unsigned int i=1; i<it.second.size(); i++) {
+      unsigned short note_a = it.second[i-1].note_;
+      unsigned short note_b = it.second[i].note_;
+      // Handle different ocatves.
+      if (it.second[i-1].ocatve_ > it.second[i].ocatve_)
+        note_a += 12;
+      else if (it.second[i-1].ocatve_ < it.second[i].ocatve_)
+        note_b += 12;
+      // Calculate interval
+      unsigned short interval = (note_a < note_b) ? note_b - note_a : note_b+12-note_a;
+      // Add only if it is between 0 and 12.
+      if (interval <= 12)
+        intervals.push_back(interval);
+    }
+  }
+  return intervals;
 }

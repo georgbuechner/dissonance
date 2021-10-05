@@ -23,6 +23,7 @@ set(SRC_FILES
   src/objects/resource.cc
   src/audio/audio.cc
   src/audio/miniaudio.cc
+  src/random/random.cc
 )
 
 # Add soruce files needed for game only
@@ -34,6 +35,7 @@ set(SRC_FILES_GAME
 # Add source files for testing only
 set(SRC_FILES_TEST
   test/main.cc
+  test/test_audio.cc
   test/test_field.cc
   test/test_utils.cc
   test/test_units.cc

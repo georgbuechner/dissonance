@@ -75,6 +75,22 @@ enum Signitue {
   FLAT = 0,
 };
 
+enum AudioInterval {
+  PERFECT_UNISON,
+  MINOR_SECOND,
+  MAJOR_SECOND,
+  MINOR_THIRD,
+  MAJOR_THIRD,
+  PERFECT_FOURTH,
+  TRITONE,
+  PERFECT_FIFTH,
+  MINOR_SIXTH,
+  MAJOR_SIXTH,
+  MINOR_SEVENTH,
+  MAJOR_SEVENTH,
+  PERFECT_OCTAVE,
+};
+
 const std::map<int, std::string> tactics_mapping = {
   {EPSP_FOCUSED, "EPSP_FOCUSED"},
   {IPSP_FOCUSED,"IPSP_FOCUSED"},
@@ -96,7 +112,6 @@ const std::map<int, std::string> resources_name_mapping = {
   {GLUTAMATE, "glutamate"},
   {DOPAMINE, "dopamine"},
   {SEROTONIN, "serotonin"},
-  {NUCLEUS, "nucleus"},
 };
 
 const std::map<std::string, int> resources_symbol_mapping = {

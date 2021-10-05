@@ -1,6 +1,7 @@
 #ifndef SRC_PLAYER_AUDIOKI_H_
 #define SRC_PLAYER_AUDIOKI_H_
 
+#include "audio/audio.h"
 #include "game/field.h"
 #include "objects/units.h"
 #include "player/player.h"
@@ -9,7 +10,7 @@
 
 class AudioKi : public Player {
   public:
-    AudioKi(position_t nucleus_pos, Field* field, Audio* audio);
+    AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen);
 
     // getter 
     
@@ -22,6 +23,7 @@ class AudioKi : public Player {
 
   private:
     // members
+    Audio* audio_;
     const float average_bpm_;
     const float average_level_;
     size_t max_activated_neurons_;
