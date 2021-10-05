@@ -43,10 +43,16 @@ class Field {
      */
     void AddHills(unsigned short denceness=1);
 
+    /** 
+     * Adds resources ([G]old, [S]ilver, [B]ronze) near given position.
+     * @param start_pos position near which to create resources.
+     */
+    std::vector<position_t> AddResources(position_t start_pos);
+
     /**
-     * Adds position for player den and random position for player resources.
+     * Adds position for player nucleus.
      * @param[in] section
-     * @return position of player den.
+     * @return position of player nucleus.
      */
     position_t AddNucleus(int section);
 
@@ -103,18 +109,49 @@ class Field {
      */
     position_t FindFree(int l, int c, int min, int max);
 
-    bool IsFree(position_t pos);
+    /**
+     * Gets symbol at requested position.
+     * @param[in] position to check.
+     * @return symbol at requested position.
+     */
+    std::string GetSymbolAtPos(position_t pos) const;
 
+    /**
+     * Check whether a given position is in given range (euklidean distance), or in graph.
+     * @param[in] pos (position to check)
+     * @param[in] range max euklidean distance, or ViewRange::GRAPH -> check graph.
+     * @param[in] start start position (if checking euklidean distance)
+     * @return wether given position is in range.
+     */
     bool InRange(position_t pos, int range, position_t start = {-1, -1});
 
-    position_t GetSelected(char replace, int num);
+    /**
+     * Gets all positions with a certain distance (min, max) to a given start-point. 
+     * If specified, returns only free positions.
+     * @param[in] start position
+     * @param[in] max_dist 
+     * @param[in] min_dist
+     * @param[in] free (default: false=don't check if positions are free)
+     * @return array of position in specified range.
+     */
+    std::vector<position_t> GetAllInRange(position_t start, double max_dist, 
+        double min_dist, bool free=false);
 
-    std::vector<position_t> GetAllInRange(position_t start, double max_dist, double min_dist, bool free=false);
-
+    /**
+     * Gets the positions of the center of each section.
+     * @return positions of the center of each section.
+     */
     std::vector<position_t> GetAllCenterPositionsOfSections();
-    std::vector<position_t> GetAllPositionsOfSection(unsigned int interval);
+
+    /**
+     * Gets all positions of a given section.
+     * @param[in] section]
+     * @return all positions of a given section.
+     */
+    std::vector<position_t> GetAllPositionsOfSection(unsigned short section);
 
   private: 
+    // members
     int left_border_;
     int lines_;
     int cols_;
@@ -129,11 +166,7 @@ class Field {
     position_t range_center_;
     std::map<position_t, char> replacements_;
 
-    /** 
-     * Adds resources ([G]old, [S]ilver, [B]ronze) near given position.
-     * @param start_pos position near which to create resources.
-     */
-    void AddResources(position_t start_pos);
+    // functions
 
     /**
      * Places moving units (soldiers) on the field, by taking units from given
