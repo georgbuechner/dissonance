@@ -18,6 +18,7 @@
 #include "constants/codes.h"
 #include "objects/units.h"
 #include "player/player.h"
+#include "random/random.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 
@@ -36,9 +37,8 @@ std::string CheckMissingResources(Costs missing_costs) {
   std::string res = "";
   if (missing_costs.size() == 0)
     return res;
-  for (const auto& it : missing_costs) {
+  for (const auto& it : missing_costs)
     res += "Missing " + std::to_string(it.second) + " " + resources_name_mapping.at(it.first) + "! ";
-  }
   return res;
 }
 
@@ -90,14 +90,16 @@ void Game::play() {
   audio_.Analyze();
 
   // Build fields
-  field_ = new Field(lines_, cols_, left_border_, &audio_);
-  field_->AddHills();
+  RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
+  RandomGenerator* map_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_boolean_minor_interval);
+  field_ = new Field(lines_, cols_, ran_gen, map_gen, left_border_);
+  field_->AddHills(audio_.analysed_data().intervals_.begin()->second.darkness_);
   int player_one_section = (int)audio_.analysed_data().average_bpm_%8+1;
   int player_two_section = (int)audio_.analysed_data().average_level_%8+1;
   if (player_one_section == player_two_section)
     player_two_section = (player_two_section+1)%8;
-  player_one_ = new Player(field_->AddNucleus(player_one_section), field_, &audio_);
-  player_two_ = new AudioKi(field_->AddNucleus(player_two_section), field_, &audio_);
+  player_one_ = new Player(field_->AddNucleus(player_one_section), field_, ran_gen);
+  player_two_ = new AudioKi(field_->AddNucleus(player_two_section), field_, &audio_, ran_gen);
   player_one_->set_enemy(player_two_);
   player_two_->set_enemy(player_one_);
   field_->BuildGraph(player_one_->nucleus_pos(), player_two_->nucleus_pos());
@@ -597,6 +599,7 @@ void Game::DistributeIron() {
     if (player_one_->resources().at(IRON).cur() == 0)
       end = true;
   }
+  ClearField();
   pause_ = false;
 }
 

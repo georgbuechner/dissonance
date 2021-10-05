@@ -16,6 +16,7 @@
 #include "constants/costs.h"
 #include "objects/resource.h"
 #include "objects/units.h"
+#include "random/random.h"
 
 class Field;
 
@@ -41,7 +42,7 @@ class Player {
      * @param[in] nucleus_pos position of player's nucleus.
      * @param[in] silver initial silver value.
      */
-    Player(position_t nucleus_pos, Field* field, Audio* audo=nullptr);
+    Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen);
 
     // getter:
     std::map<std::string, Potential> potential();
@@ -245,6 +246,7 @@ class Player {
   protected: 
     Field* field_;
     Audio* audio_;
+    RandomGenerator* ran_gen_;
     Player* enemy_;
     int cur_range_;
 

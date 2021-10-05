@@ -16,6 +16,7 @@
 #include "player/audio_ki.h"
 #include "player/player.h"
 #include "objects/units.h"
+#include "random/random.h"
 
 class Game {
   public:
