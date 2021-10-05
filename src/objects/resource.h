@@ -19,12 +19,14 @@ class Resource {
     double bound() const;
     unsigned int limit() const;
     unsigned int distributed_iron() const;
+    bool blocked() const;
 
     // setter 
     void set_cur(double value);
     void set_bound(double value);
     void set_distribited_iron(unsigned int value);
     void set_limit(unsigned int value);
+    void set_blocked(bool value);
 
     // functions
    

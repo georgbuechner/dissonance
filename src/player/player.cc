@@ -13,6 +13,7 @@
 #include <spdlog/spdlog.h>
 
 #include "constants/codes.h"
+#include "constants/costs.h"
 #include "objects/units.h"
 #include "spdlog/logger.h"
 #include "curses.h"
@@ -228,7 +229,7 @@ void Player::IncreaseResources(bool inc_iron) {
   double gain = std::abs(log(resources_.at(Resources::OXYGEN).cur()+0.5));
   for (auto& it : resources_) {
     // Inc only if min 2 iron is distributed, inc iron only depending on audio.
-    if (it.second.Active() && (it.first != IRON || inc_iron))  
+    if (it.second.Active() && !it.second.blocked() && (it.first != IRON || inc_iron))  
       it.second.IncreaseResource(gain, resource_curve_);
   }
 }
@@ -283,6 +284,8 @@ Costs Player::GetMissingResources(int unit, int boast) {
 }
 
 bool Player::TakeResources(int type, bool bind_resources, int boast) {
+  if (units_costs_.count(type) == 0)
+    return true;
   if (GetMissingResources(type, boast).size() > 0) {
     spdlog::get(LOGGER)->warn("Player::TakeResources: taking resources with out enough resources!");
     return false;
@@ -313,6 +316,10 @@ bool Player::AddNeuron(position_t pos, int neuron_type, position_t epsp_target, 
   else if (neuron_type == UnitsTech::NUCLEUS) {
     neurons_[pos] = std::make_shared<Nucleus>(pos);
     UpdateResourceLimits(0.1); // Increase max resource if new nucleus is built.
+  }
+  else if (neuron_type == UnitsTech::RESOURCENEURON) {
+    spdlog::get(LOGGER)->info("Created RESOURCENEURON");
+    neurons_[pos] = std::make_shared<ResourceNeuron>(pos, resources_symbol_mapping.at(field_->GetSymbolAtPos(pos)));
   }
   return true;
 }
@@ -438,8 +445,12 @@ void Player::MovePotential(Player* enemy) {
 
 void Player::SetBlockForNeuron(position_t pos, bool blocked) {
   std::unique_lock ul(mutex_all_neurons_);
-  if (neurons_.count(pos) > 0)
+  if (neurons_.count(pos) > 0) {
     neurons_[pos]->set_blocked(blocked);
+    // If resource neuron, block/ unblock resource.
+    if (neurons_[pos]->type_ == RESOURCENEURON)
+      resources_.at(neurons_[pos]->resource()).set_blocked(blocked);
+  }
 }
 
 void Player::HandleDef(Player* enemy) {

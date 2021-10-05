@@ -29,6 +29,7 @@ enum UnitsTech {
   ACTIVATEDNEURON = 0,
   SYNAPSE,
   NUCLEUS, 
+  RESOURCENEURON,
   EPSP,
   IPSP,
 
@@ -127,6 +128,7 @@ const std::map<std::string, int> resources_symbol_mapping = {
 
 const std::map<int, std::string> units_tech_mapping = {
   {ACTIVATEDNEURON, "activated neuron"},
+  {RESOURCENEURON, "rersource neuron"},
   {SYNAPSE, "synapse"},
   {EPSP, "epsp"},
   {IPSP, "ipsp"},

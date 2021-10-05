@@ -2,6 +2,7 @@
 #define SRC_SOLDIER_H_
 
 #include <chrono>
+#include <cstddef>
 #include <iostream>
 #include <list>
 #include <stdexcept>
@@ -48,6 +49,7 @@ struct Neuron : Unit {
     virtual bool swarm() { return false; }
     virtual unsigned int num_availible_ways() { return 0; }
     virtual unsigned int max_stored() { return 0; }
+    virtual size_t resource() { return 9999; }
 
     // setter
     void set_blocked(bool blocked);
@@ -66,7 +68,10 @@ struct Neuron : Unit {
      */
     bool IncreaseVoltage(int potential);
 
-    virtual std::vector<position_t> GetWayPoints(int unit) const { return {}; }
+    virtual std::vector<position_t> GetWayPoints(int unit) const { 
+      spdlog::get(LOGGER)->error("Neuron::GetWayPoints: invalid base clase call!");
+      return {}; 
+    }
     virtual unsigned int AddEpsp() { return 0; }
     virtual void UpdateIpspTargetIfNotSet(position_t pos) { }
 
@@ -147,6 +152,21 @@ struct ActivatedNeuron : Neuron {
     int speed_;  ///< lower number means higher speed.
     int potential_slowdown_;
     std::chrono::time_point<std::chrono::steady_clock> last_action_; 
+};
+
+/**
+ *
+ */
+struct ResourceNeuron : Neuron {
+  public: 
+    ResourceNeuron();
+    ResourceNeuron(position_t, size_t resource);
+
+    // getter 
+    size_t resource();
+
+  private:
+    const size_t resource_;
 };
 
 /** 

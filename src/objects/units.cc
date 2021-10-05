@@ -139,3 +139,13 @@ std::chrono::time_point<std::chrono::steady_clock> ActivatedNeuron::last_action(
 void ActivatedNeuron::set_last_action(std::chrono::time_point<std::chrono::steady_clock> time) { 
   last_action_ = time; 
 }
+
+// ResourceNeuron...
+ResourceNeuron::ResourceNeuron() : Neuron(), resource_(999) {}
+ResourceNeuron::ResourceNeuron(position_t pos, size_t resource) : Neuron(pos, 5, UnitsTech::RESOURCENEURON), 
+  resource_(resource) {}
+
+// getter 
+size_t ResourceNeuron::resource() {
+  return resource_;
+}
