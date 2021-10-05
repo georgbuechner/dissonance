@@ -22,8 +22,6 @@
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 
-#define HELP "[e]psp, [i]psp | [A]ctivate neuron, build [S]ynapse | [d]istribute iron, [s]elect synapse | [h]elp | pause [space], [q]uit"
-
 #define LINE_HELP 8
 #define LINE_STATUS LINES-9
 
@@ -98,12 +96,22 @@ void Game::play() {
   int player_two_section = (int)audio_.analysed_data().average_level_%8+1;
   if (player_one_section == player_two_section)
     player_two_section = (player_two_section+1)%8;
-  player_one_ = new Player(field_->AddNucleus(player_one_section), field_, ran_gen);
-  player_two_ = new AudioKi(field_->AddNucleus(player_two_section), field_, &audio_, ran_gen);
+  position_t nucleus_pos_1 = field_->AddNucleus(player_one_section);
+  position_t nucleus_pos_2 = field_->AddNucleus(player_two_section);
+  field_->BuildGraph(nucleus_pos_1, nucleus_pos_2);
+  auto resource_positions_1 = field_->AddResources(nucleus_pos_1);
+  auto resource_positions_2 = field_->AddResources(nucleus_pos_2);
+
+  // Setup players.
+  player_one_ = new Player(nucleus_pos_1, field_, ran_gen);
+  player_two_ = new AudioKi(nucleus_pos_2, field_, &audio_, ran_gen);
   player_one_->set_enemy(player_two_);
   player_two_->set_enemy(player_one_);
-  field_->BuildGraph(player_one_->nucleus_pos(), player_two_->nucleus_pos());
   player_two_->SetUpTactics(true); 
+  for (const auto& it : resource_positions_1)
+    player_one_->AddNeuron(it, RESOURCENEURON);
+  for (const auto& it : resource_positions_2)
+    player_two_->AddNeuron(it, RESOURCENEURON);
 
   // Let player one distribute initial iron.
   DistributeIron();
@@ -112,6 +120,7 @@ void Game::play() {
   player_two_->DistributeIron(Resources::OXYGEN);
   player_two_->HandleIron(audio_.analysed_data().data_per_beat_.front());
 
+  // Start game
   audio_.play();
   std::thread thread_actions([this]() { RenderField(); });
   std::thread thread_choices([this]() { (GetPlayerChoice()); });
@@ -454,7 +463,7 @@ position_t Game::SelectPosition(position_t start, int range) {
     new_pos = field_->highlight().front();
 
     if (std::to_string(choice) == "10") {
-      if (field_->IsFree(new_pos) || range == ViewRange::GRAPH)
+      if (field_->GetSymbolAtPos(new_pos) == SYMBOL_FREE || range == ViewRange::GRAPH) 
         end = true;
       else 
         PrintMessage("Invalid position (not free)!", false); 
@@ -757,7 +766,7 @@ void Game::PrintHelpLine() {
   parts.push_back({", ", false});
   parts.push_back({"[S]ynapse", player_one_->GetMissingResources(UnitsTech::SYNAPSE).size() == 0});
   parts.push_back({" | ", false});
-  parts.push_back({"[D]istribute iron", player_one_->resources().at(Resources::IRON).cur() > 0});
+  parts.push_back({"[d]istribute iron", player_one_->resources().at(Resources::IRON).cur() > 0});
   parts.push_back({", ", false});
   parts.push_back({"[s]elect synapse", player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() > 0});
   parts.push_back({", ", false});

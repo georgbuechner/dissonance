@@ -21,6 +21,9 @@ unsigned int Resource::limit() const {
 unsigned int Resource::distributed_iron() const {
   return distributed_iron_;
 }
+bool Resource::blocked() const {
+  return blocked_;
+}
 
 // setter 
 void Resource::set_cur(double value) {
@@ -34,6 +37,9 @@ void Resource::set_distribited_iron(unsigned int value) {
 }
 void Resource::set_limit(unsigned int value) {
   limit_ = value;
+}
+void Resource::set_blocked(bool value) {
+  blocked_ = value;
 }
 
 // functions
