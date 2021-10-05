@@ -15,7 +15,7 @@
 #include "player/player.h"
 #include "utils/graph.h"
 #include "objects/units.h"
-#include "audio/audio.h"
+#include "random/random.h"
 
 class Field {
   public:
@@ -23,7 +23,7 @@ class Field {
      * @param[in] lines availible lines.
      * @param[in] cols availible cols
      */
-    Field(int lines, int cols, int left_border=0, Audio* audio=nullptr);
+    Field(int lines, int cols, RandomGenerator* ran_gen, RandomGenerator* map_gen_, int left_border=0);
 
     // getter:
     int lines();
@@ -41,7 +41,7 @@ class Field {
     /**
      * Adds random natural barriers.
      */
-    void AddHills();
+    void AddHills(unsigned short denceness=1);
 
     /**
      * Adds position for player den and random position for player resources.
@@ -118,7 +118,8 @@ class Field {
     int left_border_;
     int lines_;
     int cols_;
-    Audio* audio_;
+    RandomGenerator* ran_gen_;
+    RandomGenerator* map_gen_;
     Graph graph_;
     std::vector<std::vector<std::string>> field_;
     std::shared_mutex mutex_field_;
@@ -163,7 +164,6 @@ class Field {
      */
     bool InField(int l, int c);
 
-    int getrandom_int(int min, int max);
     int random_coordinate_shift(int x, int min, int max);
 
 };

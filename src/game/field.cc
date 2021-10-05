@@ -16,6 +16,7 @@
 #include "game/field.h"
 #include "objects/units.h"
 #include "player/player.h"
+#include "random/random.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 #include "constants/codes.h"
@@ -30,10 +31,11 @@
 #define SECTIONS 8
 
 
-Field::Field(int lines, int cols, int left_border, Audio* audio) {
+Field::Field(int lines, int cols, RandomGenerator* ran_gen, RandomGenerator* map_gen, int left_border) {
   lines_ = lines;
   cols_ = cols;
-  audio_ = audio;
+  ran_gen_ = ran_gen;
+  map_gen_ = map_gen;
   left_border_ = left_border;
 
   // initialize empty field.
@@ -75,7 +77,7 @@ void Field::set_replace(std::map<position_t, char> replacements) {
 position_t Field::AddNucleus(int section) {
   spdlog::get(LOGGER)->debug("Field::AddNucleus");
   auto positions_in_section = GetAllPositionsOfSection(section);
-  position_t pos = positions_in_section[getrandom_int(0, positions_in_section.size())];
+  position_t pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size())];
   field_[pos.first][pos.second] = SYMBOL_DEN;
   // Mark positions surrounding nucleus as free:
   auto positions_arround_nucleus = GetAllInRange({pos.first, pos.second}, 1.5, 1);
@@ -92,23 +94,12 @@ void Field::AddResources(position_t start_pos) {
   std::vector<std::string> symbols = {SYMBOL_POTASSIUM, SYMBOL_CHLORIDE, SYMBOL_GLUTAMATE, SYMBOL_SEROTONIN, 
     SYMBOL_DOPAMINE};
   for (const auto& symbol : symbols) {
-    position_t pos = positions[getrandom_int(0, positions.size()-1)];
+    position_t pos = positions[ran_gen_->RandomInt(0, positions.size()-1)];
     while (!IsFree(pos)) {
-      pos = positions[getrandom_int(0, positions.size()-1)];
+      pos = positions[ran_gen_->RandomInt(0, positions.size()-1)];
     }
     field_[pos.first][pos.second] = symbol;
   }
-  /*
-  field_[positions[0].first][positions[0]] = SYMBOL_POTASSIUM;
-  pos = FindFree(start_pos.first, start_pos.second, 2, 4);
-  field_[pos.first][pos.second] = SYMBOL_CHLORIDE;
-  pos = FindFree(start_pos.first, start_pos.second, 2, 4);
-  field_[pos.first][pos.second] = SYMBOL_GLUTAMATE;
-  pos = FindFree(start_pos.first, start_pos.second, 2, 4);
-  field_[pos.first][pos.second] = SYMBOL_DOPAMINE;
-  pos = FindFree(start_pos.first, start_pos.second, 2, 4);
-  field_[pos.first][pos.second] = SYMBOL_SEROTONIN;
-  */
   spdlog::get(LOGGER)->debug("Field::AddResources: done");
 }
 
@@ -137,21 +128,12 @@ void Field::BuildGraph(position_t player_den, position_t enemy_den) {
     throw "Invalid world.";
 }
 
-void Field::AddHills() {
+void Field::AddHills(unsigned short denceness) {
   spdlog::get(LOGGER)->debug("Field::AddHills");
-  int num_hils = (lines_ + cols_) * 2;
-  // Generate lines*2 mountains.
-  for (int i=0; i<num_hils; i++) {
-    // Generate random hill.
-    int start_y = getrandom_int(0, lines_);
-    int start_x = getrandom_int(0, cols_);
-    field_[start_y][start_x] = SYMBOL_HILL;
-
-    // Generate random 5 hills around this hill.
-    for (int j=1; j<=5; j++) {
-      int y = GetXInRange(random_coordinate_shift(start_y, 0, j), 0, lines_);
-      int x = GetXInRange(random_coordinate_shift(start_x, 0, j), 0, cols_);
-      field_[y][x] = SYMBOL_HILL;
+  for (int l=0; l<lines_; l++) {
+    for (int c=0; c<cols_; c++) {
+      if (map_gen_->RandomInt(0, 1) == 1)
+        field_[l][c] = SYMBOL_HILL;
     }
   }
   spdlog::get(LOGGER)->debug("Field::AddHills: done");
@@ -327,7 +309,7 @@ position_t Field::FindFree(int l, int c, int min, int max) {
   if (positions.size() == 0)
     throw std::runtime_error("Game came to an strange end. No free positions!");
 
-  return positions[getrandom_int(0, positions.size())];
+  return positions[ran_gen_->RandomInt(0, positions.size())];
 }
 
 bool Field::IsFree(position_t pos) {
@@ -344,8 +326,8 @@ int Field::GetXInRange(int x, int min, int max) {
 
 int Field::random_coordinate_shift(int x, int min, int max) {
   // Determine decrease or increase of values.
-  int plus_minus = getrandom_int(0, 1);
-  int random_faktor = getrandom_int(min, max);
+  int plus_minus = ran_gen_->RandomInt(0, 1);
+  int random_faktor = ran_gen_->RandomInt(min, max);
   return x + pow(-1, plus_minus)*random_faktor;
 }
 
@@ -384,10 +366,4 @@ std::vector<position_t> Field::GetAllPositionsOfSection(unsigned int interval) {
       positions.push_back({j, i});
   }
   return positions;
-}
-
-int Field::getrandom_int(int min, int max) {
-  if (audio_) 
-    return audio_->RandomInt(min, max);
-  return utils::GetRandomInt(min, max);
 }

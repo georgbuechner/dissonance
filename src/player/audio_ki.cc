@@ -13,8 +13,10 @@
 #include <shared_mutex>
 #include <vector>
 
-AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio) : Player(nucleus_pos, field, audio), 
-    average_bpm_(audio->analysed_data().average_bpm_), average_level_(audio->analysed_data().average_level_) {
+AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen) : 
+    Player(nucleus_pos, field, ran_gen), average_bpm_(audio->analysed_data().average_bpm_), 
+    average_level_(audio->analysed_data().average_level_) {
+  audio_ = audio;
   max_activated_neurons_ = 3;
   nucleus_pos_ = nucleus_pos;
   cur_interval_ = audio_->analysed_data().intervals_[0];
@@ -291,7 +293,7 @@ std::vector<position_t> AudioKi::GetEpspTargets(position_t synapse_pos, std::lis
 std::vector<position_t> AudioKi::GetIpspTargets(std::list<position_t> way, std::vector<position_t>& synapses, size_t ignore_strategy) {
   spdlog::get(LOGGER)->debug("AudioKi::GetIpspTargets");
   if (technologies_.at(UnitsTech::TARGET).first == 0) {
-  spdlog::get(LOGGER)->debug("AudioKi::GetIpspTargets: using default.");
+    spdlog::get(LOGGER)->debug("AudioKi::GetIpspTargets: using default.");
     return {enemy_->GetRandomNeuron()};
   }
   std::vector<position_t> isps_targets;
