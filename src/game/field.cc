@@ -83,24 +83,29 @@ position_t Field::AddNucleus(int section) {
   auto positions_arround_nucleus = GetAllInRange({pos.first, pos.second}, 1.5, 1);
   for (const auto& it : positions_arround_nucleus)
     field_[it.first][it.second] = SYMBOL_FREE;
-  AddResources(pos);
   spdlog::get(LOGGER)->debug("Field::AddNucleus: done");
   return pos;
 }
 
-void Field::AddResources(position_t start_pos) {
+std::vector<position_t> Field::AddResources(position_t start_pos) {
   spdlog::get(LOGGER)->debug("Field::AddResources");
-  std::vector<position_t> positions = GetAllInRange(start_pos, 4, 2);
   std::vector<std::string> symbols = {SYMBOL_POTASSIUM, SYMBOL_CHLORIDE, SYMBOL_GLUTAMATE, SYMBOL_SEROTONIN, 
     SYMBOL_DOPAMINE};
+  std::vector<position_t> resource_positions;
   for (const auto& symbol : symbols) {
-    position_t pos = positions[ran_gen_->RandomInt(0, positions.size()-1)];
-    while (!IsFree(pos)) {
-      pos = positions[ran_gen_->RandomInt(0, positions.size()-1)];
+    spdlog::get(LOGGER)->debug("Field::AddResources: resource {} first try getting positions", symbol);
+    std::vector<position_t> positions = GetAllInRange(start_pos, 4, 2, true);
+    if (positions.size() == 0) {
+      spdlog::get(LOGGER)->debug("Field::AddResources: resource {} second try getting positions", symbol);
+      positions = GetAllInRange(start_pos, 5, 3, true);
     }
+    position_t pos = positions[ran_gen_->RandomInt(0, positions.size()-1)];
+    spdlog::get(LOGGER)->debug("Field::AddResources: got position {}", utils::PositionToString(pos));
     field_[pos.first][pos.second] = symbol;
+    resource_positions.push_back(pos);
   }
   spdlog::get(LOGGER)->debug("Field::AddResources: done");
+  return resource_positions;
 }
 
 void Field::BuildGraph(position_t player_den, position_t enemy_den) {
@@ -285,19 +290,6 @@ bool Field::InRange(position_t pos, int range, position_t start) {
   return utils::Dist(pos, start) <= range;
 }
 
-position_t Field::GetSelected(char replace, int num) {
-  int counter = int('a')-1;
-  for (int l=0; l<lines_; l++) {
-    for (int c=0; c<cols_; c++) {
-      if (field_[l][c].front() == replace)
-        counter++;
-      if (counter == num)
-        return {l, c};
-    }
-  }
-  return {-1, -1};
-}
-
 bool Field::InField(int l, int c) {
   return (l >= 0 && l <= lines_ && c >= 0 && c <= cols_);
 }
@@ -312,8 +304,8 @@ position_t Field::FindFree(int l, int c, int min, int max) {
   return positions[ran_gen_->RandomInt(0, positions.size())];
 }
 
-bool Field::IsFree(position_t pos) {
-  return field_[pos.first][pos.second] == SYMBOL_FREE;
+std::string Field::GetSymbolAtPos(position_t pos) const {
+  return field_[pos.first][pos.second];
 }
 
 int Field::GetXInRange(int x, int min, int max) {
@@ -357,7 +349,7 @@ std::vector<position_t> Field::GetAllCenterPositionsOfSections() {
   return positions;
 }
 
-std::vector<position_t> Field::GetAllPositionsOfSection(unsigned int interval) {
+std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval) {
   std::vector<position_t> positions;
   int l = (interval-1)%(SECTIONS/2)*(cols_/4);
   int c = (interval < (SECTIONS/2)+1) ? 0 : lines_/2;
