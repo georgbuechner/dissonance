@@ -61,11 +61,6 @@ std::string utils::PositionToString(position_t pos) {
   return std::to_string(pos.first) + "|" + std::to_string(pos.second);
 }
 
-int utils::GetRandomInt(int min, int max) {
-  int ran = min + (rand() % (max - min + 1)); 
-  return ran;
-}
-
 unsigned int utils::Mod(int n, int m) {
   return ((n%m)+m)%m;
 }

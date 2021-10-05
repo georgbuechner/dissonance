@@ -7,11 +7,12 @@
 #include "objects/units.h"
 #include "player/player.h"
 #include "utils/utils.h"
+#include "random/random.h"
 
 TEST_CASE("test_field", "[main]") {
   int lines = 100;
   int cols = 100;
-  Field* field = new Field(lines, cols);
+  Field* field = new Field(lines, cols, new RandomGenerator(), new RandomGenerator());
 
   SECTION("tests based on graph", "[main, graph]") {
     position_t start_pos = field->AddNucleus(8);
@@ -139,7 +140,7 @@ TEST_CASE("test_field", "[main]") {
   SECTION("test intervals centeres") {
     int lines = 50;
     int cols = 100;
-    Field* field = new Field(lines, cols);
+    Field* field = new Field(lines, cols, new RandomGenerator(), new RandomGenerator());
     auto positions= field->GetAllCenterPositionsOfSections();
     REQUIRE(positions.size() == 8);
     REQUIRE(std::find(positions.begin(), positions.end(), (position_t){12,12}) != positions.end());

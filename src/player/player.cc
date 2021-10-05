@@ -30,9 +30,9 @@
 #define FREE char(46)
 #define DEF 'T'
 
-Player::Player(position_t nucleus_pos, Field* field, Audio* audio) : cur_range_(4), resource_curve_(3) {
+Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen) : cur_range_(4), resource_curve_(3) {
   field_ = field;
-  audio_ = audio;
+  ran_gen_ = ran_gen;
 
   nucleus_ = Nucleus(nucleus_pos); 
   neurons_[nucleus_pos] = std::make_shared<Nucleus>(nucleus_);
@@ -173,13 +173,12 @@ std::vector<position_t> Player::GetAllPositionsOfNeurons(int type) {
   return positions;
 }
 
-position_t Player::GetRandomNeuron(std::vector<int> type) {
+position_t Player::GetRandomNeuron(std::vector<int>) {
   std::shared_lock sl(mutex_all_neurons_);
   // Get all positions at which there are activated neurons
   std::vector<position_t> activated_neuron_postions;
   for (const auto& it : neurons_)
-    if (std::find(type.begin(), type.end(), it.second->type_) != type.end())
-      activated_neuron_postions.push_back(it.first);
+    activated_neuron_postions.push_back(it.first);
   // If none return invalied position.
   if (activated_neuron_postions.size() == 0)
     return {-1, -1};
@@ -187,9 +186,7 @@ position_t Player::GetRandomNeuron(std::vector<int> type) {
   if (activated_neuron_postions.size() == 1)
     return activated_neuron_postions.front();
   // Otherwise, get random index and return position at index.
-  int ran = utils::GetRandomInt(0, activated_neuron_postions.size()-1);
-  if (audio_ != nullptr)
-    ran = audio_->RandomInt(0, activated_neuron_postions.size()-1);
+  int ran = ran_gen_->RandomInt(0, activated_neuron_postions.size()-1);
   return activated_neuron_postions[ran];
 }
 
@@ -333,9 +330,7 @@ bool Player::AddPotential(position_t synapes_pos, int unit) {
   
   // Create way.
   spdlog::get(LOGGER)->debug("Player::AddPotential: get way for potential.");
-  // TODO: Move calculating way to creating synapses/ chanding target.
-  synapse->UpdateIpspTargetIfNotSet(enemy_->GetRandomNeuron(
-        {UnitsTech::ACTIVATEDNEURON, UnitsTech::SYNAPSE, UnitsTech::NUCLEUS}));
+  synapse->UpdateIpspTargetIfNotSet(enemy_->GetRandomNeuron());
   auto way = field_->GetWayForSoldier(synapes_pos, synapse->GetWayPoints(unit));
 
   // Add potential.
