@@ -421,6 +421,7 @@ void Player::MovePotential(Player* enemy) {
     if (it.second.type_ == UnitsTech::EPSP) {
       if (it.second.way_.size() == 0) {
         enemy->AddPotentialToNeuron(it.second.pos_, it.second.potential_);
+        field_->AddBlink(it.second.pos_);
         potential_to_remove.push_back(it.first); // remove 
       }
     }
@@ -467,6 +468,7 @@ void Player::HandleDef(Player* enemy) {
         int distance = utils::Dist(neuron.first, potential.second.pos_);
         if (distance < 3) {
           enemy->NeutralizePotential(potential.first, neuron.second->potential_slowdown());
+          field_->AddBlink(potential.second.pos_);
           neuron.second->set_last_action(cur_time);  // neuron did action, so update last_action_.
           break;
         }
