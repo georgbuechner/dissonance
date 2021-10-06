@@ -555,7 +555,7 @@ void Game::DistributeIron() {
     int resource = resources_symbol_mapping.at(current_symbol);
 
     // Print texts (help, current resource info)
-    help = "You can distribute " + std::to_string(player_one_->resources().at(IRON).cur()) + " iron (FE).";
+    help = "Iron (FE): " + player_one_->resources().at(IRON).Print() + "";;
     PrintCentered(LINES/2-2, help);
     info = resources_name_mapping.at(resource) + ": FE" 
       + std::to_string(player_one_->resources().at(resource).distributed_iron())
@@ -589,24 +589,22 @@ void Game::DistributeIron() {
     char choice = getch();
 
     if (utils::IsDown(choice))
-      current = (current+1)%symbols.size();
-    else if (utils::IsUp(choice)) {
-      int n = current-1;
-      int m = symbols.size();
-      current = ((n%m)+m)%m;
+      current = utils::Mod(current+1, symbols.size());
+    else if (utils::IsUp(choice))
+      current = utils::Mod(current-1, symbols.size());
+    else if (choice == '+' || choice == '-') {
+      int resource = (resources_symbol_mapping.count(current_symbol) > 0) 
+        ? resources_symbol_mapping.at(current_symbol) : Resources::OXYGEN;
+      bool res = (choice == '+') ? player_one_->DistributeIron(resource) 
+        : player_one_->RemoveIron(resource);
+      if (res)
+        success = "Selected!";
+      else
+        error = "Not enough iron.";
     }
     else if (choice == 'q')
       end = true;
-    else if (std::to_string(choice) == "10") {
-      int resource = (resources_symbol_mapping.count(current_symbol) > 0) 
-        ? resources_symbol_mapping.at(current_symbol) : Resources::OXYGEN;
-      if (!player_one_->DistributeIron(resource))
-        error = "Not enough iron!";
-      else
-        success = "    Selected!    ";
-    }
-    if (player_one_->resources().at(IRON).cur() == 0)
-      end = true;
+
   }
   ClearField();
   pause_ = false;
