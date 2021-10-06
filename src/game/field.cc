@@ -7,6 +7,7 @@
 #include <exception>
 #include <iostream>
 #include <locale>
+#include <mutex>
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
@@ -72,6 +73,11 @@ void Field::set_range_center(position_t pos) {
 }
 void Field::set_replace(std::map<position_t, char> replacements) {
   replacements_ = replacements;
+}
+
+void Field::AddBlink(position_t blink_pos) {
+  std::unique_lock ul(mutex_field_);
+  blinks_.push_back(blink_pos);
 }
 
 position_t Field::AddNucleus(int section) {
@@ -246,6 +252,8 @@ void Field::PrintField(Player* player, Player* enemy) {
       // highlight -> magenta
       if (std::find(highlight_.begin(), highlight_.end(), cur) != highlight_.end())
         attron(COLOR_PAIR(COLOR_HIGHLIGHT));
+      else if (std::find(blinks_.begin(), blinks_.end(), cur) != blinks_.end())
+        attron(COLOR_PAIR(COLOR_HIGHLIGHT));
       // IPSP is on enemy neuron -> cyan.
       else if (player->IsNeuronBlocked(cur) || enemy->IsNeuronBlocked(cur))
           attron(COLOR_PAIR(COLOR_RESOURCES));
@@ -282,6 +290,7 @@ void Field::PrintField(Player* player, Player* enemy) {
       attron(COLOR_PAIR(COLOR_DEFAULT));
     }
   }
+  blinks_.clear();
 }
 
 bool Field::InRange(position_t pos, int range, position_t start) {

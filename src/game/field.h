@@ -37,6 +37,8 @@ class Field {
     void set_replace(std::map<position_t, char> replacements);
 
     // methods:
+    
+    void AddBlink(position_t pos);
 
     /**
      * Adds random natural barriers.
@@ -165,6 +167,7 @@ class Field {
     volatile int range_;
     position_t range_center_;
     std::map<position_t, char> replacements_;
+    std::vector<position_t> blinks_;
 
     // functions
 
