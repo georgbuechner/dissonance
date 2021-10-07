@@ -25,7 +25,6 @@ setup:
 	sudo cp build/bin/dissonance /usr/bin/
 
 install:
-	make audio
 	make build
 	make setup
 

@@ -141,7 +141,7 @@ class Player {
 
     /** 
      * Increases all resources by a the current boast*gain*negative-faktor.
-     * gain is calculated as: log((current-oxygen+0.5)/slowdown)
+     * gain is calculated as: `|log(current-oxygen+0.5)|`
      * @param[in] inc_iron 
      */
     void IncreaseResources(bool inc_iron);

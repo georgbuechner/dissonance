@@ -69,7 +69,7 @@ std::vector<std::string> Player::GetCurrentStatusLine() {
     "RESOURCES",
     "",
     "slowdown: ", std::to_string(resource_curve_), "",
-    "resources format: ", "[cur]+[bound]/[max]", "++[boast]", "",
+    "resources format: ", "[free]+[bound]/[limit]", "++[boost]", "",
     "Iron " SYMBOL_IRON + end, resources_.at(IRON).Print(), "",
     "oxygen: ", resources_.at(OXYGEN).Print(),
       "+" + utils::Dtos(resources_.at(OXYGEN).distributed_iron()), "",
