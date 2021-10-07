@@ -53,12 +53,17 @@ cd into the project
 cd fast_bsg
 ```
 
-And then you can simply install by running:
+Install aubio (for analysing sound):
+```
+make aubio
+```
+
+And then you can simply install by running (re-run this step for updates also):
 ```
 make install
 ```
 
-Installs `dissonance` system wide and create `.dissonance` in the home folder to
+These steps install `dissonance` system wide and create `.dissonance` in the home folder to
 store settings and analysed musical data.
 
 ### Usage
@@ -73,26 +78,46 @@ two identical songs will no longer produce an identical map and experience.
 ### Game Details 
 
 #### Resources 
-- ideal distribute oxygen to resources to increase resource-gain.
+Resources all follow a certain strucure: 
+- `free`: currently availible units of resource.
+- `bound`: units bound in certain cells. In case of iron: iron distribute to resources.
+- `limit`: max resource limit. 
+- `boost`: distributed iron to this resource.
 
-| name        | group   | description   | production | effect |
-|:-----------:|:-------:|---------------| ------ | ----- |
-| FE (iron)   | Resources| metalloprotein | automatic income every 30sec (random factor) | used for gaining O2; when converted Hemoglobin, allows gaining new resources. |
-| O2 (oxygen) | Resources/ Production | ---| increases by amount of FE2 (iron) invested. | used for production; increases gain of other resources. |
-| K (potassium) y | Attack | --- | If K production is activated by Hemoglobin, automatically gained depending on O2 level | used to generate EPSP |
-| KCI (chloride) y | Attack | --- | If KCI production is activated by Hemoglobin, automatically gained depending on O2 level | used to generate IPSP |
-| Glu (glutamate) | Defence | --- | If Glu production is activated by Hemoglobin, automatically gained depending on O2 level | used to activate neuron |
-| DA (dopamine) | Tech | --- | If Da production is activated by Hemoglobin, automatically gained depending on O2 level | used to gain advanced technologies |
-| 5-HT (serotonin) | Tech | --- | If 5-HT production is activated by Hemoglobin, automatically gained depending on O2 level | used to gain advanced technologies |
+The gain of resources is detrminded by the amounty of iron distributed to a
+resource, the current oxygen and how close the resource is to it's limit. Iron
+basically follows the same system, only that it has a constant boost factor and
+is only generated when certain notes are played. (More accuarly when in a
+certain frame only notes outside of the key where played: high dissonance).
+In addition, the slowdown faktor reduces the current gain, this provides the
+option to reduce the slowdown curve with technologies.
+
+Formular: `(boost * gain * negative-faktor)/slowdown`  
+where...
+- ...boost is calculated with `1 + boast/10`
+- ...gain is calculated with `|log(current-oxygen+0.5)|`
+- ...negative-factor is calculated with `1 - (free+bound)/limit`
+
+
+| name        | group   |
+|:-----------:|:-------:|
+| &#03B6; iron (FE) | Resources |
+| &#03B8; oxygen (O2) | Resources/ Production |
+| &#03BA; potassium (K) | Attack | 
+| &#03B3; chloride (KCI) | Attack |
+| &#03B7; glutamate (Glu) | Defence |
+| &#03B4; dopamine (DA) | Technologies | 
+| &#03C3; serotonin (5-HT) | Technologies |
 -------------------------------------
 
 #### Neurons and Transmitters
 | name            | group   | description   | costs   | effect |
 |:---------------:|:-------:|---------------| ------- | ------ |
-| Activated Neuron | Defence/ Neuron | Activates a cell, creating a defensive layer. | O2, Glu | reduces activity of incomming EPSP or IPSP. |
-| Synapse         | Attack/ Neuron  | Creates potential (EPSP, IPSP) | O2, K/ KCI | Creates either EPSP or IPSP, determines direction of potential. |
-| EPSP            | Attack/ potential | Potential traveling to enemy neurons | K | weakens buildings (Nucleus, Synapses or NMDA-receptors) greatly, lowers potential of the first enemy potential met. |
-| IPSP            | Attack/ potential | Potential traveling to enemy neurons | K, KCI | weakens buildings (Nucleus, Synapses or NMDA-receptors) slightly, knocks first enemy potential met. |
+| &#1455B; Nucleus | --- | Nucleus from which everything is controlled | 02, Glu, K, KCI, Da, 5-HT | Provides a basic range in which neurons can be controller | 
+| &#0398; Activated Neuron | Defence/ Neuron | Activates a cell, creating a defensive layer. | O2, Glu | reduces activity of incomming EPSP or IPSP. |
+| &#0394; Synapse         | Attack/ Neuron  | Creates potential (EPSP, IPSP) | O2, K | Creates either EPSP or IPSP, determines direction of potential. |
+| [1..9] EPSP            | Attack/ potential | Potential traveling to enemy neurons | K | weakens buildings (Nucleus, Synapses or NMDA-receptors) greatly, lowers potential of the first enemy potential met. |
+| [a..z] IPSP            | Attack/ potential | Potential traveling to enemy neurons | K, KCI | blocks neurons, and resources and weeks enemies potential. |
 
 
 #### Tech
