@@ -47,6 +47,7 @@ struct AudioData {
   float average_level_;
   std::string key_;
   std::map<int, Interval> intervals_;
+  int max_peak_;
 };
 
 class Audio {

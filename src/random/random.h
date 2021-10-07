@@ -52,12 +52,13 @@ class RandomGenerator {
      */
     size_t ran_boolean_minor_interval(size_t min, size_t max);
 
-    size_t ran_level_based(size_t min, size_t max);
+    size_t ran_level_peaks(size_t min, size_t max);
 
   private:
     // member
     AudioData analysed_data_;
     size_t last_point_;
+    std::vector<int> peaks_;
     size_t(RandomGenerator::*get_ran_)(size_t min, size_t max);
 
     // functions:

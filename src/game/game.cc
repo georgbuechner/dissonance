@@ -10,6 +10,7 @@
 #include <map>
 #include <mutex>
 #include <shared_mutex>
+#include <stdexcept>
 #include <string>
 #include <time.h>
 #include <thread>
@@ -22,8 +23,7 @@
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 
-#define LINE_HELP 8
-#define LINE_STATUS LINES-9
+#define LINE_HELP 13 
 
 #define RESOURCE_UPDATE_FREQUENCY 500
 #define UPDATE_FREQUENCY 50
@@ -87,20 +87,39 @@ void Game::play() {
   audio_.set_source_path(source_path);
   audio_.Analyze();
 
-  // Build fields
+  // Build field.
   RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
-  RandomGenerator* map_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_boolean_minor_interval);
-  field_ = new Field(lines_, cols_, ran_gen, map_gen, left_border_);
-  field_->AddHills(audio_.analysed_data().intervals_.begin()->second.darkness_);
-  int player_one_section = (int)audio_.analysed_data().average_bpm_%8+1;
-  int player_two_section = (int)audio_.analysed_data().average_level_%8+1;
-  if (player_one_section == player_two_section)
-    player_two_section = (player_two_section+1)%8;
-  position_t nucleus_pos_1 = field_->AddNucleus(player_one_section);
-  position_t nucleus_pos_2 = field_->AddNucleus(player_two_section);
-  field_->BuildGraph(nucleus_pos_1, nucleus_pos_2);
-  auto resource_positions_1 = field_->AddResources(nucleus_pos_1);
-  auto resource_positions_2 = field_->AddResources(nucleus_pos_2);
+  RandomGenerator* map_1 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_boolean_minor_interval);
+  RandomGenerator* map_2 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_level_peaks);
+  position_t nucleus_pos_1;
+  position_t nucleus_pos_2;
+  std::vector<position_t> resource_positions_1;
+  std::vector<position_t> resource_positions_2;
+  int denceness = 0;
+  bool setup = false;
+  spdlog::get(LOGGER)->info("Game::Play: creating map {} {} ", setup, denceness);
+  while (!setup && denceness < 4) {
+    spdlog::get(LOGGER)->info("Game::Play: creating map try: {}", denceness);
+
+    field_ = new Field(lines_, cols_, ran_gen, left_border_);
+    field_->AddHills(map_1, map_2, denceness++);
+    int player_one_section = (int)audio_.analysed_data().average_bpm_%8+1;
+    int player_two_section = (int)audio_.analysed_data().average_level_%8+1;
+    if (player_one_section == player_two_section)
+      player_two_section = (player_two_section+1)%8;
+    nucleus_pos_1 = field_->AddNucleus(player_one_section);
+    nucleus_pos_2 = field_->AddNucleus(player_two_section);
+    try {
+      field_->BuildGraph(nucleus_pos_1, nucleus_pos_2);
+      setup = true;
+    } catch (std::logic_error& e) {
+      spdlog::get(LOGGER)->warn("Game::play: graph could not be build: {}", e.what());
+      field_ = NULL;
+      continue;
+    }
+    resource_positions_1 = field_->AddResources(nucleus_pos_1);
+    resource_positions_2 = field_->AddResources(nucleus_pos_2);
+  }
 
   // Setup players.
   player_one_ = new Player(nucleus_pos_1, field_, ran_gen);
@@ -161,6 +180,7 @@ void Game::RenderField() {
     
       off_notes = audio_.MoreOffNotes(data_at_beat);
       data_per_beat.pop_front();
+      played_levels_.push_back(audio_.analysed_data().average_level_-data_at_beat.level_);
     }
 
     if (player_two_->HasLost() || player_one_->HasLost() || data_per_beat.size() == 0) {
@@ -536,7 +556,7 @@ void Game::DistributeIron() {
   ClearField();
   bool end = false;
   // Get iron and print options.
-  PrintCentered(LINES/2-1, "(use 'q' to quit, ENTER to select and h/l or ←/→ to circle through resources)");
+  PrintCentered(LINES/2-1, "(use 'q' to quit, +/- to add/remove iron and h/l or ←/→ to circle through resources)");
   std::vector<std::string> symbols = {"O", SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, SYMBOL_GLUTAMATE, 
     SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};
   position_t c = {LINES/2, COLS/2};
@@ -669,8 +689,8 @@ void Game::PrintMessage(std::string msg, bool error) {
     attron(COLOR_PAIR(COLOR_MSG));
   std::unique_lock ul(mutex_print_field_);
   std::string clear_string(COLS, ' ');
-  mvaddstr(lines_+11, 0, clear_string.c_str());
-  mvaddstr(lines_+11, left_border_, msg.c_str());
+  mvaddstr(lines_+16, 0, clear_string.c_str());
+  mvaddstr(lines_+16, left_border_, msg.c_str());
   attron(COLOR_PAIR(COLOR_DEFAULT));
   refresh();
 }
@@ -683,17 +703,37 @@ void Game::PrintFieldAndStatus() {
   
   auto lines = player_one_->GetCurrentStatusLine();
   for (unsigned int i=0; i<lines.size(); i++) {
-    mvaddstr(10+i, left_border_ + cols_*2 + 1, lines[i].c_str());
+    mvaddstr(15+i, left_border_ + cols_*2 + 1, lines[i].c_str());
   }
 
+  PrintCentered(1, "DISSONANCE");
   std::string msg = "Enemy potential: (" + player_two_->GetNucleusLive() + ")";
   PrintCentered(2, msg.c_str());
-  msg = "Enemy " + player_two_->GetCurrentResources();
-  PrintCentered(3, msg.c_str());
-  msg = "Enemy technologies: ";
-  for (const auto& it : player_two_->technologies()) 
-    msg += std::to_string(it.first) + ": " + std::to_string(it.second.first) + ", ";
-  PrintCentered(4, msg.c_str());
+
+  // Clear music bar.
+  std::string clear_string(COLS, ' ');
+  for (int i=4; i<13; i++)
+    mvaddstr(i, 0, clear_string.c_str());
+  // Print music bar.
+  auto played_levels = played_levels_;
+  int played_levels_len = played_levels.size();
+  if (played_levels_len > cols_)
+    played_levels = utils::SliceVector(played_levels, played_levels_len-cols_, cols_);
+  double percent_played = static_cast<double>(played_levels_len*100)/audio_.analysed_data().data_per_beat_.size();
+  if (percent_played < 50)
+    attron(COLOR_PAIR(COLOR_MSG));
+  else if (percent_played < 80)
+    attron(COLOR_PAIR(COLOR_AVAILIBLE));
+  else
+    attron(COLOR_PAIR(COLOR_ERROR));
+  for (unsigned int i=0; i<played_levels.size(); i++) {
+    int level = (played_levels[i]*4)/audio_.analysed_data().max_peak_;
+    if (level > 4) level = 4;
+    if (level < -4) level = -4;
+    mvaddstr(8+level, left_border_+cols_/2+i, "-");
+  }
+  attron(COLOR_DEFAULT);
+  
   refresh();
 }
 
@@ -893,6 +933,7 @@ std::string Game::InputString(std::string msg) {
   ClearField();
   PrintCentered(LINES/2, msg.c_str());
   echo();
+  curs_set(1);
   std::string input;
   int ch = getch();
   while (ch != '\n') {
@@ -900,5 +941,6 @@ std::string Game::InputString(std::string msg) {
     ch = getch();
   }
   noecho();
+  curs_set(0);
   return input;
 }

@@ -37,9 +37,9 @@ current voltage level determines how fast technologies are researched.
 ### Requirements 
 - gcc/11.1.0 (availible in most package manegers)  
 - conan (f.e. `pip install conan`)
-You might also need to install the following media libraries to play audio which
-is not in `.wav` format: 
-- [libav](https://libav.org/) (Ubuntu: ```sudo apt install libavlibav-tools```, Arch Linux: ```yay -S gst-libav```)
+
+You might also need to install some media libraries to play audio which is not in `.wav` 
+format. For this please refere the aubio page.  - [aubio](https://aubio.org/manual/latest/installing.html#external-libraries) 
 
 ### Installation
 

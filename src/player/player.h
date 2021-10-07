@@ -28,6 +28,7 @@ using namespace costs;
 #define COLOR_MSG 4
 #define COLOR_SUCCESS 5
 #define COLOR_MARKED 6
+#define COLOR_PROGRESS 7
 
 typedef std::map<size_t, std::pair<std::string, int>> choice_mapping_t;
 typedef std::pair<int, int> position_t;
