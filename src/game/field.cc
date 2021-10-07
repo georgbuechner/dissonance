@@ -32,11 +32,10 @@
 #define SECTIONS 8
 
 
-Field::Field(int lines, int cols, RandomGenerator* ran_gen, RandomGenerator* map_gen, int left_border) {
+Field::Field(int lines, int cols, RandomGenerator* ran_gen, int left_border) {
   lines_ = lines;
   cols_ = cols;
   ran_gen_ = ran_gen;
-  map_gen_ = map_gen;
   left_border_ = left_border;
 
   // initialize empty field.
@@ -136,15 +135,25 @@ void Field::BuildGraph(position_t player_den, position_t enemy_den) {
   // Remove all nodes not in main circle
   graph_.RemoveInvalid(player_den);
   if (graph_.nodes().count(enemy_den) == 0)
-    throw "Invalid world.";
+    throw std::logic_error("Invalid world.");
 }
 
-void Field::AddHills(unsigned short denceness) {
-  spdlog::get(LOGGER)->debug("Field::AddHills");
+void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned short denceness) {
+  spdlog::get(LOGGER)->debug("Field::AddHills: denceness={}", denceness);
+
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
-      if (map_gen_->RandomInt(0, 1) == 1)
+      if (gen_1->RandomInt(0, 1) == 1) {
+        spdlog::get(LOGGER)->info("Creating muntain");
         field_[l][c] = SYMBOL_HILL;
+        int level = gen_2->RandomInt(0, 5)-999;
+        if (level < 1)
+          continue;
+        spdlog::get(LOGGER)->info("Creating {} hills", level);
+        auto positions = GetAllInRange({l, c}, level - denceness, 1);
+        for (const auto& pos : positions)
+          field_[pos.first][pos.second] = SYMBOL_HILL;
+      }
     }
   }
   spdlog::get(LOGGER)->debug("Field::AddHills: done");
@@ -282,11 +291,11 @@ void Field::PrintField(Player* player, Player* enemy) {
       
       // Replace certain elements.
       if (replacements_.count(cur) > 0)
-        mvaddch(10+l, left_border_ + 2*c, replacements_.at(cur));
+        mvaddch(15+l, left_border_ + 2*c, replacements_.at(cur));
       else {
-        mvaddstr(10+l, left_border_ + 2*c, field[l][c].c_str());
+        mvaddstr(15+l, left_border_ + 2*c, field[l][c].c_str());
       }
-      mvaddch(10+l, left_border_ + 2*c+1, ' ' );
+      mvaddch(15+l, left_border_ + 2*c+1, ' ' );
       attron(COLOR_PAIR(COLOR_DEFAULT));
     }
   }

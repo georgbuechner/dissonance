@@ -23,7 +23,7 @@ class Field {
      * @param[in] lines availible lines.
      * @param[in] cols availible cols
      */
-    Field(int lines, int cols, RandomGenerator* ran_gen, RandomGenerator* map_gen_, int left_border=0);
+    Field(int lines, int cols, RandomGenerator* ran_gen, int left_border=0);
 
     // getter:
     int lines();
@@ -43,7 +43,7 @@ class Field {
     /**
      * Adds random natural barriers.
      */
-    void AddHills(unsigned short denceness=1);
+    void AddHills(RandomGenerator*, RandomGenerator*, unsigned short denceness=1);
 
     /** 
      * Adds resources ([G]old, [S]ilver, [B]ronze) near given position.
@@ -158,7 +158,6 @@ class Field {
     int lines_;
     int cols_;
     RandomGenerator* ran_gen_;
-    RandomGenerator* map_gen_;
     Graph graph_;
     std::vector<std::vector<std::string>> field_;
     std::shared_mutex mutex_field_;

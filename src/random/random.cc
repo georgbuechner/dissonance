@@ -2,8 +2,10 @@
 #include "audio/audio.h"
 #include "constants/codes.h"
 #include "spdlog/spdlog.h"
+#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
+#include <vector>
 
 #define LOGGER "logger"
 
@@ -16,6 +18,24 @@ RandomGenerator::RandomGenerator(AudioData analysed_data, size_t(RandomGenerator
   analysed_data_ = analysed_data;
   get_ran_ = generator;
   last_point_ = 0;
+
+  std::vector<int> cur;
+  int above = 0;
+  for (const auto& tp : analysed_data_.data_per_beat_) {
+    int level = tp.level_;
+    if (above == 1 && level <= analysed_data_.average_level_) {
+      peaks_.push_back(*std::max_element(cur.begin(), cur.end()));
+      cur.clear();
+    }
+    else if (above == -1 && level >= analysed_data_.average_level_) {
+      peaks_.push_back(*std::max_element(cur.begin(), cur.end()));
+      cur.clear();
+    }
+    if (level != analysed_data.average_level_) {
+        above = (level > analysed_data_.average_level_) ? 1 : 0;
+        cur.push_back(level - analysed_data_.average_level_);
+    }
+  }
 }
 
 int RandomGenerator::RandomInt(size_t min, size_t max) {
@@ -49,12 +69,14 @@ size_t RandomGenerator::ran_boolean_minor_interval(size_t min, size_t max) {
   return 0;
 }
 
-size_t RandomGenerator::ran_level_based(size_t min, size_t max) {
-  if (last_point_ == analysed_data_.data_per_beat_.size())
+size_t RandomGenerator::ran_level_peaks(size_t, size_t max) {
+  if (last_point_ == peaks_.size())
     last_point_ = 0;
-  auto it = analysed_data_.data_per_beat_.begin();
-  std::advance(it, last_point_++);
-  return 999 - analysed_data_.average_level_-it->level_;
+  size_t peak = peaks_[last_point_++];
+  // trim to max:
+  int n = *std::max_element(peaks_.begin(), peaks_.end());
+  int x = static_cast<double>(peak * max)/n;
+  return 999+x;
 }
 
 AudioDataTimePoint RandomGenerator::GetNextTimePointWithNotes() {

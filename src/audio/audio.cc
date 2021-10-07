@@ -50,6 +50,16 @@ void Audio::Analyze() {
   else 
     analysed_data_ = AnalyzeFile(source_path_);
 
+  spdlog::get(LOGGER)->info("Analyzing max peak");
+  int max = 0;
+  for (const auto& it : analysed_data_.data_per_beat_) {
+    int new_max = it.level_- analysed_data_.average_level_;
+    if (new_max > max)
+      max = new_max;
+  }
+  analysed_data_.max_peak_ = max;
+  spdlog::get(LOGGER)->info("Done");
+
   // Create analysed_data.
   // Add information on keys
   CreateLevels(8);
@@ -89,6 +99,7 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
   float average_bpm = 0.0f;
   float average_level = 0.0f;
   std::vector<Note> last_notes;
+  std::vector<int> last_levels;
   do {
     // Put some fresh data in input vector
     aubio_source_do(source, in, &read);
@@ -97,11 +108,13 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
     aubio_notes_do(notes_obj, in, out_notes);
     if (out_notes->data[0] != 0)
       last_notes.push_back(ConvertMidiToNote(out_notes->data[0]));
+    last_levels.push_back(100-(-1*aubio_level_detection(in, -90.)));
 
     // do something with the beats
     if (out->data[0] != 0) {
       // Get current level and bpm
-      int level = 100-(-1*aubio_level_detection(in, -90.));
+      int level = std::accumulate(last_levels.begin(), last_levels.end(), 0.0)/last_levels.size();
+      last_levels.clear();
       int bpm = aubio_tempo_get_bpm(bpm_obj);
       average_bpm += bpm;
       average_level += level;

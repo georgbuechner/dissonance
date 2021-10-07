@@ -80,6 +80,7 @@ int main(int argc, const char** argv) {
   initscr();
   cbreak();
   noecho();
+  curs_set(0);
   keypad(stdscr, true);
   clear();
   

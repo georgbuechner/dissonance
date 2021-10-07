@@ -40,14 +40,33 @@ def run(boast, seconds, limit, curve, data):
         analysis = {}
         with open(data, "r") as data:
             analysis = json.load(data)
-        bpm = analysis["bpms"]
-        levels = analysis["levels"]
-        avarage_level = analysis["average_level"]
-        avarage_bpm = analysis["average_bpm"]
-        plt.plot(bpm, label="bpm")
-        plt.plot([avarage_bpm]*len(bpm), label="average bpm")
+        # bpm = analysis["bpms"]
+        # avarage_bpm = analysis["average_bpm"]
+        # plt.plot(bpm, label="bpm")
+        # plt.plot([avarage_bpm]*len(bpm), label="average bpm")
+        average_level = analysis["average_level"]
+        levels = []
+        bpms = []
+        peaks = []
+        above = 0
+        cur = []
+        for tp in analysis['time_points']:
+            bpms.append(tp['bpm'])
+            l = tp['level']
+            levels.append(l)
+            if above == 1 and l <= average_level:
+                peaks += [max(cur)]*len(cur)
+                cur = []
+            elif above == -1 and l >= average_level:
+                peaks += [min(cur)]*len(cur)
+                cur = []
+            if l != average_level:
+                above = 1 if l > average_level else -1
+                cur.append(l - average_level)
+
         plt.plot(levels, label="level")
-        plt.plot([avarage_level]*len(levels), label="average level")
+        plt.plot(peaks, label="peaks")
+        plt.plot([average_level]*len(levels), label="average level")
 
     plt.legend()
     plt.show()

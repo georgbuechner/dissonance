@@ -48,6 +48,8 @@ class Game {
 
     int difficulty_;
 
+    std::vector<int> played_levels_;
+
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
 
     /**
