@@ -83,5 +83,4 @@ TEST_CASE("erase from vector", "") {
   vec.erase(vec.begin());
   REQUIRE(vec.size() == size-1);
   REQUIRE(vec.front() == 2);
-
 }
