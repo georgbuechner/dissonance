@@ -61,7 +61,7 @@ Game::Game(int lines, int cols, int left_border, std::string base_path)
 void Game::play() {
   spdlog::get(LOGGER)->info("Started game with {}, {}, {}, {}", lines_, cols_, LINES, COLS);
 
-  if (LINES < lines_+20 || COLS < (cols_*2)+40) { //|| lines_ < 25 || cols_ < 40) {
+  if (LINES < lines_+20 || COLS < (cols_*2)+40) { 
     texts::paragraphs_t paragraphs = {{
         {"Your terminal size is to small to play the game properly."},
         {"Expected width: " + std::to_string(cols_*2+50) + ", actual: " + std::to_string(COLS)},
@@ -378,7 +378,8 @@ void Game::GetPlayerChoice() {
       spdlog::get(LOGGER)->debug("Game::AddNucleus");
       auto num_nucleus = player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS).size();
       spdlog::get(LOGGER)->debug("Game::AddNucleus: current num of nucleus: {}", num_nucleus);
-      std::string res = CheckMissingResources(player_one_->GetMissingResources(UnitsTech::NUCLEUS,num_nucleus));
+      std::string res = CheckMissingResources(
+          player_one_->GetMissingResources(UnitsTech::NUCLEUS, num_nucleus));
       spdlog::get(LOGGER)->debug("Game::AddNucleus: missing resources: {}", res);
       if (res != "") 
         PrintMessage(res, true);
@@ -405,7 +406,7 @@ void Game::GetPlayerChoice() {
         mapping[it.first-UnitsTech::IPSP] = {units_tech_mapping.at(it.first) 
           + " (" + utils::PositionToString(it.second) + ")", color};
       }
-      int technology = SelectInteger("Select technology", true, mapping, {3, 6, 9, 11})
+      int technology = SelectInteger("Select technology", true, mapping, {3, 5, 8, 10})
         +UnitsTech::IPSP;
       if (player_one_->AddTechnology(technology))
         PrintMessage("selected: " + units_tech_mapping.at(technology), false);

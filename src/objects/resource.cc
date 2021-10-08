@@ -52,7 +52,7 @@ std::string Resource::Print() const {
   return utils::Dtos(cur()) + "+" + utils::Dtos(bound_) + "/" + utils::Dtos(limit_);
 }
 
-void Resource::IncreaseResource(double gain, int slowdown) {
+void Resource::IncreaseResource(double gain, double slowdown) {
   auto calc_boast = [](int boast) -> double { return 1+static_cast<double>(boast)/10; };
   auto calc_negative_factor = [](double cur, double max) -> double { return 1-cur/max; };
   double val = (calc_boast(distributed_iron_) * ((false) ? 1 : gain) * calc_negative_factor(free_+bound_, limit_))/slowdown;

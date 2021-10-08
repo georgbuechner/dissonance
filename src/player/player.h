@@ -252,7 +252,7 @@ class Player {
     int cur_range_;
 
     std::map<int, Resource> resources_;
-    int resource_curve_;
+    double resource_slowdown_;
 
     std::shared_mutex mutex_resources_;
 

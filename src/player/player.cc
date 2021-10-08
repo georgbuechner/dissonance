@@ -31,7 +31,7 @@
 #define FREE char(46)
 #define DEF 'T'
 
-Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen) : cur_range_(4), resource_curve_(3) {
+Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen) : cur_range_(4), resource_slowdown_(3) {
   field_ = field;
   ran_gen_ = ran_gen;
 
@@ -50,9 +50,8 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen) :
     {UnitsTech::WAY, {0,3}},
     {UnitsTech::SWARM, {0,3}},
     {UnitsTech::TARGET, {0,2}},
-    {UnitsTech::TOTAL_OXYGEN, {0,3}},
     {UnitsTech::TOTAL_RESOURCE, {0,3}},
-    {UnitsTech::CURVE, {0,2}},
+    {UnitsTech::CURVE, {0,3}},
     {UnitsTech::ATK_POTENIAL, {0,3}},
     {UnitsTech::ATK_SPEED, {0,3}},
     {UnitsTech::ATK_DURATION, {0,3}},
@@ -68,7 +67,7 @@ std::vector<std::string> Player::GetCurrentStatusLine() {
   return { 
     "RESOURCES",
     "",
-    "slowdown: ", std::to_string(resource_curve_), "",
+    "slowdown: ", std::to_string(resource_slowdown_), "",
     "resources format: ", "[free]+[bound]/[limit]", "++[boost]", "",
     "Iron " SYMBOL_IRON + end, resources_.at(IRON).Print(), "",
     "oxygen: ", resources_.at(OXYGEN).Print(),
@@ -230,7 +229,7 @@ void Player::IncreaseResources(bool inc_iron) {
   for (auto& it : resources_) {
     // Inc only if min 2 iron is distributed, inc iron only depending on audio.
     if (it.second.Active() && !it.second.blocked() && (it.first != IRON || inc_iron))  
-      it.second.IncreaseResource(gain, resource_curve_);
+      it.second.IncreaseResource(gain, resource_slowdown_);
   }
 }
 
@@ -396,8 +395,12 @@ bool Player::AddTechnology(int technology) {
     UpdateResourceLimits(0.2);
     ul_resources.lock();
   }
-  else if (technology == UnitsTech::CURVE)
-    resource_curve_--;
+  else if (technology == UnitsTech::CURVE) {
+    if (technologies_[technology].first == 3)
+      resource_slowdown_ = 0.5;
+    else 
+      resource_slowdown_--;
+  }
   else if (technology == UnitsTech::NUCLEUS_RANGE)
     cur_range_++;
   spdlog::get(LOGGER)->debug("Player::AddTechnology: success");
