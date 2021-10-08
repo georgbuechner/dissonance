@@ -49,7 +49,7 @@ class Resource {
      * Negative-faktor is calculated as: `1 - (cur+bound)/max` -> in range: [0..1]
      * TODO (fux): what to do with slowdown?
      */
-    void IncreaseResource(double gain, int slowdown);
+    void IncreaseResource(double gain, double slowdown);
 
   private:
     // members

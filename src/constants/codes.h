@@ -36,7 +36,6 @@ enum UnitsTech {
   WAY,
   SWARM,
   TARGET,
-  TOTAL_OXYGEN, 
   TOTAL_RESOURCE, 
   CURVE,
   ATK_POTENIAL,
@@ -127,24 +126,23 @@ const std::map<std::string, int> resources_symbol_mapping = {
 };
 
 const std::map<int, std::string> units_tech_mapping = {
-  {ACTIVATEDNEURON, "activated neuron"},
-  {RESOURCENEURON, "rersource neuron"},
+  {ACTIVATEDNEURON, "activated-neuron"},
+  {RESOURCENEURON, "rersource-neuron"},
   {SYNAPSE, "synapse"},
   {EPSP, "epsp"},
   {IPSP, "ipsp"},
   {NUCLEUS, "nucleus"},
   {WAY,"choose way"},
-  {SWARM,"swarm attacks"},
+  {SWARM,"swarm attack"},
   {TARGET,"choose target"},
-  {TOTAL_OXYGEN, "Increase total oxygen"},
-  {TOTAL_RESOURCE, "Increase total of one rersource"},
-  {CURVE, "lower rersource curve slowdown"},
-  {ATK_POTENIAL, "Increase potential"},
-  {ATK_SPEED, "Increase speed of potentials"},
-  {ATK_DURATION, "Increase ipsp duration"},
-  {DEF_POTENTIAL, "Increase potential of activated neuron"},
-  {DEF_SPEED, "Increase cooldown of activated neuron"},
-  {NUCLEUS_RANGE, "Increase range of nucleus"},
+  {TOTAL_RESOURCE, "increase rersource limits"},
+  {CURVE, "lower rersource slowdown"},
+  {ATK_POTENIAL, "increase epsp/ ipsp potential"},
+  {ATK_SPEED, "Increase epsp/ipsp speed"},
+  {ATK_DURATION, "increase ipsp duration"},
+  {DEF_POTENTIAL, "increase activated-neuron potential"},
+  {DEF_SPEED, "increase activated-neuron cooldown"},
+  {NUCLEUS_RANGE, "increase range of nucleus"},
 };
 
 #endif
