@@ -9,7 +9,10 @@ namespace texts {
   typedef std::vector<std::vector<std::string>> paragraphs_t;
   const paragraphs_t welcome = {
     {
-      "Welcome to DISSONANCE"
+      "Welcome to DISSONANCE",
+      "",
+      "This is a beta-version. Please report issues at:",
+      "https://github.com/georgbuechner/dissonance/issues"
     },
     {
       "Each player starts with a nucleus.",

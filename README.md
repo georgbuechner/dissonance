@@ -39,6 +39,16 @@ documentation.
 
 ### Installation
 
+#### Quick-quide:
+```
+git clone git@github.com:georgbuechner/dissonance.git
+cd dissonance
+make aubio
+make install
+```
+
+#### Detailed installation quide 
+
 Clone project: 
 ```
 git clone git@github.com:georgbuechner/dissonance.git
@@ -46,15 +56,23 @@ git clone git@github.com:georgbuechner/dissonance.git
 
 Now `cd` into the project
 ```
-cd fast_bsg
+cd dissonance
 ```
 
 Then install aubio (for analysing sound):
 ```
 make aubio
 ```
+In case you experience the error `/usr/bin/env: ‘python’: No such file or directory`:
+- Check if python is correctly installed. 
+- If python3 is install you may want to create a symlink with the following
+  command: `sudo ln -sf /usr/bin/python3 /usr/bin/python`
 
-Finally you can simply install by running:
+On MacOs: 
+- if you see `cp /usr/local/lib/libaubio.so.5: No such file or
+directory` you can ignore this. 
+
+Finally you install *dissonance* by running:
 ```c
 make install  // (re-run this step for updates also) 
 ```
