@@ -1,5 +1,5 @@
-audio:
-	mkdir deps
+aubio:
+	mkdir -p deps
 	# Install aubio
 	wget -O deps/aubio-0.4.7.tar.bz2 https://aubio.org/pub/aubio-0.4.7.tar.bz2
 	cd deps && tar xf aubio-0.4.7.tar.bz2
@@ -9,11 +9,8 @@ audio:
 
 build:
 	# Create build folder and install conan-dependencies.
-	rm -rf build
-	mkdir build
-	conan profile update settings.compiler.libcxx=libstdc++11 default
-	cd build && conan install ..
-	# Create deps folder and install other dependencies.
+	rm -rf build; mkdir build
+	cd build && conan install .. --build=missing -s compiler.libcxx=libstdc++11
 	# Build projekt
 	cd build && cmake ..
 	cd build && make
@@ -28,11 +25,16 @@ install:
 	make build
 	make setup
 
-uninstall: 
+uninstall_aubio:
 	cd deps/aubio-0.4.7 && ./waf uninstall
 	rm -rf deps/
 	sudo rm /usr/lib/libaubio.so.5
+
+uninstall_dissonance: 
 	sudo rm /usr/bin/dissonance
 	rm -rf build/
 	rm -rf ~/.dissonance
 
+uninstall:
+	make uninstall_aubio
+	make uninstall_dissonance
