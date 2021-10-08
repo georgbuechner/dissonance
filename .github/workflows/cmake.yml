@@ -20,21 +20,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
+    - name: install aubio
+      run: make aubio
     
     - name: install conan
       run: pip install conan
 
-    - name: Install dependencies
-      run: |
-        mkdir build
-        cd build 
-        conan install .. --build=missing -s compiler.libcxx=libstdc++11
-      
     - name: Build
-      run: |
-        cd build
-        cmake ..
-        make
+      run: make build
 
     - name: Test
       # Execute tests defined by the CMake configuration.  
