@@ -41,7 +41,7 @@ documentation.
 
 Clone project: 
 ```
-git clone git@github.com:georgbuechner/fast_bsg.git
+git clone git@github.com:georgbuechner/dissonance.git
 ```
 
 Now `cd` into the project

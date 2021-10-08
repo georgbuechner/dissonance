@@ -32,20 +32,17 @@ TEST_CASE("test createing intervals", "[main]") {
 TEST_CASE("test analysing audio", "[main]") {
   // Initialize audio
   Audio::Initialize();
+  Audio audio("dissonance");
 
   SECTION("test analysing wav-file") {
-    Audio audio("dissonance");
-    std::cout << "Created audio object" << std::endl;
     audio.set_source_path("dissonance/data/examples/hellwach.wav");
-    std::cout << "Set source path" << std::endl;
     audio.Analyze();
-    std::cout << "analysed_data" << std::endl;
     REQUIRE(audio.analysed_data().data_per_beat_.size() > 0);
   }
 
-  // SECTION("test analysing mp3-file") {
-  //   Audio audio("dissonance/data/examples/cirrus.mp3");
-  //   audio.Analyze();
-  //   REQUIRE(audio.analysed_data().data_per_beat_.size() > 0);
-  // }
+  SECTION("test analysing mp3-file") {
+    audio.set_source_path("dissonance/data/examples/cirrus.mp3");
+    audio.Analyze();
+    REQUIRE(audio.analysed_data().data_per_beat_.size() > 0);
+  }
 }
