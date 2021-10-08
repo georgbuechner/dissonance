@@ -47,8 +47,9 @@ void Audio::Analyze() {
   std::string out_path = GetOutPath(source_path_);
   if (std::filesystem::exists(out_path))
     analysed_data_ = Load(out_path);
-  else 
+  else  {
     analysed_data_ = AnalyzeFile(source_path_);
+  }
 
   spdlog::get(LOGGER)->info("Analyzing max peak");
   int max = 0;
@@ -66,6 +67,7 @@ void Audio::Analyze() {
 }
 
 AudioData Audio::AnalyzeFile(std::string source_path) {
+  spdlog::get(LOGGER)->debug("Audio::AnalyzeFile: starting analyses of {}", source_path); 
   std::list<AudioDataTimePoint> data_per_beat;
   uint_t samplerate = 0;
   uint_t win_size = 1024; // window size
