@@ -23,9 +23,10 @@ jobs:
 
     - name: install aubio
       run: |
-        sudo apt install ffmpeg
-        sudo apt-get install libavcodec-extra
-        make aubio
+        #sudo apt install ffmpeg
+        #sudo apt-get install libavcodec-extra
+        #make aubio
+        sudo apt install aubio-tools libaubio-dev libaubio-doc
     
     - name: install conan
       run: pip install conan
