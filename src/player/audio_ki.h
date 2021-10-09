@@ -10,7 +10,8 @@
 
 class AudioKi : public Player {
   public:
-    AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen);
+    AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen,
+        std::map<int, position_t> resource_positions);
 
     // getter 
     

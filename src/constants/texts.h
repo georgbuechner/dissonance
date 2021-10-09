@@ -15,25 +15,36 @@ namespace texts {
       "https://github.com/georgbuechner/dissonance/issues"
     },
     {
-      "Each player starts with a nucleus.",
-      "One nucleus has control over a few cells surrounding it.",
-      "By gathering different resources (iron, oxygen, potassium, ...) you can create Synapses to generate potential, advancing towards the enemies nucleus.",
-      "When a certain amount of potential has reached the enemies nucleus, your enemy is destroyed.",
-      "By activating cells you control, these cells can neutralize incoming potential."
+      "Welcome to DISSONANCE",
+      "",
+      "Several parts of the brain are in dissonance and started attacking each other",
+      "with strong potentials, aiming to destroy the others nucleus."
     },
     {
-      "You randomly gain iron every few seconds (the more the game advances the less iron you gain).",
-      "Iron can be used to activate the process of gathering new resources or to boost your oxygen production.",
-      "Depending on your current oxygen level, you gain more or less resources.",
-      "Oxygen is also needed to create Synapses or to activate sells for your defences. But be careful:",
-      "the more oxygen you spend on building advanced neurons (Synapses/ activated neurons) the less resources you gain per seconds!"
+      "Welcome to DISSONANCE",
+      "",
+      "Each player starts with a nucleus with control over a few cells surrounding it.",
+      "By gathering different resources (iron, oxygen, potassium, ...) you can create synapses to",
+      "generate potential, advancing towards the enemies nucleus. By activating cells",
+      "you control, these cells can neutralize incoming potential.",
+      "",
+      "You randomly gain iron every few seconds. Iron can be used to activate the process of",
+      "gathering new resources or to boost their production. But your resource production i",
+      "also dependent on your current oxygen level and on how close the resource is to its",
+      "limit. So be careful when building neurons: the more resources are bound i",
+      "neurons, the less resources you gain",
+      "",
+      "Once you started gaining dopamine and serotonin, you can develop advanced",
+      "technologies, allowing you to f.e. increase your resource limits or target specific enemy",
+      "neurons and hence destroy enemy synapses or activated neurons or even block the",
+      "enemies resource-production.",
+      "",
+      "Once you gained enough resources you can expand your control over the brain by",
+      "building more nucleus'. Use these, your build potential and the strategist",
+      "inside you to overcome dissonance in your favor!"
     },
     {
-      "Once you started gaining dopamine and serotonin, you can develop advanced technologies, allowing you f.e. to target specific enemy neurons and hence destroy enemy synapses or activated neurons.",
-      "Other technologies or advanced use of potentials are waiting for you...\n\n"
-    },
-    {
-      "When dissonance starts, remember you should boast oxygen and activate production of glutamate, to start defending yourself.",
+      "When dissonance starts, remember you should boost oxygen and activate production of glutamate, to start defending yourself.",
       "Also keep in mind, that there are two kinds of potential: ",
       "EPSP (strong in attack) and IPSP (blocks buildings); you should start with EPSP."
     }
@@ -43,7 +54,8 @@ namespace texts {
     {
       "##### HELP #####",
       "",
-      "--- COSTS (Potential/ Neurons) ----", 
+      "--- COSTS (potentials/ neurons) ----", 
+      "",
       "ACTIVATE NEURON: oxygen=8.9, glutamate=19.1",
       "SYNAPSE: oxygen=13.4, potassium=6.6",
       "EPSP: potassium=4.4",
@@ -52,30 +64,42 @@ namespace texts {
     {
       "##### HELP #####",
       "",
-      "--- COSTS (Potential/ Neurons) ----", 
-      "WAY (select way/ way-points for neurosn): dopamine=7.7",
-      "SWARM (launch swarm attacks +3): dopamine=9.9",
-      "TARGET (choose target: ipsp/ epsp): dopamine=6.5",
-      "TOTAL OXYGEN (max allowed oxygen bound+free): dopamine=7.5, serotonin=8.9",
-      "TOTAL RESOURCE (max allowed resources: each): dopamine=8.5, serotonin=7.9",
-      "CURVE (resource curve slowdown): dopamine=11.0, serotonin=11.2",
-      "POTENIAL (increases potential of ipsp/ epsp): dopamine=5.0, serotonin=11.2",
-      "SPEED (increases speed of ipsp/ epsp): dopamine=3.0, serotonin=11.2",
-      "DURATION (increases duration at target of ipsp): dopamine=2.5, serotonin=11.2)",
+      "--- COSTS (technologies) ----", 
+      "", 
+      "attack strategies:",
+      "WAY (select way/ way-points for neurons): iron=1, dopamine=17.7",
+      "SWARM (launch swarm attacks +3): iron=1, dopamine=19.9",
+      "TARGET (choose target: ipsp/ epsp): iron=1, dopamine=16.5",
+      "",
+      "resources:",
+      "TOTAL RESOURCE (max allowed resources: each): iron=1, dopamine=18.5, serotonin=17.9",
+      "SLOWDOWN (resource curve slowdown): iron=1, dopamine=21.0, serotonin=21.2",
+      "",
+      "potential-upgrade:",
+      "POTENIAL (increases potential of ipsp/ epsp): iron=1, potassium=10.0, dopamine=16.0, serotonin=11.2",
+      "SPEED (increases speed of ipsp/ epsp): iron=1, potassium=10.0, dopamine=19.0 serotonin=13.2",
+      "DURATION (increases duration of ipsp): iron=1, potassium=10.0, dopamine=17.5, serotonin=12.2",
+      "",
+      "activated-neuron upgrade",
+      "POTENIAL (increases potential of activated-neuron): iron=1, glutamate=15.9, dopamine=14.5, serotonin=17.6",
+      "SPEED (increases speed of activated-neuron): iron=1, glutamate=15.9, dopamine=16.5, serotonin=6.6",
+      "",
+      "expansion:",
+      "RANGE (increases range of nucleus): iron=1, dopamine=13.5, serotonin=17.9",
     },
     {
       "##### HELP #####",
       "",
       "--- TIPS ----", 
-      "Iron is used to boast oxygen production (1 iron per boast) or to start gaining new resources (2 iron per new resource).",
-      "Iron is gained in relation to you oxygen-level: you only gain iron if oxygen is below 10 and you may never have more than 3 iron at a time!",
+      "Iron is used for (boosting) resource production. At least 2 iron must be distributed to a resource, in order for production of this resource to start.",
       "",
-      "You should start investing into activate neurons to defend yourself: for this you need oxygen and glutamate.",
+      "You should start investing into activated neurons to defend yourself: for this you need oxygen and glutamate.",
       "",
       "To start building units, you first need to build a synapse.",
       "EPSP aims to destroy enemy buildings, while IPSP blocks buildings.",
       "",
-      "Also remember you gain resources from FREE oxygen. The more bound oxygen you have, then less resources you gain!"
+      "Also remember you gain less resources the more resources you have, so keep you resources low!",
+      "Finally: keep track of your bound resources, the more resources are bound, the less you gain!"
     }
   };
 }
