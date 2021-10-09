@@ -5,13 +5,11 @@ aubio:
 	cd deps && tar xf aubio-0.4.7.tar.bz2
 	cd deps/aubio-0.4.7 && ./waf configure build
 	cd deps/aubio-0.4.7 && sudo ./waf install
-	# sudo cp /usr/local/lib/libaubio.so.5 /usr/lib/
 
 build:
 	# Create build folder and install conan-dependencies.
 	rm -rf build; mkdir build
 	cd build && conan install .. --build=missing -s compiler.libcxx=libstdc++11
-	# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 	# Build projekt
 	cd build && cmake ..
 	cd build && make -j
@@ -20,7 +18,10 @@ setup:
 	mkdir -p ~/.dissonance
 	cp -r dissonance/. ~/.dissonance/
 	chmod +x build/bin/dissonance
-	sudo cp build/bin/dissonance /usr/bin/
+	sudo cp build/bin/dissonance /usr/bin/dissonance_bin
+	chmod +x dissonance.sh
+	sudo cp dissonance.sh /usr/bin/dissonance
+
 
 install:
 	make build -B
@@ -32,6 +33,7 @@ uninstall_aubio:
 	sudo rm /usr/lib/libaubio.so.5
 
 uninstall:
+	sudo rm /usr/bin/dissonance_bin
 	sudo rm /usr/bin/dissonance
 	rm -rf build/
 	rm -rf ~/.dissonance
