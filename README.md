@@ -7,7 +7,8 @@
 		- [Quick-guide](#quick-guide)
 		- [Detailed installation guide](#detailed-guide)
 	1. [Usage](#usage)
-	2. [Uninstall](#uninstall)
+	2. [Tests](#tests)
+	3. [Uninstall](#uninstall)
 4. [Game details](#game-details)
 	1. [Resources](#resources)
 	2. [Neurons and potential](#neurons-and-potential)
@@ -112,6 +113,16 @@ You can run `dissonance` with the `-r` option, to create the map based on your
 current terminal size. Doing this will however change the game experience and
 two identical songs will no longer produce an identical map and experience. 
 
+### Tests
+
+To run tests, run 
+```
+./build/bin/tests
+```
+
+You may have to run `export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib` to
+do so.
+
 ### Uninstall
 To uninstall `dissonance`, run:
 ```
@@ -122,7 +133,6 @@ If you installed *aubio* with make, you can uninstall, using:
 ```
 make uninstall_aubio
 ```
-
 
 ## Game Details 
 
