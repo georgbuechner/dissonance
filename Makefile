@@ -11,7 +11,7 @@ build:
 	# Create build folder and install conan-dependencies.
 	rm -rf build; mkdir build
 	cd build && conan install .. --build=missing -s compiler.libcxx=libstdc++11
-	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+	# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 	# Build projekt
 	cd build && cmake ..
 	cd build && make -j
