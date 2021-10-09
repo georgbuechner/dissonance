@@ -49,7 +49,7 @@ class Field {
      * Adds resources ([G]old, [S]ilver, [B]ronze) near given position.
      * @param start_pos position near which to create resources.
      */
-    std::vector<position_t> AddResources(position_t start_pos);
+    std::map<int, position_t> AddResources(position_t start_pos);
 
     /**
      * Adds position for player nucleus.

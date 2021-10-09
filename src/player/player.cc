@@ -31,20 +31,21 @@
 #define FREE char(46)
 #define DEF 'T'
 
-Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen) : cur_range_(4), resource_slowdown_(3) {
+Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, 
+    std::map<int, position_t> r_pos) : cur_range_(4), resource_slowdown_(3) {
   field_ = field;
   ran_gen_ = ran_gen;
 
   nucleus_ = Nucleus(nucleus_pos); 
   neurons_[nucleus_pos] = std::make_shared<Nucleus>(nucleus_);
   resources_ = {
-    { Resources::IRON, Resource(3, 22, 2, true)},  // max only 20 as iron should be rare.
-    { Resources::OXYGEN, Resource(5.5, 100, 0, false)}, 
-    { Resources::POTASSIUM, Resource(0, 100, 0, false)}, 
-    { Resources::CHLORIDE, Resource(0, 100, 0, false)}, 
-    { Resources::GLUTAMATE,Resource(0, 150, 0, false)}, // max 150: allows 7 activated neurons withput updates.
-    { Resources::DOPAMINE, Resource(0, 70, 0, false)}, // max low, dopamine is never bound.
-    { Resources::SEROTONIN, Resource(0, 70, 0, false)}, // max low, as serotonin is never bound.
+    { IRON, Resource(3, 22, 2, true, {-1, 1})},  // max only 20 as iron should be rare.
+    { OXYGEN, Resource(5.5, 100, 0, false, r_pos[OXYGEN])}, 
+    { POTASSIUM, Resource(0, 100, 0, false, r_pos[POTASSIUM])}, 
+    { CHLORIDE, Resource(0, 100, 0, false, r_pos[CHLORIDE])}, 
+    { GLUTAMATE,Resource(0, 150, 0, false, r_pos[GLUTAMATE])}, // max 150: initially allows 7 act. neurons 
+    { DOPAMINE, Resource(0, 70, 0, false, r_pos[DOPAMINE])}, // max low, dopamine is never bound.
+    { SEROTONIN, Resource(0, 70, 0, false, r_pos[SEROTONIN])}, // max low, as serotonin is never bound.
   };
   technologies_ = {
     {UnitsTech::WAY, {0,3}},
@@ -244,9 +245,14 @@ bool Player::DistributeIron(int resource) {
     spdlog::get(LOGGER)->info("Player::DistributeIron: not enough iron!");
     return false;
   }
+  int active_before = resources_.at(resource).Active();
   resources_.at(resource).set_distribited_iron(resources_.at(resource).distributed_iron()+1);
+  int active_after = resources_.at(resource).Active();
+  if (active_after && !active_before)
+    AddNeuron(resources_.at(resource).pos(), RESOURCENEURON);  // Add resource neuron.
   resources_.at(IRON).set_cur(resources_.at(IRON).cur() - 1);
   resources_.at(IRON).set_bound(resources_.at(IRON).bound() + 1);
+
   spdlog::get(LOGGER)->info("Player::DistributeIron: success!");
   return true;
 }
@@ -262,7 +268,11 @@ bool Player::RemoveIron(int resource) {
     spdlog::get(LOGGER)->error("Player::RemoveIron: no iron distributed to this resource!");
     return false;
   }
+  int active_before = resources_.at(resource).Active();
   resources_.at(resource).set_distribited_iron(resources_.at(resource).distributed_iron()-1);
+  int active_after = resources_.at(resource).Active();
+  if (!active_after && active_before)
+    AddPotentialToNeuron(resources_.at(resource).pos(), 100);  // Remove resource neuron.
   resources_.at(IRON).set_cur(resources_.at(IRON).cur() + 1);
   resources_.at(IRON).set_bound(resources_.at(IRON).bound() -1);
   spdlog::get(LOGGER)->info("Player::RemoveIron: success!");
