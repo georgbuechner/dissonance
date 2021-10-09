@@ -1,10 +1,14 @@
+# Variables 	
+	AUBIO_VERSION=0.4.9
+
+
 aubio:
 	mkdir -p deps
 	# Install aubio
-	wget -O deps/aubio-0.4.7.tar.bz2 https://aubio.org/pub/aubio-0.4.7.tar.bz2
-	cd deps && tar xf aubio-0.4.7.tar.bz2
-	cd deps/aubio-0.4.7 && ./waf configure build
-	cd deps/aubio-0.4.7 && sudo ./waf install
+	wget -O deps/aubio-$(AUBIO_VERSION).tar.bz2 https://aubio.org/pub/aubio-$(AUBIO_VERSION).tar.bz2
+	cd deps && tar xf aubio-$(AUBIO_VERSION).tar.bz2
+	cd deps/aubio-$(AUBIO_VERSION) && ./waf configure build
+	cd deps/aubio-$(AUBIO_VERSION) && sudo ./waf install
 
 build:
 	# Create build folder and install conan-dependencies.
@@ -28,9 +32,8 @@ install:
 	make setup
 
 uninstall_aubio:
-	cd deps/aubio-0.4.7 && ./waf uninstall
+	cd deps/aubio-$(AUBIO_VERSION) && ./waf uninstall
 	rm -rf deps/
-	sudo rm /usr/lib/libaubio.so.5
 
 uninstall:
 	sudo rm /usr/bin/dissonance_bin
