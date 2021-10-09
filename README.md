@@ -106,7 +106,7 @@ store settings and analysed musical data.
 
 ### Usage
 
-To play, simply run *dissonance* in you command line. 
+To play, simply run *dissonance* in your command line. 
 
 You can run `dissonance` with the `-r` option, to create the map based on your
 current terminal size. Doing this will however change the game experience and

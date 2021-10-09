@@ -5,12 +5,13 @@ aubio:
 	cd deps && tar xf aubio-0.4.7.tar.bz2
 	cd deps/aubio-0.4.7 && ./waf configure build
 	cd deps/aubio-0.4.7 && sudo ./waf install
-	sudo cp /usr/local/lib/libaubio.so.5 /usr/lib/
+	# sudo cp /usr/local/lib/libaubio.so.5 /usr/lib/
 
 build:
 	# Create build folder and install conan-dependencies.
 	rm -rf build; mkdir build
 	cd build && conan install .. --build=missing -s compiler.libcxx=libstdc++11
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 	# Build projekt
 	cd build && cmake ..
 	cd build && make -j
