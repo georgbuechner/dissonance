@@ -30,11 +30,8 @@ uninstall_aubio:
 	rm -rf deps/
 	sudo rm /usr/lib/libaubio.so.5
 
-uninstall_dissonance: 
+uninstall:
 	sudo rm /usr/bin/dissonance
 	rm -rf build/
 	rm -rf ~/.dissonance
 
-uninstall:
-	make uninstall_aubio
-	make uninstall_dissonance
