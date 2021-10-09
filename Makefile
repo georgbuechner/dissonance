@@ -2,7 +2,7 @@ aubio:
 	mkdir -p deps
 	# Install aubio
 	wget -O deps/aubio-0.4.7.tar.bz2 https://aubio.org/pub/aubio-0.4.7.tar.bz2
-	sudo ln -sf /usr/bin/python3 /usr/bin/python
+	# sudo ln -sf /usr/bin/python3 /usr/bin/python
 	cd deps && tar xf aubio-0.4.7.tar.bz2
 	cd deps/aubio-0.4.7 && ./waf configure build
 	cd deps/aubio-0.4.7 && sudo ./waf install
