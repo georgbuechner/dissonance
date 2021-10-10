@@ -391,7 +391,7 @@ void Game::GetPlayerChoice() {
     }
 
     // T: Technology
-    else if (choice == 'T') {
+    else if (choice == 't') {
       pause_ = true;
       choice_mapping_t mapping;
       for (const auto& it : player_one_->technologies()) {
@@ -412,7 +412,6 @@ void Game::GetPlayerChoice() {
     }
 
     else if (choice == 's') {
-
       auto all_synapse_position = player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE);
       if (all_synapse_position.size() == 0) {
         PrintMessage("You do not have any synapses yet. Use [S] to create one!", true);

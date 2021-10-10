@@ -59,7 +59,7 @@ class Player {
     void set_enemy(Player* enemy);
 
     // methods:
-    position_t GetPositionOfClosestNeuron(position_t pos, int unit) const;
+    position_t GetPositionOfClosestNeuron(position_t pos, int unit);
     std::string GetNucleusLive();
     
     /**
