@@ -413,7 +413,7 @@ bool Player::AddTechnology(int technology) {
   if (GetMissingResources(technology, technologies_[technology].first+1).size() > 0 
       || technologies_[technology].first == technologies_[technology].second)
     return false;
-  if (!TakeResources(technology, technologies_[technology].first+1))
+  if (!TakeResources(technology, false, technologies_[technology].first+1))
     return false;
  
   // Handle technology.
