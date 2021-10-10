@@ -9,6 +9,7 @@
 	1. [Usage](#usage)
 	2. [Tests](#tests)
 	3. [Uninstall](#uninstall)
+	4. [Known problems](#known-problems)
 4. [Game details](#game-details)
 	1. [Resources](#resources)
 	2. [Neurons and potential](#neurons-and-potential)
@@ -134,6 +135,13 @@ If you installed *aubio* with make, you can uninstall, using:
 make uninstall_aubio
 ```
 
+### Known problems
+
+#### Audio glitching/ noise on Arch Linux. 
+As the documentation of [miniaudio](https://miniaud.io/docs/manual/index.html) 
+correctly points out, these issues might be fixed by applying the fix mentioned
+in the arch-linux wiki: https://wiki.archlinux.org/title/PulseAudio/Troubleshooting#Glitches,_skips_or_crackling.
+
 ## Game Details 
 
 ### Resources 
@@ -160,23 +168,23 @@ Formula: `(boost * gain * negative-faktor)/slowdown` where...
 
 | name        | group   |
 |:-----------:|:-------:|
-| &#03B6; iron (FE) | Resources |
-| &#03B8; oxygen (O2) | Resources/ Production |
-| &#03BA; potassium (K) | Attack | 
-| &#03B3; chloride (KCI) | Attack |
-| &#03B7; glutamate (Glu) | Defence |
-| &#03B4; dopamine (DA) | Technologies | 
-| &#03C3; serotonin (5-HT) | Technologies |
+| iron (ζ) | Resources |
+| oxygen (ο) | Resources/ Production |
+| potassium (κ) | Attack | 
+| chloride (γ) | Attack |
+| glutamate (η) | Defence |
+| dopamine (δ) | Technologies | 
+| serotonin (σ) | Technologies |
 -------------------------------------
 
 ### Neurons and Potential
 | name            | group   | description   | costs   | 
 |:---------------:|:-------:|---------------| ------- |
-| &#1455B; nucleus | expansion | nucleus from which everything is controlled. | 02, Glu, K, KCI, Da, 5-HT |
-| &#0398; activated neuron | defence/ neuron | activates a cell, thus reducing the potential of incoming EPSP or IPSP. | O2, Glu | 
-| &#0394; Synapse         | attack/ neuron  | creates potential (epsp, ipsp). | O2, K | 
-| [1..9] epsp            | attack/ potential | potential traveling to enemy neurons, aiming to *destroy* these. | K | 
-| [a..z] ipsp            | attack/ potential | potential traveling to enemy neurons, aiming to *block* these or enemy epsp. | K, KCI | 
+| nucleus (Χ)     | expansion | nucleus from which everything is controlled. | ζ, ο, κ, γ, η, δ, σ |
+| activated neuron (Φ) | defence/ neuron | activates a cell, thus reducing the potential of incoming EPSP or IPSP. | ο, η | 
+| Synapse (Ξ)  | attack/ neuron  | creates potential (epsp, ipsp). | ο, κ | 
+| [1..9] epsp            | attack/ potential | potential traveling to enemy neurons, aiming to *destroy* these. | κ | 
+| [a..z] ipsp            | attack/ potential | potential traveling to enemy neurons, aiming to *block* these or enemy epsp. | κ, γ | 
 
 
 ### Technologies

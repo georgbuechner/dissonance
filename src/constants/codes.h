@@ -5,17 +5,18 @@
 #include <string>
 
 #define SYMBOL_HILL " "
-#define SYMBOL_DEN "\u1455B"
-#define SYMBOL_IRON "\u03B6" // alchemisches symbol für Eisenerz 
-#define SYMBOL_OXYGEN "\u03B8" // alchemisches symbol für Eisenerz 
-#define SYMBOL_POTASSIUM "\u03BA" // alchemisches symbol für kaliumtartrat
-#define SYMBOL_CHLORIDE "\u03B3" // alchemisches symbol für Ammoniumchlorid
-#define SYMBOL_GLUTAMATE "\u03B7" // alchemisches symbol für essig  (glutamate acid -> acid -> essig)
-#define SYMBOL_DOPAMINE "\u03B4" // alchemisches symbol für atimon-erz
-#define SYMBOL_SEROTONIN "\u03C3" // alchemisches symbol für atimon
+#define SYMBOL_DEN "\u03A7" // greek uppercase 'chi'
+#define SYMBOL_DEF "\u03A6"  // greek uppercase 'phi'
+#define SYMBOL_BARACK "\u039E" // greek uppercase 'xi'
+
+#define SYMBOL_IRON "\u03B6" // greek lowercase 'zeta' (from chemical symbol [F]e)
+#define SYMBOL_OXYGEN "\u03BF" // greek lowercase 'omicron'
+#define SYMBOL_POTASSIUM "\u03BA" // greek lowercase 'kappa' 
+#define SYMBOL_CHLORIDE "\u03B3" // greek lowercase 'gamma'
+#define SYMBOL_GLUTAMATE "\u03B7" // greek lowercase 'eta'
+#define SYMBOL_DOPAMINE "\u03B4" // greek lowercase 'delta'
+#define SYMBOL_SEROTONIN "\u03C3" // greek lowercase 'sigma
 #define SYMBOL_FREE "\u22C5" // simple dot.
-#define SYMBOL_DEF "\u0398"
-#define SYMBOL_BARACK "\u0394"
 #define SYMBOL_INFINITY "\u221E"
 
 

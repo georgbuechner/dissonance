@@ -267,6 +267,10 @@ void Field::PrintField(Player* player, Player* enemy) {
       // both players -> cyan
       else if (CheckCollidingPotentials(cur, player, enemy))
         attron(COLOR_PAIR(COLOR_RESOURCES));
+      // Resource
+      else if (enemy->GetNeuronTypeAtPosition(cur) == RESOURCENEURON 
+          || player->GetNeuronTypeAtPosition(cur) == RESOURCENEURON)
+        attron(COLOR_PAIR(COLOR_RESOURCES));
       // player 2 -> red
       else if (enemy->GetNeuronTypeAtPosition(cur) != -1 || enemy->GetPotentialIdIfPotential(cur) != "")
         attron(COLOR_PAIR(COLOR_PLAYER));
