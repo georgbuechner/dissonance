@@ -50,15 +50,16 @@ inside you to overcome dissonance in your favor!
 ## Installation 
 
 ### Requirements 
-- [gcc](https://gcc.gnu.org/) (available in most package managers)  
+- C++ compiler:  
+  Linux: [gcc](https://gcc.gnu.org/) (available in most package managers),   
+  MacOs: [clang](https://clang.llvm.org/) (available with `brew install clang`)  
 - [conan](https://conan.io/) (available most package managers, but also: `pip install conan`)
-- [aubio](https://github.com/aubio/aubio) 
+- [aubio](https://github.com/aubio/aubio)
 
 Aubio can be installed via some package managers:
 - Ubuntu: `sudo apt-get install aubio-tools libaubio-dev libaubio-doc`  
-- Max OS C: `brew install aubio --with-python`
-- Otherwise a `make aubio` step is included in this project, which should work on most 
-linux distros. 
+- All others (including MacOs) a `make aubio` step is included in this project, which should work on 
+MacOs and most linux distros. 
 - If none of the above is working for you, checkout the official aubio-download page: 
   https://aubio.org/download
 
@@ -70,9 +71,16 @@ format. For this please refer to the
 ### Installation<a name="install"></a>
 
 #### Quick-quide<a name="quick-guide"></a>
-```
+```python
 git clone git@github.com:georgbuechner/dissonance.git
 cd dissonance
+
+# ubuntu:
+sudo apt-get install aubio-tools libaubio-dev libaubio-doc
+
+# MacOs and other linux-distros:
+make aubio  
+
 make install
 ```
 
