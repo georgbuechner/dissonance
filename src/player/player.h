@@ -251,10 +251,10 @@ class Player {
     Player* enemy_;
     int cur_range_;
 
+    std::shared_mutex mutex_resources_;
     std::map<int, Resource> resources_;
     double resource_slowdown_;
 
-    std::shared_mutex mutex_resources_;
 
     std::shared_mutex mutex_nucleus_;
     Nucleus nucleus_;
