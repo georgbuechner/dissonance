@@ -8,11 +8,7 @@ conan_basic_setup()
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-<<<<<<< Updated upstream
 SET(CMAKE_CXX_FLAGS "-pthread -ldl -lm")
-=======
-SET(CMAKE_CXX_FLAGS "-laubio -Wall -pthread -ldl -lm -lncursesw")
->>>>>>> Stashed changes
 add_compile_options(-fdiagnostics-color=always)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)
 
