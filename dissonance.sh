@@ -1,2 +1,2 @@
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+export TERMINFO=$(whereis terminfo | awk '{print $2}')
 dissonance_bin

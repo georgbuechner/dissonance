@@ -19,28 +19,15 @@
 #define LOGGER "logger"
 #define ITERMAX 10000
 
-void UpdateTerminfo() {
-  std::array<char, 128> buffer;
-  std::string result = "";
-  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("whereis terminfo | awk '{print $2}'", "r"), pclose);
-  if (!pipe)
-    throw std::runtime_error("popen() failed!");
-  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
-    result += buffer.data();
-  setenv("TERMINFO", result.c_str(), 2);
-}
-
 int main(int argc, const char** argv) {
   // Command line arguments 
   bool relative_size = false;
-  bool dont_update_terminfo = false;
   bool show_help = false;
   std::string base_path = getenv("HOME");
   base_path += "/.dissonance/";
 
   auto cli = lyra::cli() 
     | lyra::opt(relative_size) ["-r"]["--relative-size"]("If set, adjusts map size to terminal size.")
-    | lyra::opt(dont_update_terminfo) ["-i"]["--no-terminfo"]("If set, terminfo is not updated.")
     | lyra::opt(base_path, "path to dissonance files") ["-p"]["--base-path"]("Set path to dissonance files (logs, settings, data)");
     
   cli.add_argument(lyra::help(show_help));
@@ -64,11 +51,6 @@ int main(int argc, const char** argv) {
   }
   else 
     spdlog::get(LOGGER)->info("using fixed size.");
-  // Update terminfo
-  if (!dont_update_terminfo) {
-    UpdateTerminfo();
-    spdlog::get(LOGGER)->debug("Updated terminfo");
-  }
 
   // Initialize audio
   Audio::Initialize();
