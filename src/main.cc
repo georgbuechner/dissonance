@@ -47,9 +47,10 @@ int main(int argc, const char** argv) {
   auto result = cli.parse({ argc, argv });
   
   // Logger 
-  auto logger = spdlog::basic_logger_mt("logger", base_path + "logs/basic-log.txt");
+  std::string logger_file = "logs/" + utils::GetFormatedDatetime() + "_logfile.txt";
+  auto logger = spdlog::basic_logger_mt("logger", base_path + logger_file);
   spdlog::flush_every(std::chrono::seconds(1));
-  spdlog::flush_on(spdlog::level::debug);
+  spdlog::flush_on(spdlog::level::info);
   spdlog::set_level(spdlog::level::debug);
 
   if (show_help) {

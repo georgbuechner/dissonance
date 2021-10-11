@@ -1,6 +1,8 @@
 #include "objects/resource.h"
+#include "objects/units.h"
 
-Resource::Resource(double init, unsigned int max, int distributed_iron, bool to_int) : to_int_(to_int) {
+Resource::Resource(double init, unsigned int max, int distributed_iron, bool to_int, position_t pos) 
+    : to_int_(to_int), pos_(pos) {
   free_ = init;
   limit_ = max;
   bound_ = 0;
@@ -23,6 +25,9 @@ unsigned int Resource::distributed_iron() const {
 }
 bool Resource::blocked() const {
   return blocked_;
+}
+position_t Resource::pos() const {
+  return pos_;
 }
 
 // setter 

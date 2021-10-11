@@ -2,6 +2,9 @@
 #include "objects/units.h"
 #include "utils/utils.h"
 #include <cstddef>
+#include <spdlog/spdlog.h>
+
+#define LOGGER "logger"
 
 // Neurons
 Neuron::Neuron() : Unit() {}
@@ -31,10 +34,10 @@ void Neuron::set_blocked(bool blocked) {
  * Increases voltage of neuron and returns whether neuron is destroyed.
  */
 bool Neuron::IncreaseVoltage(int potential) {
+  if (potential < 0)
+    return false;
   lp_ += potential;
-  if (lp_ >= max_lp_) 
-    return true;
-  return false;
+  return (lp_ >= max_lp_) ? true : false;
 }
 
 // Synapses ...
@@ -142,8 +145,10 @@ void ActivatedNeuron::set_last_action(std::chrono::time_point<std::chrono::stead
 
 // ResourceNeuron...
 ResourceNeuron::ResourceNeuron() : Neuron(), resource_(999) {}
-ResourceNeuron::ResourceNeuron(position_t pos, size_t resource) : Neuron(pos, 5, UnitsTech::RESOURCENEURON), 
-  resource_(resource) {}
+ResourceNeuron::ResourceNeuron(position_t pos, size_t resource) : Neuron(pos, 0, UnitsTech::RESOURCENEURON), 
+    resource_(resource) {
+  spdlog::get(LOGGER)->debug("ResourceNeuron::ResourceNeuron, type {}", UnitsTech::RESOURCENEURON);
+}
 
 // getter 
 size_t ResourceNeuron::resource() {
