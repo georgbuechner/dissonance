@@ -45,10 +45,12 @@ setup:
 	mkdir -p ~/.dissonance
 	cp -r dissonance/. ~/.dissonance/
 	chmod +x build/bin/dissonance
-	sudo cp build/bin/dissonance /usr/local/bin/
+	sudo cp build/bin/dissonance /usr/local/bin/dissonance_bin
+	chmod +x dissonance.sh
+	sudo cp dissonance.sh /usr/local/bin/dissonance
 
 install:
-	make build
+	make build -B
 	make setup
 
 uninstall_aubio:
@@ -56,6 +58,7 @@ uninstall_aubio:
 	rm -rf deps/
 
 uninstall_dissonance: 
+	sudo rm /usr/local/bin/dissonance
 	sudo rm /usr/local/bin/dissonance
 	rm -rf build/
 	rm -rf ~/.dissonance

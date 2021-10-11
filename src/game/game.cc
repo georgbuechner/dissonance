@@ -93,8 +93,8 @@ void Game::play() {
   RandomGenerator* map_2 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_level_peaks);
   position_t nucleus_pos_1;
   position_t nucleus_pos_2;
-  std::vector<position_t> resource_positions_1;
-  std::vector<position_t> resource_positions_2;
+  std::map<int, position_t> resource_positions_1;
+  std::map<int, position_t> resource_positions_2;
   int denceness = 0;
   bool setup = false;
   spdlog::get(LOGGER)->info("Game::Play: creating map {} {} ", setup, denceness);
@@ -122,15 +122,11 @@ void Game::play() {
   }
 
   // Setup players.
-  player_one_ = new Player(nucleus_pos_1, field_, ran_gen);
-  player_two_ = new AudioKi(nucleus_pos_2, field_, &audio_, ran_gen);
+  player_one_ = new Player(nucleus_pos_1, field_, ran_gen, resource_positions_1);
+  player_two_ = new AudioKi(nucleus_pos_2, field_, &audio_, ran_gen, resource_positions_2);
   player_one_->set_enemy(player_two_);
   player_two_->set_enemy(player_one_);
   player_two_->SetUpTactics(true); 
-  for (const auto& it : resource_positions_1)
-    player_one_->AddNeuron(it, RESOURCENEURON);
-  for (const auto& it : resource_positions_2)
-    player_two_->AddNeuron(it, RESOURCENEURON);
 
   // Let player one distribute initial iron.
   DistributeIron();
@@ -395,7 +391,7 @@ void Game::GetPlayerChoice() {
     }
 
     // T: Technology
-    else if (choice == 'T') {
+    else if (choice == 't') {
       pause_ = true;
       choice_mapping_t mapping;
       for (const auto& it : player_one_->technologies()) {
@@ -416,7 +412,6 @@ void Game::GetPlayerChoice() {
     }
 
     else if (choice == 's') {
-
       auto all_synapse_position = player_one_->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE);
       if (all_synapse_position.size() == 0) {
         PrintMessage("You do not have any synapses yet. Use [S] to create one!", true);
@@ -558,7 +553,7 @@ void Game::DistributeIron() {
   bool end = false;
   // Get iron and print options.
   PrintCentered(LINES/2-1, "(use 'q' to quit, +/- to add/remove iron and h/l or ←/→ to circle through resources)");
-  std::vector<std::string> symbols = {"O", SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, SYMBOL_GLUTAMATE, 
+  std::vector<std::string> symbols = {SYMBOL_OXYGEN, SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, SYMBOL_GLUTAMATE, 
     SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};
   position_t c = {LINES/2, COLS/2};
   std::vector<position_t> positions = { {c.first-10, c.second}, {c.first-6, c.second+15}, {c.first+6, c.second+15}, 

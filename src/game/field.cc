@@ -91,22 +91,20 @@ position_t Field::AddNucleus(int section) {
   return pos;
 }
 
-std::vector<position_t> Field::AddResources(position_t start_pos) {
+std::map<int, position_t> Field::AddResources(position_t start_pos) {
   spdlog::get(LOGGER)->debug("Field::AddResources");
-  std::vector<std::string> symbols = {SYMBOL_POTASSIUM, SYMBOL_CHLORIDE, SYMBOL_GLUTAMATE, SYMBOL_SEROTONIN, 
-    SYMBOL_DOPAMINE};
-  std::vector<position_t> resource_positions;
-  for (const auto& symbol : symbols) {
-    spdlog::get(LOGGER)->debug("Field::AddResources: resource {} first try getting positions", symbol);
+  std::map<int, position_t> resource_positions;
+  for (const auto& it : resources_symbol_mapping) {
+    spdlog::get(LOGGER)->debug("Field::AddResources: resource {} first try getting positions", it.first);
     std::vector<position_t> positions = GetAllInRange(start_pos, 4, 2, true);
     if (positions.size() == 0) {
-      spdlog::get(LOGGER)->debug("Field::AddResources: resource {} second try getting positions", symbol);
+      spdlog::get(LOGGER)->debug("Field::AddResources: resource {} 2. try getting positions", it.first);
       positions = GetAllInRange(start_pos, 5, 3, true);
     }
     position_t pos = positions[ran_gen_->RandomInt(0, positions.size()-1)];
     spdlog::get(LOGGER)->debug("Field::AddResources: got position {}", utils::PositionToString(pos));
-    field_[pos.first][pos.second] = symbol;
-    resource_positions.push_back(pos);
+    field_[pos.first][pos.second] = it.first;
+    resource_positions[it.second] = pos;
   }
   spdlog::get(LOGGER)->debug("Field::AddResources: done");
   return resource_positions;
@@ -268,32 +266,25 @@ void Field::PrintField(Player* player, Player* enemy) {
       // both players -> cyan
       else if (CheckCollidingPotentials(cur, player, enemy))
         attron(COLOR_PAIR(COLOR_RESOURCES));
+      // Resource
+      else if (enemy->GetNeuronTypeAtPosition(cur) == RESOURCENEURON 
+          || player->GetNeuronTypeAtPosition(cur) == RESOURCENEURON)
+        attron(COLOR_PAIR(COLOR_RESOURCES));
       // player 2 -> red
       else if (enemy->GetNeuronTypeAtPosition(cur) != -1 || enemy->GetPotentialIdIfPotential(cur) != "")
         attron(COLOR_PAIR(COLOR_PLAYER));
       // player 1 -> blue 
       else if (player->GetNeuronTypeAtPosition(cur) != -1 || player->GetPotentialIdIfPotential(cur) != "")
         attron(COLOR_PAIR(COLOR_KI));
-      // resources -> cyan
-      else if (resources_symbol_mapping.count(field[l][c]) > 0) {
-        int dist_player = utils::Dist(cur, player->nucleus_pos());
-        int dist_enemy = utils::Dist(cur, enemy->nucleus_pos());
-        if ((dist_player < dist_enemy 
-            && player->resources().at(resources_symbol_mapping.at(field[l][c])).Active())
-            || (dist_enemy < dist_player
-            && enemy->resources().at(resources_symbol_mapping.at(field[l][c])).Active()) )
-         attron(COLOR_PAIR(COLOR_RESOURCES));
-      }
       // range -> green
-      else if (InRange(cur, range_, range_center_) && player->GetNeuronTypeAtPosition(cur) != UnitsTech::NUCLEUS)
+      else if (InRange(cur, range_, range_center_) 
+          && player->GetNeuronTypeAtPosition(cur) != UnitsTech::NUCLEUS)
         attron(COLOR_PAIR(COLOR_OK));
-      
       // Replace certain elements.
       if (replacements_.count(cur) > 0)
         mvaddch(15+l, left_border_ + 2*c, replacements_.at(cur));
-      else {
+      else
         mvaddstr(15+l, left_border_ + 2*c, field[l][c].c_str());
-      }
       mvaddch(15+l, left_border_ + 2*c+1, ' ' );
       attron(COLOR_PAIR(COLOR_DEFAULT));
     }

@@ -5,6 +5,7 @@
 #include <math.h>
 #include <string>
 #include <vector>
+#include "objects/units.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 
@@ -12,7 +13,7 @@
 
 class Resource {
   public:
-    Resource(double init, unsigned int max, int distributed_iron, bool to_int);
+    Resource(double init, unsigned int max, int distributed_iron, bool to_int, position_t pos);
 
     // getter
     double cur() const;
@@ -20,6 +21,7 @@ class Resource {
     unsigned int limit() const;
     unsigned int distributed_iron() const;
     bool blocked() const;
+    position_t pos() const;
 
     // setter 
     void set_cur(double value);
@@ -59,6 +61,7 @@ class Resource {
     unsigned int distributed_iron_;
     bool blocked_;
     const bool to_int_;
+    const position_t pos_;
 };
 
 #endif

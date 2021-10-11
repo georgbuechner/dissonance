@@ -41,9 +41,12 @@ class Player {
      * Constructor initializing all resources and gatherers with defaul values
      * and creates den with given position.
      * @param[in] nucleus_pos position of player's nucleus.
-     * @param[in] silver initial silver value.
+     * @param[in] field.
+     * @param[in] ran_gen (random number generator).
+     * @param[in] resource_positions (map of positions for each resource).
      */
-    Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen);
+    Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, 
+        std::map<int, position_t> resource_positions);
 
     // getter:
     std::map<std::string, Potential> potential();
@@ -56,7 +59,7 @@ class Player {
     void set_enemy(Player* enemy);
 
     // methods:
-    position_t GetPositionOfClosestNeuron(position_t pos, int unit) const;
+    position_t GetPositionOfClosestNeuron(position_t pos, int unit);
     std::string GetNucleusLive();
     
     /**

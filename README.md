@@ -1,4 +1,25 @@
-# Dissonance 
+# Table of contents
+1. [Dissonance](#dissonance)
+2. [Premise](#premise)
+3. [Installation](#installation)
+	1. [Requirements](#requirements)
+	2. [Installation](#install)
+		- [Quick-guide](#quick-guide)
+		- [Detailed installation guide](#detailed-guide)
+	1. [Usage](#usage)
+	2. [Tests](#tests)
+	3. [Uninstall](#uninstall)
+	4. [Known problems](#known-problems)
+4. [Game details](#game-details)
+	1. [Resources](#resources)
+	2. [Neurons and potential](#neurons-and-potential)
+	3. [Technologies](#technologies)
+	3. [Costs](#costs)
+5. [Acknowledgements](#Acknowledgements)
+
+
+## Dissonance 
+
 A command line and keyboard based strategy-game, where audio-input determines the
 AI-strategy and lays the seed for the map-generation.
 
@@ -29,15 +50,33 @@ inside you to overcome dissonance in your favor!
 ## Installation 
 
 ### Requirements 
-- gcc/>10.0 (available in most package managers)  
-- conan (f.e. `pip install conan`)
+- [gcc](https://gcc.gnu.org/) (available in most package managers)  
+- [conan](https://conan.io/) (available most package managers, but also: `pip install conan`)
+- [aubio](https://github.com/aubio/aubio) 
+
+Aubio can be installed via some package managers:
+- Ubuntu: `sudo apt-get install aubio-tools libaubio-dev libaubio-doc`  
+- Max OS C: `brew install aubio --with-python`
+- Otherwise a `make aubio` step is included in this project, which should work on most 
+linux distros. 
+- If none of the above is working for you, checkout the official aubio-download page: 
+  https://aubio.org/download
 
 You might also need to install some media libraries to play audio which is not in `.wav` 
 format. For this please refer to the
-[aubio](https://aubio.org/manual/latest/installing.html#external-libraries)
-documentation.
+[aubio-documentation](https://aubio.org/manual/latest/installing.html#external-libraries).
 
-### Installation
+
+### Installation<a name="install"></a>
+
+#### Quick-quide<a name="quick-guide"></a>
+```
+git clone git@github.com:georgbuechner/dissonance.git
+cd dissonance
+make install
+```
+
+#### Detailed installation quide<a name="detailed-guide"></a>
 
 Clone project: 
 ```
@@ -46,15 +85,20 @@ git clone git@github.com:georgbuechner/dissonance.git
 
 Now `cd` into the project
 ```
-cd fast_bsg
+cd dissonance
 ```
 
-Then install aubio (for analysing sound):
+If *aubio* is not available in your systems package-manager, build *aubio* from
+source:
 ```
 make aubio
 ```
+In case you experience the error `/usr/bin/env: ‘python’: No such file or directory`:
+- Check if `python` is correctly installed. 
+- If `python3` is installed, you may want to create a symlink with the following
+  command: `sudo ln -sf /usr/bin/python3 /usr/bin/python`
 
-Finally you can simply install by running:
+Finally you install *dissonance* by running:
 ```c
 make install  // (re-run this step for updates also) 
 ```
@@ -64,16 +108,43 @@ store settings and analysed musical data.
 
 ### Usage
 
-To play, simply run `dissonance` in you terminal. 
+To play, simply run *dissonance* in your command line. 
 
 You can run `dissonance` with the `-r` option, to create the map based on your
 current terminal size. Doing this will however change the game experience and
 two identical songs will no longer produce an identical map and experience. 
 
+### Tests
 
-### Game Details 
+To run tests, run 
+```
+./build/bin/tests
+```
 
-#### Resources 
+You may have to run `export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib` to
+do so.
+
+### Uninstall
+To uninstall `dissonance`, run:
+```
+make uninstall
+```
+
+If you installed *aubio* with make, you can uninstall, using:
+```
+make uninstall_aubio
+```
+
+### Known problems
+
+#### Audio glitching/ noise on Arch Linux. 
+As the documentation of [miniaudio](https://miniaud.io/docs/manual/index.html) 
+correctly points out, these issues might be fixed by applying the fix mentioned
+in the arch-linux wiki: https://wiki.archlinux.org/title/PulseAudio/Troubleshooting#Glitches,_skips_or_crackling.
+
+## Game Details 
+
+### Resources 
 Resources all follow a certain structure: 
 - `free`: currently available units of resource.
 - `bound`: units bound in certain neurons (in case of iron: iron distribute to resources).
@@ -97,26 +168,26 @@ Formula: `(boost * gain * negative-faktor)/slowdown` where...
 
 | name        | group   |
 |:-----------:|:-------:|
-| &#03B6; iron (FE) | Resources |
-| &#03B8; oxygen (O2) | Resources/ Production |
-| &#03BA; potassium (K) | Attack | 
-| &#03B3; chloride (KCI) | Attack |
-| &#03B7; glutamate (Glu) | Defence |
-| &#03B4; dopamine (DA) | Technologies | 
-| &#03C3; serotonin (5-HT) | Technologies |
+| iron (ζ) | Resources |
+| oxygen (ο) | Resources/ Production |
+| potassium (κ) | Attack | 
+| chloride (γ) | Attack |
+| glutamate (η) | Defence |
+| dopamine (δ) | Technologies | 
+| serotonin (σ) | Technologies |
 -------------------------------------
 
-#### Neurons and Potential
+### Neurons and Potential
 | name            | group   | description   | costs   | 
 |:---------------:|:-------:|---------------| ------- |
-| &#1455B; nucleus | expansion | nucleus from which everything is controlled. | 02, Glu, K, KCI, Da, 5-HT |
-| &#0398; activated neuron | defence/ neuron | activates a cell, thus reducing the potential of incoming EPSP or IPSP. | O2, Glu | 
-| &#0394; Synapse         | attack/ neuron  | creates potential (epsp, ipsp). | O2, K | 
-| [1..9] epsp            | attack/ potential | potential traveling to enemy neurons, aiming to *destroy* these. | K | 
-| [a..z] ipsp            | attack/ potential | potential traveling to enemy neurons, aiming to *block* these or enemy epsp. | K, KCI | 
+| nucleus (Χ)     | expansion | nucleus from which everything is controlled. | ζ, ο, κ, γ, η, δ, σ |
+| activated neuron (Φ) | defence/ neuron | activates a cell, thus reducing the potential of incoming EPSP or IPSP. | ο, η | 
+| Synapse (Ξ)  | attack/ neuron  | creates potential (epsp, ipsp). | ο, κ | 
+| [1..9] epsp            | attack/ potential | potential traveling to enemy neurons, aiming to *destroy* these. | κ | 
+| [a..z] ipsp            | attack/ potential | potential traveling to enemy neurons, aiming to *block* these or enemy epsp. | κ, γ | 
 
 
-#### Technologies
+### Technologies
 Most technologies are automatically applied. In the case of the technologies
 belonging to the group *attack*, new technologies allow you to change the
 configuration of you synapses. These configuration can be different for each
@@ -139,7 +210,7 @@ from each other).
 | nucleus range | expansion | increases range of all controlled nucleus' | 3 |
 
 
-#### Costs
+### Costs
 
 In general the costs are applied to the `free` units of each resource. For the
 following entries, in addition the costs are added to the `bound` field:
@@ -171,9 +242,9 @@ For the following technologies/ neurons the costs are increased:
 | Tech: nucleus range | 1 | 10 | -    | -        | -         | 13.5     | 17.9      |
 
 
-## Acknowledgements:
+## Acknowledgements
 I explicitly want to thank all the great developers who help develop the
-great libraries that make `dissonance` possible:
+awesome libraries that make `dissonance` possible:
 - [aubio](https://github.com/aubio/aubio) the fantastic library for analysing audio.
 - [miniaudio](https://github.com/aubio/aubio), which grants the possibility
   to acctually *play* audio-files.
