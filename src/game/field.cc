@@ -1,4 +1,3 @@
-#include <bits/types/FILE.h>
 #include <cctype>
 #include <cmath>
 #include <cstddef>

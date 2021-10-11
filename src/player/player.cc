@@ -9,6 +9,7 @@
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 #include <spdlog/spdlog.h>
 
@@ -37,16 +38,19 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen,
   ran_gen_ = ran_gen;
 
   nucleus_ = Nucleus(nucleus_pos); 
-  neurons_[nucleus_pos] = std::make_shared<Nucleus>(nucleus_);
-  resources_ = {
-    { IRON, Resource(3, 22, 2, true, {-1, 1})},  // max only 20 as iron should be rare.
-    { OXYGEN, Resource(5.5, 100, 0, false, r_pos[OXYGEN])}, 
-    { POTASSIUM, Resource(0, 100, 0, false, r_pos[POTASSIUM])}, 
-    { CHLORIDE, Resource(0, 100, 0, false, r_pos[CHLORIDE])}, 
-    { GLUTAMATE,Resource(0, 150, 0, false, r_pos[GLUTAMATE])}, // max 150: initially allows 7 act. neurons 
-    { DOPAMINE, Resource(0, 70, 0, false, r_pos[DOPAMINE])}, // max low, dopamine is never bound.
-    { SEROTONIN, Resource(0, 70, 0, false, r_pos[SEROTONIN])}, // max low, as serotonin is never bound.
-  };
+  neurons_[nucleus_pos] = std::make_unique<Nucleus>(nucleus_);
+  // Max only 20 as iron should be rare.
+  resources_.insert(std::pair<int, Resource>(IRON, Resource(3, 22, 2, true, {-1, -1})));  
+  resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(5.5, 100, 0, false, r_pos[OXYGEN]))); 
+  resources_.insert(std::pair<int, Resource>(Resources::POTASSIUM, Resource(0, 100, 0, false, r_pos[POTASSIUM]))); 
+  resources_.insert(std::pair<int, Resource>(Resources::CHLORIDE, Resource(0, 100, 0, false, r_pos[CHLORIDE]))); 
+  // Max 150: allows 7 activated neurons withput updates.
+  resources_.insert(std::pair<int, Resource>(Resources::GLUTAMATE, Resource(0, 150, 0, false, r_pos[GLUTAMATE]))); 
+  // Max low, dopamine is never bound.
+  resources_.insert(std::pair<int, Resource>(Resources::DOPAMINE, Resource(0, 70, 0, false, r_pos[DOPAMINE]))); 
+  // Max low, as serotonin is never bound.
+  resources_.insert(std::pair<int, Resource>(Resources::SEROTONIN, Resource(0, 70, 0, false, r_pos[SEROTONIN]))); 
+  
   technologies_ = {
     {UnitsTech::WAY, {0,3}},
     {UnitsTech::SWARM, {0,3}},
@@ -147,14 +151,6 @@ std::string Player::GetNucleusLive() {
 bool Player::HasLost() {
   std::shared_lock sl(mutex_nucleus_);
   return nucleus_.voltage() >= nucleus_.max_voltage();
-}
-
-std::shared_ptr<Neuron> Player::GetNeuron(position_t pos, int unit) {
-  spdlog::get(LOGGER)->info("Player::GetNeuron");
-  std::unique_lock ul(mutex_all_neurons_);
-  if (neurons_.count(pos) > 0 && (unit == -1 || neurons_.at(pos)->type_ == unit))
-    return neurons_.at(pos);
-  throw std::invalid_argument("No neuron at this postion!");
 }
 
 int Player::GetNeuronTypeAtPosition(position_t pos) {
@@ -344,19 +340,19 @@ bool Player::AddNeuron(position_t pos, int neuron_type, position_t epsp_target, 
     std::shared_lock sl(mutex_technologies_);
     int speed_boast = technologies_.at(UnitsTech::DEF_SPEED).first * 40;
     int potential_boast = technologies_.at(UnitsTech::DEF_POTENTIAL).first;
-    neurons_[pos] = std::make_shared<ActivatedNeuron>(pos, potential_boast, speed_boast);
+    neurons_[pos] = std::make_unique<ActivatedNeuron>(pos, potential_boast, speed_boast);
   }
   else if (neuron_type == UnitsTech::SYNAPSE) {
-    neurons_[pos] = std::make_shared<Synapse>(pos, technologies_.at(UnitsTech::SWARM).first*3+1, 
+    neurons_[pos] = std::make_unique<Synapse>(pos, technologies_.at(UnitsTech::SWARM).first*3+1, 
         technologies_.at(UnitsTech::WAY).first, epsp_target, ipsp_target);
     spdlog::get(LOGGER)->debug("Player::AddNeuron, created synapse, {}", neurons_.at(pos)->type_);
   }
   else if (neuron_type == UnitsTech::NUCLEUS) {
-    neurons_[pos] = std::make_shared<Nucleus>(pos);
+    neurons_[pos] = std::make_unique<Nucleus>(pos);
     UpdateResourceLimits(0.1); // Increase max resource if new nucleus is built.
   }
   else if (neuron_type == UnitsTech::RESOURCENEURON) {
-    neurons_[pos] = std::make_shared<ResourceNeuron>(pos, resources_symbol_mapping.at(field_->GetSymbolAtPos(pos)));
+    neurons_[pos] = std::make_unique<ResourceNeuron>(pos, resources_symbol_mapping.at(field_->GetSymbolAtPos(pos)));
     spdlog::get(LOGGER)->debug("Player::AddNeuron, Created resourceneuron, {}", neurons_.at(pos)->type_);
   }
   spdlog::get(LOGGER)->info("Player::AddNeuron: done");
@@ -368,16 +364,16 @@ bool Player::AddPotential(position_t synapes_pos, int unit) {
   if (!TakeResources(unit, false))
     return false;
   // Get way and target:
-  auto synapse = GetNeuron(synapes_pos, UnitsTech::SYNAPSE);
   std::shared_lock sl_neurons(mutex_all_neurons_);
   // Check if synapses is blocked.
-  if (synapse->blocked()) 
+  if (neurons_.count(synapes_pos) == 0 || neurons_.at(synapes_pos)->type_ != SYNAPSE 
+      || neurons_.at(synapes_pos)->blocked()) 
     return true;
   
   // Create way.
   spdlog::get(LOGGER)->debug("Player::AddPotential: get way for potential.");
-  synapse->UpdateIpspTargetIfNotSet(enemy_->GetRandomNeuron());
-  auto way = field_->GetWayForSoldier(synapes_pos, synapse->GetWayPoints(unit));
+  neurons_.at(synapes_pos)->UpdateIpspTargetIfNotSet(enemy_->GetRandomNeuron());
+  auto way = field_->GetWayForSoldier(synapes_pos, neurons_.at(synapes_pos)->GetWayPoints(unit));
 
   // Add potential.
   std::unique_lock ul_potentials(mutex_potentials_);
@@ -611,17 +607,22 @@ std::string Player::GetPotentialIdIfPotential(position_t pos, int unit) {
 choice_mapping_t Player::GetOptionsForSynapes(position_t pos) {
   spdlog::get(LOGGER)->info("Player::GetOptionsForSynapes");
   std::shared_lock sl_technologies(mutex_technologies_);
-  auto synapse = GetNeuron(pos);
   choice_mapping_t mapping;
+
+  if (neurons_.count(pos) == 0 || neurons_.at(pos)->type_ != SYNAPSE) {
+    spdlog::get(LOGGER)->warn("Player::GetOptionsForSynapes: neuron at position does'n exist, or is no synapse: {}.", 
+        utils::PositionToString(pos));
+    return mapping;
+  }
   
   mapping[1] = {"(Re-)set way.", (technologies_.at(UnitsTech::WAY).first > 0) ? COLOR_AVAILIBLE : COLOR_DEFAULT};
-  mapping[2] = {"Add way-point.", (synapse->ways_points().size() < synapse->num_availible_ways()) 
+  mapping[2] = {"Add way-point.", (neurons_.at(pos)->ways_points().size() < neurons_.at(pos)->num_availible_ways()) 
     ? COLOR_AVAILIBLE : COLOR_DEFAULT};
   mapping[3] = {"Select target for ipsp.", (technologies_.at(UnitsTech::TARGET).first > 0) 
     ? COLOR_AVAILIBLE : COLOR_DEFAULT};
   mapping[4] = {"Select target for epsp.", (technologies_.at(UnitsTech::TARGET).first > 1) 
     ? COLOR_AVAILIBLE : COLOR_DEFAULT};
-  mapping[5] = {(synapse->swarm()) ? "Turn swarm-attack off" : "Turn swarm-attack on", 
+  mapping[5] = {(neurons_.at(pos)->swarm()) ? "Turn swarm-attack off" : "Turn swarm-attack on", 
     (technologies_.at(UnitsTech::SWARM).first > 0) ? COLOR_AVAILIBLE : COLOR_DEFAULT};
   spdlog::get(LOGGER)->info("Player::GetOptionsForSynapes: done");
   return mapping;

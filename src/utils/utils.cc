@@ -10,6 +10,7 @@
 #include <iostream>
 #include <math.h>
 #include <vector>
+#include <sstream>
 #include "spdlog/spdlog.h"
 
 #define LOGGER "logger"
@@ -132,10 +133,8 @@ std::string utils::GetFormatedDatetime() {
   std::time_t rawtime;
   std::tm* timeinfo;
   char buffer[80];
-
   std::time(&rawtime);
   timeinfo = std::localtime(&rawtime);
-
   std::strftime(buffer, 80, "%Y-%m-%d-%H-%M-%S",timeinfo);
   std::puts(buffer);
   return buffer;
