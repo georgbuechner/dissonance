@@ -9,6 +9,7 @@
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 #include <spdlog/spdlog.h>
 
@@ -37,15 +38,18 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen) :
 
   nucleus_ = Nucleus(nucleus_pos); 
   neurons_[nucleus_pos] = std::make_unique<Nucleus>(nucleus_);
-  resources_ = {
-    { Resources::IRON, Resource(3, 22, 2, true)},  // max only 20 as iron should be rare.
-    { Resources::OXYGEN, Resource(5.5, 100, 0, false)}, 
-    { Resources::POTASSIUM, Resource(0, 100, 0, false)}, 
-    { Resources::CHLORIDE, Resource(0, 100, 0, false)}, 
-    { Resources::GLUTAMATE,Resource(0, 150, 0, false)}, // max 150: allows 7 activated neurons withput updates.
-    { Resources::DOPAMINE, Resource(0, 70, 0, false)}, // max low, dopamine is never bound.
-    { Resources::SEROTONIN, Resource(0, 70, 0, false)}, // max low, as serotonin is never bound.
-  };
+  // Max only 20 as iron should be rare.
+  resources_.insert(std::pair<int, Resource>(IRON, Resource(3, 22, 2, true)));  
+  resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(5.5, 100, 0, false))); 
+  resources_.insert(std::pair<int, Resource>(Resources::POTASSIUM, Resource(0, 100, 0, false))); 
+  resources_.insert(std::pair<int, Resource>(Resources::CHLORIDE, Resource(0, 100, 0, false))); 
+  // Max 150: allows 7 activated neurons withput updates.
+  resources_.insert(std::pair<int, Resource>(Resources::GLUTAMATE, Resource(0, 150, 0, false))); 
+  // Max low, dopamine is never bound.
+  resources_.insert(std::pair<int, Resource>(Resources::DOPAMINE, Resource(0, 70, 0, false))); 
+  // Max low, as serotonin is never bound.
+  resources_.insert(std::pair<int, Resource>(Resources::SEROTONIN, Resource(0, 70, 0, false))); 
+  
   technologies_ = {
     {UnitsTech::WAY, {0,3}},
     {UnitsTech::SWARM, {0,3}},

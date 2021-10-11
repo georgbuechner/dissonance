@@ -9,6 +9,7 @@
 #include <iostream>
 #include <math.h>
 #include <vector>
+#include <sstream>
 #include "spdlog/spdlog.h"
 
 #define LOGGER "logger"
