@@ -41,8 +41,8 @@ int main(int argc, const char** argv) {
   spdlog::set_level(spdlog::level::debug);
 
   if (show_help) {
-      std::cout << cli;
-      return 0;
+    std::cout << cli;
+    return 0;
   }
   // The parser with the one option argument:
   if (relative_size) {
