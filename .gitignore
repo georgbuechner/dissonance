@@ -3,3 +3,4 @@ dissonance/logs/*
 dissonance/data/analysis/*
 dissonance/data/examples/Beethoven_Symphonies_Side11.mp3
 test/logs/*
+src/aubio*
