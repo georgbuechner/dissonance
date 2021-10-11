@@ -8,7 +8,11 @@ conan_basic_setup()
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+<<<<<<< Updated upstream
 SET(CMAKE_CXX_FLAGS "-pthread -ldl -lm")
+=======
+SET(CMAKE_CXX_FLAGS "-laubio -Wall -pthread -ldl -lm -lncursesw")
+>>>>>>> Stashed changes
 add_compile_options(-fdiagnostics-color=always)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)
 
@@ -45,8 +49,8 @@ set(SRC_FILES_TEST
 add_executable(dissonance ${SRC_FILES_GAME})
 add_executable(tests ${SRC_FILES_TEST})
 
-target_link_libraries(dissonance PUBLIC aubio ${CONAN_LIBS})
-target_link_libraries(tests PUBLIC aubio ${CONAN_LIBS})
+target_link_libraries(dissonance PUBLIC ${CONAN_LIBS})
+target_link_libraries(tests PUBLIC ${CONAN_LIBS})
 
 target_include_directories(dissonance PUBLIC "src")
 target_include_directories(tests PUBLIC "src" "test")
