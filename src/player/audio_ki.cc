@@ -215,9 +215,8 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
     return;
   std::unique_lock ul(mutex_all_neurons_);
   spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: get epsp synapses.");
-  auto epsp_synapses = neurons_.at(sorted_synapses.back());
-  spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: get epsp way for synapses: {}", epsp_synapses->type_);
-  auto epsp_way = field_->GetWayForSoldier(epsp_synapses->pos_, epsp_synapses->GetWayPoints(UnitsTech::EPSP));
+  position_t epsp_synapses_pos = sorted_synapses.back();
+  auto epsp_way = field_->GetWayForSoldier(epsp_synapses_pos, neurons_.at(epsp_synapses_pos)->GetWayPoints(UnitsTech::EPSP));
   ul.unlock();
  
   spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: Get ipsp targets");

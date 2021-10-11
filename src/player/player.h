@@ -259,7 +259,7 @@ class Player {
     std::shared_mutex mutex_nucleus_;
     Nucleus nucleus_;
     std::shared_mutex mutex_all_neurons_;
-    std::map<position_t, std::shared_ptr<Neuron>> neurons_;
+    std::map<position_t, std::unique_ptr<Neuron>> neurons_;
 
     std::shared_mutex mutex_potentials_;
     std::map<std::string, Potential> potential_;
@@ -276,16 +276,6 @@ class Player {
      * @param[in] faktor (between -1 and 1)
      */
     void UpdateResourceLimits(float faktor);
-
-    /**
-     * Gets a neuron at given position. If unit is specified, only returns, if
-     * the neuron at the given position is this unit.
-     * Throws invalid_argument exception if no neuron at position or wrong unit.
-     * @param[in] pos 
-     * @param[in] unit
-     * @return Neuron at given position.
-     */
-    std::shared_ptr<Neuron> GetNeuron(position_t pos, int unit=-1);
 };
 
 #endif
