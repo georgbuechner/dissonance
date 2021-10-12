@@ -227,11 +227,14 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
   auto ipsp_targets = GetIpspTargets(epsp_way, sorted_synapses);  // using epsp-way, since we want to clear this way.
   spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: Got {} ipsp targets.", ipsp_targets.size());
   spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: Get epsp target");
-  position_t epsp_target;
+  position_t epsp_target = {-1, -1};
   // Take first target which is not already ipsp target.
-  for (const auto& it : GetEpspTargets(sorted_synapses.back(), epsp_way))
+  auto possible_epsp_targets = GetEpspTargets(sorted_synapses.back(), epsp_way);
+  for (const auto& it : possible_epsp_targets)
     if (std::find(ipsp_targets.begin(), ipsp_targets.end(), it) == ipsp_targets.end())
       epsp_target = it;
+  if (epsp_target.first == -1 && epsp_target.second == -1 && possible_epsp_targets.size() > 0)
+    epsp_target = possible_epsp_targets.back();
 
   // Check whether to launch attack.
   size_t available_ipsps = AvailibleIpsps();
