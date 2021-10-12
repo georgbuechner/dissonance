@@ -23,34 +23,36 @@ int main(int argc, const char** argv) {
   // Command line arguments 
   bool relative_size = false;
   bool show_help = false;
+  bool clear_log = false;
   std::string base_path = getenv("HOME");
   base_path += "/.dissonance/";
 
   auto cli = lyra::cli() 
     | lyra::opt(relative_size) ["-r"]["--relative-size"]("If set, adjusts map size to terminal size.")
+    | lyra::opt(clear_log) ["-c"]["--clear_log"]("If set, removes all log-files before starting the game.")
     | lyra::opt(base_path, "path to dissonance files") ["-p"]["--base-path"]("Set path to dissonance files (logs, settings, data)");
     
   cli.add_argument(lyra::help(show_help));
   auto result = cli.parse({ argc, argv });
-  
+
+  // help
+  if (show_help) {
+    std::cout << cli;
+    return 0;
+  }
+  // clear log
+  if (clear_log)
+    std::filesystem::remove_all(base_path + "logs/");
+  // Create map based on actual terminal size.
+  if (relative_size)
+    relative_size = true;
+
   // Logger 
   std::string logger_file = "logs/" + utils::GetFormatedDatetime() + "_logfile.txt";
   auto logger = spdlog::basic_logger_mt("logger", base_path + logger_file);
   spdlog::flush_every(std::chrono::seconds(1));
   spdlog::flush_on(spdlog::level::info);
   spdlog::set_level(spdlog::level::debug);
-
-  if (show_help) {
-    std::cout << cli;
-    return 0;
-  }
-  // The parser with the one option argument:
-  if (relative_size) {
-    relative_size = true;
-    spdlog::get(LOGGER)->info("using relative size.");
-  }
-  else 
-    spdlog::get(LOGGER)->info("using fixed size.");
 
   // Initialize audio
   Audio::Initialize();
