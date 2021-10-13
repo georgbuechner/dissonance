@@ -7,9 +7,10 @@
 		- [Quick-guide](#quick-guide)
 		- [Detailed installation guide](#detailed-guide)
 	1. [Usage](#usage)
-	2. [Tests](#tests)
-	3. [Uninstall](#uninstall)
-	4. [Known problems](#known-problems)
+	2. [Logfiles](#logfiles)
+	3. [Tests](#tests)
+	4. [Uninstall](#uninstall)
+	5. [Known problems](#known-problems)
 4. [Game details](#game-details)
 	1. [Resources](#resources)
 	2. [Neurons and potential](#neurons-and-potential)
@@ -53,19 +54,20 @@ inside you to overcome dissonance in your favor!
 - C++ compiler:  
   Linux: [gcc](https://gcc.gnu.org/) (available in most package managers),   
   MacOs: [clang](https://clang.llvm.org/) (available with `brew install clang`)  
-- [conan](https://conan.io/) (available most package managers, but also: `pip install conan`)
+- [conan](https://conan.io/) (available in most package managers, but also: `pip install conan`)
 - [aubio](https://github.com/aubio/aubio)
 
-Aubio can be installed via some package managers:
+Aubio installation: 
 - Ubuntu: `sudo apt-get install aubio-tools libaubio-dev libaubio-doc`  
-- All others (including MacOs) a `make aubio` step is included in this project, which should work on 
-MacOs and most linux distros. 
+- For other linux distros and MacOs a `make aubio` step is included in this project
 - If none of the above is working for you, checkout the official aubio-download page: 
   https://aubio.org/download
 
 You might also need to install some media libraries to play audio which is not in `.wav` 
-format. For this please refer to the
+format. So if loading `.mp3` files or other audio-files like `.ogg` is not
+working for you, please refer to the
 [aubio-documentation](https://aubio.org/manual/latest/installing.html#external-libraries).
+(However at least `.wav` and `.mp3` should work if the installation was successful)
 
 
 ### Installation<a name="install"></a>
@@ -111,7 +113,7 @@ Finally you install *dissonance* by running:
 make install  // (re-run this step for updates also) 
 ```
 
-These steps install `dissonance` system wide and create `.dissonance` in the home folder to
+These steps install `dissonance` system-wide and create `.dissonance` in the home folder to
 store settings and analysed musical data.
 
 ### Usage
@@ -122,15 +124,21 @@ You can run `dissonance` with the `-r` option, to create the map based on your
 current terminal size. Doing this will however change the game experience and
 two identical songs will no longer produce an identical map and experience. 
 
+### Logfiles
+
+If not changed manually, logfiles will be stored at `~/.dissonance/logs/` in the
+format `[timestamp]_logfile.txt` f.e. `2021-10-13-01-44-47_logfile.txt`.
+
+You can delete these manually f.e. (`rm ~/.dissonance/logs/2021-10*` will delete all
+logs created in October 2021), or you can start the game with `dissonance -c`
+respectively `dissonance --clear-log` which will delete all logfiles.
+
 ### Tests
 
 To run tests, run 
 ```
 ./build/bin/tests
 ```
-
-You may have to run `export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib` to
-do so.
 
 ### Uninstall
 To uninstall `dissonance`, run:
