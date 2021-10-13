@@ -133,6 +133,11 @@ You can delete these manually f.e. (`rm ~/.dissonance/logs/2021-10*` will delete
 logs created in October 2021), or you can start the game with `dissonance -c`
 respectively `dissonance --clear-log` which will delete all logfiles.
 
+By default logging is set to `warn`, leading to very small log-files containing only
+the most relevant information. Consider including these files if you are filing
+an issue. You may also increase the log-level with `dissonance -l` respectively
+`dissonance --log-level`, f.e. `dissonance -l "debug"`. 
+
 ### Tests
 
 To run tests, run 

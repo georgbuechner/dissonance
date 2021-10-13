@@ -282,6 +282,8 @@ std::vector<position_t> AudioKi::GetEpspTargets(position_t synapse_pos, std::lis
     spdlog::get(LOGGER)->debug("AudioKi::GetEpspTargets: using DESTROY_ACTIVATED_NEURONS.");
     auto activated_neurons_on_way = GetAllActivatedNeuronsOnWay(way);
     activated_neurons_on_way = SortPositionsByDistance(nucleus_pos_, activated_neurons_on_way, false);
+    if (activated_neurons_on_way.size() == 0)
+      return GetEpspTargets(synapse_pos, way, DESTROY_ACTIVATED_NEURONS);
     return activated_neurons_on_way;
   }
   else if (epsp_target_strategy_ == DESTROY_SYNAPSES && ignore_strategy != DESTROY_SYNAPSES) {
@@ -305,14 +307,14 @@ std::vector<position_t> AudioKi::GetIpspTargets(std::list<position_t> way, std::
   }
   std::vector<position_t> isps_targets;
   if (ipsp_target_strategy_ == BLOCK_ACTIVATED_NEURON && ignore_strategy != BLOCK_ACTIVATED_NEURON) {
-  spdlog::get(LOGGER)->debug("AudioKi::GetIpspTargets: using BLOCK_ACTIVATED_NEURON.");
+    spdlog::get(LOGGER)->debug("AudioKi::GetIpspTargets: using BLOCK_ACTIVATED_NEURON.");
     auto activated_neurons_on_way = GetAllActivatedNeuronsOnWay(way);
     activated_neurons_on_way = SortPositionsByDistance(nucleus_pos_, activated_neurons_on_way, false);
-    for (size_t i=0; i<synapses.size(); i++)
+    for (size_t i=0; i<synapses.size() && i<activated_neurons_on_way.size(); i++)
       isps_targets.push_back(activated_neurons_on_way[i]);
   }
   else if (epsp_target_strategy_ == BLOCK_SYNAPSES && ignore_strategy != BLOCK_SYNAPSES) {
-  spdlog::get(LOGGER)->debug("AudioKi::GetIpspTargets: using BLOCK_SYNAPSES.");
+    spdlog::get(LOGGER)->debug("AudioKi::GetIpspTargets: using BLOCK_SYNAPSES.");
     auto enemy_synapses = GetEnemySynapsesSortedByLeastDef(nucleus_pos_);
     if (enemy_synapses.size() == 0)
       return GetIpspTargets(way, synapses, BLOCK_SYNAPSES);
@@ -621,7 +623,7 @@ void AudioKi::CheckResourceLimit() {
 void AudioKi::CreateExtraActivatedNeurons() {
   spdlog::get(LOGGER)->info("AudioKi::CreateExtraActivatedNeurons");
   // Build activated neurons based on current voltage.
-  if (extra_activated_neurons_.at(nucleus_.voltage()) > 0) {
+  if (extra_activated_neurons_.count(nucleus_.voltage()) > 0 && extra_activated_neurons_.at(nucleus_.voltage()) > 0) {
     spdlog::get(LOGGER)->info("AudioKi::CreateExtraActivatedNeurons builiding {} a-neurons based on current voltag.",
      extra_activated_neurons_.at(nucleus_.voltage()));
     CreateActivatedNeuron(true);

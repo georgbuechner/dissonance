@@ -256,19 +256,14 @@ void Game::GetPlayerChoice() {
       continue;
     }
 
-    else if (std::isdigit(choice)) {
-      field_->set_highlight(field_->GetAllPositionsOfSection(choice-'0'));
-    }
-
     // SPACE: pause/ unpause game
     else if (choice == ' ') {
+      pause_ = !pause_;
       if (pause_) {
-        pause_ = false;
         audio_.Unpause();
         PrintMessage("Un-Paused game.", false);
       }
       else {
-        pause_ = true;
         audio_.Pause();
         PrintMessage("Paused game.", false);
       }

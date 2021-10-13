@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdlib>
 #include <curses.h>
 #include <filesystem>
@@ -24,12 +25,14 @@ int main(int argc, const char** argv) {
   bool relative_size = false;
   bool show_help = false;
   bool clear_log = false;
+  std::string log_level = "warn";
   std::string base_path = getenv("HOME");
   base_path += "/.dissonance/";
 
   auto cli = lyra::cli() 
     | lyra::opt(relative_size) ["-r"]["--relative-size"]("If set, adjusts map size to terminal size.")
     | lyra::opt(clear_log) ["-c"]["--clear-log"]("If set, removes all log-files before starting the game.")
+    | lyra::opt(log_level, "options: [warn, info, debug], default: \"warn\"") ["-l"]["--log_level"]("set log-level")
     | lyra::opt(base_path, "path to dissonance files") ["-p"]["--base-path"]("Set path to dissonance files (logs, settings, data)");
     
   cli.add_argument(lyra::help(show_help));
@@ -50,9 +53,16 @@ int main(int argc, const char** argv) {
   // Logger 
   std::string logger_file = "logs/" + utils::GetFormatedDatetime() + "_logfile.txt";
   auto logger = spdlog::basic_logger_mt("logger", base_path + logger_file);
-  spdlog::flush_every(std::chrono::seconds(1));
-  spdlog::flush_on(spdlog::level::info);
-  spdlog::set_level(spdlog::level::debug);
+  spdlog::flush_on(spdlog::level::warn);
+  if (log_level == "warn")
+    spdlog::set_level(spdlog::level::warn);
+  else if (log_level == "info")
+    spdlog::set_level(spdlog::level::info);
+  else if (log_level == "debug") {
+    spdlog::set_level(spdlog::level::debug);
+    spdlog::flush_on(spdlog::level::info);
+    spdlog::flush_every(std::chrono::seconds(1));
+  }
 
   // Initialize audio
   Audio::Initialize();
