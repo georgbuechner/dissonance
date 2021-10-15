@@ -23,9 +23,7 @@ jobs:
 
     - name: install aubio
       run: |
-        #sudo apt install ffmpeg
-        #sudo apt-get install libavcodec-extra
-        #make aubio
+        sudo apt update
         sudo apt install aubio-tools libaubio-dev libaubio-doc
     
     - name: install conan
@@ -35,7 +33,4 @@ jobs:
       run: make build
 
     - name: Test
-      # Execute tests defined by the CMake configuration.  
-      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      # run: ctest -C ${{env.BUILD_TYPE}}
       run: ./build/bin/tests
