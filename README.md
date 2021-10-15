@@ -35,7 +35,7 @@ you control, these cells can neutralize incoming potential.
 
 You randomly gain iron every few seconds. Iron can be used to activate the process of 
 gathering new resources or to boost their production. But your resource production is 
-also dependent on your current oxygen level and on how close the resource is to its 
+also dependent on your current oxygen level and on how close the resource is to it's 
 limit. So be careful when building neurons: the more resources are bound in
 neurons, the less resources you gain!
 
@@ -66,8 +66,8 @@ Aubio installation:
 You might also need to install some media libraries to play audio which is not in `.wav` 
 format. So if loading `.mp3` files or other audio-files like `.ogg` is not
 working for you, please refer to the
-[aubio-documentation](https://aubio.org/manual/latest/installing.html#external-libraries).
-(However at least `.wav` and `.mp3` should work if the installation was successful)
+[aubio-documentation](https://aubio.org/manual/latest/installing.html#external-libraries)
+(however at least `.wav` and `.mp3` should work if the installation was successful).
 
 
 ### Installation<a name="install"></a>
@@ -118,9 +118,9 @@ store settings and analysed musical data.
 
 ### Usage
 
-To play, simply run *dissonance* in your command line. 
+To play, simply run `dissonance` in your command line. 
 
-You can run `dissonance` with the `-r` option, to create the map based on your
+You can run `dissonance -r`, to create the map based on your
 current terminal size. Doing this will however change the game experience and
 two identical songs will no longer produce an identical map and experience. 
 
@@ -136,7 +136,7 @@ respectively `dissonance --clear-log` which will delete all logfiles.
 By default logging is set to `warn`, leading to very small log-files containing only
 the most relevant information. Consider including these files if you are filing
 an issue. You may also increase the log-level with `dissonance -l` respectively
-`dissonance --log-level`, f.e. `dissonance -l "debug"`. 
+`dissonance --log-level` (f.e. `dissonance -l "debug"`). 
 
 ### Tests
 
@@ -157,6 +157,32 @@ make uninstall_aubio
 ```
 
 ### Known problems
+
+#### MacOs installation: c++ compiler detected by cmake differs from conan profile.
+
+Possible error:
+```
+CMake Error at conanbuildinfo.cmake:582 (message):
+  Incorrect 'gcc', is not the one detected by CMake: 'Clang'
+```
+
+Currently it is expected that clang is the primary compiler, when installing
+dissonance on MacOs (more specifically: cmake detects clang as compiler).
+Thus the conan-profile should also be setup for clang. If this is not the case
+(because you f.e. modified the conan default profile) you can revert this, by
+running:
+```
+conan profile new default --detect
+```
+
+Of course this can only work, if clang is actually your main c++ compiler (conan
+detects clang).
+
+Afterwards re-run `make install`.
+
+It is very likely that it is possible to compiler `dissonance` with gcc on MacOs
+also, however, Makefile and CMakeList is not optimised for this, and you main
+need to figure some problems out yourself.
 
 #### Audio glitching/ noise on Arch Linux. 
 As the documentation of [miniaudio](https://miniaud.io/docs/manual/index.html) 
@@ -264,15 +290,15 @@ For the following technologies/ neurons the costs are increased:
 
 
 ## Acknowledgements
-I explicitly want to thank all the great developers who help develop the
-awesome libraries that make `dissonance` possible:
+I explicitly want to thank all the great developers who help write and maintain the
+awesome libraries makeing `dissonance` possible:
 - [aubio](https://github.com/aubio/aubio) the fantastic library for analysing audio.
 - [miniaudio](https://github.com/aubio/aubio), which grants the possibility
   to acctually *play* audio-files.
 - [lyra](https://github.com/bfgroup/Lyra) the beautiful command line argument
   parser.
-- [catch2](https://github.com/catchorg/Catch2), although I apologize for not
-  having written enough tests for this project so far!
+- [catch2](https://github.com/catchorg/Catch2) (although I apologize for not
+  having written enough tests for this project so far!)
 - [nlohmann/json](https://github.com/catchorg/Catch2), the insanely good
   json-library (which probably everyone is using?)
 - [spdlog](https://github.com/catchorg/Catch2), a great logging library.

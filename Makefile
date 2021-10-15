@@ -35,7 +35,7 @@ build:
 ifeq ($(UNAME_S),Linux)
 	cd build && conan install .. --build=missing -s compiler.libcxx=libstdc++11
 else
-	cd build && conan install .. 
+	cd build && conan install .. --build=missing
 endif
 	# Build projekt
 	cd build && cmake ..
