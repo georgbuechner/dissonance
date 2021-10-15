@@ -50,7 +50,6 @@ class Player {
 
     // getter:
     std::map<std::string, Potential> potential();
-    position_t nucleus_pos();
     int cur_range();
     std::map<int, Resource> resources();
     std::map<int, tech_of_t> technologies();
@@ -95,6 +94,7 @@ class Player {
      * @return Position of a random activated neuron.
      */
     position_t GetRandomNeuron(std::vector<int> type={UnitsTech::ACTIVATEDNEURON});
+    position_t GetOneNucleus();
 
     /**
      * Resets way-points for synapse at given position to contain only given way-point.
@@ -259,10 +259,9 @@ class Player {
     double resource_slowdown_;
 
 
-    std::shared_mutex mutex_nucleus_;
-    Nucleus nucleus_;
     std::shared_mutex mutex_all_neurons_;
     std::map<position_t, std::unique_ptr<Neuron>> neurons_;
+    position_t main_nucleus_pos_;
 
     std::shared_mutex mutex_potentials_;
     std::map<std::string, Potential> potential_;

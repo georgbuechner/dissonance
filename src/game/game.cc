@@ -41,7 +41,7 @@ std::string CheckMissingResources(Costs missing_costs) {
 }
 
 Game::Game(int lines, int cols, int left_border, std::string base_path) 
-  : game_over_(false), pause_(false), audio_(base_path), base_path_(base_path), 
+  : game_over_(false), pause_(false), resigned_(false), audio_(base_path), base_path_(base_path), 
   lines_(lines), cols_(cols), left_border_(left_border) {
 
   spdlog::get(LOGGER)->info("Loading music paths at {}", base_path + "/settings/music_paths.json");
@@ -98,7 +98,7 @@ void Game::play() {
   int denceness = 0;
   bool setup = false;
   spdlog::get(LOGGER)->info("Game::Play: creating map {} {} ", setup, denceness);
-  while (!setup && denceness < 4) {
+  while (!setup && denceness < 5) {
     spdlog::get(LOGGER)->info("Game::Play: creating map try: {}", denceness);
 
     field_ = new Field(lines_, cols_, ran_gen, left_border_);
@@ -120,6 +120,12 @@ void Game::play() {
     resource_positions_1 = field_->AddResources(nucleus_pos_1);
     resource_positions_2 = field_->AddResources(nucleus_pos_2);
   }
+  if (!setup) {
+    PrintCentered({{"Game cannot be played with this song, as map is unplayable. "
+        "It might work with a higher resolution. (dissonance -r)"}});
+    return;
+  }
+  PrintCentered({{"Lowered denceness of map by " + std::to_string(denceness) + " to make map playable"}});
 
   // Setup players.
   player_one_ = new Player(nucleus_pos_1, field_, ran_gen, resource_positions_1);
@@ -181,6 +187,11 @@ void Game::RenderField() {
 
     if (player_two_->HasLost() || player_one_->HasLost() || data_per_beat.size() == 0) {
       SetGameOver((player_two_->HasLost()) ? "YOU WON" : "YOU LOST");
+      audio_.Stop();
+      break;
+    }
+    if (resigned_) {
+      SetGameOver("YOU RESIGNED");
       audio_.Stop();
       break;
     }
@@ -246,9 +257,15 @@ void Game::GetPlayerChoice() {
     PrintMessage("", false);  // clear message line after each input.
     // q: quit game
     if (choice == 'q') {
-      refresh();
-      endwin();
-      exit(0);
+      pause_ = true;
+      ClearField();
+      PrintCentered(LINES/2, "Are you sure you want to exist? y/n");
+      char c = getch();
+      pause_ = false;
+      if (c == 'y') {
+        resigned_ = true;
+        break;
+      }
     }
 
     // Stop any other player-inputs, if game is over.
@@ -322,16 +339,14 @@ void Game::GetPlayerChoice() {
       if (res != "") 
         PrintMessage(res, true);
       else {
-        position_t nucleus_pos = player_one_->nucleus_pos();
-        if (player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS).size() > 1)
-          nucleus_pos = SelectNeuron(player_one_, UnitsTech::NUCLEUS);
+        position_t nucleus_pos = SelectNucleus(player_one_);
         if (nucleus_pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
           PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
           position_t pos = SelectPosition(nucleus_pos, player_one_->cur_range());
           if (pos.first != -1) {
-            position_t epsp_target= player_two_->nucleus_pos();
+            position_t epsp_target = player_two_->GetOneNucleus();
             position_t ipsp_target = player_two_->GetRandomNeuron(); // random tower.
             player_one_->AddNeuron(pos, UnitsTech::SYNAPSE, epsp_target, ipsp_target);
             field_->AddNewUnitToPos(pos, UnitsTech::SYNAPSE);
@@ -347,9 +362,7 @@ void Game::GetPlayerChoice() {
       if (res != "") 
         PrintMessage(res, true);
       else {
-        position_t nucleus_pos = player_one_->nucleus_pos();
-        if (player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS).size() > 1)
-          nucleus_pos = SelectNeuron(player_one_, UnitsTech::NUCLEUS);
+        position_t nucleus_pos = SelectNucleus(player_one_);
         if (nucleus_pos.first == -1)
           PrintMessage("Invalid choice!", true);
         else {
@@ -376,10 +389,13 @@ void Game::GetPlayerChoice() {
         PrintMessage(res, true);
       else {
         PrintMessage("User the arrow keys to select a position. Press Enter to select.", false);
-        position_t pos = SelectPosition(player_one_->nucleus_pos(), ViewRange::GRAPH);
-        if (pos.first != -1) {
-          player_one_->AddNeuron(pos, UnitsTech::NUCLEUS);
-          field_->AddNewUnitToPos(pos, UnitsTech::NUCLEUS);
+        auto start_position = SelectFieldPositionByAlpha(field_->GetAllCenterPositionsOfSections(), "Select start");
+        if (start_position.first != -1 && start_position.second != -1) {
+          position_t pos = SelectPosition(start_position, ViewRange::GRAPH);
+          if (pos.first != -1) {
+            player_one_->AddNeuron(pos, UnitsTech::NUCLEUS);
+            field_->AddNewUnitToPos(pos, UnitsTech::NUCLEUS);
+          }
         }
         PrintMessage(res, res!="");
       }
@@ -397,7 +413,7 @@ void Game::GetPlayerChoice() {
         mapping[it.first-UnitsTech::IPSP] = {units_tech_mapping.at(it.first) 
           + " (" + utils::PositionToString(it.second) + ")", color};
       }
-      int technology = SelectInteger("Select technology", true, mapping, {3, 5, 8, 10})
+      int technology = SelectInteger("Select technology", true, mapping, {3, 5, 8, 10, 11})
         +UnitsTech::IPSP;
       if (player_one_->AddTechnology(technology))
         PrintMessage("selected: " + units_tech_mapping.at(technology), false);
@@ -441,7 +457,7 @@ void Game::GetPlayerChoice() {
             }
           }
           else {
-            auto new_pos = SelectPosition(player_two_->nucleus_pos(), ViewRange::GRAPH);
+            auto new_pos = SelectPosition(player_two_->GetOneNucleus(), ViewRange::GRAPH);
             if (new_pos.first != -1) {
               if (choice == 3)
                 player_one_->ChangeIpspTargetForSynapse(pos, new_pos);
@@ -465,6 +481,9 @@ position_t Game::SelectPosition(position_t start, int range) {
   spdlog::get(LOGGER)->info("Game::SelectPosition");
   bool end = false;
   position_t new_pos = {-1, -1};
+  // Make sure than position exists.
+  if (start.first == -1 && start.second == -1)
+    return new_pos;
   field_->set_highlight({start});
   field_->set_range(range);
   field_->set_range_center(start);
@@ -629,7 +648,7 @@ int Game::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapping, s
 
   std::vector<std::pair<std::string, int>> options;
   for (const auto& option : mapping) {
-    char c_option = 'a'+option.first;
+    char c_option = 'a'+option.first-1;
     std::string txt = "";
     txt += c_option; 
     txt += ": " + option.second.first + "    ";
@@ -934,4 +953,14 @@ std::string Game::InputString(std::string msg) {
   noecho();
   curs_set(0);
   return input;
+}
+
+position_t Game::SelectNucleus(Player*) {
+  auto all_neuron_positions = player_one_->GetAllPositionsOfNeurons(UnitsTech::NUCLEUS);
+  position_t nucleus_pos = {-1, -1};
+  if (all_neuron_positions.size() > 1)
+    nucleus_pos = SelectNeuron(player_one_, UnitsTech::NUCLEUS);
+  else if (all_neuron_positions.size() == 1)
+    nucleus_pos = all_neuron_positions.front();
+  return nucleus_pos;
 }

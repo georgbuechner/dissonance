@@ -68,13 +68,6 @@ class Field {
     void BuildGraph(position_t player_den, position_t enemy_den);
 
     /**
-     * Finds a free position for a new soldier.
-     * @param pos position around which to add soldier.
-     * @return position of new soldier.
-     */
-    position_t GetNewSoldierPos(position_t pos);
-
-    /**
      * Finds a free position for a defence tower and adds tower to player/ ki
      * units.
      * @param pos position of new defence tower.

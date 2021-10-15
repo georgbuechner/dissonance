@@ -37,8 +37,7 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen,
   field_ = field;
   ran_gen_ = ran_gen;
 
-  nucleus_ = Nucleus(nucleus_pos); 
-  neurons_[nucleus_pos] = std::make_unique<Nucleus>(nucleus_);
+  neurons_[nucleus_pos] = std::make_unique<Nucleus>(nucleus_pos);
   // Max only 20 as iron should be rare.
   resources_.insert(std::pair<int, Resource>(IRON, Resource(3, 22, 2, true, {-1, -1})));  
   resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(5.5, 100, 0, false, r_pos[OXYGEN]))); 
@@ -87,8 +86,7 @@ std::vector<std::string> Player::GetCurrentStatusLine() {
       "+" + utils::Dtos(resources_.at(DOPAMINE).distributed_iron()), "",
     "serotonin " SYMBOL_SEROTONIN + end, resources_.at(SEROTONIN).Print(),
       "+" + utils::Dtos(resources_.at(SEROTONIN).distributed_iron()), "",
-    "nucleus " SYMBOL_DEN " potential" + end, std::to_string(nucleus_.voltage()) + "/" + 
-      std::to_string(nucleus_.max_voltage()),
+    "nucleus " SYMBOL_DEN " potential" + end, GetNucleusLive()
   };
 }
 
@@ -98,9 +96,12 @@ std::map<std::string, Potential> Player::potential() {
   return potential_; 
 }
 
-position_t Player::nucleus_pos() { 
-  std::shared_lock sl(mutex_nucleus_); 
-  return nucleus_.pos_;
+position_t Player::GetOneNucleus() { 
+  std::shared_lock sl(mutex_all_neurons_); 
+  auto all_nucleus_positions = GetAllPositionsOfNeurons(NUCLEUS);
+  if (all_nucleus_positions.size() > 0)
+    return all_nucleus_positions.front();
+  return {-1, -1};
 }
 
 int Player::cur_range() { 
@@ -145,12 +146,17 @@ position_t Player::GetPositionOfClosestNeuron(position_t pos, int unit) {
 std::string Player::GetNucleusLive() {
   spdlog::get(LOGGER)->info("Player::GetNucleusLive");
   std::shared_lock sl(mutex_all_neurons_);
-  return std::to_string(nucleus_.voltage()) + " / " + std::to_string(nucleus_.max_voltage());
+  auto positions = GetAllPositionsOfNeurons(NUCLEUS);
+  if (positions.size() > 0) {
+    return std::to_string(neurons_.at(positions.front())->voltage()) 
+      + " / " + std::to_string(neurons_.at(positions.front())->max_voltage());
+  }
+  return "---";
 }
 
 bool Player::HasLost() {
-  std::shared_lock sl(mutex_nucleus_);
-  return nucleus_.voltage() >= nucleus_.max_voltage();
+  std::shared_lock sl(mutex_all_neurons_);
+  return GetAllPositionsOfNeurons(NUCLEUS).size() == 0;
 }
 
 int Player::GetNeuronTypeAtPosition(position_t pos) {
@@ -314,8 +320,10 @@ Costs Player::GetMissingResources(int unit, int boast) {
 
 bool Player::TakeResources(int type, bool bind_resources, int boast) {
   spdlog::get(LOGGER)->info("Player::TakeResources");
-  if (units_costs_.count(type) == 0)
+  if (units_costs_.count(type) == 0) {
+    spdlog::get(LOGGER)->info("Player::TakeResources: done as free resource.");
     return true;
+  }
   if (GetMissingResources(type, boast).size() > 0) {
     spdlog::get(LOGGER)->warn("Player::TakeResources: taking resources with out enough resources!");
     return false;
@@ -337,22 +345,30 @@ bool Player::AddNeuron(position_t pos, int neuron_type, position_t epsp_target, 
   if (!TakeResources(neuron_type, true))
     return false;
   if (neuron_type == UnitsTech::ACTIVATEDNEURON) {
+    spdlog::get(LOGGER)->debug("Player::AddNeuron: ActivatedNeuron");
     std::shared_lock sl(mutex_technologies_);
     int speed_boast = technologies_.at(UnitsTech::DEF_SPEED).first * 40;
     int potential_boast = technologies_.at(UnitsTech::DEF_POTENTIAL).first;
     neurons_[pos] = std::make_unique<ActivatedNeuron>(pos, potential_boast, speed_boast);
   }
   else if (neuron_type == UnitsTech::SYNAPSE) {
+    spdlog::get(LOGGER)->debug("Player::AddNeuron: Synapse");
     neurons_[pos] = std::make_unique<Synapse>(pos, technologies_.at(UnitsTech::SWARM).first*3+1, 
         technologies_.at(UnitsTech::WAY).first, epsp_target, ipsp_target);
     spdlog::get(LOGGER)->debug("Player::AddNeuron, created synapse, {}", neurons_.at(pos)->type_);
   }
   else if (neuron_type == UnitsTech::NUCLEUS) {
+    spdlog::get(LOGGER)->debug("Player::AddNeuron: Nucleus");
     neurons_[pos] = std::make_unique<Nucleus>(pos);
     UpdateResourceLimits(0.1); // Increase max resource if new nucleus is built.
   }
   else if (neuron_type == UnitsTech::RESOURCENEURON) {
-    neurons_[pos] = std::make_unique<ResourceNeuron>(pos, resources_symbol_mapping.at(field_->GetSymbolAtPos(pos)));
+    spdlog::get(LOGGER)->debug("Player::AddNeuron: ResourceNeuron");
+    std::string symbol = field_->GetSymbolAtPos(pos);
+    spdlog::get(LOGGER)->debug("Player::AddNeuron: got symbol: {}", symbol);
+    int resource_type = resources_symbol_mapping.at(symbol);
+    spdlog::get(LOGGER)->debug("Player::AddNeuron: got resource_type: {}", resource_type);
+    neurons_[pos] = std::make_unique<ResourceNeuron>(pos, resource_type);
     spdlog::get(LOGGER)->debug("Player::AddNeuron, Created resourceneuron, {}", neurons_.at(pos)->type_);
   }
   spdlog::get(LOGGER)->info("Player::AddNeuron: done");
@@ -539,7 +555,6 @@ void Player::NeutralizePotential(std::string id, int potential) {
 
 void Player::AddPotentialToNeuron(position_t pos, int potential) {
   std::unique_lock ul_all_neurons(mutex_all_neurons_);
-  std::unique_lock ul_nucleus(mutex_nucleus_);
   spdlog::get(LOGGER)->info("Player::AddPotentialToNeuron: {} {}", utils::PositionToString(pos), potential);
   if (potential < 0) {
     spdlog::get(LOGGER)->warn("Player::AddPotentialToNeuron: negative potential!");
@@ -562,12 +577,6 @@ void Player::AddPotentialToNeuron(position_t pos, int potential) {
       }
       spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: adding potential finished.");
     }
-  }
-  // Seperatly check main nucleus.
-  if (nucleus_.pos_.first == pos.first && nucleus_.pos_.second == pos.second) {
-    spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: added potential to main nucleus: {}.", 
-        potential);
-    nucleus_.IncreaseVoltage(potential); // return value ignored.
   }
   spdlog::get(LOGGER)->info("Player::AddPotentialToNeuron: done");
 }

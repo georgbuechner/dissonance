@@ -156,13 +156,6 @@ void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned sh
   spdlog::get(LOGGER)->debug("Field::AddHills: done");
 }
 
-position_t Field::GetNewSoldierPos(position_t pos) {
-  auto new_pos = FindFree(pos.first, pos.second, 1, 3);
-  while(!graph_.InGraph(new_pos))
-    new_pos = FindFree(pos.first, pos.second, 1, 3);
-  return new_pos;
-}
-
 std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<position_t> way_points) {
   position_t target_pos = way_points.back();
   way_points.pop_back();
@@ -304,11 +297,9 @@ bool Field::InField(int l, int c) {
 
 position_t Field::FindFree(int l, int c, int min, int max) {
   std::shared_lock sl_field(mutex_field_);
-
   auto positions = GetAllInRange({l, c}, max, min, true);
   if (positions.size() == 0)
-    throw std::runtime_error("Game came to an strange end. No free positions!");
-
+    return {-1, -1};
   return positions[ran_gen_->RandomInt(0, positions.size())];
 }
 

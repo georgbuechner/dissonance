@@ -38,6 +38,7 @@ class Game {
     AudioKi* player_two_;
     bool game_over_;
     bool pause_;
+    bool resigned_;
     Audio audio_;
     const std::string base_path_;
     std::vector<std::string> audio_paths_;
@@ -120,6 +121,8 @@ class Game {
     void ClearField();
 
     std::string InputString(std::string msg);
+
+    position_t SelectNucleus(Player*);
 
 };
 
