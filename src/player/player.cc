@@ -624,14 +624,14 @@ choice_mapping_t Player::GetOptionsForSynapes(position_t pos) {
     return mapping;
   }
   
-  mapping[1] = {"(Re-)set way.", (technologies_.at(UnitsTech::WAY).first > 0) ? COLOR_AVAILIBLE : COLOR_DEFAULT};
-  mapping[2] = {"Add way-point.", (neurons_.at(pos)->ways_points().size() < neurons_.at(pos)->num_availible_ways()) 
+  mapping[0] = {"(Re-)set way.", (technologies_.at(UnitsTech::WAY).first > 0) ? COLOR_AVAILIBLE : COLOR_DEFAULT};
+  mapping[1] = {"Add way-point.", (neurons_.at(pos)->ways_points().size() < neurons_.at(pos)->num_availible_ways()) 
     ? COLOR_AVAILIBLE : COLOR_DEFAULT};
-  mapping[3] = {"Select target for ipsp.", (technologies_.at(UnitsTech::TARGET).first > 0) 
+  mapping[2] = {"Select target for ipsp.", (technologies_.at(UnitsTech::TARGET).first > 0) 
     ? COLOR_AVAILIBLE : COLOR_DEFAULT};
-  mapping[4] = {"Select target for epsp.", (technologies_.at(UnitsTech::TARGET).first > 1) 
+  mapping[3] = {"Select target for epsp.", (technologies_.at(UnitsTech::TARGET).first > 1) 
     ? COLOR_AVAILIBLE : COLOR_DEFAULT};
-  mapping[5] = {(neurons_.at(pos)->swarm()) ? "Turn swarm-attack off" : "Turn swarm-attack on", 
+  mapping[4] = {(neurons_.at(pos)->swarm()) ? "Turn swarm-attack off" : "Turn swarm-attack on", 
     (technologies_.at(UnitsTech::SWARM).first > 0) ? COLOR_AVAILIBLE : COLOR_DEFAULT};
   spdlog::get(LOGGER)->info("Player::GetOptionsForSynapes: done");
   return mapping;

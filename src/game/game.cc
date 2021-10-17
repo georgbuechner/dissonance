@@ -410,11 +410,11 @@ void Game::GetPlayerChoice() {
         size_t missing_costs = player_one_->GetMissingResources(it.first, it.second.first+1).size();
         if (it.second.first < it.second.second && missing_costs == 0)
           color = COLOR_AVAILIBLE;
-        mapping[it.first-UnitsTech::IPSP] = {units_tech_mapping.at(it.first) 
+        mapping[it.first-UnitsTech::WAY] = {units_tech_mapping.at(it.first) 
           + " (" + utils::PositionToString(it.second) + ")", color};
       }
       int technology = SelectInteger("Select technology", true, mapping, {3, 5, 8, 10, 11})
-        +UnitsTech::IPSP;
+        +UnitsTech::WAY;
       if (player_one_->AddTechnology(technology))
         PrintMessage("selected: " + units_tech_mapping.at(technology), false);
       else if (technology != -1)
@@ -441,29 +441,29 @@ void Game::GetPlayerChoice() {
         // Do action after getting choice.
         if (mapping.count(choice) > 0) {
           // if func=swarm, simply turn on/ off.
-          if (choice == 5)
+          if (choice == 4)
             player_one_->SwitchSwarmAttack(pos);
-          // Otherwise get new postion first.
-          else if (choice == 1 || choice == 2) {
-            auto start_position = SelectFieldPositionByAlpha(field_->GetAllCenterPositionsOfSections(), "Select start");
+          // Otherwise: way-selection (full map)
+          else if (choice == 0 || choice == 1) {
+            auto start_position = SelectFieldPositionByAlpha(
+                field_->GetAllCenterPositionsOfSections(), "Select start");
             if (start_position.first != -1) {
               auto new_pos = SelectPosition(start_position, ViewRange::GRAPH);
               if (new_pos.first != -1) {
-                if (choice == 1)
+                if (choice == 0)
                   player_one_->ResetWayForSynapse(pos, new_pos);
-                else if (choice == 2)
+                else if (choice == 1)
                   player_one_->AddWayPosForSynapse(pos, new_pos);
               }
             }
           }
+          // Otherwise: target-selection (enemy-nucleus)
           else {
             auto new_pos = SelectPosition(player_two_->GetOneNucleus(), ViewRange::GRAPH);
-            if (new_pos.first != -1) {
-              if (choice == 3)
-                player_one_->ChangeIpspTargetForSynapse(pos, new_pos);
-              else if (choice == 4)
-                player_one_->ChangeEpspTargetForSynapse(pos, new_pos);
-            }
+            if (new_pos.first != -1 && choice== 2)
+              player_one_->ChangeIpspTargetForSynapse(pos, new_pos);
+            else if (new_pos.first != -1 && choice == 3)
+              player_one_->ChangeEpspTargetForSynapse(pos, new_pos);
           }
         }
         else
@@ -648,7 +648,7 @@ int Game::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapping, s
 
   std::vector<std::pair<std::string, int>> options;
   for (const auto& option : mapping) {
-    char c_option = 'a'+option.first-1;
+    char c_option = 'a'+option.first;
     std::string txt = "";
     txt += c_option; 
     txt += ": " + option.second.first + "    ";
@@ -678,13 +678,16 @@ int Game::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapping, s
     int int_choice = choice-'a';
     if (choice == 'q' && omit)
       end = true;
-    else if (mapping.count(int_choice) > 0 && (mapping.at(int_choice).second == COLOR_AVAILIBLE || !omit)) {
+    else if (mapping.count(int_choice) > 0 && (mapping.at(int_choice).second == COLOR_AVAILIBLE 
+          || !omit)) {
       pause_ = false;
       spdlog::get(LOGGER)->debug("Game::SelectInteger: done, retuning: {}", int_choice);
       return int_choice;
     }
-    else if (mapping.count(int_choice) > 0 && mapping.at(int_choice).second != COLOR_AVAILIBLE && omit)
-      PrintCentered(LINES/2+counter+5, "Selection not available (not enough resources?): " + std::to_string(int_choice));
+    else if (mapping.count(int_choice) > 0 && mapping.at(int_choice).second != COLOR_AVAILIBLE 
+        && omit)
+      PrintCentered(LINES/2+counter+5, "Selection not available (not enough resources?): " 
+          + std::to_string(int_choice));
     else 
       PrintCentered(LINES/2+counter+5, "Wrong selection: " + std::to_string(int_choice));
   }
