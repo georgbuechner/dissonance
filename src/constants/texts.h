@@ -98,6 +98,8 @@ namespace texts {
       "To start building units, you first need to build a synapse.",
       "EPSP aims to destroy enemy buildings, while IPSP blocks buildings.",
       "",
+      "You can first enter a number x∈{1..9} and the select epsp/ ipsp. This will automatically try to create x epsp/ ipsp.",
+      "",
       "Also remember you gain less resources the more resources you have, so keep you resources low!",
       "Finally: keep track of your bound resources, the more resources are bound, the less you gain!"
     }

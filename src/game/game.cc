@@ -251,6 +251,7 @@ void Game::HandleActions() {
 void Game::GetPlayerChoice() {
   spdlog::get(LOGGER)->debug("Game::GetPlayerChoice: started");
   int choice;
+  int num = 1;
   PrintFieldAndStatus();
   while (true) {
 
@@ -272,6 +273,11 @@ void Game::GetPlayerChoice() {
     // Stop any other player-inputs, if game is over.
     else if (game_over_) {
       continue;
+    }
+
+    else if (std::isdigit(choice)) {
+      num = choice-48;
+      PrintMessage("num to create (1..9): " + std::to_string(num), false);
     }
 
     // SPACE: pause/ unpause game
@@ -313,7 +319,12 @@ void Game::GetPlayerChoice() {
           PrintMessage("Invalid choice!", true);
         else {
           PrintMessage("Added epsp @synapse " + utils::PositionToString(pos), false);
-          player_one_->AddPotential(pos, UnitsTech::EPSP);
+          for (int i=0; i<num; i++) {
+            player_one_->AddPotential(pos, UnitsTech::EPSP);
+            auto cur_time = std::chrono::steady_clock::now();
+            while (utils::GetElapsed(cur_time, std::chrono::steady_clock::now()) < 110) {}
+          }
+          num = 1;
         }
       }
     }
@@ -328,8 +339,13 @@ void Game::GetPlayerChoice() {
           PrintMessage("Invalid choice!", true);
         else {
           PrintMessage("created ipsp @synapse: " + utils::PositionToString(pos), false);
-          spdlog::get(LOGGER)->debug("Game::GetPlayerChoice: Creating potential.");
-          player_one_->AddPotential(pos, UnitsTech::IPSP);
+          for (int i=0; i<num; i++) {
+            player_one_->AddPotential(pos, UnitsTech::IPSP);
+            auto cur_time = std::chrono::steady_clock::now();
+            while (utils::GetElapsed(cur_time, std::chrono::steady_clock::now()) < 110) {}
+          }
+          num = 1;
+
         }
       }
     }
@@ -471,10 +487,11 @@ void Game::GetPlayerChoice() {
           PrintMessage("Invalid choice: " + std::to_string(choice), true);
       }
     }
-
     else if (choice == 'd') {
       DistributeIron();
     }
+    else 
+      num = 1;
   } 
 }
 
