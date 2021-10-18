@@ -11,6 +11,7 @@
 	3. [Tests](#tests)
 	4. [Uninstall](#uninstall)
 	5. [Known problems](#known-problems)
+  6. [Help Me!](#help-me)
 4. [Game details](#game-details)
 	1. [Resources](#resources)
 	2. [Neurons and potential](#neurons-and-potential)
@@ -54,6 +55,8 @@ inside you to overcome dissonance in your favor!
 - C++ compiler:  
   Linux: [gcc](https://gcc.gnu.org/) (available in most package managers),   
   MacOs: [clang](https://clang.llvm.org/) (available with `brew install clang`)  
+- also essential c++ tools like `make` and `cmake`.
+- [python](https://www.python.org/) 
 - [conan](https://conan.io/) (available in most package managers, but also: `pip install conan`)
 - [aubio](https://github.com/aubio/aubio)
 
@@ -188,6 +191,115 @@ need to figure some problems out yourself.
 As the documentation of [miniaudio](https://miniaud.io/docs/manual/index.html) 
 correctly points out, these issues might be fixed by applying the fix mentioned
 in the arch-linux wiki: https://wiki.archlinux.org/title/PulseAudio/Troubleshooting#Glitches,_skips_or_crackling.
+
+## Help Me I have no idea what a command-line is.<a name="help-me"></a>
+Okay I think it's worth writing a few lines about the command-line and giving a
+few instructions in case you never used a *terminal* or a *command-line* and
+especially give some help on installing the requirements.
+
+If you really have now idea at all, I strongly advise checking out a few
+tutorials, here is f.e. the link to the official ubuntu-command-line-tutorial:
+https://ubuntu.com/tutorials/command-line-for-beginners#3-opening-a-terminal
+
+### Opening the command-line.
+You can usually open the command-line (CLI) by searching *terminal* via your
+systems build-in search method. 
+
+### Basic commands
+There are a few commands you will probably need during the installation process,
+let's take a look. (All of the following commands are identical on linux and
+MacOs.)
+
+The `pwd` command shows the path of you current working directory
+```
+pwd
+ 
+# possible output:
+/home/sigmund/Documents
+```
+
+The `ls` command shows all files and directories in the current folder
+```
+ls
+
+# possible output:
+Documents
+Downloads
+Pictures
+Music
+```
+
+With `mkdir` (make directory) you can create a new directory/ "folder":
+```
+mkdir build
+```
+
+`ls` will then show the newly created directory:
+```
+ls
+
+# possible output:
+Documents
+Downloads
+Pictures
+Music
+build
+```
+
+`cd` allows you to change the current working directory:
+```
+cd build
+```
+
+
+### Installing software via CLI
+Installing new software via CLI is one of the things that will give you the "oh, that's
+nice" experiences. Most operating systems (we'll concentrate on linux and MacOs
+here) will have their own package-manager to not only install but also updated
+your software. Ubuntu uses `apt`, arch-bases distro use `pacman` and on MacOs
+you can use `homebrew`. Installing howebrew can be a bit tricky, here's a link
+on how to do this: https://brew.sh/
+
+To play dissonance, you will need to install a few programs, let's take a look 
+
+#### Ubuntu
+As already mention, ubuntu uses `apt`. 
+
+For dissonance you need to install a few programs, like `gcc`, `cmake`, `python` and
+`conan` and maybe (depending on what is already installed on you system, more
+basic tools, like `make`, `wget` and other programs. This may seem like a lot,
+but installing via CLI really makes thing easy: 
+```
+sudo apt install build-essential cmake python
+```
+Will install most programs you need to install and run dissonance.
+
+`build-essential` contains stand software to for coding, like `gcc` (c++
+compiler), `make` and a few other libraries.
+
+On Ubuntu `conan` can not be install via apt, however you can use the
+python-package-manager that should be present on your system, once `python` is
+installed:
+```
+pip install conan
+```
+
+In general: often if something is going wrong, the command-line will tell you
+what the problem is. It might even say `program xxx is missing, you can install
+with 'apt install xxx'`.
+
+#### MacOs
+Things are quite similar for MacOs: after installing `homebrew` you can install the
+necessary software using the command `brew`.
+
+```
+brew install cmake make clang python conan
+```
+
+I'm aware that this is a very very limited guide focusing only on commands, that
+might be needed during the installation process. However I hope these few lines 
+might have helped you to install `dissonance`. Let me know if you have any other
+issues. 
 
 ## Game Details 
 
