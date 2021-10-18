@@ -48,6 +48,11 @@ setup:
 	sudo cp build/bin/dissonance /usr/local/bin/dissonance_bin
 	chmod +x dissonance.sh
 	sudo cp dissonance.sh /usr/local/bin/dissonance
+	# For macos move terminfo
+ifeq ($(UNAME_S),Darwin)
+	mkdir -p ~/.terminfo/
+	sudo cp -r /usr/share/terminfo/78 ~/.terminfo/
+endif
 
 install:
 	make build -B
