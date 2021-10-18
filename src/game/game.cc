@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "constants/codes.h"
+#include "nlohmann/json.hpp"
 #include "objects/units.h"
 #include "player/player.h"
 #include "random/random.h"
@@ -275,7 +276,6 @@ void Game::GetPlayerChoice() {
 
     // SPACE: pause/ unpause game
     else if (choice == ' ') {
-      pause_ = !pause_;
       if (pause_) {
         audio_.Unpause();
         PrintMessage("Un-Paused game.", false);
@@ -284,6 +284,7 @@ void Game::GetPlayerChoice() {
         audio_.Pause();
         PrintMessage("Paused game.", false);
       }
+      pause_ = !pause_;
     }
 
     else if (pause_) {
@@ -839,6 +840,8 @@ void Game::ClearField() {
 std::string Game::SelectAudio() {
   ClearField();
   AudioSelector selector = SetupAudioSelector("", "select audio", audio_paths_);
+  selector.options_.push_back({"dissonance_recently_played", "recently played"});
+  std::vector<std::string> recently_played = utils::LoadJsonFromDisc(base_path_ + "/settings/recently_played.json");
   std::string error = "";
   std::string help = "(use + to add paths, ENTER to select,  h/l or ←/→ to change directory and j/k or ↓/↑ to circle through songs,)";
   unsigned int selected = 0;
@@ -871,7 +874,9 @@ std::string Game::SelectAudio() {
     char choice = getch();
     if (utils::IsRight(choice)) {
       level++;
-      if (std::filesystem::is_directory(visible_options[selected].first)) {
+      if (visible_options[selected].first == "dissonance_recently_played")
+        selector = SetupAudioSelector("", "Recently Played", recently_played);
+      else if (std::filesystem::is_directory(visible_options[selected].first)) {
         selector = SetupAudioSelector(visible_options[selected].first, visible_options[selected].second, 
             utils::GetAllPathsInDirectory(visible_options[selected].first));
         selected = 0;
@@ -886,8 +891,10 @@ std::string Game::SelectAudio() {
       level--;
       selected = 0;
       print_start = 0;
-      if (level == 0)
+      if (level == 0) {
         selector = SetupAudioSelector("", "select audio", audio_paths_);
+        selector.options_.push_back({"dissonance_recently_played", "recently played"});
+      }
       else {
         std::filesystem::path p = selector.path_;
         selector = SetupAudioSelector(p.parent_path().string(), p.parent_path().filename().string(), 
@@ -930,7 +937,25 @@ std::string Game::SelectAudio() {
     }
     ClearField();
   }
-  return selector.options_[selected].first; 
+
+  // Add selected aubio-file to recently-played files.
+  std::filesystem::path select_path = selector.options_[selected].first;
+  bool exists=false;
+  for (const auto& it : recently_played) {
+    if (it == select_path.string()) {
+      exists = true;
+      break;
+    }
+  }
+  if (!exists)
+    recently_played.push_back(select_path.string());
+  if (recently_played.size() > 10) 
+    recently_played.erase(recently_played.begin());
+  nlohmann::json j_recently_played = recently_played;
+  utils::WriteJsonFromDisc(base_path_ + "/settings/recently_played.json", j_recently_played);
+
+  // Return selected path.
+  return select_path.string(); 
 }
 
 Game::AudioSelector Game::SetupAudioSelector(std::string path, std::string title, std::vector<std::string> paths) {
