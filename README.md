@@ -1,3 +1,5 @@
+![Title Image](images/title_image.png)
+
 # Table of contents
 1. [Dissonance](#dissonance)
 2. [Premise](#premise)
