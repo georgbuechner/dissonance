@@ -45,6 +45,7 @@ void AudioKi::set_last_time_point(const AudioDataTimePoint &data_at_beat) {
 }
 
 void AudioKi::SetUpTactics(bool economy_tactics) {
+  spdlog::get(LOGGER)->info("AudioKi::SetUpTactics");
   // Setup tactics.
   SetBattleTactics();
   if (economy_tactics)
@@ -56,6 +57,7 @@ void AudioKi::SetUpTactics(bool economy_tactics) {
 }
 
 void AudioKi::SetBattleTactics() {
+  spdlog::get(LOGGER)->info("AudioKi::SetBattleTactics");
   // Major: defence
   if (cur_interval_.major_) {
     // Additionally increase depending on signature.
@@ -122,6 +124,7 @@ void AudioKi::SetBattleTactics() {
 }
 
 void AudioKi::SetEconomyTactics() {
+  spdlog::info("AudioKi::SetEconomyTactics");
   std::map<size_t, size_t> resource_tactics;
   std::map<size_t, size_t> technology_tactics;
 
@@ -219,6 +222,12 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
   std::unique_lock ul(mutex_all_neurons_);
   spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: get epsp synapses.");
   position_t epsp_synapses_pos = sorted_synapses.back();
+  spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: epsp synapses: {}", utils::PositionToString(epsp_synapses_pos));
+  spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: epsp synapses exists? {}", neurons_.count(epsp_synapses_pos));
+  if (neurons_.count(epsp_synapses_pos) == 0) {
+    spdlog::get(LOGGER)->error("AudioKi::LaunchAttack: epsp synapses does not exist! {}", utils::PositionToString(epsp_synapses_pos));
+    return;
+  }
   auto epsp_way = field_->GetWayForSoldier(epsp_synapses_pos, neurons_.at(epsp_synapses_pos)->GetWayPoints(UnitsTech::EPSP));
   ul.unlock();
  
@@ -395,7 +404,9 @@ void AudioKi::CreateActivatedNeuron(bool force) {
       auto positions = field_->GetAllInRange(nucleus_pos_, i, i-1, true);
       if (positions.size() > 0) {
         positions = SortPositionsByDistance(enemy_->GetOneNucleus(), positions);
-        pos = positions.front(); break;
+        pos = positions.front(); 
+        spdlog::get(LOGGER)->debug("AudioKi::CreateActivatedNeuron: got pos {}", utils::PositionToString(pos));
+        break;
       }
     }
   }

@@ -329,7 +329,16 @@ void Audio::CalcLevel(size_t interval, std::map<std::string, int> notes_by_frequ
 }
 
 bool Audio::MoreOffNotes(const AudioDataTimePoint &data_at_beat, bool off) const {
+  spdlog::get(LOGGER)->debug("Audio::MoreOffNotes");
+  if (analysed_data_.intervals_.count(data_at_beat.interval_) == 0) {
+    spdlog::get(LOGGER)->error("Audio::MoreOffNotes: interval not in intervals! {}", data_at_beat.interval_);
+    return false;
+  }
   std::string cur_key = analysed_data_.intervals_.at(data_at_beat.interval_).key_;
+  if (keys_.count(cur_key) == 0) {
+    spdlog::get(LOGGER)->error("Audio::MoreOffNotes: key not in keys! {}", cur_key);
+    return false;
+  }
   auto notes_in_cur_key = keys_.at(cur_key);
   size_t off_notes_counter = 0;
   for (const auto& note : data_at_beat.notes_) {
@@ -342,10 +351,12 @@ bool Audio::MoreOffNotes(const AudioDataTimePoint &data_at_beat, bool off) const
         off_notes_counter++;
     }
   }
+  spdlog::get(LOGGER)->info("Audio::MoreOffNotes: done");
   return off_notes_counter == data_at_beat.notes_.size() && off_notes_counter > 0;
 }
 
 size_t Audio::NextOfNotesIn(double cur_time) const {
+  spdlog::get(LOGGER)->debug("Audio::NextOfNotesIn");
   size_t counter = 1;
   for (const auto& it : analysed_data_.data_per_beat_) {
     if (it.time_ <= cur_time) 
@@ -354,6 +365,7 @@ size_t Audio::NextOfNotesIn(double cur_time) const {
       break;
     counter++;
   }
+  spdlog::get(LOGGER)->info("Audio::NextOfNotesIn: done");
   return counter;
 }
 
@@ -365,7 +377,6 @@ std::string Audio::GetOutPath(std::filesystem::path source_path) {
   spdlog::get(LOGGER)->info("Audio::GetOutPath: got out_path: {}", out_path);
   return out_path;
 }
-
 
 std::map<unsigned short, std::vector<Note>> Audio::GetNotesInSimilarOctave(std::vector<Note> notes) {
   // Initialize.
