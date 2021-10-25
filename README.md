@@ -79,7 +79,7 @@ working for you, please refer to the
 
 #### Quick-quide<a name="quick-guide"></a>
 ```python
-git clone git@github.com:georgbuechner/dissonance.git
+git clone https://github.com/georgbuechner/dissonance
 cd dissonance
 
 # ubuntu:
@@ -95,7 +95,7 @@ make install
 
 Clone project: 
 ```
-git clone git@github.com:georgbuechner/dissonance.git
+git clone https://github.com/georgbuechner/dissonance
 ```
 
 Now `cd` into the project
@@ -407,8 +407,8 @@ For the following technologies/ neurons the costs are increased:
 I explicitly want to thank all the great developers who help write and maintain the
 awesome libraries makeing `dissonance` possible:
 - [aubio](https://github.com/aubio/aubio) the fantastic library for analysing audio.
-- [miniaudio](https://github.com/aubio/aubio), which grants the possibility
-  to acctually *play* audio-files.
+- [miniaudio](https://github.com/mackron/miniaudio), which grants the possibility
+  to acctually *play* audio-files. 
 - [lyra](https://github.com/bfgroup/Lyra) the beautiful command line argument
   parser.
 - [catch2](https://github.com/catchorg/Catch2) (although I apologize for not
