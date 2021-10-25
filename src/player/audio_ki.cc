@@ -217,8 +217,10 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
   spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack.");
   // Sort synapses (use synapses futhest from enemy for epsp)
   auto sorted_synapses = SortPositionsByDistance(enemy_->GetOneNucleus(), GetAllPositionsOfNeurons(UnitsTech::SYNAPSE));
-  if (sorted_synapses.size() == 0)
+  if (sorted_synapses.size() == 0) {
+    spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: stoped: no synapses");
     return;
+  }
   std::unique_lock ul(mutex_all_neurons_);
   spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: get epsp synapses.");
   position_t epsp_synapses_pos = sorted_synapses.back();
@@ -370,6 +372,7 @@ void AudioKi::CreateSynapses(bool force) {
   if (GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() <= building_tactics_[SYNAPSE] && availible_oxygen > 25) {
     spdlog::get(LOGGER)->debug("AudioKi::CreateSynapses: creating synapses.");
     auto pos = field_->FindFree(nucleus_pos_.first, nucleus_pos_.second, 1, 5);
+    spdlog::get(LOGGER)->debug("AudioKi::CreateSynapses: Found free pos: {} {}", utils::PositionToString(nucleus_pos_), utils::PositionToString(pos));
     // If no more free positions are availible, try to extend range.
     if (pos.first == -1 && pos.second == -1) {
       AddTechnology(UnitsTech::NUCLEUS_RANGE);

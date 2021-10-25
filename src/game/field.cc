@@ -157,6 +157,7 @@ void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned sh
 }
 
 std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<position_t> way_points) {
+  spdlog::get(LOGGER)->info("Field::GetWayForSoldier: pos={}", utils::PositionToString(start_pos));
   position_t target_pos = way_points.back();
   way_points.pop_back();
   std::list<position_t> way = {start_pos};
@@ -166,15 +167,25 @@ std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<
     for (const auto& it : way_points) 
       sorted_way[lines_+cols_-utils::Dist(it, target_pos)] = it;
     for (const auto& it : sorted_way) {
-      auto new_part = graph_.find_way(way.back(), it.second);
-      way.pop_back();
-      way.insert(way.end(), new_part.begin(), new_part.end());
+      try {
+        auto new_part = graph_.find_way(way.back(), it.second);
+        way.pop_back();
+        way.insert(way.end(), new_part.begin(), new_part.end());
+      }
+      catch (std::exception& e) {
+        spdlog::get(LOGGER)->error("Field::GetWayForSoldier: Serious error: no way found: {}", e.what());
+      }
     }
   }
   // Create way from last position to target.
-  auto new_part = graph_.find_way(way.back(), target_pos);
-  way.pop_back();
-  way.insert(way.end(), new_part.begin(), new_part.end());
+  try {
+    auto new_part = graph_.find_way(way.back(), target_pos);
+    way.pop_back();
+    way.insert(way.end(), new_part.begin(), new_part.end());
+  }
+  catch (std::exception& e) {
+    spdlog::get(LOGGER)->error("Field::GetWayForSoldier: Serious error: no way found: {}", e.what());
+  }
   return way;
 }
 
@@ -300,7 +311,7 @@ position_t Field::FindFree(int l, int c, int min, int max) {
   auto positions = GetAllInRange({l, c}, max, min, true);
   if (positions.size() == 0)
     return {-1, -1};
-  return positions[ran_gen_->RandomInt(0, positions.size())];
+  return positions[ran_gen_->RandomInt(0, positions.size()-1)];
 }
 
 std::string Field::GetSymbolAtPos(position_t pos) const {
@@ -335,6 +346,10 @@ std::vector<position_t> Field::GetAllInRange(position_t start, double max_dist, 
         positions_in_range.push_back(pos);
     }
   }
+  std::string pos_str = "";
+  for (const auto& position : positions_in_range) 
+    pos_str += utils::PositionToString(position) + ", ";
+  spdlog::get(LOGGER)->info("Field::GetAllInRange: {}", pos_str);
   return positions_in_range;
 }
 
