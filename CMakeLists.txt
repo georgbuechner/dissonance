@@ -42,6 +42,7 @@ set(SRC_FILES_TEST
   test/test_field.cc
   test/test_utils.cc
   test/test_units.cc
+  test/testing_utils.cc
   ${SRC_FILES}
 )
 

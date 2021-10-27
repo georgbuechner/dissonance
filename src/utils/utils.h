@@ -4,6 +4,8 @@
 #include "curses.h"
 #include "nlohmann/json.hpp"
 #include <chrono>
+#include <iterator>
+#include <list>
 #include <string>
 #include <utility>
 #include <vector>
@@ -133,6 +135,12 @@ namespace utils {
    * @return string formated current date-time.
    */
   std::string GetFormatedDatetime();
+
+  template<class T>
+  int Index(std::list<T> list, T elem) {
+    auto it = std::find(list.begin(), list.end(), elem);
+    return std::distance(list.begin(), it);
+  }
 }
 
 #endif

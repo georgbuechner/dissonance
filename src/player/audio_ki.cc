@@ -371,7 +371,7 @@ void AudioKi::CreateSynapses(bool force) {
   int availible_oxygen = resources_.at(OXYGEN).limit() - resources_.at(OXYGEN).bound();
   if (GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() <= building_tactics_[SYNAPSE] && availible_oxygen > 25) {
     spdlog::get(LOGGER)->debug("AudioKi::CreateSynapses: creating synapses.");
-    auto pos = field_->FindFree(nucleus_pos_.first, nucleus_pos_.second, 1, 5);
+    auto pos = field_->FindFree(nucleus_pos_, 1, 5);
     spdlog::get(LOGGER)->debug("AudioKi::CreateSynapses: Found free pos: {} {}", utils::PositionToString(nucleus_pos_), utils::PositionToString(pos));
     // If no more free positions are availible, try to extend range.
     if (pos.first == -1 && pos.second == -1) {

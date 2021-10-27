@@ -84,8 +84,7 @@ position_t Field::AddNucleus(int section) {
   position_t pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size())];
   field_[pos.first][pos.second] = SYMBOL_DEN;
   // Mark positions surrounding nucleus as free:
-  auto positions_arround_nucleus = GetAllInRange({pos.first, pos.second}, 1.5, 1);
-  for (const auto& it : positions_arround_nucleus)
+  for (const auto& it : GetAllInRange(pos, 1.5, 1))
     field_[it.first][it.second] = SYMBOL_FREE;
   spdlog::get(LOGGER)->debug("Field::AddNucleus: done");
   return pos;
@@ -123,8 +122,7 @@ void Field::BuildGraph(position_t player_den, position_t enemy_den) {
   for (auto node : graph_.nodes()) {
     std::vector<position_t> neighbors = GetAllInRange({node.second->line_, node.second->col_}, 1.5, 1);
     for (const auto& pos : neighbors) {
-      if (InField(pos.first, pos.second) && field_[pos.first][pos.second] != SYMBOL_HILL 
-          && graph_.InGraph(pos))
+      if (InField(pos) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
       graph_.AddEdge(node.second, graph_.nodes().at(pos));
     }
   }
@@ -302,13 +300,13 @@ bool Field::InRange(position_t pos, int range, position_t start) {
   return utils::Dist(pos, start) <= range;
 }
 
-bool Field::InField(int l, int c) {
-  return (l >= 0 && l <= lines_ && c >= 0 && c <= cols_);
+bool Field::InField(position_t pos) {
+  return (pos.first >= 0 && pos.first <= lines_ && pos.second >= 0 && pos.second <= cols_);
 }
 
-position_t Field::FindFree(int l, int c, int min, int max) {
+position_t Field::FindFree(position_t pos, int min, int max) {
   std::shared_lock sl_field(mutex_field_);
-  auto positions = GetAllInRange({l, c}, max, min, true);
+  auto positions = GetAllInRange(pos, max, min, true);
   if (positions.size() == 0)
     return {-1, -1};
   return positions[ran_gen_->RandomInt(0, positions.size()-1)];
@@ -336,11 +334,13 @@ int Field::random_coordinate_shift(int x, int min, int max) {
 
 std::vector<position_t> Field::GetAllInRange(position_t start, double max_dist, double min_dist, bool free) {
   std::vector<position_t> positions_in_range;
+  if (!InField(start))
+    return positions_in_range;
   position_t upper_corner = {start.first-max_dist, start.second-max_dist};
   for (int i=0; i<=max_dist*2; i++) {
     for (int j=0; j<=max_dist*2; j++) {
       position_t pos = {upper_corner.first+i, upper_corner.second+j};
-      if (InField(pos.first, pos.second) && utils::InRange(start, pos, min_dist, max_dist)
+      if (InField(pos) && utils::InRange(start, pos, min_dist, max_dist)
           && (!free || field_[pos.first][pos.second] == SYMBOL_FREE)
           && (!free || graph_.InGraph(pos)))
         positions_in_range.push_back(pos);

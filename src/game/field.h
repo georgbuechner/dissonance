@@ -96,13 +96,12 @@ class Field {
     /** 
      * Finds the next free position near a given position with min and max
      * deviation.
-     * @param l initial line
-     * @param c initial column.
+     * @param pos
      * @param min distance 
      * @param max distance
      * @return free position in given range.
      */
-    position_t FindFree(int l, int c, int min, int max);
+    position_t FindFree(position_t pos, int min, int max);
 
     /**
      * Gets symbol at requested position.
@@ -186,11 +185,10 @@ class Field {
 
     /**
      * Helper-funtion, checking whether given position is inside of the field.
-     * @param l line
-     * @param c column
+     * @param pos
      * @return boolen indicating, whether given position is inside of field.
      */
-    bool InField(int l, int c);
+    bool InField(position_t pos);
 
     int random_coordinate_shift(int x, int min, int max);
 
