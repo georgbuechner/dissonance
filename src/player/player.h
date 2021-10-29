@@ -58,7 +58,18 @@ class Player {
     void set_enemy(Player* enemy);
 
     // methods:
+    /** 
+     * Gets the position of the closet neuron of a specific type to a given position.
+     * @param[in] pos 
+     * @param[in] type
+     * @return the position of the closet neuron of a specific type to a given position.
+     */
     position_t GetPositionOfClosestNeuron(position_t pos, int unit);
+
+    /**
+     * Gets the string representation of the current voltage balance in format: "[cur_voltage] / [max_voltage]"
+     * @return current voltage balance in format: "[cur_voltage] / [max_voltage]"
+     */
     std::string GetNucleusLive();
     
     /**
@@ -94,21 +105,29 @@ class Player {
      * @return Position of a random activated neuron.
      */
     position_t GetRandomNeuron(std::vector<int> type={UnitsTech::ACTIVATEDNEURON});
+
+    /**
+     * Gets the position of the first nucleus in unsorted dictionary of all neurons. Thus
+     * returned position may change, as number of nucleus of player changes.
+     * @return position of first nucleus in unsorted dictionary of all neurons. 
+     */
     position_t GetOneNucleus();
 
     /**
      * Resets way-points for synapse at given position to contain only given way-point.
      * @param[in] pos position of synapse.
      * @param[in] way_point
+     * @return new number of way-points.
      */
-    void ResetWayForSynapse(position_t pos, position_t way_point);
+    int ResetWayForSynapse(position_t pos, position_t way_point);
 
     /**
      * Adds a way point to way_points of a synapse.
      * @param[in] pos position of synapse.
      * @param[in] way_point
+     * @return new number of way-points.
      */
-    void AddWayPosForSynapse(position_t pos, position_t way_position);
+    int AddWayPosForSynapse(position_t pos, position_t way_position);
 
     /**
      * Switch swarm-attack on/ off.
@@ -122,6 +141,7 @@ class Player {
      * @param[in] target position 
      */
     void ChangeIpspTargetForSynapse(position_t pos, position_t target_pos);
+
     /**
      * Sets target position for epsp.
      * @param[in] position of synapse

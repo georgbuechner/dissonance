@@ -40,6 +40,7 @@ set(SRC_FILES_TEST
   test/main.cc
   test/test_audio.cc
   test/test_field.cc
+  test/test_player.cc
   test/test_utils.cc
   test/test_units.cc
   test/testing_utils.cc

@@ -12,6 +12,8 @@ int main( int argc, char* argv[] ) {
   // global setup...
   std::filesystem::remove("test/logs/test-log.txt");
 
+  srand (time(NULL));
+
   auto logger = spdlog::basic_logger_mt("logger", "test/logs/test-log.txt");
   spdlog::flush_on(spdlog::level::debug);
   spdlog::set_level(spdlog::level::debug);

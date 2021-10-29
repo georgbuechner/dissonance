@@ -203,23 +203,34 @@ position_t Player::GetRandomNeuron(std::vector<int>) {
   return activated_neuron_postions[ran];
 }
 
-void Player::ResetWayForSynapse(position_t pos, position_t way_position) {
+int Player::ResetWayForSynapse(position_t pos, position_t way_position) {
   spdlog::get(LOGGER)->info("Player::ResetWayForSynapse");
   std::unique_lock ul(mutex_all_neurons_);
-  if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE)
+  if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE) {
     neurons_.at(pos)->set_way_points({way_position});
-  spdlog::get(LOGGER)->info("Player::ResetWayForSynapse: done");
+    spdlog::get(LOGGER)->info("Player::ResetWayForSynapse: successfully");
+    return neurons_.at(pos)->ways_points().size();
+  }
+  else {
+    spdlog::get(LOGGER)->warn("Player::ResetWayForSynapse: neuron not found or wrong type");
+    return -1;
+  }
 }
 
-void Player::AddWayPosForSynapse(position_t pos, position_t way_position) {
+int Player::AddWayPosForSynapse(position_t pos, position_t way_position) {
   spdlog::get(LOGGER)->info("Player::AddWayPosForSynapse");
   std::unique_lock ul(mutex_all_neurons_);
   if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE) {
-    auto cur_war = neurons_.at(pos)->ways_points();
-    cur_war.push_back(way_position);
-    neurons_.at(pos)->set_way_points(cur_war);
+    auto cur_way = neurons_.at(pos)->ways_points();
+    cur_way.push_back(way_position);
+    neurons_.at(pos)->set_way_points(cur_way);
+    spdlog::get(LOGGER)->info("Player::AddWayPosForSynapse: successfully");
+    return cur_way.size();
   }
-  spdlog::get(LOGGER)->info("Player::AddWayPosForSynapse: done");
+  else {
+    spdlog::get(LOGGER)->warn("Player::AddWayPosForSynapse: neuron not found or wrong type");
+    return -1;
+  }
 }
 
 void Player::SwitchSwarmAttack(position_t pos) {

@@ -903,19 +903,21 @@ std::string Game::SelectAudio() {
         error = "Not a directory!";
     }
     else if (utils::IsLeft(choice)) {
-      if (level == 0)
+      if (level == 0) 
         error = "No parent directory.";
-      level--;
-      selected = 0;
-      print_start = 0;
-      if (level == 0) {
-        selector = SetupAudioSelector("", "select audio", audio_paths_);
-        selector.options_.push_back({"dissonance_recently_played", "recently played"});
-      }
       else {
-        std::filesystem::path p = selector.path_;
-        selector = SetupAudioSelector(p.parent_path().string(), p.parent_path().filename().string(), 
-            utils::GetAllPathsInDirectory(p.parent_path()));
+        level--;
+        selected = 0;
+        print_start = 0;
+        if (level == 0) {
+          selector = SetupAudioSelector("", "select audio", audio_paths_);
+          selector.options_.push_back({"dissonance_recently_played", "recently played"});
+        }
+        else {
+          std::filesystem::path p = selector.path_;
+          selector = SetupAudioSelector(p.parent_path().string(), p.parent_path().filename().string(), 
+              utils::GetAllPathsInDirectory(p.parent_path()));
+        }
       }
     }
     else if (utils::IsDown(choice)) {
