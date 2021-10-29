@@ -404,6 +404,8 @@ For the following technologies/ neurons the costs are increased:
 
 
 ## Acknowledgements
+
+### Dependencies
 I explicitly want to thank all the great developers who help write and maintain the
 awesome libraries makeing `dissonance` possible:
 - [aubio](https://github.com/aubio/aubio) the fantastic library for analysing audio.
@@ -417,3 +419,8 @@ awesome libraries makeing `dissonance` possible:
   json-library (which probably everyone is using?)
 - [spdlog](https://github.com/catchorg/Catch2), a great logging library.
 - and finally [ncurses](https://github.com/mirror/ncurses)! 
+
+### Music
+- blackSnow by airtone (c) copyright 2021 Licensed under a Creative Commons Attribution (3.0) license. http://dig.ccmixter.org/files/airtone/63513
+- The night is calling by Kraftamt (c) copyright 2020 Licensed under a Creative Commons Attribution (3.0) license. http://dig.ccmixter.org/files/Karstenholymoly/62739 Ft: mwic
+- Hear my call by coffeeshoppers 
