@@ -35,13 +35,13 @@ TEST_CASE("test analysing audio", "[main]") {
   Audio audio("dissonance");
 
   SECTION("test analysing wav-file") {
-    audio.set_source_path("dissonance/data/examples/hellwach.wav");
+    audio.set_source_path("dissonance/data/examples/elle_rond_elle_bon_et_blonde.wav");
     audio.Analyze();
     REQUIRE(audio.analysed_data().data_per_beat_.size() > 0);
   }
 
   SECTION("test analysing mp3-file") {
-    audio.set_source_path("dissonance/data/examples/cirrus.mp3");
+    audio.set_source_path("dissonance/data/examples/airtone_-_blackSnow_1.mp3");
     audio.Analyze();
     REQUIRE(audio.analysed_data().data_per_beat_.size() > 0);
   }
