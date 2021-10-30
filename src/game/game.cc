@@ -981,7 +981,8 @@ Game::AudioSelector Game::SetupAudioSelector(std::string path, std::string title
   std::vector<std::pair<std::string, std::string>> options;
   for (const auto& it : paths) {
     std::filesystem::path path = it;
-    options.push_back({it, path.filename()});
+    if (path.extension() == ".mp3" || path.extension() == ".wav" || std::filesystem::is_directory(path))
+      options.push_back({it, path.filename()});
   }
   return AudioSelector({path, title, options});
 }

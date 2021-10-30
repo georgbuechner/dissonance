@@ -42,7 +42,7 @@ endif
 	cd build && make -j
 
 setup:
-	mkdir -p ~/.dissonance
+	rm -rf ~/.dissonance; mkdir -p ~/.dissonance
 	cp -r dissonance/. ~/.dissonance/
 	chmod +x build/bin/dissonance
 	sudo cp build/bin/dissonance /usr/local/bin/dissonance_bin

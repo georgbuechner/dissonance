@@ -420,6 +420,18 @@ awesome libraries makeing `dissonance` possible:
 - [spdlog](https://github.com/catchorg/Catch2), a great logging library.
 - and finally [ncurses](https://github.com/mirror/ncurses)! 
 
+Also I want to clarify, that not all dependencies use the same license as I:
+
+| name | license |
+|------|---------|
+| aubio | GPL-3.0 License |
+| miniaudio | Public Domain or MIT |
+| lyra | BSL |
+| catch2 | BSL |
+| nlohmann | BSL |
+| spdlog | BSL |
+
+
 ### Music
 - blackSnow by airtone (c) copyright 2021 Licensed under a Creative Commons Attribution (3.0) license. http://dig.ccmixter.org/files/airtone/63513
 - The night is calling by Kraftamt (c) copyright 2020 Licensed under a Creative Commons Attribution (3.0) license. http://dig.ccmixter.org/files/Karstenholymoly/62739 Ft: mwic
