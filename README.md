@@ -430,6 +430,7 @@ Also I want to clarify, that not all dependencies use the same license as I:
 | catch2 | BSL |
 | nlohmann | BSL |
 | spdlog | BSL |
+| ncurses | X11 |
 
 
 ### Music
@@ -437,3 +438,9 @@ Also I want to clarify, that not all dependencies use the same license as I:
 - The night is calling by Kraftamt (c) copyright 2020 Licensed under a Creative Commons Attribution (3.0) license. http://dig.ccmixter.org/files/Karstenholymoly/62739 Ft: mwic
 - Hear my call by coffeeshoppers 
 - Elle ronde, elle bon et blonde, Elektro Dschungel 
+
+### Friends and influces
+
+Finally I want to thank Alex for discussing I ideas and conspets with me, as
+well as coming up with the audio-base AI and Anna, who help me develop the
+resource-and unit-system and especially get the biology right :)
