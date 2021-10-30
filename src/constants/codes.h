@@ -16,7 +16,7 @@
 #define SYMBOL_GLUTAMATE "\u03B7" // greek lowercase 'eta'
 #define SYMBOL_DOPAMINE "\u03B4" // greek lowercase 'delta'
 #define SYMBOL_SEROTONIN "\u03C3" // greek lowercase 'sigma
-#define SYMBOL_FREE "\u22C5" // simple dot.
+#define SYMBOL_FREE "\u2219" // simple dot.
 #define SYMBOL_INFINITY "\u221E"
 
 
