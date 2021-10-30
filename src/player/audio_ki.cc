@@ -368,8 +368,9 @@ void AudioKi::CreateIpsps(position_t synapse_pos, position_t target_pos, int num
 
 void AudioKi::CreateSynapses(bool force) {
   spdlog::get(LOGGER)->debug("AudioKi::Synapse.");
-  int availible_oxygen = resources_.at(OXYGEN).limit() - resources_.at(OXYGEN).bound();
-  if (GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() <= building_tactics_[SYNAPSE] && availible_oxygen > 25) {
+  unsigned int availible_oxygen = resources_.at(OXYGEN).limit() - resources_.at(OXYGEN).bound();
+  unsigned int num_existing_synapses = GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size();
+  if (num_existing_synapses <= building_tactics_[SYNAPSE] && availible_oxygen > 25 + num_existing_synapses*2) {
     spdlog::get(LOGGER)->debug("AudioKi::CreateSynapses: creating synapses.");
     auto pos = field_->FindFree(nucleus_pos_, 1, 5);
     spdlog::get(LOGGER)->debug("AudioKi::CreateSynapses: Found free pos: {} {}", utils::PositionToString(nucleus_pos_), utils::PositionToString(pos));
