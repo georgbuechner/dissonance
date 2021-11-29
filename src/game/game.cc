@@ -166,15 +166,30 @@ void Game::RenderField() {
   double player_resource_update_freqeuncy = data_per_beat.front().bpm_;
   double render_frequency = 40;
 
+  auto pause_start_time = std::chrono::steady_clock::now();
+  double time_in_pause = 0;
+  bool pause_started = false;
+
   bool off_notes = false;
  
   while (!game_over_) {
     auto cur_time = std::chrono::steady_clock::now();
 
-    if (pause_) continue;
-    
+    if (pause_) {
+      if (!pause_started) {
+        pause_start_time = std::chrono::steady_clock::now();
+        pause_started = true;
+      }
+      continue;
+    }
+    else if (pause_started) {
+      time_in_pause += utils::GetElapsed(pause_start_time, cur_time);
+      pause_started = false;
+    }
+
+
     // Analyze audio data.
-    auto elapsed = utils::GetElapsed(audio_start_time, cur_time);
+    auto elapsed = utils::GetElapsed(audio_start_time, cur_time)-time_in_pause;
     auto data_at_beat = data_per_beat.front();
     if (elapsed >= data_at_beat.time_) {
       render_frequency = 60000.0/(data_at_beat.bpm_*16);
@@ -229,14 +244,28 @@ void Game::HandleActions() {
   auto analysed_data = audio_.analysed_data();
   std::list<AudioDataTimePoint> data_per_beat = analysed_data.data_per_beat_;
 
+  auto pause_start_time = std::chrono::steady_clock::now();
+  double time_in_pause = 0;
+  bool pause_started = false;
+
   // Handle building neurons and potentials.
   while(!game_over_) {
     auto cur_time = std::chrono::steady_clock::now(); 
 
-    if (pause_) continue;
+    if (pause_) {
+      if (!pause_started) {
+        pause_start_time = std::chrono::steady_clock::now();
+        pause_started = true;
+      }
+      continue;
+    }
+    else if (pause_started) {
+      time_in_pause += utils::GetElapsed(pause_start_time, cur_time);
+      pause_started = false;
+    }
 
     // Analyze audio data.
-    auto elapsed = utils::GetElapsed(audio_start_time, cur_time);
+    auto elapsed = utils::GetElapsed(audio_start_time, cur_time)-time_in_pause;
     if (data_per_beat.size() == 0)
       continue;
     auto data_at_beat = data_per_beat.front();
