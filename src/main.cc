@@ -1,3 +1,4 @@
+#define NCURSES_NOMACROS
 #include <chrono>
 #include <cstdlib>
 #include <curses.h>
@@ -13,6 +14,11 @@
 
 #include <spdlog/spdlog.h>
 #include "lyra/help.hpp"
+#include "server/websocket_server.h"
+
+#include "client/client.h"
+#include "client/client_game.h"
+
 #include "spdlog/common.h"
 #include "spdlog/sinks/basic_file_sink.h"
 #include "utils/utils.h"
@@ -63,6 +69,16 @@ int main(int argc, const char** argv) {
     spdlog::flush_on(spdlog::level::info);
     spdlog::flush_every(std::chrono::seconds(1));
   }
+  
+  // Create websocket server.
+  WebsocketServer* srv = new WebsocketServer();
+  std::thread thread_server([srv]() { srv->Start(4444); });
+
+  ClientGame* client_game = new ClientGame(relative_size, base_path);
+  Client* client = new Client(client_game);
+  std::thread thread_client([client]() { client->Start("ws://localhost:4444"); });
+  thread_server.join();
+  thread_client.join();
 
   // Initialize audio
   Audio::Initialize();
@@ -70,42 +86,14 @@ int main(int argc, const char** argv) {
   // Initialize random numbers.
   srand (time(NULL));
 
-  // Initialize curses
-  setlocale(LC_ALL, "");
-  initscr();
-  cbreak();
-  noecho();
-  curs_set(0);
-  keypad(stdscr, true);
-  clear();
-  
-  // Initialize colors.
-  use_default_colors();
-  start_color();
-  init_pair(COLOR_AVAILIBLE, COLOR_BLUE, -1);
-  init_pair(COLOR_ERROR, COLOR_RED, -1);
-  init_pair(COLOR_DEFAULT, -1, -1);
-  init_pair(COLOR_MSG, COLOR_CYAN, -1);
-  init_pair(COLOR_SUCCESS, COLOR_GREEN, -1);
-  init_pair(COLOR_MARKED, COLOR_MAGENTA, -1);
-
-  // Setup map-size
-  int lines = 40;
-  int cols  = 74;
-  int left_border = (COLS - cols) /2 - 40;
-  if (relative_size) {
-    lines = LINES-20;
-    cols = (COLS-40)/2;
-    left_border = 10;
-  }
   // Initialize game.
-  Game game(lines, cols, left_border, base_path);
+  // Game game(lines, cols, left_border, base_path);
   // Start game
-  game.play();
+  // game.play();
   
   // Wrap up.
-  refresh();
-  clear();
-  endwin();
-  exit(0);
+  // refresh();
+  // clear();
+  // endwin();
+  // exit(0);
 }

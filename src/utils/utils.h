@@ -136,6 +136,15 @@ namespace utils {
    */
   std::string GetFormatedDatetime();
 
+  /**
+   * @brief Parsed json from string and validates that given values exist.
+   * @param keys keys which must exist.
+   * @param source from which to parse json.
+   * @return pair with boolean and generated json.
+   */
+  std::pair<bool, nlohmann::json> ValidateJson(std::vector<std::string> keys, 
+      std::string source);
+
   template<class T>
   int Index(std::list<T> list, T elem) {
     auto it = std::find(list.begin(), list.end(), elem);

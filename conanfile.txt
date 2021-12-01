@@ -4,6 +4,7 @@ ncurses/6.2
 catch2/2.13.0
 spdlog/[>=1.4.1]
 lyra/1.5.1
+websocketpp/0.8.2
 
 [generators]
 cmake

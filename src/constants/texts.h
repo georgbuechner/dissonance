@@ -6,7 +6,8 @@
 
 namespace texts {
 
-  typedef std::vector<std::vector<std::string>> paragraphs_t;
+  typedef std::vector<std::string> paragraph_t;
+  typedef std::vector<paragraph_t> paragraphs_t;
   const paragraphs_t welcome = {
     {
       "Welcome to DISSONANCE",

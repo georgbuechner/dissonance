@@ -27,6 +27,10 @@ set(SRC_FILES
   src/audio/audio.cc
   src/audio/miniaudio.cc
   src/random/random.cc
+
+  src/server/websocket_server.cc
+  src/client/client.cc
+  src/client/client_game.cc
 )
 
 # Add soruce files needed for game only

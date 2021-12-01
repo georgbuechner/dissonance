@@ -45,10 +45,7 @@ Game::Game(int lines, int cols, int left_border, std::string base_path)
   : game_over_(false), pause_(false), resigned_(false), audio_(base_path), base_path_(base_path), 
   lines_(lines), cols_(cols), left_border_(left_border) {
 
-  spdlog::get(LOGGER)->info("Loading music paths at {}", base_path + "/settings/music_paths.json");
   std::vector<std::string> paths = utils::LoadJsonFromDisc(base_path + "/settings/music_paths.json");
-  spdlog::get(LOGGER)->info("Got music paths: {}", paths.size());
-
   for (const auto& it : paths) {
     if (it.find("$(HOME)") != std::string::npos)
       audio_paths_.push_back(getenv("HOME") + it.substr(it.find("/")));

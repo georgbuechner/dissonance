@@ -139,3 +139,30 @@ std::string utils::GetFormatedDatetime() {
   std::puts(buffer);
   return buffer;
 }
+
+std::pair<bool, nlohmann::json> utils::ValidateJson(std::vector<std::string> keys, std::string source) {
+  nlohmann::json json;
+  try {
+    json = nlohmann::json::parse(source); 
+  }
+  catch (std::exception& e) {
+    spdlog::get(LOGGER)->warn("ValidateJson: Failed parsing json: {}", e.what());
+    return std::make_pair(false, nlohmann::json());
+  }
+  for (auto key : keys) {
+    std::vector<std::string> depths = Split(key, "/");
+    if (depths.size() > 0) {
+      if (json.count(depths[0]) == 0) {
+        spdlog::get(LOGGER)->info("ValidateJson: Missing key: {}", key);
+        return std::make_pair(false, json);
+      }
+    }
+    if (depths.size() > 1) {
+      if (json[depths[0]].count(depths[1]) == 0) {
+        spdlog::get(LOGGER)->info("ValidateJson: Missing key: {}", key);
+        return std::make_pair(false, json);
+      }
+    }
+  }
+  return std::make_pair(true, json);
+}
