@@ -1,8 +1,10 @@
 #ifndef SRC_CODES_H_
 #define SRC_CODES_H_
 
+#include "objects/units.h"
 #include <map>
 #include <string>
+#include <vector>
 
 #define SYMBOL_HILL " "
 #define SYMBOL_DEN "\u03A7" // greek uppercase 'chi'
@@ -19,6 +21,11 @@
 #define SYMBOL_FREE "\u2219" // simple dot.
 #define SYMBOL_INFINITY "\u221E"
 
+enum Mode {
+  SINGLE_PLAYER = 0,
+  MULTI_PLAYER = 1,
+  OBSERVER = 2
+};
 
 enum ViewRange {
   HIDE = 0,
@@ -144,5 +151,10 @@ const std::map<int, std::string> units_tech_mapping = {
   {DEF_SPEED, "increase activated-neuron cooldown"},
   {NUCLEUS_RANGE, "increase range of nucleus"},
 };
+
+const std::vector<std::string> resource_symbols = {SYMBOL_OXYGEN, SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, SYMBOL_GLUTAMATE, 
+    SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};
+
+
 
 #endif

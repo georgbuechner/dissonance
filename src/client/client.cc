@@ -1,6 +1,9 @@
 #include "client/client.h"
+#include "nlohmann/json_fwd.hpp"
+#include "objects/units.h"
+#include "spdlog/spdlog.h"
 
-Client::Client(ClientGame* game) {
+Client::Client(ClientGame* game, std::string username) : username_(username) {
     game_ = game;
   }
 
@@ -43,22 +46,24 @@ void Client::Start(std::string address) {
 }
 
 void Client::on_open(websocketpp::connection_hdl) {
-  nlohmann::json msg = {{"command", "initialize"}, {"username", "fux"}};
+  nlohmann::json msg = {{"command", "initialize"}, {"username", username_}, {"data", nlohmann::json()}};
   SendMessage(msg.dump());
-  game_->Welcome();
 }
 
 // This message handler will be invoked once for each incoming message. It
 // prints the message and then sends a copy of the message back to the server.
 void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr msg) {
+  spdlog::get(LOGGER)->info("Client go message: {}", msg->get_payload());
   websocketpp::lib::error_code ec;
-  c->send(hdl, msg->get_payload(), msg->get_opcode(), ec);
-  if (ec)
-    std::cout << "Echo failed because: " << ec.message() << std::endl;
+  nlohmann::json resp = game_->HandleAction(nlohmann::json::parse(msg->get_payload()));
+  if (resp["data"].size() > 0)
+    SendMessage(resp.dump());
+  refresh();
 }
 
 void Client::SendMessage(std::string msg) {
   websocketpp::lib::error_code ec;
+  spdlog::get(LOGGER)->debug("Client::SendMessage: {}", msg);
   c_.send(hdl_, msg, websocketpp::frame::opcode::text, ec);
   if (ec)
     std::cout << "Client: sending failed because: " << ec.message() << std::endl;

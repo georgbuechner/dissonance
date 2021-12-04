@@ -30,7 +30,7 @@ using namespace costs;
 #define COLOR_MARKED 6
 #define COLOR_PROGRESS 7
 
-typedef std::map<size_t, std::pair<std::string, int>> choice_mapping_t;
+typedef std::map<size_t, std::pair<std::string, int>> choice_mapping_t; ///<maps int to string+color
 typedef std::pair<int, int> position_t;
 typedef std::pair<size_t, size_t> tech_of_t;
 
@@ -266,6 +266,9 @@ class Player {
     bool IncreaseNeuronPotential(int potential, int neuron);
 
     std::string GetCurrentResources();
+
+    virtual void SetUpTactics(bool) {}
+    virtual void HandleIron(const AudioDataTimePoint&) {}
 
   protected: 
     Field* field_;

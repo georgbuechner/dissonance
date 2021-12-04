@@ -14,13 +14,14 @@
 
 class Client {
   public:
-    Client(ClientGame* game);
+    Client(ClientGame* game, std::string username);
 
     void Start(std::string address);
 
   private:
     typedef websocketpp::client<websocketpp::config::asio_client> client;
     typedef websocketpp::config::asio_client::message_type::ptr message_ptr;
+    const std::string username_;
     client c_;
     websocketpp::connection_hdl hdl_;
     ClientGame* game_;

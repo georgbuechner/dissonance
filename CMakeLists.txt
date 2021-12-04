@@ -29,6 +29,7 @@ set(SRC_FILES
   src/random/random.cc
 
   src/server/websocket_server.cc
+  src/server/server_game.cc
   src/client/client.cc
   src/client/client_game.cc
 )

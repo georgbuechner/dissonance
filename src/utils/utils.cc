@@ -46,6 +46,14 @@ bool utils::InRange(position_t pos1, position_t pos2, double min_dist, double ma
   return dist >= min_dist && dist <= max_dist;
 }
 
+
+std::string utils::CharToString(char start, int i) {
+  char c_str = start+i;
+  std::string str = "";
+  str += c_str;
+  return str;
+}
+
 std::vector<std::string> utils::Split(std::string str, std::string delimiter) {
   std::vector<std::string> v_strs;
   size_t pos=0;
@@ -165,4 +173,10 @@ std::pair<bool, nlohmann::json> utils::ValidateJson(std::vector<std::string> key
     }
   }
   return std::make_pair(true, json);
+}
+
+
+std::vector<utils::position_t> utils::GetCirclePosition(position_t c) {
+  return {{c.first-10, c.second}, {c.first-6, c.second+15}, {c.first+6, c.second+15}, 
+    {c.first+10, c.second}, {c.first+6, c.second-15}, {c.first-6, c.second-15}, };
 }

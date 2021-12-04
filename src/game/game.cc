@@ -99,7 +99,7 @@ void Game::play() {
   while (!setup && denceness < 5) {
     spdlog::get(LOGGER)->info("Game::Play: creating map try: {}", denceness);
 
-    field_ = new Field(lines_, cols_, ran_gen, left_border_);
+    field_ = new Field(lines_, cols_, ran_gen);
     field_->AddHills(map_1, map_2, denceness++);
     int player_one_section = (int)audio_.analysed_data().average_bpm_%8+1;
     int player_two_section = (int)audio_.analysed_data().average_level_%8+1;

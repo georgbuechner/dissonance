@@ -48,7 +48,7 @@ namespace texts {
       "When dissonance starts, remember you should boost oxygen and activate production of glutamate, to start defending yourself.",
       "Also keep in mind, that there are two kinds of potential: ",
       "EPSP (strong in attack) and IPSP (blocks buildings); you should start with EPSP."
-    }
+    },
   };
 
   const paragraphs_t help = {

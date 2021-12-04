@@ -23,6 +23,14 @@ namespace utils {
   bool IsRight(char choice);
 
   /**
+   * Converts int to string. F.e start='a' and i=2 -> "b". Or: start='1' and i=5 -> "6"
+   * @param[in] start char to start from
+   * @param[in] i 
+   * @returns string
+   */
+  std::string CharToString(char start, int i);
+
+  /**
   * @param[in] str string to be split.
   * @param[in] delimiter 
   * @return vector
@@ -150,6 +158,8 @@ namespace utils {
     auto it = std::find(list.begin(), list.end(), elem);
     return std::distance(list.begin(), it);
   }
+
+  std::vector<position_t> GetCirclePosition(position_t center);
 }
 
 #endif

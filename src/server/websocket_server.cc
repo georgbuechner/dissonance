@@ -19,6 +19,8 @@
 #include <websocketpp/frame.hpp>
 #include <spdlog/spdlog.h>
 
+#include "nlohmann/json_fwd.hpp"
+#include "server/server_game.h"
 #include "spdlog/common.h"
 #include "spdlog/logger.h"
 #include "websocket_server.h"
@@ -27,6 +29,8 @@
 #include "utils/utils.h"
 #include "websocketpp/close.hpp"
 #include "websocketpp/common/system_error.hpp"
+
+#include "constants/codes.h"
 
 #define LOGGER "logger"
 
@@ -133,36 +137,38 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
 }
 
 void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, message_ptr msg) {
+  spdlog::get(LOGGER)->info("Server: Got msg: {}", msg->get_payload());
+
   // Validate json.
-  auto json_opt = utils::ValidateJson({"command", "username"}, msg->get_payload());
+  auto json_opt = utils::ValidateJson({"command", "username", "data"}, msg->get_payload());
   if (!json_opt.first)
     return;
   std::string command = json_opt.second["command"];
   std::string username = json_opt.second["username"];
+  nlohmann::json data = json_opt.second["data"];
   
   // Check whether connection existings and print received command.
-  error_obj error_code = std::make_pair(0, "");
-  if (command == "initialize")
-    error_code = InitConnection(username, hdl.lock().get());
-
-  // Log in case of error 
-  if (error_code.first > 0) {
-    nlohmann::json error = {{"message", msg->get_payload()}, {"type", error_code.first},
-      {"what", error_code.second}, {"connection", username}};
-    spdlog::get(LOGGER)->error(error.dump());
+  if (command == "initialize") {
+    // Create controller connection.
+    std::unique_lock ul(shared_mutex_connections_);
+    connections_[hdl.lock().get()]->set_username(username);
+    ul.unlock();
+    nlohmann::json resp = {{"command", "select_mode"}};
+    SendMessage(hdl.lock().get(), resp.dump());
   }
-}
-
-WebsocketServer::error_obj WebsocketServer::InitConnection(std::string username, connection_id id) {
-  // Create controller connection.
-  std::unique_lock ul(shared_mutex_connections_);
-  connections_[id]->set_username(username);
-  ul.unlock();
-
-  SendMessage(id, "Hey " + username);
-
-  // Get full alarm log, to check for new alarms triggered while connection was inactive.
-  return std::make_pair(0, "");
+  else if (command == "init_game") {
+    if (json_opt.second["data"]["mode"] == SINGLE_PLAYER) {
+      games_[username] = new ServerGame(data["lines"], data["cols"], data["mode"], data["base_path"]);
+      nlohmann::json resp = {{"command", "select_audio"}, {"data", nlohmann::json()}};
+      SendMessage(hdl.lock().get(), resp.dump());
+    }
+  }
+  else {
+    if (games_.count(username)) {
+      nlohmann::json resp = games_.at(username)->HandleInput(command, username, data);
+      SendMessage(hdl.lock().get(), resp.dump());
+    }
+  }
 }
 
 void WebsocketServer::SendMessage(connection_id id, std::string msg) {

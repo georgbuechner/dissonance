@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "nlohmann/json_fwd.hpp"
 #include "player/player.h"
 #include "utils/graph.h"
 #include "objects/units.h"
@@ -23,7 +24,7 @@ class Field {
      * @param[in] lines availible lines.
      * @param[in] cols availible cols
      */
-    Field(int lines, int cols, RandomGenerator* ran_gen, int left_border=0);
+    Field(int lines, int cols, RandomGenerator* ran_gen);
 
     // getter:
     int lines();
@@ -143,6 +144,8 @@ class Field {
      * @return all positions of a given section.
      */
     std::vector<position_t> GetAllPositionsOfSection(unsigned short section);
+
+    nlohmann::json ToJson(Player* player, Player* enemy);
 
   private: 
     // members

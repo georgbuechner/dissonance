@@ -31,11 +31,10 @@
 #define SECTIONS 8
 
 
-Field::Field(int lines, int cols, RandomGenerator* ran_gen, int left_border) {
+Field::Field(int lines, int cols, RandomGenerator* ran_gen) {
   lines_ = lines;
   cols_ = cols;
   ran_gen_ = ran_gen;
-  left_border_ = left_border;
 
   // initialize empty field.
   for (int l=0; l<=lines_; l++) {
@@ -372,4 +371,55 @@ std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval)
       positions.push_back({j, i});
   }
   return positions;
+}
+
+nlohmann::json Field::ToJson(Player* player, Player* enemy) {
+  std::shared_lock sl_field(mutex_field_);
+  auto field = field_;
+  sl_field.unlock();
+
+  UpdateField(player, field);
+  UpdateField(enemy, field);
+
+  std::vector<std::vector<std::map<std::string, std::string>>> json_field;
+
+  for (int l=0; l<lines_; l++) {
+    json_field.push_back(std::vector<std::map<std::string, std::string>>());
+    for (int c=0; c<cols_; c++) {
+      position_t cur = {l, c};
+      int color = COLOR_DEFAULT;
+      // highlight -> magenta
+      if (std::find(highlight_.begin(), highlight_.end(), cur) != highlight_.end())
+        color = COLOR_HIGHLIGHT;
+      else if (std::find(blinks_.begin(), blinks_.end(), cur) != blinks_.end())
+        color = COLOR_HIGHLIGHT;
+      // IPSP is on enemy neuron -> cyan.
+      else if (player->IsNeuronBlocked(cur) || enemy->IsNeuronBlocked(cur))
+        color = COLOR_RESOURCES;
+      // both players -> cyan
+      else if (CheckCollidingPotentials(cur, player, enemy))
+        color = COLOR_RESOURCES;
+      // Resource
+      else if (enemy->GetNeuronTypeAtPosition(cur) == RESOURCENEURON 
+          || player->GetNeuronTypeAtPosition(cur) == RESOURCENEURON)
+        color = COLOR_RESOURCES;
+      // player 2 -> red
+      else if (enemy->GetNeuronTypeAtPosition(cur) != -1 || enemy->GetPotentialIdIfPotential(cur) != "")
+        color = COLOR_PLAYER;
+      // player 1 -> blue 
+      else if (player->GetNeuronTypeAtPosition(cur) != -1 || player->GetPotentialIdIfPotential(cur) != "")
+        color = COLOR_KI;
+      // range -> green
+      else if (InRange(cur, range_, range_center_) 
+          && player->GetNeuronTypeAtPosition(cur) != UnitsTech::NUCLEUS)
+        color = COLOR_OK;
+      // Replace certain elements.
+      if (replacements_.count(cur) > 0)
+        json_field[l].push_back({{"symbol", std::to_string(replacements_.at(cur))}, {"color", std::to_string(color)}});
+      else
+        json_field[l].push_back({{"symbol", field[l][c]}, {"color", std::to_string(color)}});
+    }
+  }
+  blinks_.clear();
+  return json_field;
 }

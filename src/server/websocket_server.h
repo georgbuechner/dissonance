@@ -15,6 +15,7 @@
 #include <websocketpp/common/connection_hdl.hpp>
 
 #include "server/connection.h"
+#include "server/server_game.h"
 
 #ifdef _COMPILE_FOR_SERVER_
 #include <websocketpp/config/asio.hpp>
@@ -76,6 +77,8 @@ class WebsocketServer {
     mutable std::shared_mutex shared_mutex_connections_;  ///< Mutex for connections_.
     std::map<connection_id, Connection*> connections_;  ///< Dictionary with all connections.
 
+    std::map<std::string, ServerGame*> games_;
+
     // methods:
     
     /**
@@ -100,15 +103,6 @@ class WebsocketServer {
      * @param msg message.
      */
     void on_message(server* srv, websocketpp::connection_hdl hdl, message_ptr msg);
-
-    /**
-     * Initializes new controller-connection.
-     * Adds new controller (if controller does not exist), reconnects otherwise.
-     * @param username
-     * @param id of incomming connection.
-     * @return error_obj.
-     */
-    error_obj InitConnection(std::string username, connection_id id);
 };
 
 #endif 

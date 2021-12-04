@@ -62,26 +62,33 @@ int main(int argc, const char** argv) {
   spdlog::flush_on(spdlog::level::warn);
   if (log_level == "warn")
     spdlog::set_level(spdlog::level::warn);
-  else if (log_level == "info")
+  else if (log_level == "info") {
     spdlog::set_level(spdlog::level::info);
+    spdlog::flush_on(spdlog::level::info);
+  }
   else if (log_level == "debug") {
     spdlog::set_level(spdlog::level::debug);
     spdlog::flush_on(spdlog::level::info);
     spdlog::flush_every(std::chrono::seconds(1));
   }
+
+  std::string username;
+  std::cout << "Enter your username: ";
+  std::getline(std::cin, username);
+  
+  // Initialize audio
+  Audio::Initialize();
   
   // Create websocket server.
   WebsocketServer* srv = new WebsocketServer();
   std::thread thread_server([srv]() { srv->Start(4444); });
 
-  ClientGame* client_game = new ClientGame(relative_size, base_path);
-  Client* client = new Client(client_game);
+  ClientGame* client_game = new ClientGame(relative_size, base_path, username);
+  Client* client = new Client(client_game, username);
   std::thread thread_client([client]() { client->Start("ws://localhost:4444"); });
   thread_server.join();
   thread_client.join();
 
-  // Initialize audio
-  Audio::Initialize();
 
   // Initialize random numbers.
   srand (time(NULL));
