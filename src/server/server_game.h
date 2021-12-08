@@ -19,6 +19,8 @@
 #include "objects/units.h"
 #include "random/random.h"
 
+class WebsocketServer;
+
 class ServerGame {
   public:
     /** 
@@ -26,12 +28,21 @@ class ServerGame {
      * @param[in] lines availible lines.
      * @param[in] cols availible cols
      */
-    ServerGame(int lines, int cols, int mode, std::string base_path);
+    ServerGame(int lines, int cols, int mode, std::string base_path, WebsocketServer* srv, std::string usr1, 
+        std::string usr2="");
+
+    int status() {
+      return status_;
+    }
 
     /**
      * Handls input
      */
     nlohmann::json HandleInput(std::string command, std::string player, nlohmann::json data);
+    
+    // Threads
+    void Thread_RenderField();
+    void Thread_Ai();
 
   private: 
     Field* field_;
@@ -41,6 +52,10 @@ class ServerGame {
     bool pause_;
     bool resigned_;
     Audio audio_;
+    WebsocketServer* ws_server_;
+    const std::string usr1_id_;
+    const std::string usr2_id_;
+    int status_;
 
     const int mode_;
     const int lines_;

@@ -1,7 +1,6 @@
 #ifndef SRC_CODES_H_
 #define SRC_CODES_H_
 
-#include "objects/units.h"
 #include <map>
 #include <string>
 #include <vector>
@@ -154,7 +153,5 @@ const std::map<int, std::string> units_tech_mapping = {
 
 const std::vector<std::string> resource_symbols = {SYMBOL_OXYGEN, SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, SYMBOL_GLUTAMATE, 
     SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};
-
-
 
 #endif

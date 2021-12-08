@@ -8,7 +8,7 @@
 #include <vector>
 
 ClientGame::ClientGame(bool relative_size, std::string base_path, std::string username) 
-    : base_path_(base_path) {
+    : username_(username), base_path_(base_path), render_pause_(false) {
   // Initialize curses
   setlocale(LC_ALL, "");
   initscr();
@@ -109,13 +109,18 @@ nlohmann::json ClientGame::Welcome() {
   // Select single-player, mulit-player, what ki.
   choice_mapping_t mapping = {{0, {"singe-player", COLOR_AVAILIBLE}}, 
     {1, {"muli-player", COLOR_DEFAULT}}, {2, {"watch ki", COLOR_DEFAULT}}};
+    
   auto mode = SelectInteger("Select mode", true, mapping, {mapping.size()+1});
+
   nlohmann::json data = {{"mode", mode}, {"lines", lines_}, {"cols", cols_}, {"base_path", base_path_}};
   return data;
 }
 
 void ClientGame::PrintField(nlohmann::json field) {
+  spdlog::get(LOGGER)->info("ClientGame::PrintField: render_pause_ {}", render_pause_);
   std::shared_lock sl_field(mutex_print_);
+  if (render_pause_)
+    return;
 
   for (unsigned int l=0; l<field.size(); l++) {
     for (unsigned int c=0; c<field[l].size(); c++) {
@@ -133,6 +138,7 @@ void ClientGame::PrintField(nlohmann::json field) {
 // Selection methods
 
 std::pair<std::string, nlohmann::json> ClientGame::DistributeIron(nlohmann::json data) {
+  render_pause_ = true;
   spdlog::get(LOGGER)->info("ClientGame::DistributeIron.");
   ClearField();
   nlohmann::json resources = data["resources"];
@@ -187,16 +193,18 @@ std::pair<std::string, nlohmann::json> ClientGame::DistributeIron(nlohmann::json
       return {"add_iron", {{"resource", (resources_symbol_mapping.count(current_symbol) > 0) 
         ? resources_symbol_mapping.at(current_symbol) : Resources::OXYGEN}}};
     // Remove iron 
-    else if (choice == '+' || choice == '-') {
+    else if (choice == '-') {
       return {"remove_iron", {{"resource", (resources_symbol_mapping.count(current_symbol) > 0) 
         ? resources_symbol_mapping.at(current_symbol) : Resources::OXYGEN}}};
     }
     // Exit
-    else if (choice == 'q')
+    else if (choice == 'q') {
       end = true;
+    }
     spdlog::get(LOGGER)->info("ClientGame::DistributeIron choice: {}", choice);
   }
   ClearField();
+  render_pause_ = false;
   return {"", {}};
 }
 
@@ -444,5 +452,3 @@ void ClientGame::PrintCenteredParagraphs(texts::paragraphs_t paragraphs) {
     getch();
   }
 }
-
-

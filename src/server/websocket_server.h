@@ -53,6 +53,10 @@ class WebsocketServer {
      */
     void Start(int port);
 
+    void StartGameRoutines();
+
+    connection_id GetConnectionIdByUsername(std::string username);
+
     /**
      * Sends message to given connection.
      * @param id of connection over which to send.

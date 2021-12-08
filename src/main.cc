@@ -82,6 +82,7 @@ int main(int argc, const char** argv) {
   // Create websocket server.
   WebsocketServer* srv = new WebsocketServer();
   std::thread thread_server([srv]() { srv->Start(4444); });
+  std::thread thread_game_routines([srv]() { srv->StartGameRoutines(); });
 
   ClientGame* client_game = new ClientGame(relative_size, base_path, username);
   Client* client = new Client(client_game, username);

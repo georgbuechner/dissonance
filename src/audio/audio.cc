@@ -42,6 +42,7 @@ void Audio::set_source_path(std::string source_path) {
 
 void Audio::Analyze() {
   spdlog::get(LOGGER)->debug("Audio::Analyze: starting analyses. Starting audi-data extraction");
+  spdlog::get(LOGGER)->flush();
 
   // Load or analyse data.
   std::string out_path = GetOutPath(source_path_);

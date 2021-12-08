@@ -41,6 +41,7 @@ class ClientGame {
     int left_border_;
     const std::string base_path_;
     std::shared_mutex mutex_print_;  ///< mutex locked, when printing.
+    bool render_pause_;
 
     std::vector<std::string> audio_paths_; 
 

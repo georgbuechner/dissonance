@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <system_error>
+#include <thread>
 #include <utility>
 #include <vector>
 #include <websocketpp/common/connection_hdl.hpp>
@@ -111,6 +112,22 @@ void WebsocketServer::Start(int port) {
   }
 }
 
+void WebsocketServer::StartGameRoutines() {
+  std::map<std::string, std::pair<std::thread, std::thread>> games_running_;
+  while(true) {
+    for (const auto& it : games_) {
+      if (games_running_.count(it.first) == 0) {
+        if (it.second->status() == 1) {
+          games_running_[it.first] = { 
+            std::thread([it]() { it.second->Thread_RenderField(); }),
+            std::thread([it]() { it.second->Thread_Ai(); })
+          };
+        }
+      }
+    }
+  }
+}
+
 void WebsocketServer::OnOpen(websocketpp::connection_hdl hdl) {
   std::unique_lock ul(shared_mutex_connections_);
   if (connections_.count(hdl.lock().get()) == 0) {
@@ -158,7 +175,8 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
   }
   else if (command == "init_game") {
     if (json_opt.second["data"]["mode"] == SINGLE_PLAYER) {
-      games_[username] = new ServerGame(data["lines"], data["cols"], data["mode"], data["base_path"]);
+      games_[username] = new ServerGame(data["lines"], data["cols"], data["mode"], data["base_path"],
+          this, username);
       nlohmann::json resp = {{"command", "select_audio"}, {"data", nlohmann::json()}};
       SendMessage(hdl.lock().get(), resp.dump());
     }
@@ -169,6 +187,14 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
       SendMessage(hdl.lock().get(), resp.dump());
     }
   }
+}
+
+WebsocketServer::connection_id WebsocketServer::GetConnectionIdByUsername(std::string username) {
+  spdlog::get(LOGGER)->info("WebsocketServer::GetConnectionIdByUsername: username: {}", username);
+  for (const auto& it : connections_)
+    if (it.second->username() == username) 
+      return it.second->get_connection_id();
+  return connection_id();
 }
 
 void WebsocketServer::SendMessage(connection_id id, std::string msg) {

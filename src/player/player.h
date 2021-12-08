@@ -269,6 +269,8 @@ class Player {
 
     virtual void SetUpTactics(bool) {}
     virtual void HandleIron(const AudioDataTimePoint&) {}
+    virtual void DoAction(const AudioDataTimePoint&) {}
+    virtual void set_last_time_point(const AudioDataTimePoint&) {}
 
   protected: 
     Field* field_;

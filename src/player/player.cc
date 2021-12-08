@@ -174,13 +174,11 @@ bool Player::IsNeuronBlocked(position_t pos) {
 }
 
 std::vector<position_t> Player::GetAllPositionsOfNeurons(int type) {
-  spdlog::get(LOGGER)->info("Player::GetAllPositionsOfNeurons");
   std::shared_lock sl(mutex_all_neurons_);
   std::vector<position_t> positions;
   for (const auto& it : neurons_)
     if (type == -1 || it.second->type_ == type)
       positions.push_back(it.first);
-  spdlog::get(LOGGER)->info("Player::GetAllPositionsOfNeurons: done");
   return positions;
 }
 
