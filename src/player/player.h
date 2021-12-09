@@ -15,6 +15,7 @@
 #include "constants/codes.h"
 #include "constants/costs.h"
 #include "objects/resource.h"
+#include "objects/transfer.h"
 #include "objects/units.h"
 #include "random/random.h"
 
@@ -53,6 +54,9 @@ class Player {
     int cur_range();
     std::map<int, Resource> resources();
     std::map<int, tech_of_t> technologies();
+
+    std::map<int, Transfer::Resource> t_resources();
+    std::map<int, Transfer::Technology> t_technologies();
 
     // setter
     void set_enemy(Player* enemy);

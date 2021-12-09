@@ -13,6 +13,7 @@
 #include <time.h>
 
 #include "nlohmann/json_fwd.hpp"
+#include "objects/transfer.h"
 #include "player/player.h"
 #include "utils/graph.h"
 #include "objects/units.h"
@@ -145,7 +146,7 @@ class Field {
      */
     std::vector<position_t> GetAllPositionsOfSection(unsigned short section);
 
-    nlohmann::json ToJson(Player* player, Player* enemy);
+    std::vector<std::vector<Transfer::Symbol>> ToJson(Player* player, Player* enemy);
 
   private: 
     // members

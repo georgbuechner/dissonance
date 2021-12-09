@@ -2,6 +2,7 @@
 #include "audio/audio.h"
 #include "constants/codes.h"
 #include "nlohmann/json_fwd.hpp"
+#include "objects/transfer.h"
 #include "player/player.h"
 #include "server/websocket_server.h"
 #include <string>
@@ -157,12 +158,24 @@ void ServerGame::Thread_RenderField() {
       off_notes = audio_.MoreOffNotes(data_at_beat);
       data_per_beat.pop_front();
 
-      nlohmann::json resp = {{"command", "print_field"}, {"data", 
-        {{"field", field_->ToJson(player_one_, player_two_)}} }};
-      if (mode_ == SINGLE_PLAYER)
+      Transfer transfer;
+      transfer.set_players({{usr1_id_, player_one_->GetNucleusLive()}, {"AI", player_two_->GetNucleusLive()}});
+      transfer.set_field(field_->ToJson(player_one_, player_two_));
+      nlohmann::json resp = {{"command", "print_field"}, {"data", nlohmann::json()}};
+      if (mode_ == SINGLE_PLAYER) {
+        transfer.set_resources(player_one_->t_resources());
+        transfer.set_technologies(player_one_->t_technologies());
+        resp["data"] = transfer.json();
         ws_server_->SendMessage(ws_server_->GetConnectionIdByUsername(usr1_id_), resp.dump());
+      }
       if (mode_ == MULTI_PLAYER) {
+        transfer.set_resources(player_one_->t_resources());
+        transfer.set_technologies(player_one_->t_technologies());
+        resp["data"] = transfer.json();
         ws_server_->SendMessage(ws_server_->GetConnectionIdByUsername(usr1_id_), resp.dump());
+        transfer.set_resources(player_two_->t_resources());
+        transfer.set_technologies(player_two_->t_technologies());
+        resp["data"] = transfer.json();
         ws_server_->SendMessage(ws_server_->GetConnectionIdByUsername(usr2_id_), resp.dump());
       }
     }

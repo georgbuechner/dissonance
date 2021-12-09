@@ -120,7 +120,7 @@ void AudioKi::SetBattleTactics() {
   for (const auto& it : defence_strategies_)
     spdlog::get(LOGGER)->info("{}: {}", tactics_mapping.at(it.first), it.second);
   for (const auto& it : building_tactics_)
-    spdlog::get(LOGGER)->info("{}: {}", units_tech_mapping.at(it.first), it.second);
+    spdlog::get(LOGGER)->info("{}: {}", codes_name_mapping.at(it.first), it.second);
 }
 
 void AudioKi::SetEconomyTactics() {

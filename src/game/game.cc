@@ -453,13 +453,13 @@ void Game::GetPlayerChoice() {
         size_t missing_costs = player_one_->GetMissingResources(it.first, it.second.first+1).size();
         if (it.second.first < it.second.second && missing_costs == 0)
           color = COLOR_AVAILIBLE;
-        mapping[it.first-UnitsTech::WAY] = {units_tech_mapping.at(it.first) 
+        mapping[it.first-UnitsTech::WAY] = {codes_name_mapping.at(it.first) 
           + " (" + utils::PositionToString(it.second) + ")", color};
       }
       int technology = SelectInteger("Select technology", true, mapping, {3, 5, 8, 10, 11})
         +UnitsTech::WAY;
       if (player_one_->AddTechnology(technology))
-        PrintMessage("selected: " + units_tech_mapping.at(technology), false);
+        PrintMessage("selected: " + codes_name_mapping.at(technology), false);
       else if (technology != -1)
         PrintMessage("Not enough resources or inavlid selection", true);
       pause_ = false;
@@ -578,7 +578,7 @@ position_t Game::SelectPosition(position_t start, int range) {
 }
 
 position_t Game::SelectNeuron(Player* p, int type) {
-  std::string msg = "Choose " + units_tech_mapping.at(type) + ": ";
+  std::string msg = "Choose " + codes_name_mapping.at(type) + ": ";
   return SelectFieldPositionByAlpha(p->GetAllPositionsOfNeurons(type), msg);
 }
 

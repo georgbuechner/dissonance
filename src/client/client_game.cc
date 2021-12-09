@@ -3,12 +3,15 @@
 #include "constants/texts.h"
 #include "curses.h"
 #include "nlohmann/json_fwd.hpp"
+#include "objects/transfer.h"
+#include "print/drawrer.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 #include <vector>
 
 ClientGame::ClientGame(bool relative_size, std::string base_path, std::string username) 
-    : username_(username), base_path_(base_path), render_pause_(false) {
+    : username_(username), base_path_(base_path), render_pause_(false), drawrer_() {
+  action_ = false;
   // Initialize curses
   setlocale(LC_ALL, "");
   initscr();
@@ -29,14 +32,7 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   init_pair(COLOR_MARKED, COLOR_MAGENTA, -1);
 
   // Setup map-size
-  lines_ = 40;
-  cols_  = 74;
-  left_border_ = (COLS - cols_) /2 - 40;
-  if (relative_size) {
-    lines_ = LINES-20;
-    cols_ = (COLS-40)/2;
-    left_border_ = 10;
-  }
+  drawrer_.SetUpBorders(LINES, COLS);
 
   // Set-up audio-paths.
   std::vector<std::string> paths = utils::LoadJsonFromDisc(base_path_ + "/settings/music_paths.json");
@@ -48,7 +44,6 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
     else
       audio_paths_.push_back(it);
   }
-
 }
 
 nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
@@ -68,11 +63,11 @@ nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
   else if (command == "print_msg") {
     spdlog::get(LOGGER)->info("got command print_msg");
     spdlog::get(LOGGER)->flush();
-    ClearField();
-    PrintCenteredLine(LINES/2, data["msg"]);
+    drawrer_.ClearField();
+    drawrer_.PrintCenteredLine(LINES/2, data["msg"]);
   }
   else if (command == "print_field") {
-    PrintField(data["field"]);
+    drawrer_.PrintGame(Transfer(data));
   }
   else if (command == "distribute_iron") {
     auto resp = DistributeIron(data);
@@ -84,27 +79,28 @@ nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
   return response;
 }
 
-nlohmann::json ClientGame::Welcome() {
-  std::cout << "WELCOME!!" << std::endl;
 
-  // Check termin size and print warning in case size is insufficient for standard size.
-  if (LINES < lines_+20 || COLS < (cols_*2)+40) { 
-    texts::paragraphs_t paragraphs = {{
-        {"Your terminal size is to small to play in standard size."},
-        {"Expected width: " + std::to_string(cols_*2+50) + ", actual: " + std::to_string(COLS)},
-        {"Expected hight: " + std::to_string(lines_+20) + ", actual: " + std::to_string(LINES)},
-        {},
-        {"Either increase terminal size, or run `dissonance -r`"},
-        {"(Enter play anyway, q to quit)"}
-    }};
-    PrintCenteredParagraphs(paragraphs);
-    char c = getch();
-    if (c == 'q')
-      return -1;
+void ClientGame::GetAction() {
+  spdlog::get(LOGGER)->info("ClientGame::GetAction.");
+  while(true) {
+    if (!action_) 
+      continue;
+    char choice = getch();
+    spdlog::get(LOGGER)->info("ClientGame::GetAction action_ {}, in: {}", action_, choice);
+    if (!action_) 
+      continue;
+    if (choice == 'j') {
+      drawrer_.inc_cur(1);
+    }
+    else if (choice == 'k') {
+      drawrer_.inc_cur(-1);
+    }
   }
-  
+}
+
+nlohmann::json ClientGame::Welcome() {
   // Print welcome text.
-  PrintCenteredParagraphs(texts::welcome);
+  drawrer_.PrintCenteredParagraphs(texts::welcome);
 
   // Select single-player, mulit-player, what ki.
   choice_mapping_t mapping = {{0, {"singe-player", COLOR_AVAILIBLE}}, 
@@ -112,26 +108,8 @@ nlohmann::json ClientGame::Welcome() {
     
   auto mode = SelectInteger("Select mode", true, mapping, {mapping.size()+1});
 
-  nlohmann::json data = {{"mode", mode}, {"lines", lines_}, {"cols", cols_}, {"base_path", base_path_}};
+  nlohmann::json data = {{"mode", mode}, {"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, {"base_path", base_path_}};
   return data;
-}
-
-void ClientGame::PrintField(nlohmann::json field) {
-  spdlog::get(LOGGER)->info("ClientGame::PrintField: render_pause_ {}", render_pause_);
-  std::shared_lock sl_field(mutex_print_);
-  if (render_pause_)
-    return;
-
-  for (unsigned int l=0; l<field.size(); l++) {
-    for (unsigned int c=0; c<field[l].size(); c++) {
-      std::string symbol = field[l][c]["symbol"];
-      int color = stoi(field[l][c]["color"].get<std::string>());
-      attron(COLOR_PAIR(color));
-      mvaddstr(15+l, left_border_ + 2*c, symbol.c_str());
-      mvaddch(15+l, left_border_ + 2*c+1, ' ' );
-      attron(COLOR_PAIR(COLOR_DEFAULT));
-    }
-  }
 }
 
 
@@ -139,12 +117,13 @@ void ClientGame::PrintField(nlohmann::json field) {
 
 std::pair<std::string, nlohmann::json> ClientGame::DistributeIron(nlohmann::json data) {
   render_pause_ = true;
+  action_ = false;
   spdlog::get(LOGGER)->info("ClientGame::DistributeIron.");
-  ClearField();
+  drawrer_.ClearField();
   nlohmann::json resources = data["resources"];
   bool end = false;
   // Get iron and print options.
-  PrintCenteredLine(LINES/2-1, "(use 'q' to quit, +/- to add/remove iron and h/l or ←/→ to circle through resources)");
+  drawrer_.PrintCenteredLine(LINES/2-1, "(use 'q' to quit, +/- to add/remove iron and h/l or ←/→ to circle through resources)");
   std::vector<position_t> positions = utils::GetCirclePosition({LINES/2, COLS/2});
   std::string info = "";
   std::string success = "";
@@ -152,7 +131,7 @@ std::pair<std::string, nlohmann::json> ClientGame::DistributeIron(nlohmann::json
     attron(COLOR_ERROR);
   else
     attron(COLOR_SUCCESS);
-  PrintCenteredLine(LINES/2+2, data["error_msg"]);
+  drawrer_.PrintCenteredLine(LINES/2+2, data["error_msg"]);
 
   unsigned int current = 0;
   while(!end) {
@@ -162,11 +141,11 @@ std::pair<std::string, nlohmann::json> ClientGame::DistributeIron(nlohmann::json
     int resource = resources_symbol_mapping.at(current_symbol);
 
     // Print texts (help, current resource info)
-    PrintCenteredLine(LINES/2-2, data["help"]);
+    drawrer_.PrintCenteredLine(LINES/2-2, data["help"]);
     info = resources_name_mapping.at(resource) + ": FE" 
       + std::to_string(resources[resource]["iron"].get<int>())
       + ((resources[resource]["active"]) ? " (active)" : " (inactive)");
-    PrintCenteredLine(LINES/2+1, info);
+    drawrer_.PrintCenteredLine(LINES/2+1, info);
 
     // Print resource circle.
     for (unsigned int i=0; i<resource_symbols.size(); i++) {
@@ -203,14 +182,15 @@ std::pair<std::string, nlohmann::json> ClientGame::DistributeIron(nlohmann::json
     }
     spdlog::get(LOGGER)->info("ClientGame::DistributeIron choice: {}", choice);
   }
-  ClearField();
+  drawrer_.ClearField();
   render_pause_ = false;
+  action_ = true;
   return {"", {}};
 }
 
 int ClientGame::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapping, std::vector<size_t> splits) {
   // TODO(fux): check whether to pause game or not `pause_ = true;`
-  ClearField();
+  drawrer_.ClearField();
   bool end = false;
 
   std::vector<std::pair<std::string, int>> options;
@@ -226,11 +206,11 @@ int ClientGame::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapp
     std::vector<std::pair<std::string, int>> option_part; 
     for (unsigned int i=last_split; i<split && i<options.size(); i++)
       option_part.push_back(options[i]);
-    PrintCenteredLineColored(LINES/2+(counter+=2), option_part);
+    drawrer_.PrintCenteredLineColored(LINES/2+(counter+=2), option_part);
     last_split = split;
   }
-  PrintCenteredLine(LINES/2-1, msg);
-  PrintCenteredLine(LINES/2+counter+3, "> enter number...");
+  drawrer_.PrintCenteredLine(LINES/2-1, msg);
+  drawrer_.PrintCenteredLine(LINES/2+counter+3, "> enter number...");
 
   while (!end) {
     // Get choice.
@@ -243,17 +223,17 @@ int ClientGame::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapp
       return int_choice;
     }
     else if (mapping.count(int_choice) > 0 && mapping.at(int_choice).second != COLOR_AVAILIBLE && omit)
-      PrintCenteredLine(LINES/2+counter+5, "Selection not available (not enough resources?): " 
+      drawrer_.PrintCenteredLine(LINES/2+counter+5, "Selection not available (not enough resources?): " 
           + std::to_string(int_choice));
     else 
-      PrintCenteredLine(LINES/2+counter+5, "Wrong selection: " + std::to_string(int_choice));
+      drawrer_.PrintCenteredLine(LINES/2+counter+5, "Wrong selection: " + std::to_string(int_choice));
   }
   // TODO(fux): see above  `pause_ = false;`
   return -1;
 }
 
 std::string ClientGame::SelectAudio() {
-  ClearField();
+  drawrer_.ClearField();
 
   // Create selector and define some variables
   AudioSelector selector = SetupAudioSelector("", "select audio", audio_paths_);
@@ -272,19 +252,19 @@ std::string ClientGame::SelectAudio() {
     unsigned int print_max = std::min((unsigned int)selector.options_.size(), max);
     visible_options = utils::SliceVector(selector.options_, print_start, print_max);
     
-    PrintCenteredLine(10, utils::ToUpper(selector.title_));
-    PrintCenteredLine(11, selector.path_);
-    PrintCenteredLine(12, help);
+    drawrer_.PrintCenteredLine(10, utils::ToUpper(selector.title_));
+    drawrer_.PrintCenteredLine(11, selector.path_);
+    drawrer_.PrintCenteredLine(12, help);
 
     attron(COLOR_PAIR(COLOR_ERROR));
-    PrintCenteredLine(13, error);
+    drawrer_.PrintCenteredLine(13, error);
     error = "";
     attron(COLOR_PAIR(COLOR_DEFAULT));
 
     for (unsigned int i=0; i<visible_options.size(); i++) {
       if (i == selected)
         attron(COLOR_PAIR(COLOR_MARKED));
-      PrintCenteredLine(15 + i, visible_options[i].second);
+      drawrer_.PrintCenteredLine(15 + i, visible_options[i].second);
       attron(COLOR_PAIR(COLOR_DEFAULT));
     }
 
@@ -355,7 +335,7 @@ std::string ClientGame::SelectAudio() {
         error = "Path does not exist.";
       }
     }
-    ClearField();
+    drawrer_.ClearField();
   }
 
   // Add selected aubio-file to recently-played files.
@@ -390,8 +370,8 @@ ClientGame::AudioSelector ClientGame::SetupAudioSelector(std::string path, std::
 }
 
 std::string ClientGame::InputString(std::string instruction) {
-  ClearField();
-  PrintCenteredLine(LINES/2, instruction.c_str());
+  drawrer_.ClearField();
+  drawrer_.PrintCenteredLine(LINES/2, instruction.c_str());
   echo();
   curs_set(1);
   std::string input;
@@ -403,52 +383,4 @@ std::string ClientGame::InputString(std::string instruction) {
   noecho();
   curs_set(0);
   return input;
-}
-
-// print methods
-
-void ClientGame::ClearField() {
-  std::unique_lock ul(mutex_print_);
-  clear();
-  refresh();
-}
-
-void ClientGame::PrintCenteredLine(int l, std::string line) {
-  std::string clear_string(COLS, ' ');
-  spdlog::get(LOGGER)->flush();
-  mvaddstr(l, 0, clear_string.c_str());
-  mvaddstr(l, COLS/2-line.length()/2, line.c_str());
-}
-
-void ClientGame::PrintCenteredLineColored(int l, std::vector<std::pair<std::string, int>> txt_with_color) {
-  // Get total length.
-  unsigned int total_length = 0;
-  for (const auto& it : txt_with_color) 
-    total_length += it.first.length();
-
-  // Print parts one by one and update color for each part.
-  unsigned int position = COLS/2-total_length/2;
-  for (const auto& it : txt_with_color) {
-    attron(COLOR_PAIR(it.second));
-    mvaddstr(l, position, it.first.c_str());
-    position += it.first.length();
-    attron(COLOR_PAIR(COLOR_DEFAULT));
-  }
-}
-
-void ClientGame::PrintCenteredParagraph(texts::paragraph_t paragraph) {
-    int size = paragraph.size()/2;
-    int counter = 0;
-    for (const auto& line : paragraph)
-      PrintCenteredLine(LINES/2-size+(counter++), line);
-}
-
-void ClientGame::PrintCenteredParagraphs(texts::paragraphs_t paragraphs) {
-  for (auto& paragraph : paragraphs) {
-    ClearField();
-    paragraph.push_back({});
-    paragraph.push_back("[Press any key to continue]");
-    PrintCenteredParagraph(paragraph);
-    getch();
-  }
 }

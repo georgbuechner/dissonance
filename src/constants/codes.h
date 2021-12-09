@@ -131,7 +131,41 @@ const std::map<std::string, int> resources_symbol_mapping = {
   {SYMBOL_SEROTONIN, SEROTONIN},
 };
 
-const std::map<int, std::string> units_tech_mapping = {
+const std::map<int, std::string> codes_name_mapping = {
+  {IRON, "iron"},
+  {OXYGEN,"oxygeN"},
+  {POTASSIUM,"potassium"},
+  {CHLORIDE,"chloride"},
+  {GLUTAMATE,"glutamate"},
+  {DOPAMINE,"dopamine"},
+  {SEROTONIN,"serotonin"},
+  {ACTIVATEDNEURON, "activated-neuron"},
+  {RESOURCENEURON, "rersource-neuron"},
+  {SYNAPSE, "synapse"},
+  {EPSP, "epsp"},
+  {IPSP, "ipsp"},
+  {NUCLEUS, "nucleus"},
+  {WAY,"choose way"},
+  {SWARM,"swarm attack"},
+  {TARGET,"choose target"},
+  {TOTAL_RESOURCE, "rersource limits++"},
+  {CURVE, "rersource slowdown--"},
+  {ATK_POTENIAL, "epsp/ ipsp potential++"},
+  {ATK_SPEED, "epsp/ipsp speed++"},
+  {ATK_DURATION, "ipsp duration++"},
+  {DEF_POTENTIAL, "activated-neuron potential++"},
+  {DEF_SPEED, "activated-neuron cooldown++"},
+  {NUCLEUS_RANGE, "range of nucleus++"},
+};
+
+const std::map<int, std::string> codes_description_mapping = {
+  {IRON, "iron"},
+  {OXYGEN,"oxygen"},
+  {POTASSIUM,"potassium"},
+  {CHLORIDE,"chloride"},
+  {GLUTAMATE,"glutamate"},
+  {DOPAMINE,"dopamine"},
+  {SEROTONIN,"serotonin"},
   {ACTIVATEDNEURON, "activated-neuron"},
   {RESOURCENEURON, "rersource-neuron"},
   {SYNAPSE, "synapse"},
@@ -150,6 +184,7 @@ const std::map<int, std::string> units_tech_mapping = {
   {DEF_SPEED, "increase activated-neuron cooldown"},
   {NUCLEUS_RANGE, "increase range of nucleus"},
 };
+
 
 const std::vector<std::string> resource_symbols = {SYMBOL_OXYGEN, SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, SYMBOL_GLUTAMATE, 
     SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};

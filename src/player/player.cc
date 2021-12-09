@@ -15,6 +15,7 @@
 
 #include "constants/codes.h"
 #include "constants/costs.h"
+#include "objects/transfer.h"
 #include "objects/units.h"
 #include "spdlog/logger.h"
 #include "curses.h"
@@ -116,6 +117,19 @@ std::map<int, Resource> Player::resources() {
 std::map<int, tech_of_t> Player::technologies() {
   std::shared_lock sl(mutex_technologies_);
   return technologies_;
+}
+std::map<int, Transfer::Resource> Player::t_resources() {
+  std::map<int, Transfer::Resource>  resources;
+  for (const auto& it : resources_) 
+    resources[it.first] = {utils::Dtos(it.second.cur()), utils::Dtos(it.second.bound()), 
+      std::to_string(it.second.limit()), std::to_string(it.second.distributed_iron()), it.second.Active()};
+  return resources;
+}
+std::map<int, Transfer::Technology> Player::t_technologies() {
+  std::map<int, Transfer::Technology> technologies;
+  for (const auto& it : technologies_) 
+    technologies[it.first] = {std::to_string(it.second.first), std::to_string(it.second.second), it.second.first > 0};
+  return technologies;
 }
 
 // setter 

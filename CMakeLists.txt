@@ -28,6 +28,8 @@ set(SRC_FILES
   src/audio/miniaudio.cc
   src/random/random.cc
 
+  src/print/drawrer.cc
+
   src/server/websocket_server.cc
   src/server/server_game.cc
   src/client/client.cc

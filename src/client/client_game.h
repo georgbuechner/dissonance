@@ -2,6 +2,7 @@
 #define SRC_CLIENT_CLIENT_GAME_H_
 
 #include "nlohmann/json_fwd.hpp"
+#include "print/drawrer.h"
 #define NCURSES_NOMACROS
 
 #include <cstddef>
@@ -33,15 +34,18 @@ class ClientGame {
 
     nlohmann::json HandleAction(nlohmann::json);
 
+    void GetAction();
+
   private: 
     // member variables.
     const std::string username_;
     int lines_;
     int cols_;
-    int left_border_;
     const std::string base_path_;
     std::shared_mutex mutex_print_;  ///< mutex locked, when printing.
     bool render_pause_;
+    Drawrer drawrer_;
+    bool action_;
 
     std::vector<std::string> audio_paths_; 
 
@@ -50,8 +54,6 @@ class ClientGame {
      * muliplayer
      */
     nlohmann::json Welcome();
-
-    void PrintField(nlohmann::json field);
 
 
     // Selection methods
@@ -90,43 +92,6 @@ class ClientGame {
      * @return user input (string)
      */
     std::string InputString(std::string msg);
-    
-    // print methods
-
-    /**
-     * Clears and refreshes field, locks mutex.
-     */
-    void ClearField();
-
-    /**
-     * Prints a single line centered. (Does not clear screen, does not lock mutex)
-     * @param[in] l (what line to print to)
-     * @param[in] line (text to print
-     */
-    void PrintCenteredLine(int l, std::string line);
-
-    /**
-     * Prints a single line centered, but here the line is splitted into parts,
-     * with each part assined it's own color. (Does not clear screen, does not lock mutex)
-     * @param[in] l line to print to
-     * @param[in] txt_with_color array of text parts, each with a color.
-     */
-    void PrintCenteredLineColored(int line, std::vector<std::pair<std::string, int>> txt_with_color);
-
-    /**
-     * Prints a paragraph (mulitple lines of text) to the center of the screen.
-     * (Does not clear screen, does not lock mutex)
-     * @param[in] paragraph
-     */
-    void PrintCenteredParagraph(texts::paragraph_t paragraph);
-
-    /**
-     * Prints mulitple paragraphs to the center of the screen, clearing screen
-     * before every new paragraph and locking mutex.
-     * @param[in] paragraphs
-     */
-    void PrintCenteredParagraphs(texts::paragraphs_t paragraph);
-
 };
 
 #endif

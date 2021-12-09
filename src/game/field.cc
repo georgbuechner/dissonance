@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "game/field.h"
+#include "objects/transfer.h"
 #include "objects/units.h"
 #include "player/player.h"
 #include "random/random.h"
@@ -373,7 +374,7 @@ std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval)
   return positions;
 }
 
-nlohmann::json Field::ToJson(Player* player, Player* enemy) {
+std::vector<std::vector<Transfer::Symbol>> Field::ToJson(Player* player, Player* enemy) {
   std::shared_lock sl_field(mutex_field_);
   auto field = field_;
   sl_field.unlock();
@@ -381,10 +382,10 @@ nlohmann::json Field::ToJson(Player* player, Player* enemy) {
   UpdateField(player, field);
   UpdateField(enemy, field);
 
-  std::vector<std::vector<std::map<std::string, std::string>>> json_field;
+  std::vector<std::vector<Transfer::Symbol>> t_field;
 
   for (int l=0; l<lines_; l++) {
-    json_field.push_back(std::vector<std::map<std::string, std::string>>());
+    t_field.push_back(std::vector<Transfer::Symbol>());
     for (int c=0; c<cols_; c++) {
       position_t cur = {l, c};
       int color = COLOR_DEFAULT;
@@ -415,11 +416,11 @@ nlohmann::json Field::ToJson(Player* player, Player* enemy) {
         color = COLOR_OK;
       // Replace certain elements.
       if (replacements_.count(cur) > 0)
-        json_field[l].push_back({{"symbol", std::to_string(replacements_.at(cur))}, {"color", std::to_string(color)}});
+        t_field[l].push_back({std::to_string(replacements_.at(cur)), color});
       else
-        json_field[l].push_back({{"symbol", field[l][c]}, {"color", std::to_string(color)}});
+        t_field[l].push_back({field[l][c], color});
     }
   }
   blinks_.clear();
-  return json_field;
+  return t_field;
 }
