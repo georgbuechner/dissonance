@@ -1,10 +1,14 @@
 #ifndef SRC_PRINT_DRAWER_H_
 #define SRC_PRINT_DRAWER_H_
 
+#include "nlohmann/json_fwd.hpp"
+#define NCURSES_NOMACROS
 #include "constants/texts.h"
 #include "nlohmann/json.hpp"
 #include "objects/transfer.h"
-#define NCURSES_NOMACROS
+#include "constants/codes.h"
+#include "utils/utils.h"
+#include <string>
 
 #include <cstddef>
 #include <curses.h>
@@ -27,8 +31,13 @@ class Drawrer {
     int field_height();
     int field_width();
 
+    int GetResource(); 
+    int GetTech(); 
+
     // setter 
-    void inc_cur(int value);
+    void inc_cur_sidebar_elem(int value); void set_msg(std::string msg);
+    void next_viewpoint();
+    void set_transfter(nlohmann::json& data);
 
     /**
      * Clears and refreshes field, locks mutex.
@@ -64,16 +73,49 @@ class Drawrer {
      */
     void PrintCenteredParagraphs(texts::paragraphs_t paragraph);
 
-    void PrintGame(const Transfer& data);
+    void PrintGame(bool only_field, bool only_side_column);
 
   private:
     int lines_;
     int cols_;
+    Transfer transfer_;
 
     // Selection
-    int cur_;
-    int max_resource_;
-    int max_tech_;
+    struct ViewPoint {
+      public: 
+        ViewPoint(int x, int y, void(ViewPoint::*f_inc)(int val), 
+            std::string(ViewPoint::*f_ts)(const Transfer&)) : x_(x), y_(y), inc_(f_inc), to_string_(f_ts) {}
+
+        int x_;
+        int y_;
+        void inc(int val) { (this->*inc_)(val); }
+        std::string to_string(const Transfer& transfer) { return(this->*to_string_)(transfer); }
+
+        void inc_resource(int val) { x_= utils::Mod(x_+val, SEROTONIN+1); }
+        void inc_tech(int val) { x_= utils::Mod(x_+val, NUCLEUS_RANGE+1, WAY); }
+
+        std::string to_string_resource(const Transfer& transfer) {   
+          Transfer::Resource resource = transfer.resources().at(x_);
+          return resources_name_mapping.at(x_) + ": " + resource.value_ + "+" 
+            + resource.bound_ + "/" + resource.limit_ + " ++" + resource.iron_
+            + "$" + resource_description_mapping.at(x_);
+        }
+
+        std::string to_string_tech(const Transfer& transfer) {
+          Transfer::Technology tech = transfer.technologies().at(x_);
+          return units_tech_name_mapping.at(x_) + ": " + tech.cur_ + "/" + tech.max_ 
+            + "$" + units_tech_description_mapping.at(x_);
+        }
+
+      private:
+        void(ViewPoint::*inc_)(int val);
+        std::string(ViewPoint::*to_string_)(const Transfer&);
+    };
+    std::map<int, ViewPoint> cur_selection_; // 0: map, 1: resource, 2: tech
+    int cur_view_point_;
+
+    // Boxes
+    std::string msg_;
 
 
     // start-lines header
@@ -95,9 +137,8 @@ class Drawrer {
     void PrintTechnologies(const std::string& players);
     void PrintSideColumn(const std::map<int, Transfer::Resource>& resources, 
         const std::map<int, Transfer::Technology>& technologies);
-    void PrintFoorer(std::string str);
-
-    std::string ResourceToString(int resource_id, const Transfer::Resource& resource);
+    void PrintMessage();
+    void PrintFooter(std::string str);
 };
 
 #endif

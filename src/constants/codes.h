@@ -131,16 +131,19 @@ const std::map<std::string, int> resources_symbol_mapping = {
   {SYMBOL_SEROTONIN, SEROTONIN},
 };
 
-const std::map<int, std::string> codes_name_mapping = {
-  {IRON, "iron"},
-  {OXYGEN,"oxygeN"},
-  {POTASSIUM,"potassium"},
-  {CHLORIDE,"chloride"},
-  {GLUTAMATE,"glutamate"},
-  {DOPAMINE,"dopamine"},
-  {SEROTONIN,"serotonin"},
+const std::map<int, std::string> resource_description_mapping = {
+  {IRON, "Used for technologies and for boosting resource-gain"},
+  {OXYGEN,"Used for creating neurons, also influences resource-gain"},
+  {POTASSIUM,"Used for creating potential (ipsp/ epsp) and synapses"},
+  {CHLORIDE,"Used for creating ipsp"},
+  {GLUTAMATE,"Used for creating activated neurons"},
+  {DOPAMINE,"Used for technologies concerning potentials and neurons"},
+  {SEROTONIN,"Used for technologies concerning resources"}
+};
+
+const std::map<int, std::string> units_tech_name_mapping = {
   {ACTIVATEDNEURON, "activated-neuron"},
-  {RESOURCENEURON, "rersource-neuron"},
+  {RESOURCENEURON, "resource-neuron"},
   {SYNAPSE, "synapse"},
   {EPSP, "epsp"},
   {IPSP, "ipsp"},
@@ -148,8 +151,8 @@ const std::map<int, std::string> codes_name_mapping = {
   {WAY,"choose way"},
   {SWARM,"swarm attack"},
   {TARGET,"choose target"},
-  {TOTAL_RESOURCE, "rersource limits++"},
-  {CURVE, "rersource slowdown--"},
+  {TOTAL_RESOURCE, "resource limits++"},
+  {CURVE, "resource slowdown--"},
   {ATK_POTENIAL, "epsp/ ipsp potential++"},
   {ATK_SPEED, "epsp/ipsp speed++"},
   {ATK_DURATION, "ipsp duration++"},
@@ -158,31 +161,24 @@ const std::map<int, std::string> codes_name_mapping = {
   {NUCLEUS_RANGE, "range of nucleus++"},
 };
 
-const std::map<int, std::string> codes_description_mapping = {
-  {IRON, "iron"},
-  {OXYGEN,"oxygen"},
-  {POTASSIUM,"potassium"},
-  {CHLORIDE,"chloride"},
-  {GLUTAMATE,"glutamate"},
-  {DOPAMINE,"dopamine"},
-  {SEROTONIN,"serotonin"},
+const std::map<int, std::string> units_tech_description_mapping = {
   {ACTIVATEDNEURON, "activated-neuron"},
-  {RESOURCENEURON, "rersource-neuron"},
+  {RESOURCENEURON, "resource-neuron"},
   {SYNAPSE, "synapse"},
   {EPSP, "epsp"},
   {IPSP, "ipsp"},
   {NUCLEUS, "nucleus"},
-  {WAY,"choose way"},
-  {SWARM,"swarm attack"},
-  {TARGET,"choose target"},
-  {TOTAL_RESOURCE, "increase rersource limits"},
-  {CURVE, "lower rersource slowdown"},
-  {ATK_POTENIAL, "increase epsp/ ipsp potential"},
-  {ATK_SPEED, "Increase epsp/ipsp speed"},
-  {ATK_DURATION, "increase ipsp duration"},
-  {DEF_POTENTIAL, "increase activated-neuron potential"},
-  {DEF_SPEED, "increase activated-neuron cooldown"},
-  {NUCLEUS_RANGE, "increase range of nucleus"},
+  {WAY,"Increases maximum number of way-points you may set to specify way of potential (applicable per synapse)"},
+  {SWARM,"Activates using swarm-attack/ increases maximum swarm-size possible (applicable per synapse)"},
+  {TARGET,"Allows selecting a target (1: ipsp, 2: ipsp+epsp). (applicable per synapse)"},
+  {TOTAL_RESOURCE, "Increases resource limits by 10%"},
+  {CURVE, "Lowers resource slowdown"},
+  {ATK_POTENIAL, "Increases epsp/ ipsp potential"},
+  {ATK_SPEED, "Increases epsp/ipsp speed"},
+  {ATK_DURATION, "Increases ipsp duration at target"},
+  {DEF_POTENTIAL, "Increase activated-neuron's potential"},
+  {DEF_SPEED, "Increases activated-neurons cooldown between activation"},
+  {NUCLEUS_RANGE, "Increases range of nucleus."},
 };
 
 

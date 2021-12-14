@@ -3,41 +3,72 @@
 #include "curses.h"
 #include "objects/transfer.h"
 #include "spdlog/spdlog.h"
+#include "utils/utils.h"
 
 #define LOGGER "logger"
 
 #define SIDE_COLUMN_WIDTH 30
+#define BORDER_LINES 2 
 
-Drawrer::Drawrer() { 
-  cur_ = 0; 
-  max_resource_ = SEROTONIN;
-  max_tech_ = NUCLEUS_RANGE-IPSP;
+#define VP_RESOURCE 1
+#define VP_TECH 2
+
+Drawrer::Drawrer() {
+  cur_view_point_ = VP_RESOURCE;
+  cur_selection_ = {
+    {VP_RESOURCE, {IRON, -1, &ViewPoint::inc_resource, &ViewPoint::to_string_resource}},
+    {VP_TECH, {WAY, -1, &ViewPoint::inc_tech, &ViewPoint::to_string_tech}}
+  };
 }
 
 int Drawrer::field_height() {
-  return l_message_ - l_main_;
+  return l_message_ - l_main_ - 1;
 }
 
 int Drawrer::field_width() {
   return (c_resources_ - SIDE_COLUMN_WIDTH/2 - 3)/2;
 }
 
-void Drawrer::inc_cur(int value) {
-  if (value < 0 && cur_ == 1)
-    return;
-  cur_ = (cur_ + value) % (max_resource_ + max_tech_ + 1);
+int Drawrer::GetResource() {
+  if (cur_view_point_ != VP_RESOURCE)
+    return -1;
+  return cur_selection_.at(VP_RESOURCE).x_;
+}
+
+int Drawrer::GetTech() {
+  if (cur_view_point_ != VP_TECH)
+    return -1;
+  return cur_selection_.at(VP_TECH).x_;
+}
+
+void Drawrer::inc_cur_sidebar_elem(int value) {
+  cur_selection_.at(cur_view_point_).inc(value);
+}
+
+void Drawrer::next_viewpoint() {
+  mvaddch(1, 1, cur_view_point_);
+  cur_view_point_ = (1+cur_view_point_+1)%2 + 1;
+  mvaddch(2, 1, cur_view_point_);
+}
+
+void Drawrer::set_msg(std::string msg) {
+  msg_ = msg;
+}
+
+void Drawrer::set_transfter(nlohmann::json& data) {
+  transfer_ = Transfer(data);
 }
 
 void Drawrer::SetUpBorders(int lines, int cols) {
+  spdlog::get(LOGGER)->info("Drawrer::SetUpBorders: {}={}, {}={}", lines, LINES, cols, COLS);
   // Setup lines 
-  int extra_border_lines = 2;
-  int lines_field = lines - 8 - 6 - extra_border_lines ; 
   l_headline_ = 1; 
   l_audio_ = 4; 
-  l_main_ = 6;
+  l_bar_ = 6;
   l_main_ = 8; // implies complete lines for heading = 8
-  l_message_ = lines_field + 10;
-  l_bottom_ = lines_field + 12;  // height: 4 -> implies complete lines for footer = 6
+  int lines_field = lines - l_main_ - BORDER_LINES; 
+  l_message_ = lines_field + 1;
+  l_bottom_ = l_message_ + BORDER_LINES ;  
 
   // Setup cols
   c_field_ = SIDE_COLUMN_WIDTH/2;
@@ -90,10 +121,15 @@ void Drawrer::PrintCenteredParagraphs(texts::paragraphs_t paragraphs) {
   }
 }
 
-void Drawrer::PrintGame(const Transfer &data) {
-  PrintHeader(data.players());
-  PrintField(data.field());
-  PrintSideColumn(data.resources(), data.technologies());
+void Drawrer::PrintGame(bool only_field, bool only_side_column) {
+  PrintHeader(transfer_.players());
+  if (!only_side_column)
+    PrintField(transfer_.field());
+  if (!only_field)
+    PrintSideColumn(transfer_.resources(), transfer_.technologies());
+  PrintMessage();
+  PrintFooter(cur_selection_.at(cur_view_point_).to_string(transfer_));
+  refresh();
 }
 
 void Drawrer::PrintHeader(const std::string& players) {
@@ -118,13 +154,11 @@ void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources
   mvaddstr(l_main_, c_resources_, "RESOURCES");
   unsigned int counter = 2;
   for (const auto& it : resources) {
-    if (cur_ == it.first) {
+    if (cur_selection_.at(VP_RESOURCE).x_ == it.first)
       attron(COLOR_PAIR(COLOR_AVAILIBLE));
-      PrintFoorer(ResourceToString(it.first, it.second));
-    }
     else if (it.second.active_)
       attron(COLOR_PAIR(COLOR_SUCCESS));
-    std::string str = codes_name_mapping.at(it.first) + ": " + it.second.value_;
+    std::string str = resources_name_mapping.at(it.first) + ": " + it.second.value_;
     mvaddstr(l_main_ + counter, c_resources_, str.c_str());
     attron(COLOR_PAIR(COLOR_DEFAULT));
     counter += 2;
@@ -133,22 +167,24 @@ void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources
   mvaddstr(l_main_ + counter, c_resources_, "TECHNOLOGIES");
   counter += 2;
   for (const auto& it : technologies) {
-    if (cur_ == it.first-IPSP + max_resource_)
+    if (cur_selection_.at(VP_TECH).x_ == it.first)
       attron(COLOR_PAIR(COLOR_AVAILIBLE));
     else if (it.second.active_)
       attron(COLOR_PAIR(COLOR_SUCCESS));
-    std::string str = codes_name_mapping.at(it.first) + " (" + it.second.cur_ + "/" + it.second.max_ + ")";
+    std::string str = units_tech_name_mapping.at(it.first) + " (" + it.second.cur_ + "/" + it.second.max_ + ")";
     mvaddstr(l_main_ + counter, c_resources_, str.c_str());
     attron(COLOR_PAIR(COLOR_DEFAULT));
     counter += 2;
   }
 }
 
-void Drawrer::PrintFoorer(std::string str) {
-  PrintCenteredLine(l_bottom_, str);
+void Drawrer::PrintMessage() {
+  std::string clear_string(COLS, ' ');
+  mvaddstr(l_message_, 0, clear_string.c_str());
+  mvaddstr(l_message_, c_field_, msg_.c_str());
 }
 
-std::string Drawrer::ResourceToString(int resource_id, const Transfer::Resource& resource) {
-  return codes_name_mapping.at(resource_id) + ": " + resource.value_ + "+" + resource.bound_ + "/"
-    + resource.limit_ + " ++" + resource.iron_; 
+void Drawrer::PrintFooter(std::string str) {
+  PrintCenteredLine(l_bottom_, utils::Split(str, "$")[0]);
+  PrintCenteredLine(l_bottom_+1, utils::Split(str, "$")[1]);
 }

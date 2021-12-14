@@ -1,4 +1,5 @@
 #include "client/client_game.h"
+#include "client/client.h"
 #include "constants/codes.h"
 #include "constants/texts.h"
 #include "curses.h"
@@ -49,6 +50,7 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
 nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
   std::string command = msg["command"];
   nlohmann::json data = msg["data"];
+  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: {}, {}", command, data.dump());
 
   nlohmann::json response = {{"command", ""}, {"username", username_}, {"data", nlohmann::json()}};
 
@@ -61,27 +63,28 @@ nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
     response["data"]["source_path"] = SelectAudio();
   }
   else if (command == "print_msg") {
-    spdlog::get(LOGGER)->info("got command print_msg");
-    spdlog::get(LOGGER)->flush();
     drawrer_.ClearField();
     drawrer_.PrintCenteredLine(LINES/2, data["msg"]);
   }
   else if (command == "print_field") {
-    drawrer_.PrintGame(Transfer(data));
+    drawrer_.set_transfter(data);
+    drawrer_.PrintGame(false, false);
   }
   else if (command == "distribute_iron") {
-    auto resp = DistributeIron(data);
-    response["command"] = resp.first;
-    response["data"] = resp.second;
-    spdlog::get(LOGGER)->debug("Client::HandleAction returning: {}", response.dump());
-    spdlog::get(LOGGER)->flush();
+    drawrer_.set_msg(data["msg"]);
+  }
+  else if (command == "game_start") {
+    action_ = true;
   }
   return response;
 }
 
 
-void ClientGame::GetAction() {
+void ClientGame::GetAction(Client* client) {
   spdlog::get(LOGGER)->info("ClientGame::GetAction.");
+
+  nlohmann::json response = {{"command", ""}, {"username", username_}, {"data", nlohmann::json()}};
+
   while(true) {
     if (!action_) 
       continue;
@@ -90,11 +93,37 @@ void ClientGame::GetAction() {
     if (!action_) 
       continue;
     if (choice == 'j') {
-      drawrer_.inc_cur(1);
+      drawrer_.inc_cur_sidebar_elem(1);
     }
     else if (choice == 'k') {
-      drawrer_.inc_cur(-1);
+      drawrer_.inc_cur_sidebar_elem(-1);
     }
+    else if (choice == 't') {
+      drawrer_.next_viewpoint();
+    }
+    else if (choice == '+') {
+      int resource = drawrer_.GetResource();
+      if (resource > -1) {
+        nlohmann::json response = {{"command", "add_iron"}, {"username", username_}, {"data", 
+          {{"resource", resource}} }};
+        client->SendMessage(response.dump());
+      }
+      else {
+        drawrer_.set_msg("Use [enter] to add technology");
+      }
+    }
+    else if (choice == '-') {
+      int resource = drawrer_.GetResource();
+      if (resource > -1) {
+        nlohmann::json response = {{"command", "remove_iron"}, {"username", username_}, {"data", 
+          {{"resource", resource}} }};
+        client->SendMessage(response.dump());
+      }
+      else {
+        drawrer_.set_msg("Use [enter] to add technology");
+      }
+    }
+    drawrer_.PrintGame(false, true); // print only side-column.
   }
 }
 
@@ -114,79 +143,6 @@ nlohmann::json ClientGame::Welcome() {
 
 
 // Selection methods
-
-std::pair<std::string, nlohmann::json> ClientGame::DistributeIron(nlohmann::json data) {
-  render_pause_ = true;
-  action_ = false;
-  spdlog::get(LOGGER)->info("ClientGame::DistributeIron.");
-  drawrer_.ClearField();
-  nlohmann::json resources = data["resources"];
-  bool end = false;
-  // Get iron and print options.
-  drawrer_.PrintCenteredLine(LINES/2-1, "(use 'q' to quit, +/- to add/remove iron and h/l or ←/→ to circle through resources)");
-  std::vector<position_t> positions = utils::GetCirclePosition({LINES/2, COLS/2});
-  std::string info = "";
-  std::string success = "";
-  if (data["error"]) 
-    attron(COLOR_ERROR);
-  else
-    attron(COLOR_SUCCESS);
-  drawrer_.PrintCenteredLine(LINES/2+2, data["error_msg"]);
-
-  unsigned int current = 0;
-  while(!end) {
-    // Get current resource and symbol.
-    std::string current_symbol = resource_symbols[current];
-    spdlog::get(LOGGER)->info("ClientGame::DistributeIron current symbol: {}", current_symbol);
-    int resource = resources_symbol_mapping.at(current_symbol);
-
-    // Print texts (help, current resource info)
-    drawrer_.PrintCenteredLine(LINES/2-2, data["help"]);
-    info = resources_name_mapping.at(resource) + ": FE" 
-      + std::to_string(resources[resource]["iron"].get<int>())
-      + ((resources[resource]["active"]) ? " (active)" : " (inactive)");
-    drawrer_.PrintCenteredLine(LINES/2+1, info);
-
-    // Print resource circle.
-    for (unsigned int i=0; i<resource_symbols.size(); i++) {
-      if (resources[resources_symbol_mapping.at(resource_symbols[i])]["active"])
-        attron(COLOR_PAIR(COLOR_SUCCESS));
-      if (i == current)
-        attron(COLOR_PAIR(COLOR_MARKED));
-      mvaddstr(positions[i].first, positions[i].second, resource_symbols[i].c_str());
-      attron(COLOR_PAIR(COLOR_DEFAULT));
-      refresh();
-    }
-
-    // Get players choice.
-    char choice = getch();
-
-    // Move clockwise 
-    if (utils::IsDown(choice))
-      current = utils::Mod(current+1, resource_symbols.size());
-    // Move counter-clockwise 
-    else if (utils::IsUp(choice))
-      current = utils::Mod(current-1, resource_symbols.size());
-    // Add iron 
-    else if (choice == '+') 
-      return {"add_iron", {{"resource", (resources_symbol_mapping.count(current_symbol) > 0) 
-        ? resources_symbol_mapping.at(current_symbol) : Resources::OXYGEN}}};
-    // Remove iron 
-    else if (choice == '-') {
-      return {"remove_iron", {{"resource", (resources_symbol_mapping.count(current_symbol) > 0) 
-        ? resources_symbol_mapping.at(current_symbol) : Resources::OXYGEN}}};
-    }
-    // Exit
-    else if (choice == 'q') {
-      end = true;
-    }
-    spdlog::get(LOGGER)->info("ClientGame::DistributeIron choice: {}", choice);
-  }
-  drawrer_.ClearField();
-  render_pause_ = false;
-  action_ = true;
-  return {"", {}};
-}
 
 int ClientGame::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapping, std::vector<size_t> splits) {
   // TODO(fux): check whether to pause game or not `pause_ = true;`

@@ -71,8 +71,11 @@ std::string utils::PositionToString(position_t pos) {
   return std::to_string(pos.first) + "|" + std::to_string(pos.second);
 }
 
-unsigned int utils::Mod(int n, int m) {
-  return ((n%m)+m)%m;
+unsigned int utils::Mod(int n, int m, unsigned int min) {
+  unsigned int val = ((n%m)+m)%m;
+  if (val < min)
+    val = min;
+  return val;
 }
 
 std::string utils::ToUpper(std::string str) {

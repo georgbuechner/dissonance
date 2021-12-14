@@ -23,15 +23,15 @@ nlohmann::json ServerGame::HandleInput(std::string command, std::string player, 
   }
   else if (command == "add_iron") {
     if (player_one_->DistributeIron(data["resource"]))
-      response = DistributeIron(player_one_, {false, "Selected!"});
+      response = {{"command", "distribute_iron"}, {"data", {{"msg", "Distribute iron: done!"}} }};
     else 
-      response = DistributeIron(player_one_, {true, "Not enough iron!"});
+      response = {{"command", "distribute_iron"}, {"data", {{"msg", "Distribute iron: not enough iron!"}} }};
   }
   else if (command == "remove_iron") {
     if (player_one_->RemoveIron(data["resource"]))
-      response = DistributeIron(player_one_, {false, "Selected!"});
+      response = {{"command", "distribute_iron"}, {"data", {{"msg", "Remove iron: done!"}} }};
     else 
-      response = DistributeIron(player_one_, {true, "Not enough iron!"});
+      response = {{"command", "distribute_iron"}, {"data", {{"msg", "Remove iron: not enough iron!"}} }};
   }
 
   return response;
@@ -104,7 +104,7 @@ nlohmann::json ServerGame::InitializeGame(nlohmann::json data) {
   spdlog::get(LOGGER)->info("Game::InitializeGame: main events setup.");
   spdlog::get(LOGGER)->flush();
 
-  return DistributeIron(player_one_);
+  return {{"command", "game_start"}, {"data", nlohmann::json()}};
 }
 
 void ServerGame::Thread_RenderField() {
@@ -254,18 +254,4 @@ void ServerGame::Thread_Ai() {
       data_per_beat.pop_front();
     }
   }
-}
-
-
-nlohmann::json ServerGame::DistributeIron(Player* player, std::pair<bool, std::string> error) {
-  nlohmann::json data;
-  data["help"] = "Iron (FE): " + player->resources().at(IRON).Print();
-  data["resources"] = nlohmann::json();
-  for (const auto& it : player->resources()) {
-    nlohmann::json resource = {{"active", it.second.Active()}, {"iron", it.second.distributed_iron()}};
-    data["resources"][it.first] = resource;
-  }
-  data["error"] = error.first;
-  data["error_msg"] = error.second;
-  return {{"command", "distribute_iron"}, {"data", data}};
 }

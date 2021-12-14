@@ -18,6 +18,8 @@ class Client {
 
     void Start(std::string address);
 
+    void SendMessage(std::string msg);
+
   private:
     typedef websocketpp::client<websocketpp::config::asio_client> client;
     typedef websocketpp::config::asio_client::message_type::ptr message_ptr;
@@ -31,8 +33,6 @@ class Client {
     // This message handler will be invoked once for each incoming message. It
     // prints the message and then sends a copy of the message back to the server.
     void on_message(client* c, websocketpp::connection_hdl hdl, message_ptr msg);
-
-    void SendMessage(std::string msg);
 };
 
 #endif

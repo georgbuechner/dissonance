@@ -78,7 +78,7 @@ namespace utils {
    * @param[in] m (congruence class)
    * @return modulo of n in congruence class m.
    */
-  unsigned int Mod(int n, int m);
+  unsigned int Mod(int n, int m, unsigned int min=0);
 
   /**
    * Converts all chars to upper case.

@@ -63,8 +63,6 @@ class ServerGame {
 
     // handlers
     nlohmann::json InitializeGame(nlohmann::json data);
-
-    nlohmann::json DistributeIron(Player* player, std::pair<bool, std::string> error = {false, ""});
 };
 
 #endif

@@ -2,6 +2,7 @@
 #include "nlohmann/json_fwd.hpp"
 #include "objects/units.h"
 #include "spdlog/spdlog.h"
+#include <string>
 
 Client::Client(ClientGame* game, std::string username) : username_(username) {
     game_ = game;
@@ -58,7 +59,6 @@ void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr 
   nlohmann::json resp = game_->HandleAction(nlohmann::json::parse(msg->get_payload()));
   if (resp["data"].size() > 0)
     SendMessage(resp.dump());
-  refresh();
 }
 
 void Client::SendMessage(std::string msg) {
@@ -68,4 +68,3 @@ void Client::SendMessage(std::string msg) {
   if (ec)
     std::cout << "Client: sending failed because: " << ec.message() << std::endl;
 }
-

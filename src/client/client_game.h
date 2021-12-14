@@ -3,6 +3,7 @@
 
 #include "nlohmann/json_fwd.hpp"
 #include "print/drawrer.h"
+#include "server/server_game.h"
 #define NCURSES_NOMACROS
 
 #include <cstddef>
@@ -22,6 +23,8 @@
 #include "objects/units.h"
 #include "random/random.h"
 
+class Client;
+
 class ClientGame {
   public:
 
@@ -34,7 +37,7 @@ class ClientGame {
 
     nlohmann::json HandleAction(nlohmann::json);
 
-    void GetAction();
+    void GetAction(Client* ws_srv);
 
   private: 
     // member variables.
@@ -57,8 +60,6 @@ class ClientGame {
 
 
     // Selection methods
-    
-    std::pair<std::string, nlohmann::json> DistributeIron(nlohmann::json resources);
     
     /**
      * Selects one of x options. (Clears field and locks mutex; pauses game??)
