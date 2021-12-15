@@ -4,6 +4,7 @@
 #include "objects/transfer.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
+#include <mutex>
 
 #define LOGGER "logger"
 
@@ -45,10 +46,9 @@ void Drawrer::inc_cur_sidebar_elem(int value) {
   cur_selection_.at(cur_view_point_).inc(value);
 }
 
-void Drawrer::next_viewpoint() {
-  mvaddch(1, 1, cur_view_point_);
+int Drawrer::next_viewpoint() {
   cur_view_point_ = (1+cur_view_point_+1)%2 + 1;
-  mvaddch(2, 1, cur_view_point_);
+  return cur_view_point_;
 }
 
 void Drawrer::set_msg(std::string msg) {
@@ -122,6 +122,7 @@ void Drawrer::PrintCenteredParagraphs(texts::paragraphs_t paragraphs) {
 }
 
 void Drawrer::PrintGame(bool only_field, bool only_side_column) {
+  std::unique_lock ul(mutex_print_field_);
   PrintHeader(transfer_.players());
   if (!only_side_column)
     PrintField(transfer_.field());
@@ -179,12 +180,19 @@ void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources
 }
 
 void Drawrer::PrintMessage() {
-  std::string clear_string(COLS, ' ');
-  mvaddstr(l_message_, 0, clear_string.c_str());
+  ClearLine(l_message_);
   mvaddstr(l_message_, c_field_, msg_.c_str());
 }
 
 void Drawrer::PrintFooter(std::string str) {
-  PrintCenteredLine(l_bottom_, utils::Split(str, "$")[0]);
-  PrintCenteredLine(l_bottom_+1, utils::Split(str, "$")[1]);
+  auto lines = utils::Split(str, "$");
+  for (unsigned int i=0; i<lines.size(); i++) {
+    ClearLine(l_bottom_ + i);
+    PrintCenteredLine(l_bottom_ + i, lines[i]);
+  }
+}
+
+void Drawrer::ClearLine(int line) {
+  std::string clear_string(COLS, ' ');
+  mvaddstr(line, 0, clear_string.c_str());
 }

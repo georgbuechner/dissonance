@@ -107,6 +107,32 @@ class WebsocketServer {
      * @param msg message.
      */
     void on_message(server* srv, websocketpp::connection_hdl hdl, message_ptr msg);
+
+    // handlers:
+    
+    /**
+     * Sets up new user-connection.
+     * @param[in] id 
+     * @param[in] username 
+     * @param[in] msg
+     */
+    void h_InitializeUser(connection_id id, std::string username, nlohmann::json& msg);
+
+    /**
+     * Starts new game in desired mode.
+     * @param[in] id 
+     * @param[in] username 
+     * @param[in] msg
+     */
+    void h_InitializeGame(connection_id id, std::string username, nlohmann::json& msg);
+
+    /**
+     * Calls game for this user, to handle in game action.
+     * @param[in] id 
+     * @param[in] username 
+     * @param[in] msg
+     */
+    void h_InGameAction(connection_id id, std::string username, nlohmann::json& msg);
 };
 
 #endif 

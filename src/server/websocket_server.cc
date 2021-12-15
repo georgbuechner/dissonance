@@ -154,38 +154,63 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
 }
 
 void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, message_ptr msg) {
-  spdlog::get(LOGGER)->info("Server: Got msg: {}", msg->get_payload());
-
   // Validate json.
+  spdlog::get(LOGGER)->info("Websocket::on_message: validating new msg: {}", msg->get_payload());
   auto json_opt = utils::ValidateJson({"command", "username", "data"}, msg->get_payload());
-  if (!json_opt.first)
+  if (!json_opt.first) {
+    spdlog::get(LOGGER)->warn("Server: message with missing required fields (required: command, username, data)");
     return;
+  }
   std::string command = json_opt.second["command"];
   std::string username = json_opt.second["username"];
-  nlohmann::json data = json_opt.second["data"];
   
-  // Check whether connection existings and print received command.
-  if (command == "initialize") {
-    // Create controller connection.
-    std::unique_lock ul(shared_mutex_connections_);
-    connections_[hdl.lock().get()]->set_username(username);
+  // Create controller connection
+  if (command == "initialize")
+    h_InitializeUser(hdl.lock().get(), username, json_opt.second);
+  // Start new game
+  else if (command == "init_game")
+    h_InitializeGame(hdl.lock().get(), username, json_opt.second);
+  // In game action
+  else
+    h_InGameAction(hdl.lock().get(), username, json_opt.second);
+}
+
+void WebsocketServer::h_InitializeUser(connection_id id, std::string username, nlohmann::json& msg) {
+  // Create controller connection.
+  std::unique_lock ul(shared_mutex_connections_);
+  if (connections_.count(id)) {
+    connections_[id]->set_username(username);
     ul.unlock();
     nlohmann::json resp = {{"command", "select_mode"}};
-    SendMessage(hdl.lock().get(), resp.dump());
-  }
-  else if (command == "init_game") {
-    if (json_opt.second["data"]["mode"] == SINGLE_PLAYER) {
-      games_[username] = new ServerGame(data["lines"], data["cols"], data["mode"], data["base_path"],
-          this, username);
-      nlohmann::json resp = {{"command", "select_audio"}, {"data", nlohmann::json()}};
-      SendMessage(hdl.lock().get(), resp.dump());
-    }
+    SendMessage(id, resp.dump());
   }
   else {
-    if (games_.count(username)) {
-      nlohmann::json resp = games_.at(username)->HandleInput(command, username, data);
-      SendMessage(hdl.lock().get(), resp.dump());
-    }
+    spdlog::get(LOGGER)->warn("WebsocketServer::h_InitializeUser: connection does not exist! {}", username);
+  }
+}
+
+void WebsocketServer::h_InitializeGame(connection_id id, std::string username, nlohmann::json& msg) {
+  nlohmann::json data = msg["data"];
+  if (data["mode"] == SINGLE_PLAYER) {
+    spdlog::get(LOGGER)->info("Server: initializing new single-player game.");
+    games_[username] = new ServerGame(data["lines"], data["cols"], data["mode"], data["base_path"],
+        this, username);
+    nlohmann::json resp = {{"command", "select_audio"}, {"data", nlohmann::json()}};
+    SendMessage(id, resp.dump());
+  }
+  else {
+    spdlog::get(LOGGER)->warn("Server: unkown game mode (0: single, 1: multi, 2: observer)");
+  }
+}
+
+void WebsocketServer::h_InGameAction(connection_id id, std::string username, nlohmann::json& msg) {
+  if (games_.count(username)) {
+    nlohmann::json resp = games_.at(username)->HandleInput(msg["command"], msg);
+    if (resp.contains("command"))
+      SendMessage(id, resp.dump());
+  }
+  else {
+    spdlog::get(LOGGER)->warn("Server: message with unkown command or username.");
   }
 }
 

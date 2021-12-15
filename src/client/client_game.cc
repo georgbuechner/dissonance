@@ -1,5 +1,7 @@
 #include "client/client_game.h"
 #include "client/client.h"
+#include "client/context.h"
+#include "share/eventmanager.h"
 #include "constants/codes.h"
 #include "constants/texts.h"
 #include "curses.h"
@@ -9,6 +11,10 @@
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 #include <vector>
+
+#define CONTEXT_FIELD 0
+#define CONTEXT_RESOURCES 1
+#define CONTEXT_TECHNOLOGIES 2
 
 ClientGame::ClientGame(bool relative_size, std::string base_path, std::string username) 
     : username_(username), base_path_(base_path), render_pause_(false), drawrer_() {
@@ -45,86 +51,129 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
     else
       audio_paths_.push_back(it);
   }
+
+  // Initialize contexts
+  current_context_ = CONTEXT_RESOURCES;
+  // Basic handlers shared by standard-contexts
+  std::map<char, void(ClientGame::*)(int)> std_handlers = { {'j', &ClientGame::h_MoveSelectionUp}, 
+    {'k', &ClientGame::h_MoveSelectionDown}, {'t', &ClientGame::h_ChangeViewPoint} };
+  // Resource context:
+  contexts_[CONTEXT_RESOURCES] = Context(std_handlers, {{'+', &ClientGame::h_AddIron}, 
+      {'-', &ClientGame::h_RemoveIron}});
+  // Technology context:
+  contexts_[CONTEXT_TECHNOLOGIES] = Context(std_handlers, {{'\n', &ClientGame::h_AddTech}});
+
+  // Initialize eventmanager.
+  eventmanager_.AddHandler("select_mode", &ClientGame::m_SelectMode);
+  eventmanager_.AddHandler("select_audio", &ClientGame::m_SelectAudio);
+  eventmanager_.AddHandler("print_msg", &ClientGame::m_PrintMsg);
+  eventmanager_.AddHandler("print_field", &ClientGame::m_PrintField);
+  eventmanager_.AddHandler("set_msg", &ClientGame::m_SetMsg);
+  eventmanager_.AddHandler("game_start", &ClientGame::m_GameStart);
 }
 
 nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
   std::string command = msg["command"];
-  nlohmann::json data = msg["data"];
-  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: {}, {}", command, data.dump());
+  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: {}, {}", command, msg["data"].dump());
 
-  nlohmann::json response = {{"command", ""}, {"username", username_}, {"data", nlohmann::json()}};
-
-  if (command == "select_mode") {
-    response["command"] = "init_game";
-    response["data"] = Welcome();
-  }
-  else if (command == "select_audio") {
-    response["command"] = "analyse_audio";
-    response["data"]["source_path"] = SelectAudio();
-  }
-  else if (command == "print_msg") {
-    drawrer_.ClearField();
-    drawrer_.PrintCenteredLine(LINES/2, data["msg"]);
-  }
-  else if (command == "print_field") {
-    drawrer_.set_transfter(data);
-    drawrer_.PrintGame(false, false);
-  }
-  else if (command == "distribute_iron") {
-    drawrer_.set_msg(data["msg"]);
-  }
-  else if (command == "game_start") {
-    action_ = true;
-  }
-  return response;
+  if (eventmanager_.handlers().count(command))
+    (this->*eventmanager_.handlers().at(command))(msg);
+  else 
+    msg = nlohmann::json();
+  
+  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: response {}", msg.dump());
+  return msg;
 }
 
 
-void ClientGame::GetAction(Client* client) {
+void ClientGame::GetAction() {
   spdlog::get(LOGGER)->info("ClientGame::GetAction.");
 
   nlohmann::json response = {{"command", ""}, {"username", username_}, {"data", nlohmann::json()}};
 
   while(true) {
-    if (!action_) 
-      continue;
+    // Get Input
+    if (!action_) continue; // Skip as long as not active.
     char choice = getch();
     spdlog::get(LOGGER)->info("ClientGame::GetAction action_ {}, in: {}", action_, choice);
-    if (!action_) 
-      continue;
-    if (choice == 'j') {
-      drawrer_.inc_cur_sidebar_elem(1);
-    }
-    else if (choice == 'k') {
-      drawrer_.inc_cur_sidebar_elem(-1);
-    }
-    else if (choice == 't') {
-      drawrer_.next_viewpoint();
-    }
-    else if (choice == '+') {
-      int resource = drawrer_.GetResource();
-      if (resource > -1) {
-        nlohmann::json response = {{"command", "add_iron"}, {"username", username_}, {"data", 
-          {{"resource", resource}} }};
-        client->SendMessage(response.dump());
-      }
-      else {
-        drawrer_.set_msg("Use [enter] to add technology");
-      }
-    }
-    else if (choice == '-') {
-      int resource = drawrer_.GetResource();
-      if (resource > -1) {
-        nlohmann::json response = {{"command", "remove_iron"}, {"username", username_}, {"data", 
-          {{"resource", resource}} }};
-        client->SendMessage(response.dump());
-      }
-      else {
-        drawrer_.set_msg("Use [enter] to add technology");
-      }
-    }
-    drawrer_.PrintGame(false, true); // print only side-column.
+    if (!action_) continue; // Skip as long as not active. 
+
+    // Throw event
+    if (contexts_.at(current_context_).eventmanager().handlers().count(choice) > 0)
+      (this->*contexts_.at(current_context_).eventmanager().handlers().at(choice))(0);
+    // If event not in context-event-manager print availible options.
+    else 
+      drawrer_.set_msg("Invalid option. Availible: " + contexts_.at(current_context_).eventmanager().options());
+
+    // Refresh field (only side-column)
+    drawrer_.PrintGame(false, true); 
   }
+}
+
+void ClientGame::h_MoveSelectionUp(int) {
+  drawrer_.inc_cur_sidebar_elem(1);
+}
+
+void ClientGame::h_MoveSelectionDown(int) {
+  drawrer_.inc_cur_sidebar_elem(-1);
+}
+
+void ClientGame::h_ChangeViewPoint(int) {
+  current_context_ = drawrer_.next_viewpoint();
+}
+
+void ClientGame::h_AddIron(int) {
+  int resource = drawrer_.GetResource();
+  nlohmann::json response = {{"command", "add_iron"}, {"username", username_}, {"data", 
+    {{"resource", resource}} }};
+  ws_srv_->SendMessage(response.dump());
+}
+
+void ClientGame::h_RemoveIron(int) {
+  int resource = drawrer_.GetResource();
+  nlohmann::json response = {{"command", "remove_iron"}, {"username", username_}, {"data", 
+    {{"resource", resource}} }};
+  ws_srv_->SendMessage(response.dump());
+}
+
+void ClientGame::h_AddTech(int) {
+  int technology = drawrer_.GetTech();
+  nlohmann::json response = {{"command", "add_technology"}, {"username", username_}, {"data", 
+    {{"technology", technology}} }};
+  ws_srv_->SendMessage(response.dump());
+}
+
+void ClientGame::m_SelectMode(nlohmann::json& msg) {
+  spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode: {}", msg.dump());
+  msg["command"] = "init_game";
+  msg["data"] = Welcome();
+}
+
+void ClientGame::m_SelectAudio(nlohmann::json& msg) {
+  msg["command"] = "analyse_audio";
+  msg["data"]["source_path"] = SelectAudio();
+}
+
+void ClientGame::m_PrintMsg(nlohmann::json& msg) {
+  drawrer_.ClearField();
+  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"]);
+  msg = nlohmann::json();
+}
+
+void ClientGame::m_PrintField(nlohmann::json& msg) {
+  drawrer_.set_transfter(msg["data"]);
+  drawrer_.PrintGame(false, false);
+  msg = nlohmann::json();
+}
+
+void ClientGame::m_SetMsg(nlohmann::json& msg) {
+  drawrer_.set_msg(msg["data"]["msg"]);
+  msg = nlohmann::json();
+}
+
+void ClientGame::m_GameStart(nlohmann::json& msg) {
+  action_ = true;
+  msg = nlohmann::json();
 }
 
 nlohmann::json ClientGame::Welcome() {
@@ -137,7 +186,8 @@ nlohmann::json ClientGame::Welcome() {
     
   auto mode = SelectInteger("Select mode", true, mapping, {mapping.size()+1});
 
-  nlohmann::json data = {{"mode", mode}, {"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, {"base_path", base_path_}};
+  nlohmann::json data = {{"mode", mode}, {"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, 
+    {"base_path", base_path_}};
   return data;
 }
 

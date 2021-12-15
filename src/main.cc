@@ -86,8 +86,9 @@ int main(int argc, const char** argv) {
 
   ClientGame* client_game = new ClientGame(relative_size, base_path, username);
   Client* client = new Client(client_game, username);
+  client_game->set_client(client);
   std::thread thread_client([client]() { client->Start("ws://localhost:4444"); });
-  std::thread thread_client_input([client_game, client]() { client_game->GetAction(client); });
+  std::thread thread_client_input([client_game]() { client_game->GetAction(); });
   thread_server.join();
   thread_client.join();
 

@@ -4,11 +4,13 @@
 #include "nlohmann/json_fwd.hpp"
 #define NCURSES_NOMACROS
 #include "constants/texts.h"
+#include "constants/costs.h"
 #include "nlohmann/json.hpp"
 #include "objects/transfer.h"
 #include "constants/codes.h"
 #include "utils/utils.h"
 #include <string>
+#include <shared_mutex>
 
 #include <cstddef>
 #include <curses.h>
@@ -36,8 +38,13 @@ class Drawrer {
 
     // setter 
     void inc_cur_sidebar_elem(int value); void set_msg(std::string msg);
-    void next_viewpoint();
     void set_transfter(nlohmann::json& data);
+
+    /**
+     * Move viewpoint to next viewpoint
+     * @return current context.
+     */
+    int next_viewpoint();
 
     /**
      * Clears and refreshes field, locks mutex.
@@ -79,6 +86,7 @@ class Drawrer {
     int lines_;
     int cols_;
     Transfer transfer_;
+    std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
 
     // Selection
     struct ViewPoint {
@@ -103,8 +111,13 @@ class Drawrer {
 
         std::string to_string_tech(const Transfer& transfer) {
           Transfer::Technology tech = transfer.technologies().at(x_);
+          std::string costs = "costs: ";
+          for (const auto& it : costs::units_costs_.at(x_)) {
+            if (it.second > 0)
+              costs += resources_name_mapping.at(it.first) + ": " + utils::Dtos(it.second) + ", ";
+          }
           return units_tech_name_mapping.at(x_) + ": " + tech.cur_ + "/" + tech.max_ 
-            + "$" + units_tech_description_mapping.at(x_);
+            + "$" + units_tech_description_mapping.at(x_) + "$" + costs;
         }
 
       private:
@@ -139,6 +152,7 @@ class Drawrer {
         const std::map<int, Transfer::Technology>& technologies);
     void PrintMessage();
     void PrintFooter(std::string str);
+    void ClearLine(int line);
 };
 
 #endif

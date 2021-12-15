@@ -1,6 +1,8 @@
 #ifndef SRC_SERVER_GAME_H_
 #define SRC_SERVER_GAME_H_
 
+#include "nlohmann/json_fwd.hpp"
+#include "share/eventmanager.h"
 #define NCURSES_NOMACROS
 #include <cstddef>
 #include <curses.h>
@@ -38,7 +40,7 @@ class ServerGame {
     /**
      * Handls input
      */
-    nlohmann::json HandleInput(std::string command, std::string player, nlohmann::json data);
+    nlohmann::json HandleInput(std::string command, nlohmann::json msg);
     
     // Threads
     void Thread_RenderField();
@@ -53,6 +55,7 @@ class ServerGame {
     bool resigned_;
     Audio audio_;
     WebsocketServer* ws_server_;
+    EventManager<std::string, ServerGame, nlohmann::json&> eventmanager_;
     const std::string usr1_id_;
     const std::string usr2_id_;
     int status_;
@@ -63,6 +66,13 @@ class ServerGame {
 
     // handlers
     nlohmann::json InitializeGame(nlohmann::json data);
+
+    // command methods
+
+    void m_AnalyzeAudio(nlohmann::json&);
+    void m_AddIron(nlohmann::json&);
+    void m_RemoveIron(nlohmann::json&);
+    void m_AddTechnology(nlohmann::json&);
 };
 
 #endif

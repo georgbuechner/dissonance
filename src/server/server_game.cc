@@ -5,36 +5,56 @@
 #include "objects/transfer.h"
 #include "player/player.h"
 #include "server/websocket_server.h"
+#include "share/eventmanager.h"
 #include <string>
 #include <thread>
 
 ServerGame::ServerGame(int lines, int cols, int mode, std::string base_path, WebsocketServer* srv, 
     std::string usr1, std::string usr2) : audio_(base_path), ws_server_(srv), usr1_id_(usr1), 
-    usr2_id_(usr2), status_(0), mode_(mode), lines_(lines), cols_(cols) {}
+    usr2_id_(usr2), status_(0), mode_(mode), lines_(lines), cols_(cols) {
 
-nlohmann::json ServerGame::HandleInput(std::string command, std::string player, nlohmann::json data) {
+  // Initialize eventmanager.
+  eventmanager_.AddHandler("analyse_audio", &ServerGame::m_AnalyzeAudio);
+  eventmanager_.AddHandler("add_iron", &ServerGame::m_AddIron);
+  eventmanager_.AddHandler("remove_iron", &ServerGame::m_RemoveIron);
+  eventmanager_.AddHandler("add_technology", &ServerGame::m_AddTechnology);
+}
 
-  nlohmann::json response;
+nlohmann::json ServerGame::HandleInput(std::string command, nlohmann::json msg) {
+  if (eventmanager_.handlers().count(command))
+    (this->*eventmanager_.handlers().at(command))(msg);
+  else 
+    msg = nlohmann::json();
+  
+  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: response {}", msg.dump());
+  return msg;
+}
 
-  if (command == "analyse_audio") {
-    response = InitializeGame(data);
-    spdlog::get(LOGGER)->info("returning response: {}", response.dump());
-    spdlog::get(LOGGER)->flush();
-  }
-  else if (command == "add_iron") {
-    if (player_one_->DistributeIron(data["resource"]))
-      response = {{"command", "distribute_iron"}, {"data", {{"msg", "Distribute iron: done!"}} }};
-    else 
-      response = {{"command", "distribute_iron"}, {"data", {{"msg", "Distribute iron: not enough iron!"}} }};
-  }
-  else if (command == "remove_iron") {
-    if (player_one_->RemoveIron(data["resource"]))
-      response = {{"command", "distribute_iron"}, {"data", {{"msg", "Remove iron: done!"}} }};
-    else 
-      response = {{"command", "distribute_iron"}, {"data", {{"msg", "Remove iron: not enough iron!"}} }};
-  }
+// command methods
 
-  return response;
+void ServerGame::m_AnalyzeAudio(nlohmann::json& msg) {
+  msg = InitializeGame(msg["data"]);
+}
+
+void ServerGame::m_AddIron(nlohmann::json& msg) {
+  if (player_one_->DistributeIron(msg["data"]["resource"]))
+    msg = {{"command", "set_msg"}, {"data", {{"msg", "Distribute iron: done!"}} }};
+  else 
+    msg = {{"command", "set_msg"}, {"data", {{"msg", "Distribute iron: not enough iron!"}} }};
+}
+
+void ServerGame::m_RemoveIron(nlohmann::json& msg) {
+  if (player_one_->RemoveIron(msg["data"]["resource"]))
+    msg = {{"command", "set_msg"}, {"data", {{"msg", "Remove iron: done!"}} }};
+  else 
+    msg = {{"command", "set_msg"}, {"data", {{"msg", "Remove iron: not enough iron!"}} }};
+}
+
+void ServerGame::m_AddTechnology(nlohmann::json& msg) {
+  if (player_one_->AddTechnology(msg["data"]["technology"]))
+    msg = {{"command", "set_msg"}, {"data", {{"msg", "Add technology: done!"}} }};
+  else 
+    msg = {{"command", "set_msg"}, {"data", {{"msg", "Add technology: probably not enough resources!"}} }};
 }
 
 // handlers

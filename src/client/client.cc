@@ -54,11 +54,14 @@ void Client::on_open(websocketpp::connection_hdl) {
 // This message handler will be invoked once for each incoming message. It
 // prints the message and then sends a copy of the message back to the server.
 void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr msg) {
-  spdlog::get(LOGGER)->info("Client go message: {}", msg->get_payload());
+  spdlog::get(LOGGER)->debug("Client got message: {}", msg->get_payload());
   websocketpp::lib::error_code ec;
   nlohmann::json resp = game_->HandleAction(nlohmann::json::parse(msg->get_payload()));
-  if (resp["data"].size() > 0)
+  // If data is contained in response, add username and send.
+  if (resp.contains("data")) {
+    resp["username"] = username_;
     SendMessage(resp.dump());
+  }
 }
 
 void Client::SendMessage(std::string msg) {
