@@ -15,6 +15,8 @@
 #define CONTEXT_FIELD 0
 #define CONTEXT_RESOURCES 1
 #define CONTEXT_TECHNOLOGIES 2
+#define CONTEXT_RESOURCES_MSG "Distribute (+)/ remove (-) iron to handler resource-gain"
+#define CONTEXT_TECHNOLOGIES_MSG "Research technology by pressing [enter]"
 
 ClientGame::ClientGame(bool relative_size, std::string base_path, std::string username) 
     : username_(username), base_path_(base_path), render_pause_(false), drawrer_() {
@@ -58,10 +60,10 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   std::map<char, void(ClientGame::*)(int)> std_handlers = { {'j', &ClientGame::h_MoveSelectionUp}, 
     {'k', &ClientGame::h_MoveSelectionDown}, {'t', &ClientGame::h_ChangeViewPoint} };
   // Resource context:
-  contexts_[CONTEXT_RESOURCES] = Context(std_handlers, {{'+', &ClientGame::h_AddIron}, 
+  contexts_[CONTEXT_RESOURCES] = Context(CONTEXT_RESOURCES_MSG, std_handlers, {{'+', &ClientGame::h_AddIron}, 
       {'-', &ClientGame::h_RemoveIron}});
   // Technology context:
-  contexts_[CONTEXT_TECHNOLOGIES] = Context(std_handlers, {{'\n', &ClientGame::h_AddTech}});
+  contexts_[CONTEXT_TECHNOLOGIES] = Context(CONTEXT_TECHNOLOGIES_MSG, std_handlers, {{'\n', &ClientGame::h_AddTech}});
 
   // Initialize eventmanager.
   eventmanager_.AddHandler("select_mode", &ClientGame::m_SelectMode);
@@ -120,6 +122,7 @@ void ClientGame::h_MoveSelectionDown(int) {
 
 void ClientGame::h_ChangeViewPoint(int) {
   current_context_ = drawrer_.next_viewpoint();
+  drawrer_.set_msg(contexts_.at(current_context_).msg());
 }
 
 void ClientGame::h_AddIron(int) {
@@ -173,6 +176,7 @@ void ClientGame::m_SetMsg(nlohmann::json& msg) {
 
 void ClientGame::m_GameStart(nlohmann::json& msg) {
   action_ = true;
+  drawrer_.set_msg(contexts_.at(current_context_).msg());
   msg = nlohmann::json();
 }
 

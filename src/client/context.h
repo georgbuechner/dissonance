@@ -9,13 +9,13 @@ class Context {
     /**
      * Empty constructor for use in f.e. maps.
      */
-    Context() {}
+    Context() : msg_("") {}
 
     /**
      * Default constructor with one set of initial handlers.
      * @param[in] handlers to be added.
      */
-    Context(std::map<char, void(ClientGame::*)(int)>& handlers) {
+    Context(std::string msg, std::map<char, void(ClientGame::*)(int)>& handlers) : msg_(msg) {
       for (const auto& it : handlers)
         eventmanager_.AddHandler(it.first, it.second);
     } 
@@ -27,7 +27,8 @@ class Context {
      * @param[in] std_handlers to be added (standard handlers)
      * @param[in] handlers to be added (special handlers).
      */
-    Context(std::map<char, void(ClientGame::*)(int)> std_handlers, std::map<char, void(ClientGame::*)(int)> handlers) {
+    Context(std::string msg, std::map<char, void(ClientGame::*)(int)> std_handlers, 
+        std::map<char, void(ClientGame::*)(int)> handlers) : msg_(msg) {
       for (const auto& it : std_handlers)
         eventmanager_.AddHandler(it.first, it.second);
       for (const auto& it : handlers)
@@ -36,10 +37,12 @@ class Context {
 
     // getter
 
+    std::string msg() { return msg_; }
     EventManager<char, ClientGame, int>& eventmanager() { return eventmanager_; }
 
   private:
     EventManager<char, ClientGame, int> eventmanager_;
+    std::string msg_;
 };
 
 #endif
