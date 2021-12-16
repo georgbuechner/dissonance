@@ -20,6 +20,14 @@
 #define SYMBOL_FREE "\u2219" // simple dot.
 #define SYMBOL_INFINITY "\u221E"
 
+enum GameStatus {
+  WAITING = 0,
+  SETTING_UP,
+  RUNNING,
+  CLOSING,
+  CLOSED
+};
+
 enum Mode {
   SINGLE_PLAYER = 0,
   MULTI_PLAYER = 1,

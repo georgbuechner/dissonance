@@ -129,6 +129,13 @@ You can run `dissonance -r`, to create the map based on your
 current terminal size. Doing this will however change the game experience and
 two identical songs will no longer produce an identical map and experience. 
 
+| command | player options | description |
+| ------- | -------------- | ----------- |
+| `dissonance` | singe-player/ observer (AI) | starts client and localhost-server |
+| `dissonance -m ` | muli-player | starts only client connecting to default adress (kava-i.de) |
+| `dissonance -c <url>` | multi-player | starts only client connecting to specific adress |
+| `dissonance --standalone -p <port>` | --- | opens standalone server on port <port> |
+
 ### Logfiles
 
 If not changed manually, logfiles will be stored at `~/.dissonance/logs/` in the

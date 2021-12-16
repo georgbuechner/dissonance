@@ -40,7 +40,6 @@ RandomGenerator::RandomGenerator(AudioData analysed_data, size_t(RandomGenerator
 
 int RandomGenerator::RandomInt(size_t min, size_t max) {
   unsigned int random_faktor = (this->*get_ran_)(min, max);
-  spdlog::get(LOGGER)->info("RandomGenerator::RandomInt: retuning {} < {} < {}", min, random_faktor, max);
   return random_faktor;
 }
 

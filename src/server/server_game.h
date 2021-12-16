@@ -30,12 +30,16 @@ class ServerGame {
      * @param[in] lines availible lines.
      * @param[in] cols availible cols
      */
-    ServerGame(int lines, int cols, int mode, std::string base_path, WebsocketServer* srv, std::string usr1, 
-        std::string usr2="");
+    ServerGame(int lines, int cols, int mode, std::string base_path, WebsocketServer* srv, std::string game_id,
+        std::string usr1, std::string usr2="");
 
-    int status() {
-      return status_;
-    }
+    // getter 
+    int status();
+
+    // setter 
+    void set_status(int status);
+
+    std::vector<std::string> GetPlayingUsers();
 
     /**
      * Handls input
@@ -56,8 +60,11 @@ class ServerGame {
     Audio audio_;
     WebsocketServer* ws_server_;
     EventManager<std::string, ServerGame, nlohmann::json&> eventmanager_;
+    const std::string game_id_;
     const std::string usr1_id_;
     const std::string usr2_id_;
+
+    std::shared_mutex mutex_status_;  ///< mutex locked, when printing field.
     int status_;
 
     const int mode_;
@@ -73,6 +80,7 @@ class ServerGame {
     void m_AddIron(nlohmann::json&);
     void m_RemoveIron(nlohmann::json&);
     void m_AddTechnology(nlohmann::json&);
+    void m_Resign(nlohmann::json&);
 };
 
 #endif

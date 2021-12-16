@@ -10,6 +10,7 @@
 #include "print/drawrer.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
+#include <unistd.h>
 #include <vector>
 
 #define CONTEXT_FIELD 0
@@ -20,7 +21,7 @@
 
 ClientGame::ClientGame(bool relative_size, std::string base_path, std::string username) 
     : username_(username), base_path_(base_path), render_pause_(false), drawrer_() {
-  action_ = false;
+  status_ = WAITING;
   // Initialize curses
   setlocale(LC_ALL, "");
   initscr();
@@ -58,7 +59,7 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   current_context_ = CONTEXT_RESOURCES;
   // Basic handlers shared by standard-contexts
   std::map<char, void(ClientGame::*)(int)> std_handlers = { {'j', &ClientGame::h_MoveSelectionUp}, 
-    {'k', &ClientGame::h_MoveSelectionDown}, {'t', &ClientGame::h_ChangeViewPoint} };
+    {'k', &ClientGame::h_MoveSelectionDown}, {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit} };
   // Resource context:
   contexts_[CONTEXT_RESOURCES] = Context(CONTEXT_RESOURCES_MSG, std_handlers, {{'+', &ClientGame::h_AddIron}, 
       {'-', &ClientGame::h_RemoveIron}});
@@ -91,27 +92,56 @@ nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
 void ClientGame::GetAction() {
   spdlog::get(LOGGER)->info("ClientGame::GetAction.");
 
-  nlohmann::json response = {{"command", ""}, {"username", username_}, {"data", nlohmann::json()}};
-
   while(true) {
     // Get Input
-    if (!action_) continue; // Skip as long as not active.
+    if (status_ == WAITING) continue; // Skip as long as not active.
+    if (status_ == CLOSING) break; // Leave thread.
     char choice = getch();
-    spdlog::get(LOGGER)->info("ClientGame::GetAction action_ {}, in: {}", action_, choice);
-    if (!action_) continue; // Skip as long as not active. 
+    spdlog::get(LOGGER)->info("ClientGame::GetAction action_ {}, in: {}", status_, choice);
+    if (status_ == WAITING) continue; // Skip as long as not active. 
+    if (status_ == CLOSING) break; // Leave thread.
 
     // Throw event
-    if (contexts_.at(current_context_).eventmanager().handlers().count(choice) > 0)
+    if (contexts_.at(current_context_).eventmanager().handlers().count(choice) > 0) {
+      spdlog::get(LOGGER)->debug("ClientGame::GetAction: calling handler.");
+      spdlog::get(LOGGER)->flush();
       (this->*contexts_.at(current_context_).eventmanager().handlers().at(choice))(0);
+    }
     // If event not in context-event-manager print availible options.
-    else 
+    else {
+      spdlog::get(LOGGER)->debug("ClientGame::GetAction: invalid action for this context.");
+      spdlog::get(LOGGER)->flush();
       drawrer_.set_msg("Invalid option. Availible: " + contexts_.at(current_context_).eventmanager().options());
+    }
 
     // Refresh field (only side-column)
     drawrer_.PrintGame(false, true); 
   }
+
+  // Send server message to close game.
+  nlohmann::json response = {{"command", "close"}, {"username", username_}, {"data", nlohmann::json()}};
+  ws_srv_->SendMessage(response.dump());
+
+  // Wrap up.
+  refresh();
+  clear();
+  endwin();
 }
 
+void ClientGame::h_Quit(int) {
+  drawrer_.ClearField();
+  drawrer_.set_stop_render(true);
+  drawrer_.PrintCenteredLine(LINES/2, "Are you sure you want to quit? (y/n/)");
+  char choice = getch();
+  if (choice == 'y') {
+    status_ = CLOSING;
+    nlohmann::json msg = {{"command", "resign"}, {"username", username_}, {"data", nlohmann::json()}};
+    ws_srv_->SendMessage(msg.dump());
+  }
+  else {
+    drawrer_.set_stop_render(false);
+  }
+}
 void ClientGame::h_MoveSelectionUp(int) {
   drawrer_.inc_cur_sidebar_elem(1);
 }
@@ -175,7 +205,7 @@ void ClientGame::m_SetMsg(nlohmann::json& msg) {
 }
 
 void ClientGame::m_GameStart(nlohmann::json& msg) {
-  action_ = true;
+  status_ = RUNNING;
   drawrer_.set_msg(contexts_.at(current_context_).msg());
   msg = nlohmann::json();
 }

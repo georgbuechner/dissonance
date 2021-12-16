@@ -39,6 +39,7 @@ class Drawrer {
     // setter 
     void inc_cur_sidebar_elem(int value); void set_msg(std::string msg);
     void set_transfter(nlohmann::json& data);
+    void set_stop_render(bool stop);
 
     /**
      * Move viewpoint to next viewpoint
@@ -87,6 +88,7 @@ class Drawrer {
     int cols_;
     Transfer transfer_;
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
+    bool stop_render_;
 
     // Selection
     struct ViewPoint {

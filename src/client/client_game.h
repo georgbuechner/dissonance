@@ -56,7 +56,7 @@ class ClientGame {
     std::shared_mutex mutex_print_;  ///< mutex locked, when printing.
     bool render_pause_;
     Drawrer drawrer_;
-    bool action_;
+    int status_;
 
     std::map<int, Context> contexts_;
     int current_context_;
@@ -105,6 +105,7 @@ class ClientGame {
      */
     std::string InputString(std::string msg);
 
+    void h_Quit(int);
     void h_MoveSelectionUp(int);
     void h_MoveSelectionDown(int);
     void h_ChangeViewPoint(int);

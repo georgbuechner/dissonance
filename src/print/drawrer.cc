@@ -20,6 +20,7 @@ Drawrer::Drawrer() {
     {VP_RESOURCE, {IRON, -1, &ViewPoint::inc_resource, &ViewPoint::to_string_resource}},
     {VP_TECH, {WAY, -1, &ViewPoint::inc_tech, &ViewPoint::to_string_tech}}
   };
+  stop_render_ = false;
 }
 
 int Drawrer::field_height() {
@@ -57,6 +58,11 @@ void Drawrer::set_msg(std::string msg) {
 
 void Drawrer::set_transfter(nlohmann::json& data) {
   transfer_ = Transfer(data);
+}
+
+void Drawrer::set_stop_render(bool stop) {
+  std::unique_lock ul(mutex_print_field_);
+  stop_render_ = stop;
 }
 
 void Drawrer::SetUpBorders(int lines, int cols) {
@@ -123,6 +129,8 @@ void Drawrer::PrintCenteredParagraphs(texts::paragraphs_t paragraphs) {
 
 void Drawrer::PrintGame(bool only_field, bool only_side_column) {
   std::unique_lock ul(mutex_print_field_);
+  if (stop_render_ || !transfer_.initialized()) 
+    return;
   PrintHeader(transfer_.players());
   if (!only_side_column)
     PrintField(transfer_.field());

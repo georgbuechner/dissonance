@@ -34,12 +34,25 @@ int main(int argc, const char** argv) {
   std::string log_level = "warn";
   std::string base_path = getenv("HOME");
   base_path += "/.dissonance/";
+  
+  // Initialize random numbers.
+  srand (time(NULL));
+
+  int server_port = 4444;
+  bool muli_player = false;
+  std::string server_address = "ws://localhost:4444";
+  bool standalone = false;
 
   auto cli = lyra::cli() 
     | lyra::opt(relative_size) ["-r"]["--relative-size"]("If set, adjusts map size to terminal size.")
     | lyra::opt(clear_log) ["-c"]["--clear-log"]("If set, removes all log-files before starting the game.")
+    | lyra::opt(muli_player) ["-m"]["--muli-player"]("If set, starts a multi-player game.")
+    | lyra::opt(standalone) ["-s"]["--standalone"]("If set, starts only server.")
+    | lyra::opt(server_address, "format [ws://<url>:<port> | wss://<url>:<port>], default: wss://kava-i.de:4444") 
+        ["-c"]["--connect"]("specify address which to connect to.")
     | lyra::opt(log_level, "options: [warn, info, debug], default: \"warn\"") ["-l"]["--log_level"]("set log-level")
-    | lyra::opt(base_path, "path to dissonance files") ["-p"]["--base-path"]("Set path to dissonance files (logs, settings, data)");
+    | lyra::opt(base_path, "path to dissonance files") 
+        ["-p"]["--base-path"]("Set path to dissonance files (logs, settings, data)");
     
   cli.add_argument(lyra::help(show_help));
   auto result = cli.parse({ argc, argv });
@@ -72,38 +85,40 @@ int main(int argc, const char** argv) {
     spdlog::flush_every(std::chrono::seconds(1));
   }
 
-  std::string username;
-  std::cout << "Enter your username: ";
-  std::getline(std::cin, username);
+  std::string username = "";
+  if (!standalone) {
+    std::cout << "Enter your username: ";
+    std::getline(std::cin, username);
+  }
   
   // Initialize audio
   Audio::Initialize();
   
   // Create websocket server.
-  WebsocketServer* srv = new WebsocketServer();
-  std::thread thread_server([srv]() { srv->Start(4444); });
-  std::thread thread_game_routines([srv]() { srv->StartGameRoutines(); });
+  WebsocketServer* srv = new WebsocketServer(standalone);
+  std::thread thread_server([srv, server_port, muli_player, standalone]() { 
+    if (!muli_player) {
+      if (standalone) 
+        std::cout << "Server started on port: " << server_port << std::endl;
+      srv->Start(server_port);
+    }
+  });
 
-  ClientGame* client_game = new ClientGame(relative_size, base_path, username);
-  Client* client = new Client(client_game, username);
-  client_game->set_client(client);
-  std::thread thread_client([client]() { client->Start("ws://localhost:4444"); });
-  std::thread thread_client_input([client_game]() { client_game->GetAction(); });
+  // Create client and client-game.
+  ClientGame* client_game = (standalone) ? nullptr : new ClientGame(relative_size, base_path, username);
+  Client* client = (standalone) ? nullptr : new Client(client_game, username);
+  if (client_game)
+    client_game->set_client(client);
+  std::thread thread_client([client, server_address]() { if (client) client->Start(server_address); });
+  std::thread thread_client_input([client_game, client]() { 
+    if (client) {
+      client_game->GetAction(); 
+      sleep(1);
+      client->Stop();
+    }
+  });
+
   thread_server.join();
   thread_client.join();
-
-
-  // Initialize random numbers.
-  srand (time(NULL));
-
-  // Initialize game.
-  // Game game(lines, cols, left_border, base_path);
-  // Start game
-  // game.play();
-  
-  // Wrap up.
-  // refresh();
-  // clear();
-  // endwin();
-  // exit(0);
+  thread_client_input.join();
 }

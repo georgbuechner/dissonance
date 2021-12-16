@@ -31,7 +31,7 @@ class Transfer {
       bool active_;
     };
 
-    Transfer() {};
+    Transfer() {initialized_ = false;};
     Transfer(nlohmann::json json) {
       spdlog::get(LOGGER)->info("from json: players {}", json["players"].dump());
       // build players from json.
@@ -61,10 +61,15 @@ class Transfer {
         for (const auto& it : json["technologies"].get<std::map<std::string, nlohmann::json>>())
           technologies_[stoi(it.first)] = {it.second["cur"], it.second["max"], it.second["active"]};
       }
+      initialized_ = true;
       spdlog::get(LOGGER)->info("DONE");
     }
 
     // getter
+    bool initialized() {
+      return initialized_;
+    }
+
     std::vector<std::vector<Symbol>> field() const {
       return field_;
     };
@@ -126,6 +131,7 @@ class Transfer {
     std::map<std::string, std::string> players_;
     std::map<int, Resource> resources_;
     std::map<int, Technology> technologies_;
+    bool initialized_;
 };
 
 #endif

@@ -40,7 +40,7 @@ class WebsocketServer {
     /**
      * Constructors websocket frame with pinter to user-manager.
      */
-    WebsocketServer();
+    WebsocketServer(bool standalone);
 
     /**
      * Destructor stoping websocket server
@@ -52,8 +52,6 @@ class WebsocketServer {
      * @param[in] port (port an which to listen to: 4181)
      */
     void Start(int port);
-
-    void StartGameRoutines();
 
     connection_id GetConnectionIdByUsername(std::string username);
 
@@ -81,7 +79,11 @@ class WebsocketServer {
     mutable std::shared_mutex shared_mutex_connections_;  ///< Mutex for connections_.
     std::map<connection_id, Connection*> connections_;  ///< Dictionary with all connections.
 
+    mutable std::shared_mutex shared_mutex_games_;  ///< Mutex for connections_.
+    std::map<std::string, std::string> username_game_id_mapping_;
     std::map<std::string, ServerGame*> games_;
+
+    const bool standalone_;
 
     // methods:
     
@@ -133,6 +135,8 @@ class WebsocketServer {
      * @param[in] msg
      */
     void h_InGameAction(connection_id id, std::string username, nlohmann::json& msg);
+
+    void h_CloseGame(connection_id id, std::string username, nlohmann::json& msg);
 };
 
 #endif 

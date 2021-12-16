@@ -124,7 +124,7 @@ void AudioKi::SetBattleTactics() {
 }
 
 void AudioKi::SetEconomyTactics() {
-  spdlog::info("AudioKi::SetEconomyTactics");
+  spdlog::get(LOGGER)->info("AudioKi::SetEconomyTactics");
   std::map<size_t, size_t> resource_tactics;
   std::map<size_t, size_t> technology_tactics;
 

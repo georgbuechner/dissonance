@@ -2,6 +2,8 @@
 #include "nlohmann/json_fwd.hpp"
 #include "objects/units.h"
 #include "spdlog/spdlog.h"
+#include "websocketpp/close.hpp"
+#include "websocketpp/common/system_error.hpp"
 #include <string>
 
 Client::Client(ClientGame* game, std::string username) : username_(username) {
@@ -44,6 +46,15 @@ void Client::Start(std::string address) {
   } catch (websocketpp::exception const & e) {
     std::cout << e.what() << std::endl;
   }
+}
+
+void Client::Stop() {
+  std::cout << "closing connection..." << std::endl;
+  c_.close(hdl_, websocketpp::close::status::normal, "");
+  std::cout << "stoping client..." << std::endl;
+  sleep(1);
+  c_.stop();
+  std::cout << "done." << std::endl;
 }
 
 void Client::on_open(websocketpp::connection_hdl) {

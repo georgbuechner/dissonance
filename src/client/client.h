@@ -17,6 +17,7 @@ class Client {
     Client(ClientGame* game, std::string username);
 
     void Start(std::string address);
+    void Stop();
 
     void SendMessage(std::string msg);
 
