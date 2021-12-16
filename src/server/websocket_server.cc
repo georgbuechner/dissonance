@@ -127,6 +127,9 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
   std::unique_lock ul(shared_mutex_connections_);
   if (connections_.count(hdl.lock().get()) > 0) {
     try {
+
+      // Delete connection.
+      std::string username = connections_.at(hdl.lock().get())->username();
       delete connections_[hdl.lock().get()];
       if (connections_.size() > 1)
         connections_.erase(hdl.lock().get());
@@ -135,6 +138,11 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
       spdlog::get(LOGGER)->info("WebsocketFrame::OnClose: Connection closed successfully.");
       spdlog::get(LOGGER)->info("WebsocketFrame::OnClose: running games {}, active connections {}, in_mappings: {}",
           games_.size(), connections_.size(), username_game_id_mapping_.size());
+
+      // If game for this player is still running, call h_CloseGame again.
+      nlohmann::json j;
+      ul.unlock();
+      h_CloseGame(hdl.lock().get(), username, j);
     } catch (std::exception& e) {
       spdlog::get(LOGGER)->error("WebsocketFrame::OnClose: Failed to close connection: {}", e.what());
     }
@@ -214,41 +222,56 @@ void WebsocketServer::h_InGameAction(connection_id id, std::string username, nlo
 }
 
 void WebsocketServer::h_CloseGame(connection_id id, std::string username, nlohmann::json& msg) {
+  spdlog::get(LOGGER)->info("WebsocketServer::h_CloseGame: {}", username);
   std::unique_lock ul_connections(shared_mutex_connections_);
-  connections_.at(id)->set_closed(true);
+  if (connections_.count(id))
+    connections_.at(id)->set_closed(true);
 
+  // Get game id and all users currenlt playing.
   std::shared_lock sl(shared_mutex_games_);
   if (username_game_id_mapping_.count(username) == 0)
     return;
   std::string game_id = username_game_id_mapping_.at(username);
+  if (games_.count(game_id) == 0)
+    return;
   std::vector<std::string> all_users = games_.at(game_id)->GetPlayingUsers();
+
+  // Check if game-status is already set to CLOSING, if not, set to closing and
+  
+  // inform all players, that a player closed his connection.
+  if (games_.at(game_id)->status() < CLOSING) {
+    games_.at(game_id)->set_status(CLOSING);
+    for (const auto& it : all_users) {
+      if (it != username) {
+        spdlog::get(LOGGER)->info("WebsocketServer::h_CloseGame: Sending player_resigned to {}", it);
+        nlohmann::json resp = {{"command", "player_resigned", "data", nlohmann::json()}};
+        SendMessage(GetConnectionIdByUsername(it), resp.dump());
+      }
+    }
+  }
+
+  // Check that all clients are closed.
   bool all_clients_closed = true;
   for (const auto& it : all_users) {
-    if (!connections_.at(GetConnectionIdByUsername(it))->closed())
+    if (connections_.count(GetConnectionIdByUsername(it)) > 0 
+        && !connections_.at(GetConnectionIdByUsername(it))->closed())
       all_clients_closed = false;
   }
   spdlog::get(LOGGER)->info("All clients closed: {}", all_clients_closed);
-  spdlog::get(LOGGER)->flush();
 
   if (all_clients_closed) {
     while(true) {
       spdlog::get(LOGGER)->info("Game status {}", games_.at(game_id)->status());
       spdlog::get(LOGGER)->flush();
-
       if (games_.at(game_id)->status() == CLOSED) {
         // Delete game and remove from list of games.
         delete games_[game_id];
         games_.erase(game_id);
-        std::string all_user_str;
-        for (const auto& it : all_users) 
-          all_user_str += it + ", ";
-        spdlog::get(LOGGER)->info("Deleted game with id {} for users {}", game_id, all_user_str);
-        spdlog::get(LOGGER)->flush();
+        spdlog::get(LOGGER)->info("Deleted game with id {} for users.", game_id);
         // Remove all username-game-mappings
         for (const auto& it : all_users)
           username_game_id_mapping_.erase(it);
         spdlog::get(LOGGER)->info("Removed all {} user mappings", all_users.size());
-        spdlog::get(LOGGER)->flush();
         break;
       }
     }
