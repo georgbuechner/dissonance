@@ -73,6 +73,7 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   eventmanager_.AddHandler("print_field", &ClientGame::m_PrintField);
   eventmanager_.AddHandler("set_msg", &ClientGame::m_SetMsg);
   eventmanager_.AddHandler("game_start", &ClientGame::m_GameStart);
+  eventmanager_.AddHandler("game_end", &ClientGame::m_GameEnd);
 }
 
 nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
@@ -207,6 +208,14 @@ void ClientGame::m_SetMsg(nlohmann::json& msg) {
 void ClientGame::m_GameStart(nlohmann::json& msg) {
   status_ = RUNNING;
   drawrer_.set_msg(contexts_.at(current_context_).msg());
+  msg = nlohmann::json();
+}
+
+void ClientGame::m_GameEnd(nlohmann::json& msg) {
+  status_ = CLOSING;
+  drawrer_.ClearField();
+  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"]);
+  getch();
   msg = nlohmann::json();
 }
 

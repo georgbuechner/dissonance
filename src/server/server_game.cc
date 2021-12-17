@@ -13,7 +13,7 @@
 #include <unistd.h>
 
 ServerGame::ServerGame(int lines, int cols, int mode, std::string base_path, WebsocketServer* srv, 
-    std::string game_id, std::string usr1, std::string usr2) : audio_(base_path), ws_server_(srv), game_id_(game_id),
+    std::string usr1, std::string usr2) : audio_(base_path), ws_server_(srv), 
     usr1_id_(usr1), usr2_id_(usr2), status_(WAITING), mode_(mode), lines_(lines), cols_(cols) {
 
   // Initialize eventmanager.
@@ -22,8 +22,8 @@ ServerGame::ServerGame(int lines, int cols, int mode, std::string base_path, Web
   eventmanager_.AddHandler("remove_iron", &ServerGame::m_RemoveIron);
   eventmanager_.AddHandler("add_technology", &ServerGame::m_AddTechnology);
   eventmanager_.AddHandler("resign", &ServerGame::m_Resign);
-  pause_ = false;
 }
+
 
 int ServerGame::status() {
   return status_;
@@ -34,20 +34,11 @@ void ServerGame::set_status(int status) {
   status_ = status;
 }
 
-std::vector<std::string> ServerGame::GetPlayingUsers() {
-  if (mode_ == SINGLE_PLAYER)
-    return {usr1_id_};
-  if (mode_ == MULTI_PLAYER) 
-    return {usr1_id_, usr2_id_};
-  return {usr1_id_};
-}
-
 nlohmann::json ServerGame::HandleInput(std::string command, nlohmann::json msg) {
   if (eventmanager_.handlers().count(command))
     (this->*eventmanager_.handlers().at(command))(msg);
   else 
     msg = nlohmann::json();
-  
   spdlog::get(LOGGER)->debug("ClientGame::HandleAction: response {}", msg.dump());
   return msg;
 }
@@ -86,9 +77,8 @@ void ServerGame::m_Resign(nlohmann::json& msg) {
   // If multi player, inform other player.
   if (mode_ == MULTI_PLAYER) {
     std::string user_id = (msg["username"] == usr1_id_) ? usr2_id_ : usr1_id_;
-    spdlog::get(LOGGER)->info("Sending player_resigned to {}", user_id);
-    nlohmann::json resp = {{"command", "player_resigned", "data", nlohmann::json()}};
-    ws_server_->SendMessage(ws_server_->GetConnectionIdByUsername(user_id), resp.dump());
+    nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU WON - opponent resigned"}} }};
+    ws_server_->SendMessage(user_id, resp.dump());
   }
   msg = nlohmann::json();
 }
@@ -163,14 +153,11 @@ nlohmann::json ServerGame::InitializeGame(nlohmann::json data) {
   }
   std::thread update([this]() { Thread_RenderField(); });
   update.detach();
-  spdlog::get(LOGGER)->info("Game::InitializeGame: main events setup.");
-  spdlog::get(LOGGER)->flush();
-
   return {{"command", "game_start"}, {"data", nlohmann::json()}};
 }
 
 void ServerGame::Thread_RenderField() {
-  spdlog::get(LOGGER)->debug("Game::Thread_RenderField: started: {}", usr1_id_);
+  spdlog::get(LOGGER)->info("Game::Thread_RenderField: started: {}", usr1_id_);
   auto audio_start_time = std::chrono::steady_clock::now();
   auto analysed_data = audio_.analysed_data();
   std::list<AudioDataTimePoint> data_per_beat = analysed_data.data_per_beat_;
@@ -183,30 +170,14 @@ void ServerGame::Thread_RenderField() {
   double player_resource_update_freqeuncy = data_per_beat.front().bpm_;
   double render_frequency = 40;
 
-  auto pause_start_time = std::chrono::steady_clock::now();
-  double time_in_pause = 0;
-  bool pause_started = false;
-
   bool off_notes = false;
   spdlog::get(LOGGER)->debug("Game::Thread_RenderField: setup finished, starting main-loop");
  
-  while (!game_over_) {
+  while (status_ < CLOSING) {
     auto cur_time = std::chrono::steady_clock::now();
 
-    if (pause_) {
-      if (!pause_started) {
-        pause_start_time = std::chrono::steady_clock::now();
-        pause_started = true;
-      }
-      continue;
-    }
-    else if (pause_started) {
-      time_in_pause += utils::GetElapsed(pause_start_time, cur_time);
-      pause_started = false;
-    }
-
     // Analyze audio data.
-    auto elapsed = utils::GetElapsed(audio_start_time, cur_time)-time_in_pause;
+    auto elapsed = utils::GetElapsed(audio_start_time, cur_time);
     auto data_at_beat = data_per_beat.front();
     if (elapsed >= data_at_beat.time_) {
       spdlog::get(LOGGER)->debug("Game::RenderField: next data_at_beat");
@@ -228,33 +199,38 @@ void ServerGame::Thread_RenderField() {
         transfer.set_resources(player_one_->t_resources());
         transfer.set_technologies(player_one_->t_technologies());
         resp["data"] = transfer.json();
-        ws_server_->SendMessage(ws_server_->GetConnectionIdByUsername(usr1_id_), resp.dump());
+        ws_server_->SendMessage(usr1_id_, resp.dump());
       }
       // Send data to multiple players 
       else if (mode_ == MULTI_PLAYER) {
         transfer.set_resources(player_one_->t_resources());
         transfer.set_technologies(player_one_->t_technologies());
         resp["data"] = transfer.json();
-        ws_server_->SendMessage(ws_server_->GetConnectionIdByUsername(usr1_id_), resp.dump());
+        ws_server_->SendMessage(usr1_id_, resp.dump());
         transfer.set_resources(player_two_->t_resources());
         transfer.set_technologies(player_two_->t_technologies());
         resp["data"] = transfer.json();
-        ws_server_->SendMessage(ws_server_->GetConnectionIdByUsername(usr2_id_), resp.dump());
+        ws_server_->SendMessage(usr2_id_, resp.dump());
       }
     }
 
+    // Handle game over
     if (player_two_->HasLost() || player_one_->HasLost() || data_per_beat.size() == 0) {
-      game_over_ = true;
-      audio_.Stop();
+      nlohmann::json resp = {{"command", "game_end"}, {"data", nlohmann::json()}};
+      resp["data"]["msg"] = (player_two_->HasLost()) ? "YOU WON" 
+        : (data_per_beat.size() == 0) ? "YOU LOST - time up" : "YOU LOST";
+      ws_server_->SendMessage(usr1_id_, resp.dump());
+      if (mode_ == MULTI_PLAYER) {
+        resp["data"]["msg"] = (player_one_->HasLost()) ? "YOU WON" 
+          : (data_per_beat.size() == 0) ? "YOU LOST - time up" : "YOU LOST";
+        ws_server_->SendMessage(usr1_id_, resp.dump());
+      }
+      {
+        std::unique_lock ul(mutex_status_);
+        status_ = CLOSING;
+      }
       break;
     }
-    if (resigned_) {
-      game_over_ = true;
-      audio_.Stop();
-      break;
-    }
-    if (status_ == CLOSING)
-      break;
   
     // Increase resources.
     if (utils::GetElapsed(last_resource_player_one, cur_time) > player_resource_update_freqeuncy) {
@@ -266,6 +242,7 @@ void ServerGame::Thread_RenderField() {
       last_resource_player_two = cur_time;
     }
 
+    // Move potential
     if (utils::GetElapsed(last_update, cur_time) > render_frequency) {
       // Move player soldiers and check if enemy den's lp is down to 0.
       player_one_->MovePotential(player_two_);
@@ -282,41 +259,19 @@ void ServerGame::Thread_RenderField() {
   sleep(1);
   std::unique_lock ul(mutex_status_);
   status_ = CLOSED;
-  spdlog::get(LOGGER)->debug("Game::Thread_RenderField: ended");
-  spdlog::get(LOGGER)->flush();
+  spdlog::get(LOGGER)->info("Game::Thread_RenderField: ended");
 }
 
 void ServerGame::Thread_Ai() {
-  spdlog::get(LOGGER)->debug("Game::Thread_Ai: started");
-  spdlog::get(LOGGER)->flush();
+  spdlog::get(LOGGER)->info("Game::Thread_Ai: started");
   auto audio_start_time = std::chrono::steady_clock::now();
   auto analysed_data = audio_.analysed_data();
   std::list<AudioDataTimePoint> data_per_beat = analysed_data.data_per_beat_;
 
-  auto pause_start_time = std::chrono::steady_clock::now();
-  double time_in_pause = 0;
-  bool pause_started = false;
-
   // Handle building neurons and potentials.
-  while(!game_over_) {
-    auto cur_time = std::chrono::steady_clock::now(); 
-
-    if (pause_) {
-      if (!pause_started) {
-        pause_start_time = std::chrono::steady_clock::now();
-        pause_started = true;
-      }
-      continue;
-    }
-    else if (pause_started) {
-      time_in_pause += utils::GetElapsed(pause_start_time, cur_time);
-      pause_started = false;
-    }
-    if (status_ == CLOSING)
-      break;
-
+  while(status_ < CLOSING) {
     // Analyze audio data.
-    auto elapsed = utils::GetElapsed(audio_start_time, cur_time)-time_in_pause;
+    auto elapsed = utils::GetElapsed(audio_start_time, std::chrono::steady_clock::now());
     if (data_per_beat.size() == 0)
       continue;
     auto data_at_beat = data_per_beat.front();
@@ -326,6 +281,5 @@ void ServerGame::Thread_Ai() {
       data_per_beat.pop_front();
     }
   }
-  spdlog::get(LOGGER)->debug("Game::Thread_Ai: ended");
-  spdlog::get(LOGGER)->flush();
+  spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");
 }

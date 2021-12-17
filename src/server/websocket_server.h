@@ -53,14 +53,12 @@ class WebsocketServer {
      */
     void Start(int port);
 
-    connection_id GetConnectionIdByUsername(std::string username);
-
     /**
-     * Sends message to given connection.
+     * Sends message to given connection by username.
      * @param id of connection over which to send.
      * @param msg message which to send.
      */
-    void SendMessage(connection_id id, std::string msg);
+    void SendMessage(std::string username, std::string msg);
 
   private:
 
@@ -110,33 +108,66 @@ class WebsocketServer {
      */
     void on_message(server* srv, websocketpp::connection_hdl hdl, message_ptr msg);
 
+    /**
+     * Sends message to given connection by connection-id.
+     * @param id of connection over which to send.
+     * @param msg message which to send.
+     */
+    void SendMessage(connection_id id, std::string msg);
+
+    /**
+     * Gets player connection by username.
+     * @param[in] username
+     * @return id of connection.
+     */
+    connection_id GetConnectionIdByUsername(std::string username);
+
+    /**
+     * Gets game from username. Checks whether username and game exists. 
+     * Locks mutex_game_
+     * @param[in] username
+     * @retrun game or nullptr if game or user does not exist.
+     */
+    ServerGame* GetGameFromUsername(std::string username);
+
+    /**
+     * Gets all users playing same game a user.
+     */
+    std::vector<std::string> GetPlayingUsers(std::string username);
+
     // handlers:
     
     /**
      * Sets up new user-connection.
      * @param[in] id 
      * @param[in] username 
-     * @param[in] msg
+     * @param[in, out] msg
      */
-    void h_InitializeUser(connection_id id, std::string username, nlohmann::json& msg);
+    void h_InitializeUser(connection_id id, std::string username, const nlohmann::json& msg);
 
     /**
      * Starts new game in desired mode.
      * @param[in] id 
      * @param[in] username 
-     * @param[in] msg
+     * @param[in, out] msg
      */
-    void h_InitializeGame(connection_id id, std::string username, nlohmann::json& msg);
+    void h_InitializeGame(connection_id id, std::string username, const nlohmann::json& msg);
 
     /**
      * Calls game for this user, to handle in game action.
      * @param[in] id 
      * @param[in] username 
-     * @param[in] msg
+     * @param[in, out] msg
      */
-    void h_InGameAction(connection_id id, std::string username, nlohmann::json& msg);
+    void h_InGameAction(connection_id id, std::string username, const nlohmann::json& msg);
 
-    void h_CloseGame(connection_id id, std::string username, nlohmann::json& msg);
+    /**
+     * Deletes game and removes game and players. 
+     * @param[in] id 
+     * @param[in] username 
+     * @param[in, out] msg
+     */
+    void h_CloseGame(connection_id id, std::string username, const nlohmann::json&);
 };
 
 #endif 

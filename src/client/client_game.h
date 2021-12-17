@@ -121,6 +121,7 @@ class ClientGame {
     void m_PrintField(nlohmann::json&);
     void m_SetMsg(nlohmann::json&);
     void m_GameStart(nlohmann::json&);
+    void m_GameEnd(nlohmann::json&);
 };
 
 #endif

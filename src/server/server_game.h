@@ -29,8 +29,9 @@ class ServerGame {
      * Constructor initializing game with availible lines and columns.
      * @param[in] lines availible lines.
      * @param[in] cols availible cols
+     * @param[in] srv pointer to websocket-server, to send messages.
      */
-    ServerGame(int lines, int cols, int mode, std::string base_path, WebsocketServer* srv, std::string game_id,
+    ServerGame(int lines, int cols, int mode, std::string base_path, WebsocketServer* srv, 
         std::string usr1, std::string usr2="");
 
     // getter 
@@ -39,48 +40,84 @@ class ServerGame {
     // setter 
     void set_status(int status);
 
-    std::vector<std::string> GetPlayingUsers();
+    // methods.
 
     /**
      * Handls input
+     * @param[in] command
+     * @param[in] msg
+     * @return json to forward to user, if "command" is contained.
      */
     nlohmann::json HandleInput(std::string command, nlohmann::json msg);
     
     // Threads
+
+    /**
+     * Updates game status at every beat.
+     */
     void Thread_RenderField();
+
+    /**
+     * Handles AI actions at every beat.
+     */
     void Thread_Ai();
 
   private: 
-    Field* field_;
+    Field* field_;  ///< field 
     Player* player_one_;
     Player* player_two_;
-    bool game_over_;
-    bool pause_;
-    bool resigned_;
     Audio audio_;
     WebsocketServer* ws_server_;
     EventManager<std::string, ServerGame, nlohmann::json&> eventmanager_;
-    const std::string game_id_;
     const std::string usr1_id_;
     const std::string usr2_id_;
 
     std::shared_mutex mutex_status_;  ///< mutex locked, when printing field.
     int status_;
 
-    const int mode_;
+    const int mode_; ///< SINGLE_PLAYER | MULTI_PLAYER | OBSERVER
     const int lines_;
     const int cols_;
 
     // handlers
+
+    /**
+     * Initializes game
+     * @param[in] data 
+     * @return command (json)
+     */
     nlohmann::json InitializeGame(nlohmann::json data);
 
     // command methods
 
-    void m_AnalyzeAudio(nlohmann::json&);
-    void m_AddIron(nlohmann::json&);
-    void m_RemoveIron(nlohmann::json&);
-    void m_AddTechnology(nlohmann::json&);
-    void m_Resign(nlohmann::json&);
+    /**
+     * Analyzes audio.
+     * @param[in, out] msg
+     */
+    void m_AnalyzeAudio(nlohmann::json& msg);
+
+    /**
+     * Adds iron
+     * @param[in, out] msg
+     */
+    void m_AddIron(nlohmann::json& msg);
+
+    /**
+     * Removes iron
+     * @param[in, out] msg
+     */
+    void m_RemoveIron(nlohmann::json& msg);
+
+    /**
+     * Adds technology
+     * @param[in, out] msg
+     */
+    void m_AddTechnology(nlohmann::json& msg);
+    /**
+     * Handles if a player resignes
+     * @param[in, out] msg
+     */
+    void m_Resign(nlohmann::json& msg);
 };
 
 #endif
