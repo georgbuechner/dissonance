@@ -19,8 +19,8 @@
 #define CONTEXT_RESOURCES_MSG "Distribute (+)/ remove (-) iron to handler resource-gain"
 #define CONTEXT_TECHNOLOGIES_MSG "Research technology by pressing [enter]"
 
-ClientGame::ClientGame(bool relative_size, std::string base_path, std::string username) 
-    : username_(username), base_path_(base_path), render_pause_(false), drawrer_() {
+ClientGame::ClientGame(bool relative_size, std::string base_path, std::string username, bool mp) 
+    : username_(username), muliplayer_availible_(mp), base_path_(base_path), render_pause_(false), drawrer_() {
   status_ = WAITING;
   // Initialize curses
   setlocale(LC_ALL, "");
@@ -179,18 +179,32 @@ void ClientGame::h_AddTech(int) {
 
 void ClientGame::m_SelectMode(nlohmann::json& msg) {
   spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode: {}", msg.dump());
+  // Print welcome text.
+  drawrer_.PrintCenteredParagraphs(texts::welcome);
+  
+  // Select single-player, mulit-player (host/ client), observer.
+  choice_mapping_t mapping = {
+    {SINGLE_PLAYER, {"singe-player", COLOR_AVAILIBLE}}, 
+    {MULTI_PLAYER, {"muli-player (host)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
+    {MULTI_PLAYER_CLIENT, {"muli-player (client)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
+    {OBSERVER, {"watch ki", COLOR_DEFAULT}}
+  };
+  // Update msg
   msg["command"] = "init_game";
-  msg["data"] = Welcome();
+  msg["data"] = {{"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, {"base_path", base_path_},
+    {"num_players", 2}};
+  msg["data"]["mode"] = SelectInteger("Select mode", true, mapping, {mapping.size()+1}, "Mode not available");
 }
 
 void ClientGame::m_SelectAudio(nlohmann::json& msg) {
-  msg["command"] = "analyse_audio";
+  msg["command"] = "initialize_game";
   msg["data"]["source_path"] = SelectAudio();
 }
 
 void ClientGame::m_PrintMsg(nlohmann::json& msg) {
   drawrer_.ClearField();
   drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"]);
+  refresh();
   msg = nlohmann::json();
 }
 
@@ -219,26 +233,10 @@ void ClientGame::m_GameEnd(nlohmann::json& msg) {
   msg = nlohmann::json();
 }
 
-nlohmann::json ClientGame::Welcome() {
-  // Print welcome text.
-  drawrer_.PrintCenteredParagraphs(texts::welcome);
-
-  // Select single-player, mulit-player, what ki.
-  choice_mapping_t mapping = {{0, {"singe-player", COLOR_AVAILIBLE}}, 
-    {1, {"muli-player", COLOR_DEFAULT}}, {2, {"watch ki", COLOR_DEFAULT}}};
-    
-  auto mode = SelectInteger("Select mode", true, mapping, {mapping.size()+1});
-
-  nlohmann::json data = {{"mode", mode}, {"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, 
-    {"base_path", base_path_}};
-  return data;
-}
-
-
 // Selection methods
 
-int ClientGame::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapping, std::vector<size_t> splits) {
-  // TODO(fux): check whether to pause game or not `pause_ = true;`
+int ClientGame::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapping, std::vector<size_t> splits,
+    std::string error_msg) {
   drawrer_.ClearField();
   bool end = false;
 
@@ -272,7 +270,7 @@ int ClientGame::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapp
       return int_choice;
     }
     else if (mapping.count(int_choice) > 0 && mapping.at(int_choice).second != COLOR_AVAILIBLE && omit)
-      drawrer_.PrintCenteredLine(LINES/2+counter+5, "Selection not available (not enough resources?): " 
+      drawrer_.PrintCenteredLine(LINES/2+counter+5, "Selection not available (" + error_msg + "): " 
           + std::to_string(int_choice));
     else 
       drawrer_.PrintCenteredLine(LINES/2+counter+5, "Wrong selection: " + std::to_string(int_choice));

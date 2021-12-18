@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <lyra/lyra.hpp>
 #include "audio/audio.h"
-#include "game/game.h"
 
 #include <spdlog/spdlog.h>
 #include "lyra/help.hpp"
@@ -105,7 +104,7 @@ int main(int argc, const char** argv) {
   });
 
   // Create client and client-game.
-  ClientGame* client_game = (standalone) ? nullptr : new ClientGame(relative_size, base_path, username);
+  ClientGame* client_game = (standalone) ? nullptr : new ClientGame(relative_size, base_path, username, muli_player);
   Client* client = (standalone) ? nullptr : new Client(client_game, username);
   if (client_game)
     client_game->set_client(client);

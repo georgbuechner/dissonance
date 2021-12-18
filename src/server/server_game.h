@@ -31,16 +31,22 @@ class ServerGame {
      * @param[in] cols availible cols
      * @param[in] srv pointer to websocket-server, to send messages.
      */
-    ServerGame(int lines, int cols, int mode, std::string base_path, WebsocketServer* srv, 
-        std::string usr1, std::string usr2="");
+    ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv);
 
     // getter 
     int status();
+    int mode();
 
     // setter 
     void set_status(int status);
 
     // methods.
+
+    /**
+     * Adds new players and checks if game is ready to start.
+     * @param[in] username 
+     */
+    void AddPlayer(std::string username);
 
     /**
      * Handls input
@@ -64,13 +70,10 @@ class ServerGame {
 
   private: 
     Field* field_;  ///< field 
-    Player* player_one_;
-    Player* player_two_;
+    std::map<std::string, Player*> players_;
     Audio audio_;
     WebsocketServer* ws_server_;
     EventManager<std::string, ServerGame, nlohmann::json&> eventmanager_;
-    const std::string usr1_id_;
-    const std::string usr2_id_;
 
     std::shared_mutex mutex_status_;  ///< mutex locked, when printing field.
     int status_;
@@ -79,22 +82,16 @@ class ServerGame {
     const int lines_;
     const int cols_;
 
-    // handlers
-
-    /**
-     * Initializes game
-     * @param[in] data 
-     * @return command (json)
-     */
-    nlohmann::json InitializeGame(nlohmann::json data);
+    // methods
+    void StartGame();
 
     // command methods
 
     /**
-     * Analyzes audio.
+     * Analyzes audio and initialize game.
      * @param[in, out] msg
      */
-    void m_AnalyzeAudio(nlohmann::json& msg);
+    void m_InitializeGame(nlohmann::json& data);
 
     /**
      * Adds iron

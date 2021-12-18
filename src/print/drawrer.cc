@@ -89,7 +89,6 @@ void Drawrer::ClearField() {
 
 void Drawrer::PrintCenteredLine(int l, std::string line) {
   std::string clear_string(COLS, ' ');
-  spdlog::get(LOGGER)->flush();
   mvaddstr(l, 0, clear_string.c_str());
   mvaddstr(l, COLS/2-line.length()/2, line.c_str());
 }

@@ -190,11 +190,33 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, c
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], data["base_path"], this, username);
+    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], data["num_players"], 
+        data["base_path"], this);
     SendMessage(id, nlohmann::json({{"command", "select_audio"}, {"data", nlohmann::json()}}).dump());
   }
-  else {
-    spdlog::get(LOGGER)->warn("Server: unkown game mode (0: single, 1: multi, 2: observer)");
+  else if (data["mode"] == MULTI_PLAYER) {
+    spdlog::get(LOGGER)->info("Server: initializing new multi-player game.");
+    std::string game_id = username;
+    std::unique_lock ul(shared_mutex_games_);
+    username_game_id_mapping_[username] = game_id;
+    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], data["num_players"],
+        data["base_path"], this);
+    SendMessage(id, nlohmann::json({{"command", "select_audio"}, {"data", nlohmann::json()}}).dump());
+  }
+  else if (data["mode"] == MULTI_PLAYER_CLIENT) {
+    std::unique_lock ul(shared_mutex_games_);
+    bool found_game = false;
+    for (const auto& it : games_) {
+      if (it.second->status() == WAITING && it.second->mode() == MULTI_PLAYER) {
+        username_game_id_mapping_[username] = it.first;  // Add username to mapping, to find matching game.
+        it.second->AddPlayer(username); // Add user to game.
+        found_game = true;
+        break;
+      }
+    }
+    if (!found_game) {
+      SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", {{"msg", "No Game Found"}} }}).dump());
+    }
   }
 }
 
@@ -203,8 +225,10 @@ void WebsocketServer::h_InGameAction(connection_id id, std::string username, con
   if (game) {
     std::shared_lock sl(shared_mutex_games_);
     nlohmann::json resp = game->HandleInput(msg["command"], msg);
-    if (resp.contains("command"))
+    if (resp.contains("command")) {
       SendMessage(id, resp.dump());
+      resp["username"] = "";
+    }
   }
   else
     spdlog::get(LOGGER)->warn("Server: message with unkown command or username.");

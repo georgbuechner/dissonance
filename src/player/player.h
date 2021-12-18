@@ -46,8 +46,7 @@ class Player {
      * @param[in] ran_gen (random number generator).
      * @param[in] resource_positions (map of positions for each resource).
      */
-    Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, 
-        std::map<int, position_t> resource_positions);
+    Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen);
 
     // getter:
     std::map<std::string, Potential> potential();
@@ -59,7 +58,7 @@ class Player {
     std::map<int, Transfer::Technology> t_technologies();
 
     // setter
-    void set_enemy(Player* enemy);
+    void set_enemies(std::vector<Player*> enemies);
 
     // methods:
     /** 
@@ -225,7 +224,7 @@ class Player {
      * @param[in] enemy 
      * @return potential transfered to the target.
      */
-    void MovePotential(Player* enemy);
+    void MovePotential();
 
     void SetBlockForNeuron(position_t pos, bool block);
 
@@ -234,7 +233,7 @@ class Player {
      * @param player 
      * @param ki_
      */
-    void HandleDef(Player* enemy);
+    void HandleDef();
 
     /**
      * Decrease potential and removes potential if potential is down to zero.
@@ -280,7 +279,7 @@ class Player {
     Field* field_;
     Audio* audio_;
     RandomGenerator* ran_gen_;
-    Player* enemy_;
+    std::vector<Player*> enemies_;
     int cur_range_;
 
     std::shared_mutex mutex_resources_;

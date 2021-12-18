@@ -30,8 +30,9 @@ enum GameStatus {
 
 enum Mode {
   SINGLE_PLAYER = 0,
-  MULTI_PLAYER = 1,
-  OBSERVER = 2
+  MULTI_PLAYER,
+  MULTI_PLAYER_CLIENT,
+  OBSERVER
 };
 
 enum ViewRange {

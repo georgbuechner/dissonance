@@ -33,12 +33,13 @@
 #define FREE char(46)
 #define DEF 'T'
 
-Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, 
-    std::map<int, position_t> r_pos) : cur_range_(4), resource_slowdown_(3) {
+Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen) 
+    : cur_range_(4), resource_slowdown_(3) {
   field_ = field;
   ran_gen_ = ran_gen;
 
   neurons_[nucleus_pos] = std::make_unique<Nucleus>(nucleus_pos);
+  auto r_pos= field_->AddResources(nucleus_pos);
   // Max only 20 as iron should be rare.
   resources_.insert(std::pair<int, Resource>(IRON, Resource(3, 22, 2, true, {-1, -1})));  
   resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(5.5, 100, 0, false, r_pos[OXYGEN]))); 
@@ -133,8 +134,8 @@ std::map<int, Transfer::Technology> Player::t_technologies() {
 }
 
 // setter 
-void Player::set_enemy(Player *enemy) {
-  enemy_ = enemy;
+void Player::set_enemies(std::vector<Player*> enemies) {
+  enemies_ = enemies;
 }
 
 // methods 
@@ -411,7 +412,7 @@ bool Player::AddPotential(position_t synapes_pos, int unit) {
   
   // Create way.
   spdlog::get(LOGGER)->debug("Player::AddPotential: get way for potential.");
-  neurons_.at(synapes_pos)->UpdateIpspTargetIfNotSet(enemy_->GetRandomNeuron());
+  neurons_.at(synapes_pos)->UpdateIpspTargetIfNotSet(enemies_.front()->GetRandomNeuron());
   auto way = field_->GetWayForSoldier(synapes_pos, neurons_.at(synapes_pos)->GetWayPoints(unit));
 
   // Add potential.
@@ -482,7 +483,7 @@ bool Player::AddTechnology(int technology) {
   return true;
 }
 
-void Player::MovePotential(Player* enemy) {
+void Player::MovePotential() {
   spdlog::get(LOGGER)->info("Player::MovePotential");
   // Move soldiers along the way to it's target and check if target is reached.
   std::shared_lock sl_potenial(mutex_potentials_);
@@ -491,6 +492,7 @@ void Player::MovePotential(Player* enemy) {
   for (auto& it : potential_) {
     // If target not yet reached and it is time for the next action, move potential
     if (it.second.way_.size() > 0 && utils::GetElapsed(it.second.last_action_, cur_time) > it.second.speed_) {
+      // Move potential.
       it.second.pos_ = it.second.way_.front(); 
       it.second.way_.pop_front();
       it.second.last_action_ = cur_time;  // potential did action, so update last_action_.
@@ -499,20 +501,31 @@ void Player::MovePotential(Player* enemy) {
     // Epsp: add potential to target and add epsp to list of potentials to remove.
     if (it.second.type_ == UnitsTech::EPSP) {
       if (it.second.way_.size() == 0) {
-        enemy->AddPotentialToNeuron(it.second.pos_, it.second.potential_);
-        field_->AddBlink(it.second.pos_);
-        potential_to_remove.push_back(it.first); // remove 
+        for (const auto& enemy : enemies_) {
+          if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1) {
+            enemy->AddPotentialToNeuron(it.second.pos_, it.second.potential_);
+            field_->AddBlink(it.second.pos_);
+            potential_to_remove.push_back(it.first); // remove 
+          }
+        }
       }
     }
     // Ipsp: check if just time is up -> remove ipsp, otherwise -> block target.
     else {
       // If duration since last action is reached, add ipsp to list of potentials to remove and unblock target.
       if (utils::GetElapsed(it.second.last_action_, cur_time) > it.second.duration_*1000) {
-        enemy->SetBlockForNeuron(it.second.pos_, false);  // unblock target.
+        for (const auto& enemy : enemies_) {
+          if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1)
+            enemy->SetBlockForNeuron(it.second.pos_, false);  // unblock target.
+        }
         potential_to_remove.push_back(it.first); // remove 
       }
-      else if (it.second.way_.size() == 0)
-        enemy->SetBlockForNeuron(it.second.pos_, true);  // block target
+      else if (it.second.way_.size() == 0) {
+        for (const auto& enemy : enemies_) {
+          if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1)
+            enemy->SetBlockForNeuron(it.second.pos_, true);  // block target
+        }
+      }
     }
   }
   sl_potenial.unlock();
@@ -535,7 +548,7 @@ void Player::SetBlockForNeuron(position_t pos, bool blocked) {
   spdlog::get(LOGGER)->info("Player::SetBlockForNeuron: done");
 }
 
-void Player::HandleDef(Player* enemy) {
+void Player::HandleDef() {
   spdlog::get(LOGGER)->info("Player::HandleDef");
   std::unique_lock ul(mutex_all_neurons_);
   auto cur_time = std::chrono::steady_clock::now();
@@ -545,14 +558,17 @@ void Player::HandleDef(Player* enemy) {
     // Check if activated neurons recharge is done.
     if (utils::GetElapsed(neuron.second->last_action(), cur_time) > neuron.second->speed() 
         && !neuron.second->blocked()) {
-      // Check for potentials in range of activated neuron.
-      for (const auto& potential : enemy->potential()) {
-        int distance = utils::Dist(neuron.first, potential.second.pos_);
-        if (distance < 3) {
-          enemy->NeutralizePotential(potential.first, neuron.second->potential_slowdown());
-          field_->AddBlink(potential.second.pos_);
-          neuron.second->set_last_action(cur_time);  // neuron did action, so update last_action_.
-          break;
+      // for every enemy
+      for (const auto& enemy : enemies_) {
+        // Check for potentials in range of activated neuron.
+        for (const auto& potential : enemy->potential()) {
+          int distance = utils::Dist(neuron.first, potential.second.pos_);
+          if (distance < 3) {
+            enemy->NeutralizePotential(potential.first, neuron.second->potential_slowdown());
+            field_->AddBlink(potential.second.pos_);
+            neuron.second->set_last_action(cur_time);  // neuron did action, so update last_action_.
+            break;
+          }
         }
       }
     }

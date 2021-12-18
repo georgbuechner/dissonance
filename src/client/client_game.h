@@ -35,7 +35,7 @@ class ClientGame {
      * @param[in] relative_size
      * @param[in] audio_base_path
      */
-    ClientGame(bool relative_size, std::string base_path, std::string username);
+    ClientGame(bool relative_size, std::string base_path, std::string username, bool muliplayer_availible);
 
     void set_client(Client* ws_srv) {
       ws_srv_ = ws_srv;
@@ -48,6 +48,7 @@ class ClientGame {
   private: 
     // member variables.
     const std::string username_;
+    const bool muliplayer_availible_;
     Client* ws_srv_;
     EventManager<std::string, ClientGame, nlohmann::json&> eventmanager_;
     int lines_;
@@ -63,12 +64,6 @@ class ClientGame {
 
     std::vector<std::string> audio_paths_; 
 
-    /**
-     * Shows player main-menu: with basic game info and lets player pic singe/
-     * muliplayer
-     */
-    nlohmann::json Welcome();
-
 
     // Selection methods
     
@@ -78,9 +73,10 @@ class ClientGame {
      * @param[in] force_selection indicating whether tp force user to select)
      * @param[in] mapping which maps a int to a string.
      * @param[in] splits indicating where to split options.
+     * @param[in] error_msg shown in brackets after "selection not availible"
      */
     int SelectInteger(std::string instruction, bool force_selection, choice_mapping_t& mapping, 
-        std::vector<size_t> splits);
+        std::vector<size_t> splits, std::string error_msg);
 
     struct AudioSelector {
       std::string path_;
@@ -115,6 +111,10 @@ class ClientGame {
 
     // command methods
 
+    /**
+     * Shows player main-menu: with basic game info and lets player pic singe/
+     * muliplayer
+    */
     void m_SelectMode(nlohmann::json&);
     void m_SelectAudio(nlohmann::json&);
     void m_PrintMsg(nlohmann::json&);

@@ -30,13 +30,6 @@ class Field {
     // getter:
     int lines();
     int cols();
-    std::vector<position_t> highlight();
-
-    // setter:
-    void set_highlight(std::vector<position_t> positions);
-    void set_range(int);
-    void set_range_center(position_t pos);
-    void set_replace(std::map<position_t, char> replacements);
 
     // methods:
     
@@ -64,10 +57,9 @@ class Field {
      * Builds graph to calculate ways.
      * Function should be called after field is initialized. Function checks all
      * fields reachable from player-den (this could be the den of any player).
-     * @param[in] player_den position of player's den.
-     * @param[in] enemy_den position of enemy's den.
+     * @param[in] player_nucleus (list to check if each nucleus is reachable).
      */
-    void BuildGraph(position_t player_den, position_t enemy_den);
+    void BuildGraph(std::vector<position_t> player_nucleus);
 
     /**
      * Finds a free position for a defence tower and adds tower to player/ ki
@@ -76,16 +68,6 @@ class Field {
      * @param unit integer to identify unit.
      */
     void AddNewUnitToPos(position_t pos, int unit);
-
-    /** 
-     * Prints current field. 
-     * Updates the field stacking soldiers.
-     * @param player pointer to the player.
-     * @param ki pointer to the ki
-     * @param show_in_graph if set to true, highlights all free positions in the
-     * way between player 1 and player 2 den.
-     */
-    void PrintField(Player* player, Player* ki);
 
     /**
      * Gets way to a soldiers target.
@@ -146,7 +128,7 @@ class Field {
      */
     std::vector<position_t> GetAllPositionsOfSection(unsigned short section);
 
-    std::vector<std::vector<Transfer::Symbol>> ToJson(Player* player, Player* enemy);
+    std::vector<std::vector<Transfer::Symbol>> ToJson(std::vector<Player*> players);
 
   private: 
     // members
@@ -158,10 +140,6 @@ class Field {
     std::vector<std::vector<std::string>> field_;
     std::shared_mutex mutex_field_;
 
-    std::vector<position_t> highlight_;
-    volatile int range_;
-    position_t range_center_;
-    std::map<position_t, char> replacements_;
     std::vector<position_t> blinks_;
 
     // functions
@@ -176,7 +154,7 @@ class Field {
      */
     void UpdateField(Player* player, std::vector<std::vector<std::string>>& field);
 
-    bool CheckCollidingPotentials(position_t pos, Player* player_one, Player* player_two);
+    bool CheckCollidingPotentials(position_t pos, std::vector<Player*> players);
 
     /**
      * Gets x in range, returning 0 if x<min, max ist x > max, and x otherwise.

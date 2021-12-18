@@ -3,21 +3,27 @@
 #include "constants/codes.h"
 #include "nlohmann/json_fwd.hpp"
 #include "objects/transfer.h"
+#include "objects/units.h"
 #include "player/player.h"
 #include "server/websocket_server.h"
 #include "share/eventmanager.h"
 #include "spdlog/spdlog.h"
+#include <cctype>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
-ServerGame::ServerGame(int lines, int cols, int mode, std::string base_path, WebsocketServer* srv, 
-    std::string usr1, std::string usr2) : audio_(base_path), ws_server_(srv), 
-    usr1_id_(usr1), usr2_id_(usr2), status_(WAITING), mode_(mode), lines_(lines), cols_(cols) {
+ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv) 
+    : audio_(base_path), ws_server_(srv), status_(WAITING), mode_(mode), lines_(lines), cols_(cols) {
+
+  // initialize players
+  for (int i=0; i<num_players; i++) 
+    players_[std::to_string(i)] = nullptr;
 
   // Initialize eventmanager.
-  eventmanager_.AddHandler("analyse_audio", &ServerGame::m_AnalyzeAudio);
+  eventmanager_.AddHandler("initialize_game", &ServerGame::m_InitializeGame);
   eventmanager_.AddHandler("add_iron", &ServerGame::m_AddIron);
   eventmanager_.AddHandler("remove_iron", &ServerGame::m_RemoveIron);
   eventmanager_.AddHandler("add_technology", &ServerGame::m_AddTechnology);
@@ -29,9 +35,28 @@ int ServerGame::status() {
   return status_;
 }
 
+int ServerGame::mode() {
+  return mode_;
+}
+
 void ServerGame::set_status(int status) {
   std::unique_lock ul(mutex_status_);
   status_ = status;
+}
+
+void ServerGame::AddPlayer(std::string username) {
+  std::string player_position = "";
+  int missing_players = 0;
+  for (const auto& it : players_) {
+    if (std::isdigit(it.first.front())) {
+      player_position = it.first;
+      missing_players++;
+    }
+  }
+  players_[username] = players_[player_position];
+  players_.erase(player_position);
+  if (missing_players == 1)
+    StartGame();
 }
 
 nlohmann::json ServerGame::HandleInput(std::string command, nlohmann::json msg) {
@@ -45,26 +70,25 @@ nlohmann::json ServerGame::HandleInput(std::string command, nlohmann::json msg) 
 
 // command methods
 
-void ServerGame::m_AnalyzeAudio(nlohmann::json& msg) {
-  msg = InitializeGame(msg["data"]);
-}
-
 void ServerGame::m_AddIron(nlohmann::json& msg) {
-  if (player_one_->DistributeIron(msg["data"]["resource"]))
+  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  if (player && player->DistributeIron(msg["data"]["resource"]))
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Distribute iron: done!"}} }};
   else 
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Distribute iron: not enough iron!"}} }};
 }
 
 void ServerGame::m_RemoveIron(nlohmann::json& msg) {
-  if (player_one_->RemoveIron(msg["data"]["resource"]))
+  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  if (player && player->RemoveIron(msg["data"]["resource"]))
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Remove iron: done!"}} }};
   else 
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Remove iron: not enough iron!"}} }};
 }
 
 void ServerGame::m_AddTechnology(nlohmann::json& msg) {
-  if (player_one_->AddTechnology(msg["data"]["technology"]))
+  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  if (player && player->AddTechnology(msg["data"]["technology"]))
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Add technology: done!"}} }};
   else 
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Add technology: probably not enough resources!"}} }};
@@ -75,18 +99,19 @@ void ServerGame::m_Resign(nlohmann::json& msg) {
   status_ = CLOSING;
   ul.unlock();
   // If multi player, inform other player.
-  if (mode_ == MULTI_PLAYER) {
-    std::string user_id = (msg["username"] == usr1_id_) ? usr2_id_ : usr1_id_;
-    nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU WON - opponent resigned"}} }};
-    ws_server_->SendMessage(user_id, resp.dump());
+  for (const auto& player : players_) {
+    if (player.first != msg["username"]) {
+      nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU WON - opponent resigned"}} }};
+      ws_server_->SendMessage(player.first, resp.dump());
+    }
   }
   msg = nlohmann::json();
 }
 
-// handlers
-nlohmann::json ServerGame::InitializeGame(nlohmann::json data) {
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: initializing with user: {}", usr1_id_);
-  nlohmann::json response;
+void ServerGame::m_InitializeGame(nlohmann::json& msg) {
+  std::string username = msg["username"];
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: initializing with user: {}", username);
+  nlohmann::json data = msg["data"];
 
   std::string source_path = data["source_path"];
   spdlog::get(LOGGER)->info("Selected path: {}", source_path);
@@ -97,12 +122,10 @@ nlohmann::json ServerGame::InitializeGame(nlohmann::json data) {
   RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
   RandomGenerator* map_1 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_boolean_minor_interval);
   RandomGenerator* map_2 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_level_peaks);
-  position_t nucleus_pos_1;
-  position_t nucleus_pos_2;
-  std::map<int, position_t> resource_positions_1;
-  std::map<int, position_t> resource_positions_2;
   int denceness = 0;
   bool setup = false;
+  std::vector<position_t> nucleus_positions;
+  std::vector<std::map<int, position_t>> resource_positions;
   spdlog::get(LOGGER)->info("Game::Play: creating map {} {} ", setup, denceness);
   while (!setup && denceness < 5) {
     spdlog::get(LOGGER)->info("Game::Play: creating map try: {}", denceness);
@@ -113,51 +136,84 @@ nlohmann::json ServerGame::InitializeGame(nlohmann::json data) {
     int player_two_section = (int)audio_.analysed_data().average_level_%8+1;
     if (player_one_section == player_two_section)
       player_two_section = (player_two_section+1)%8;
-    nucleus_pos_1 = field_->AddNucleus(player_one_section);
-    nucleus_pos_2 = field_->AddNucleus(player_two_section);
+    // Create a nucleus for each player.
+    for (unsigned int i=0; i<players_.size(); i++)
+      nucleus_positions.push_back(field_->AddNucleus(player_one_section));
+    // Build graph.
     try {
-      field_->BuildGraph(nucleus_pos_1, nucleus_pos_2);
+      field_->BuildGraph(nucleus_positions);
       setup = true;
     } catch (std::logic_error& e) {
       spdlog::get(LOGGER)->warn("Game::play: graph could not be build: {}", e.what());
       field_ = NULL;
       continue;
     }
-    resource_positions_1 = field_->AddResources(nucleus_pos_1);
-    resource_positions_2 = field_->AddResources(nucleus_pos_2);
   }
   if (!setup) {
-    response["command"] = "print_msg";
-    response["data"] = { {"msg", {"Game cannot be played with this song, as map is unplayable. "
+    msg["command"] = "print_msg";
+    msg["data"] = {{"msg", {"Game cannot be played with this song, as map is unplayable. "
         "It might work with a higher resolution. (dissonance -r)"}}};
-    return response;
+    return;
   }
 
   // Setup players.
-  player_one_ = new Player(nucleus_pos_1, field_, ran_gen, resource_positions_1);
-  player_two_ = new AudioKi(nucleus_pos_2, field_, &audio_, ran_gen, resource_positions_2);
-  player_one_->set_enemy(player_two_);
-  player_two_->set_enemy(player_one_);
-  player_two_->SetUpTactics(true); 
+  for (unsigned int i=0; i<nucleus_positions.size(); i++)
+    players_[std::to_string(i)] = new Player(nucleus_positions[i], field_, ran_gen);
+  
+  players_[username] = players_["0"];
+  players_.erase("0");
 
-    // Let player two distribute initial iron.
-  player_two_->DistributeIron(Resources::OXYGEN);
-  player_two_->DistributeIron(Resources::OXYGEN);
-  player_two_->HandleIron(audio_.analysed_data().data_per_beat_.front());
+  if (mode_ == SINGLE_PLAYER) {
+    players_["AI"] = new AudioKi(nucleus_positions[1], field_, &audio_, ran_gen);
+    // TODO (fux): delete player["1"]
+  }
 
+  for (const auto& it : players_) {
+    std::vector<Player*> enemies;
+    for (const auto& jt : players_) {
+      if (jt.first != it.first)
+        enemies.push_back(it.second);
+    }
+    it.second->set_enemies(enemies);
+  }
+
+  if (mode_ == SINGLE_PLAYER) {
+    // Setup audio-ki
+    players_.at("AI")->SetUpTactics(true); 
+    players_.at("AI")->DistributeIron(Resources::OXYGEN);
+    players_.at("AI")->DistributeIron(Resources::OXYGEN);
+    players_.at("AI")->HandleIron(audio_.analysed_data().data_per_beat_.front());
+    // Start game
+    StartGame();
+    msg = nlohmann::json(); // don't forward message (message is sent in StartGame routine)
+  }
+  else {
+    msg["command"] = "print_msg";
+    msg["data"] = {{"msg", "Wainting for players..."}};
+  }
+}
+
+void ServerGame::StartGame() {
   // Start to main threads
   status_ = SETTING_UP;
+  // If single-player, start ai.
   if (mode_ == SINGLE_PLAYER) {
     std::thread ai([this]() { Thread_Ai(); });
     ai.detach();
   }
+  // Start update-shedule.
   std::thread update([this]() { Thread_RenderField(); });
   update.detach();
-  return {{"command", "game_start"}, {"data", nlohmann::json()}};
+  // Inform players, to start game.
+  for (const auto& it : players_) {
+    if (it.first != "AI")
+      ws_server_->SendMessage(it.first, nlohmann::json({{"command", "game_start"}, {"data", {}}}).dump());
+  }
+  return ;
 }
 
 void ServerGame::Thread_RenderField() {
-  spdlog::get(LOGGER)->info("Game::Thread_RenderField: started: {}", usr1_id_);
+  spdlog::get(LOGGER)->info("Game::Thread_RenderField: started");
   auto audio_start_time = std::chrono::steady_clock::now();
   auto analysed_data = audio_.analysed_data();
   std::list<AudioDataTimePoint> data_per_beat = analysed_data.data_per_beat_;
@@ -189,68 +245,93 @@ void ServerGame::Thread_RenderField() {
       off_notes = audio_.MoreOffNotes(data_at_beat);
       data_per_beat.pop_front();
 
-      // Create transfer data.
+      // Create player agnostic transfer-data
       Transfer transfer;
-      transfer.set_players({{usr1_id_, player_one_->GetNucleusLive()}, {"AI", player_two_->GetNucleusLive()}});
-      transfer.set_field(field_->ToJson(player_one_, player_two_));
-      nlohmann::json resp = {{"command", "print_field"}, {"data", nlohmann::json()}};
-      // Send data to single player
-      if (mode_ == SINGLE_PLAYER) {
-        transfer.set_resources(player_one_->t_resources());
-        transfer.set_technologies(player_one_->t_technologies());
-        resp["data"] = transfer.json();
-        ws_server_->SendMessage(usr1_id_, resp.dump());
+      std::map<std::string, std::string> players_status;
+      std::vector<Player*> vec_players;
+      for (const auto& it : players_) {
+        players_status[it.first] = it.second->GetNucleusLive();
+        vec_players.push_back(it.second);
       }
-      // Send data to multiple players 
-      else if (mode_ == MULTI_PLAYER) {
-        transfer.set_resources(player_one_->t_resources());
-        transfer.set_technologies(player_one_->t_technologies());
-        resp["data"] = transfer.json();
-        ws_server_->SendMessage(usr1_id_, resp.dump());
-        transfer.set_resources(player_two_->t_resources());
-        transfer.set_technologies(player_two_->t_technologies());
-        resp["data"] = transfer.json();
-        ws_server_->SendMessage(usr2_id_, resp.dump());
+      transfer.set_players(players_status);
+      transfer.set_field(field_->ToJson(vec_players));
+      nlohmann::json resp = {{"command", "print_field"}, {"data", nlohmann::json()}};
+
+      // Add player-specific transfer-data (resources/ technologies) and send
+      // data to player.
+      for (const auto& it : players_) {
+        if (it.first != "AI") {
+          transfer.set_resources(it.second->t_resources());
+          transfer.set_technologies(it.second->t_technologies());
+          resp["data"] = transfer.json();
+          ws_server_->SendMessage(it.first, resp.dump());
+        }
       }
     }
 
-    // Handle game over
-    if (player_two_->HasLost() || player_one_->HasLost() || data_per_beat.size() == 0) {
-      nlohmann::json resp = {{"command", "game_end"}, {"data", nlohmann::json()}};
-      resp["data"]["msg"] = (player_two_->HasLost()) ? "YOU WON" 
-        : (data_per_beat.size() == 0) ? "YOU LOST - time up" : "YOU LOST";
-      ws_server_->SendMessage(usr1_id_, resp.dump());
-      if (mode_ == MULTI_PLAYER) {
-        resp["data"]["msg"] = (player_one_->HasLost()) ? "YOU WON" 
-          : (data_per_beat.size() == 0) ? "YOU LOST - time up" : "YOU LOST";
-        ws_server_->SendMessage(usr1_id_, resp.dump());
+
+    // All players lost, because time is up:
+    if (data_per_beat.size() == 0) {
+      nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST - times up"}} }};
+      for (const auto& it : players_) {
+        if (it.first != "AI")
+          ws_server_->SendMessage(it.first, resp.dump());
       }
+    }
+
+    // Send message to all players, which have lost (don't worry about player no
+    // longer connected at this point, handler by webserver). And count all
+    // players, which have lost and store the last player which has not lost.
+    unsigned int num_players_lost = 0;
+    std::string player_not_lost = "";
+    for (const auto& it : players_) {
+      if (it.second->HasLost()) {
+        num_players_lost++;
+        if (it.first != "AI") {
+          nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST"}} }};
+          ws_server_->SendMessage(it.first, resp.dump());
+        }
+      }
+      else 
+        player_not_lost = it.first;
+    }
+
+    // If number of player which have lost is one less than total of number of
+    // players, then one player has wone.
+    if (num_players_lost == players_.size() -1) {
+      nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU "}} }};
+      ws_server_->SendMessage(player_not_lost, resp.dump());
       {
         std::unique_lock ul(mutex_status_);
         status_ = CLOSING;
       }
       break;
     }
-  
-    // Increase resources.
+
+    // Increase resources for all human players at the same time.
     if (utils::GetElapsed(last_resource_player_one, cur_time) > player_resource_update_freqeuncy) {
-      player_one_->IncreaseResources(off_notes);
-      last_resource_player_one = cur_time;
+      for (const auto& it : players_) {
+        if (it.first != "AI") {
+          it.second->IncreaseResources(off_notes);
+          last_resource_player_one = cur_time;
+        }
+      }
     }
-    if (utils::GetElapsed(last_resource_player_two, cur_time) > ki_resource_update_frequency) {
-      player_two_->IncreaseResources(off_notes);
+    // Increase resources of AI (only but then always existing in SINGLE_PLAYER mode)
+    if (utils::GetElapsed(last_resource_player_two, cur_time) > ki_resource_update_frequency 
+        && mode_ == SINGLE_PLAYER) {
+      players_.at("AI")->IncreaseResources(off_notes);
       last_resource_player_two = cur_time;
     }
 
     // Move potential
     if (utils::GetElapsed(last_update, cur_time) > render_frequency) {
       // Move player soldiers and check if enemy den's lp is down to 0.
-      player_one_->MovePotential(player_two_);
-      player_two_->MovePotential(player_one_);
-
+      for (const auto& it : players_)
+        it.second->MovePotential();
       // Remove enemy soldiers in renage of defence towers.
-      player_one_->HandleDef(player_two_);
-      player_two_->HandleDef(player_one_);
+      for (const auto& it : players_)
+        it.second->HandleDef();
 
       // Refresh page
       last_update = cur_time;
@@ -276,8 +357,8 @@ void ServerGame::Thread_Ai() {
       continue;
     auto data_at_beat = data_per_beat.front();
     if (elapsed >= data_at_beat.time_) {
-      player_two_->DoAction(data_at_beat);
-      player_two_->set_last_time_point(data_at_beat);
+      players_.at("AI")->DoAction(data_at_beat);
+      players_.at("AI")->set_last_time_point(data_at_beat);
       data_per_beat.pop_front();
     }
   }

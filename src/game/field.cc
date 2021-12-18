@@ -43,9 +43,6 @@ Field::Field(int lines, int cols, RandomGenerator* ran_gen) {
     for (int c=0; c<=cols_; c++)
       field_[l].push_back(SYMBOL_FREE);
   }
-
-  highlight_ = {};
-  range_ = ViewRange::HIDE;
 }
 
 // getter
@@ -54,23 +51,6 @@ int Field::lines() {
 }
 int Field::cols() { 
   return cols_; 
-}
-std::vector<position_t> Field::highlight() {
-  return highlight_;
-}
-
-// setter:
-void Field::set_highlight(std::vector<position_t> positions) {
-  highlight_ = positions;
-}
-void Field::set_range(int range) {
-  range_ = range;
-}
-void Field::set_range_center(position_t pos) {
-  range_center_ = pos;
-}
-void Field::set_replace(std::map<position_t, char> replacements) {
-  replacements_ = replacements;
 }
 
 void Field::AddBlink(position_t blink_pos) {
@@ -109,7 +89,7 @@ std::map<int, position_t> Field::AddResources(position_t start_pos) {
   return resource_positions;
 }
 
-void Field::BuildGraph(position_t player_den, position_t enemy_den) {
+void Field::BuildGraph(std::vector<position_t> nucleus_positions) {
   // Add all nodes.
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
@@ -128,9 +108,10 @@ void Field::BuildGraph(position_t player_den, position_t enemy_den) {
   }
 
   // Remove all nodes not in main circle
-  graph_.RemoveInvalid(player_den);
-  if (graph_.nodes().count(enemy_den) == 0)
-    throw std::logic_error("Invalid world.");
+  graph_.RemoveInvalid(nucleus_positions.front());
+  for (const auto& it : nucleus_positions) 
+    if (graph_.nodes().count(it) == 0)
+      throw std::logic_error("Invalid world.");
 }
 
 void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned short denceness) {
@@ -224,74 +205,22 @@ void Field::UpdateField(Player *player, std::vector<std::vector<std::string>>& f
   }
 }
 
-bool Field::CheckCollidingPotentials(position_t pos, Player* player_one, Player* player_two) {
-  std::string id_one = player_one->GetPotentialIdIfPotential(pos);
-  std::string id_two = player_two->GetPotentialIdIfPotential(pos);
-  // Not colliding potentials as at at least one position there is no potential.
-  if (id_one == "" || id_two == "")
-    return false;
-
-  if (id_one.find("epsp") != std::string::npos && id_two.find("ipsp") != std::string::npos) {
-    spdlog::get(LOGGER)->debug("Field::CheckCollidingPotentials: calling neutralize potential 1");
-    player_one->NeutralizePotential(id_one, 1);
-    spdlog::get(LOGGER)->debug("Field::CheckCollidingPotentials: calling neutralize potential 2");
-    player_two->NeutralizePotential(id_two, -1); // -1 increase potential.
-  }
-  else if (id_one.find("ipsp") != std::string::npos && id_two.find("epsp") != std::string::npos) {
-    spdlog::get(LOGGER)->debug("Field::CheckCollidingPotentials: calling neutralize potential 1");
-    player_one->NeutralizePotential(id_one, -1);
-    spdlog::get(LOGGER)->debug("Field::CheckCollidingPotentials: calling neutralize potential 2");
-    player_two->NeutralizePotential(id_two, 1); // -1 increase potential.
-  }
-  return true;
-}
-
-void Field::PrintField(Player* player, Player* enemy) {
-  std::shared_lock sl_field(mutex_field_);
-  auto field = field_;
-  sl_field.unlock();
-
-  UpdateField(player, field);
-  UpdateField(enemy, field);
-
-  for (int l=0; l<lines_; l++) {
-    for (int c=0; c<cols_; c++) {
-      position_t cur = {l, c};
-      // highlight -> magenta
-      if (std::find(highlight_.begin(), highlight_.end(), cur) != highlight_.end())
-        attron(COLOR_PAIR(COLOR_HIGHLIGHT));
-      else if (std::find(blinks_.begin(), blinks_.end(), cur) != blinks_.end())
-        attron(COLOR_PAIR(COLOR_HIGHLIGHT));
-      // IPSP is on enemy neuron -> cyan.
-      else if (player->IsNeuronBlocked(cur) || enemy->IsNeuronBlocked(cur))
-          attron(COLOR_PAIR(COLOR_RESOURCES));
-      // both players -> cyan
-      else if (CheckCollidingPotentials(cur, player, enemy))
-        attron(COLOR_PAIR(COLOR_RESOURCES));
-      // Resource
-      else if (enemy->GetNeuronTypeAtPosition(cur) == RESOURCENEURON 
-          || player->GetNeuronTypeAtPosition(cur) == RESOURCENEURON)
-        attron(COLOR_PAIR(COLOR_RESOURCES));
-      // player 2 -> red
-      else if (enemy->GetNeuronTypeAtPosition(cur) != -1 || enemy->GetPotentialIdIfPotential(cur) != "")
-        attron(COLOR_PAIR(COLOR_PLAYER));
-      // player 1 -> blue 
-      else if (player->GetNeuronTypeAtPosition(cur) != -1 || player->GetPotentialIdIfPotential(cur) != "")
-        attron(COLOR_PAIR(COLOR_KI));
-      // range -> green
-      else if (InRange(cur, range_, range_center_) 
-          && player->GetNeuronTypeAtPosition(cur) != UnitsTech::NUCLEUS)
-        attron(COLOR_PAIR(COLOR_OK));
-      // Replace certain elements.
-      if (replacements_.count(cur) > 0)
-        mvaddch(15+l, left_border_ + 2*c, replacements_.at(cur));
-      else
-        mvaddstr(15+l, left_border_ + 2*c, field[l][c].c_str());
-      mvaddch(15+l, left_border_ + 2*c+1, ' ' );
-      attron(COLOR_PAIR(COLOR_DEFAULT));
+bool Field::CheckCollidingPotentials(position_t pos, std::vector<Player*> players) {
+  bool on_same_field = false;
+  for (unsigned int i=0; i<players.size(); i++) {
+    for (unsigned int j=0; j<players.size(); j++) {
+      if (i==j) 
+        continue;
+      std::string id_one = players[i]->GetPotentialIdIfPotential(pos);
+      std::string id_two = players[j]->GetPotentialIdIfPotential(pos);
+      if (id_one.find("epsp") != std::string::npos && id_two.find("ipsp") != std::string::npos) {
+        players[i]->NeutralizePotential(id_one, 1);
+        players[j]->NeutralizePotential(id_two, -1); // -1 increase potential.
+        on_same_field = true;
+      }
     }
   }
-  blinks_.clear();
+  return on_same_field;
 }
 
 bool Field::InRange(position_t pos, int range, position_t start) {
@@ -374,13 +303,13 @@ std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval)
   return positions;
 }
 
-std::vector<std::vector<Transfer::Symbol>> Field::ToJson(Player* player, Player* enemy) {
+std::vector<std::vector<Transfer::Symbol>> Field::ToJson(std::vector<Player*> players) {
   std::shared_lock sl_field(mutex_field_);
   auto field = field_;
   sl_field.unlock();
 
-  UpdateField(player, field);
-  UpdateField(enemy, field);
+  for (const auto& it : players)
+    UpdateField(it, field);
 
   std::vector<std::vector<Transfer::Symbol>> t_field;
 
@@ -389,36 +318,25 @@ std::vector<std::vector<Transfer::Symbol>> Field::ToJson(Player* player, Player*
     for (int c=0; c<cols_; c++) {
       position_t cur = {l, c};
       int color = COLOR_DEFAULT;
-      // highlight -> magenta
-      if (std::find(highlight_.begin(), highlight_.end(), cur) != highlight_.end())
+
+      // Check if belongs to either player, is blocked or is resource-neuron
+      for (unsigned int i=0; i<players.size(); i++) {
+        if (players[i]->GetNeuronTypeAtPosition(cur) != -1 || players[i]->GetPotentialIdIfPotential(cur) != "")
+          color = ((i % 2) == 0) ? COLOR_PLAYER : COLOR_KI; 
+        else 
+          continue;
+        if (players[i]->IsNeuronBlocked(cur) || players[i]->GetNeuronTypeAtPosition(cur) == RESOURCENEURON)
+          color = COLOR_RESOURCES;
+      }
+
+      if (std::find(blinks_.begin(), blinks_.end(), cur) != blinks_.end())
         color = COLOR_HIGHLIGHT;
-      else if (std::find(blinks_.begin(), blinks_.end(), cur) != blinks_.end())
-        color = COLOR_HIGHLIGHT;
-      // IPSP is on enemy neuron -> cyan.
-      else if (player->IsNeuronBlocked(cur) || enemy->IsNeuronBlocked(cur))
-        color = COLOR_RESOURCES;
       // both players -> cyan
-      else if (CheckCollidingPotentials(cur, player, enemy))
+      else if (CheckCollidingPotentials(cur, players))
         color = COLOR_RESOURCES;
-      // Resource
-      else if (enemy->GetNeuronTypeAtPosition(cur) == RESOURCENEURON 
-          || player->GetNeuronTypeAtPosition(cur) == RESOURCENEURON)
-        color = COLOR_RESOURCES;
-      // player 2 -> red
-      else if (enemy->GetNeuronTypeAtPosition(cur) != -1 || enemy->GetPotentialIdIfPotential(cur) != "")
-        color = COLOR_PLAYER;
-      // player 1 -> blue 
-      else if (player->GetNeuronTypeAtPosition(cur) != -1 || player->GetPotentialIdIfPotential(cur) != "")
-        color = COLOR_KI;
-      // range -> green
-      else if (InRange(cur, range_, range_center_) 
-          && player->GetNeuronTypeAtPosition(cur) != UnitsTech::NUCLEUS)
-        color = COLOR_OK;
-      // Replace certain elements.
-      if (replacements_.count(cur) > 0)
-        t_field[l].push_back({std::to_string(replacements_.at(cur)), color});
-      else
-        t_field[l].push_back({field[l][c], color});
+      
+      // Add to json field.
+      t_field[l].push_back({field[l][c], color});
     }
   }
   blinks_.clear();
