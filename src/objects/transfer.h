@@ -3,11 +3,14 @@
 
 #include "nlohmann/json.hpp"
 #include "nlohmann/json_fwd.hpp"
+#include "objects/units.h"
 #include "spdlog/spdlog.h"
+#include "utils/utils.h"
 #include <string>
 #include <vector>
 
 #define LOGGER "logger"
+#define COLOR_DEFAULT 3
 
 class Transfer {
   public:
@@ -15,6 +18,9 @@ class Transfer {
     struct Symbol {
       std::string symbol_;
       int color_;
+      std::string str() { 
+        return "Symbol: " + symbol_ + "(color: " + std::to_string(color_) + ")";
+      }
     };
 
     struct Resource {
@@ -38,7 +44,7 @@ class Transfer {
       players_ = json["players"].get<std::map<std::string, std::string>>();
 
       // build field from json
-      spdlog::get(LOGGER)->info("from json: field{}", json["field"].dump());
+      spdlog::get(LOGGER)->info("from json: field {}", json["field"].dump());
       for (const auto& it : json["field"].get<std::vector<nlohmann::json>>()) {
         std::vector<Symbol> vec;
         for (const auto& jt : it.get<std::vector<nlohmann::json>>())
@@ -47,7 +53,7 @@ class Transfer {
       }
 
       // build resources from json.
-      spdlog::get(LOGGER)->info("from json: resources{}", json["resources"].dump());
+      spdlog::get(LOGGER)->info("from json: resources {}", json["resources"].dump());
       if (json.contains("resources")) {
         for (const auto& it : json["resources"].get<std::map<std::string, nlohmann::json>>()) {
           resources_[stoi(it.first)] = {it.second["value"], it.second["bound"], it.second["limit"], 
@@ -56,10 +62,18 @@ class Transfer {
       }
 
       // build technologies from json.
-      spdlog::get(LOGGER)->info("from json: technologies{}", json["technologies"].dump());
+      spdlog::get(LOGGER)->info("from json: technologies {}", json["technologies"].dump());
       if (json.contains("technologies")) {
         for (const auto& it : json["technologies"].get<std::map<std::string, nlohmann::json>>())
           technologies_[stoi(it.first)] = {it.second["cur"], it.second["max"], it.second["active"]};
+      }
+
+      // build potentials from string 
+      spdlog::get(LOGGER)->info("from json: technologies {}", json["technologies"].dump());
+      if (json.contains("potentials")) {
+        for (const auto& it : json["potentials"].get<std::map<std::string, nlohmann::json>>())
+          potentials_[utils::PositionFromString(it.first)] = {it.second["symbol"].get<std::string>(), 
+            it.second["color"].get<int>()};
       }
 
       // Audio Played
@@ -78,7 +92,11 @@ class Transfer {
       return field_;
     };
 
-    std::string players() const {
+    std::map<std::string, std::string> players() const {
+      return players_;
+    }
+
+    std::string PlayersToString() const {
       std::string str;
       for (const auto& it : players_)
         str += it.first + ": " + it.second + " | ";
@@ -91,6 +109,9 @@ class Transfer {
     }
     std::map<int, Technology> technologies() const {
       return technologies_;
+    }
+    std::map<position_t, std::pair<std::string, int>> potentials() {
+      return potentials_;
     }
 
     float audio_played() const {
@@ -109,6 +130,9 @@ class Transfer {
     }
     void set_technologies(std::map<int, Technology> technologies) {
       technologies_ = technologies;
+    }
+    void set_potentials(std::map<position_t, std::pair<std::string, int>> potentials) {
+      potentials_ = potentials;
     }
     void set_audio_played(float audio_played) {
       audio_played_ = (audio_played < 0) ? 0 : audio_played;
@@ -135,11 +159,17 @@ class Transfer {
           {"active", it.second.active_}};
       }
       data["audio_played"] = audio_played_;
+      data["potentials"] = nlohmann::json::object();
+      for (const auto& it : potentials_) {
+        data["potentials"][utils::PositionToString(it.first)] = {
+          {"symbol", it.second.first}, {"color", it.second.second}};
+      }
       return data;
     }
 
   private:
     std::vector<std::vector<Symbol>> field_;
+    std::map<position_t, std::pair<std::string, int>> potentials_;
     std::map<std::string, std::string> players_;
     std::map<int, Resource> resources_;
     std::map<int, Technology> technologies_;

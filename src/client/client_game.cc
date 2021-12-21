@@ -80,21 +80,24 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   eventmanager_.AddHandler("select_mode", &ClientGame::m_SelectMode);
   eventmanager_.AddHandler("select_audio", &ClientGame::m_SelectAudio);
   eventmanager_.AddHandler("print_msg", &ClientGame::m_PrintMsg);
-  eventmanager_.AddHandler("print_field", &ClientGame::m_PrintField);
+  eventmanager_.AddHandler("init_game", &ClientGame::m_InitGame);
+  eventmanager_.AddHandler("update_game", &ClientGame::m_UpdateGame);
   eventmanager_.AddHandler("set_msg", &ClientGame::m_SetMsg);
-  eventmanager_.AddHandler("game_start", &ClientGame::m_GameStart);
   eventmanager_.AddHandler("game_end", &ClientGame::m_GameEnd);
   eventmanager_.AddHandler("select_position", &ClientGame::m_SelectPosition);
+  eventmanager_.AddHandler("set_unit", &ClientGame::m_SetUnit);
+  eventmanager_.AddHandler("set_units", &ClientGame::m_SetUnits);
 }
 
 nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
   std::string command = msg["command"];
-  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: {}, {}", command, msg["data"].dump());
+  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: {}", command);
 
+  // Get event from event-manager
   if (eventmanager_.handlers().count(command))
     (this->*eventmanager_.handlers().at(command))(msg);
   else 
-    msg = nlohmann::json();
+    msg = nlohmann::json(); // if no matching event set return-message to empty.
   
   spdlog::get(LOGGER)->debug("ClientGame::HandleAction: response {}", msg.dump());
   return msg;
@@ -102,7 +105,7 @@ nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
 
 
 void ClientGame::GetAction() {
-  spdlog::get(LOGGER)->info("ClientGame::GetAction.");
+  spdlog::get(LOGGER)->info("ClientGame::GetAction stated");
 
   while(true) {
     // Get Input
@@ -128,7 +131,10 @@ void ClientGame::GetAction() {
     }
 
     // Refresh field (only side-column)
-    drawrer_.PrintGame(false, true); 
+    if (current_context_ == CONTEXT_FIELD)
+      drawrer_.PrintGame(false, false); 
+    else 
+      drawrer_.PrintGame(false, true); 
   }
 
   // Send server message to close game.
@@ -211,24 +217,49 @@ void ClientGame::h_BuildSynapse(int) {
 }
 
 void ClientGame::h_BuildEpsp(int) {
-  nlohmann::json response = {{"command", "check_build_potential"}, {"username", username_}, {"data",
-    {{"unit", EPSP}} }};
-  if (history_.size() > 1 && std::isdigit(history_[history_.size()-2]))
-    response["data"]["num"] = history_[history_.size()-2];
-  else 
-    response["data"]["num"] = 1;
-  ws_srv_->SendMessage(response.dump());
+  int num = (history_.size() > 1 && std::isdigit(history_[history_.size()-2])) ? history_[history_.size()-2] : 1;
+  BuildPotential({-1, -1}, EPSP, num);
 }
 
 void ClientGame::h_BuildIpsp(int) {
-  nlohmann::json response = {{"command", "check_build_potential"}, {"username", username_}, {"data",
-    {{"unit", IPSP}} }};
-  ws_srv_->SendMessage(response.dump());
+  int num = (history_.size() > 1 && std::isdigit(history_[history_.size()-2])) ? history_[history_.size()-2] : 1;
+  BuildPotential({-1, -1}, EPSP, num);
 }
 
 void ClientGame::h_Build(int) {
-  nlohmann::json response = {{"command", "build"}, {"username", username_}, {"data",
-    {{"unit", contexts_.at(current_context_).current_unit()}, {"pos", drawrer_.field_pos()}} }};
+  int unit = contexts_.at(current_context_).current_unit();
+  std::string command = (unit == EPSP || unit == IPSP) ? "build_potential" : "build_neuron";
+  nlohmann::json response = {{"command", command}, {"username", username_}, {"data",
+    {{"unit", unit}, {"pos", drawrer_.field_pos()}} }};
+  ws_srv_->SendMessage(response.dump());
+}
+
+void ClientGame::h_SelectNeuron(int) {
+  position_t pos = drawrer_.GetMarkerPos(utils::CharToString(history_.back(), 0));
+  if (pos.first != -1) {
+    int unit = contexts_[current_context_].current_unit();
+    // For potential, simply send command to build potential
+    if (unit == IPSP || unit == EPSP) {
+      int num = (history_.size() > 1 && std::isdigit(history_[history_.size()-3])) ? history_[history_.size()-3] : 1;
+      BuildPotential(pos, unit, num);
+      current_context_ = CONTEXT_RESOURCES;
+      drawrer_.set_viewpoint(current_context_);
+    }
+    // For neurons, continue selection process.
+    else 
+      SetUpFieldPositionSelect(pos, unit, contexts_[current_context_].current_range());
+    contexts_.erase(CONTEXT_NEURON_SELECT);
+    drawrer_.ClearMarkers();
+  }
+  else
+    drawrer_.set_msg("Invalid position selected.");
+}
+
+void ClientGame::BuildPotential(position_t pos, int unit, int num) {
+  nlohmann::json response = {{"command", "check_build_potential"}, {"username", username_}, {"data", {
+    {"unit", unit}, {"num", num}} }};
+  if (pos.first != -1 && pos.second != -1)
+    response["data"]["pos"] = pos;
   ws_srv_->SendMessage(response.dump());
 }
 
@@ -273,20 +304,22 @@ void ClientGame::m_PrintMsg(nlohmann::json& msg) {
   msg = nlohmann::json();
 }
 
-void ClientGame::m_PrintField(nlohmann::json& msg) {
-  drawrer_.set_transfter(msg["data"]);
+void ClientGame::m_InitGame(nlohmann::json& msg) {
+  drawrer_.set_transfer(msg["data"]);
+  drawrer_.PrintGame(false, false);
+  status_ = RUNNING;
+  drawrer_.set_msg(contexts_.at(current_context_).msg());
+  msg = nlohmann::json();
+}
+
+void ClientGame::m_UpdateGame(nlohmann::json& msg) {
+  drawrer_.UpdateTranser(msg["data"]);
   drawrer_.PrintGame(false, false);
   msg = nlohmann::json();
 }
 
 void ClientGame::m_SetMsg(nlohmann::json& msg) {
   drawrer_.set_msg(msg["data"]["msg"]);
-  msg = nlohmann::json();
-}
-
-void ClientGame::m_GameStart(nlohmann::json& msg) {
-  status_ = RUNNING;
-  drawrer_.set_msg(contexts_.at(current_context_).msg());
   msg = nlohmann::json();
 }
 
@@ -299,22 +332,58 @@ void ClientGame::m_GameEnd(nlohmann::json& msg) {
 }
 
 void ClientGame::m_SelectPosition(nlohmann::json& msg) {
+  spdlog::get(LOGGER)->debug("ClientGame::m_SelectPosition: {}", msg.dump());
+  spdlog::get(LOGGER)->flush();
   std::vector<position_t> positions = msg["data"]["positions"];
   int unit = msg["data"]["unit"];
-  int range = msg["data"]["range"];
-  if (positions.size() == 1) {
-    current_context_ = CONTEXT_FIELD;
-    contexts_.at(current_context_).set_current_unit(unit);
-    drawrer_.set_viewpoint(CONTEXT_FIELD);
-    drawrer_.set_field_start_pos(positions.front());
-    drawrer_.set_range({positions.front(), range});
-    drawrer_.set_msg("Select position where to build " + units_tech_name_mapping.at(unit) 
-        + " (use [t] to return to normal mode)");
-  }
+  int range = msg["data"].value("range", 1);
+  if (positions.size() == 1)
+    SetUpFieldPositionSelect(positions.front(), unit, range);
+  else
+    SetUpFieldNeuronSelect(positions, unit, range);
   msg = nlohmann::json();
 }
 
+void ClientGame::m_SetUnit(nlohmann::json& msg) {
+  drawrer_.AddNewUnitToPos(msg["data"]["pos"], msg["data"]["unit"], msg["data"]["color"]);
+  current_context_ = CONTEXT_RESOURCES;
+  drawrer_.set_viewpoint(CONTEXT_RESOURCES);
+  drawrer_.PrintGame(false, false);
+  drawrer_.set_msg("Success!");
+}
+
+void ClientGame::m_SetUnits(nlohmann::json& msg) {
+  std::map<position_t, int> neurons = msg["data"]["neurons"];
+  int color = msg["data"]["color"];
+  for (const auto& it : neurons) 
+    drawrer_.AddNewUnitToPos(it.first, it.second, color);
+  drawrer_.PrintGame(false, false);
+}
+
 // Selection methods
+
+void ClientGame::SetUpFieldPositionSelect(position_t pos, int unit, int range) {
+  current_context_ = CONTEXT_FIELD;
+  contexts_.at(current_context_).set_current_unit(unit);
+  drawrer_.set_viewpoint(CONTEXT_FIELD);
+  drawrer_.set_field_start_pos(pos);
+  drawrer_.set_range({pos, range});
+  drawrer_.set_msg("Select position where to build " + units_tech_name_mapping.at(unit) 
+      + " (use [t] to return to normal mode)");
+}
+
+void ClientGame::SetUpFieldNeuronSelect(std::vector<position_t> positions, int unit, int range) {
+  std::map<char, void(ClientGame::*)(int)> new_handlers = {{'t', &ClientGame::h_ChangeViewPoint}};
+  for (unsigned int i=0; i<positions.size(); i++) {
+    new_handlers['a'+i] = &ClientGame::h_SelectNeuron;
+    drawrer_.AddMarker(positions[i], utils::CharToString('a', i), COLOR_AVAILIBLE);
+  }
+  Context context = Context("Select neuron", new_handlers);
+  context.set_current_unit(unit);
+  context.set_current_range(range);
+  current_context_ = CONTEXT_NEURON_SELECT;
+  contexts_[current_context_] = context;
+}
 
 int ClientGame::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapping, std::vector<size_t> splits,
     std::string error_msg) {
@@ -512,3 +581,4 @@ std::string ClientGame::InputString(std::string instruction) {
   curs_set(0);
   return input;
 }
+

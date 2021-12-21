@@ -13,8 +13,10 @@
 #include <shared_mutex>
 #include <vector>
 
+#define COLOR_KI 1 
+
 AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen) 
-  : Player(nucleus_pos, field, ran_gen), 
+  : Player(nucleus_pos, field, ran_gen, COLOR_KI), 
     average_bpm_(audio->analysed_data().average_bpm_), 
     average_level_(audio->analysed_data().average_level_) 
 {

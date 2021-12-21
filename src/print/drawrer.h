@@ -42,10 +42,27 @@ class Drawrer {
     void set_viewpoint(int viewpoint);
     void inc_cur_sidebar_elem(int value); 
     void set_msg(std::string msg);
-    void set_transfter(nlohmann::json& data);
+    void set_transfer(nlohmann::json& data);
     void set_stop_render(bool stop);
     void set_field_start_pos(position_t pos);
     void set_range(std::pair<position_t, int> range);
+
+    void AddMarker(position_t pos, std::string symbol, int color);
+    position_t GetMarkerPos(std::string symbol);
+    void ClearMarkers();
+
+    /**
+     * Adds a new neuron to given position.
+     * @param[in] pos
+     * @param[in] unit
+     */
+    void AddNewUnitToPos(position_t pos, int unit, int color);
+
+    /**
+     * Updates transfer object with new infos.
+     * @param[in] transfer_json
+     */
+    void UpdateTranser(nlohmann::json& transfer_json);
 
     /**
      * Move viewpoint to next viewpoint
@@ -93,6 +110,9 @@ class Drawrer {
     int lines_;
     int cols_;
     Transfer transfer_;
+    std::vector<std::vector<Transfer::Symbol>> field_;
+    std::map<position_t, Transfer::Symbol> temp_symbols_;
+    std::map<position_t, std::pair<std::string, int>> markers_;
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
     bool stop_render_;
 
@@ -157,7 +177,6 @@ class Drawrer {
     // Boxes
     std::string msg_;
 
-
     // start-lines header
     int l_headline_;  ///< start of headline showing most essential game infos
     int l_audio_;  ///< start of audio information
@@ -172,7 +191,7 @@ class Drawrer {
     int c_resources_;  ///< start resources
 
     // Print methods
-    void PrintField(const std::vector<std::vector<Transfer::Symbol>>& field);
+    void PrintField();
     void PrintHeader(float audio_played, const std::string& players);
     void PrintTechnologies(const std::string& players);
     void PrintSideColumn(const std::map<int, Transfer::Resource>& resources, 

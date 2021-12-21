@@ -9,8 +9,10 @@
 #include <filesystem>
 #include <iostream>
 #include <math.h>
+#include <string>
 #include <vector>
 #include <sstream>
+#include "objects/units.h"
 #include "spdlog/spdlog.h"
 
 #define LOGGER "logger"
@@ -69,6 +71,10 @@ std::vector<std::string> utils::Split(std::string str, std::string delimiter) {
 
 std::string utils::PositionToString(position_t pos) {
   return std::to_string(pos.first) + "|" + std::to_string(pos.second);
+}
+
+position_t utils::PositionFromString(std::string str_pos) {
+  return {std::stoi(Split(str_pos, "|")[0]), std::stoi(Split(str_pos, "|")[1])};
 }
 
 unsigned int utils::Mod(int n, int m, unsigned int min) {

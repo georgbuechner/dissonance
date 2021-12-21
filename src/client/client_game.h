@@ -68,6 +68,10 @@ class ClientGame {
 
     // Selection methods
     
+    void SetUpFieldPositionSelect(position_t pos, int unit, int range);
+    void SetUpFieldNeuronSelect(std::vector<position_t> positions, int unit, int range);
+
+    
     /**
      * Selects one of x options. (Clears field and locks mutex; pauses game??)
      * @param[in] instruction to let the user know what to do
@@ -116,6 +120,9 @@ class ClientGame {
     void h_BuildSynapse(int);
     void h_BuildEpsp(int);
     void h_BuildIpsp(int);
+    void h_SelectNeuron(int);
+
+    void BuildPotential(position_t pos, int unit, int num);
 
     // command methods
 
@@ -126,11 +133,13 @@ class ClientGame {
     void m_SelectMode(nlohmann::json&);
     void m_SelectAudio(nlohmann::json&);
     void m_PrintMsg(nlohmann::json&);
-    void m_PrintField(nlohmann::json&);
+    void m_InitGame(nlohmann::json&);
+    void m_UpdateGame(nlohmann::json&);
     void m_SetMsg(nlohmann::json&);
-    void m_GameStart(nlohmann::json&);
     void m_GameEnd(nlohmann::json&);
     void m_SelectPosition(nlohmann::json&);
+    void m_SetUnit(nlohmann::json&);
+    void m_SetUnits(nlohmann::json&);
 };
 
 #endif

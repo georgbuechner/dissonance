@@ -71,6 +71,7 @@ namespace utils {
    * @return string representation of a position in format `x|y`.
    */
   std::string PositionToString(position_t pos);
+  position_t PositionFromString(std::string str_pos);
 
   /**
    * Calculates true modulo of n in congruence class m.

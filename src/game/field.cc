@@ -322,7 +322,7 @@ std::vector<std::vector<Transfer::Symbol>> Field::ToJson(std::vector<Player*> pl
       // Check if belongs to either player, is blocked or is resource-neuron
       for (unsigned int i=0; i<players.size(); i++) {
         if (players[i]->GetNeuronTypeAtPosition(cur) != -1 || players[i]->GetPotentialIdIfPotential(cur) != "")
-          color = ((i % 2) == 0) ? COLOR_PLAYER : COLOR_KI; 
+          color = players[i]->color();
         else 
           continue;
         if (players[i]->IsNeuronBlocked(cur) || players[i]->GetNeuronTypeAtPosition(cur) == RESOURCENEURON)

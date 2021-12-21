@@ -46,7 +46,7 @@ class Player {
      * @param[in] ran_gen (random number generator).
      * @param[in] resource_positions (map of positions for each resource).
      */
-    Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen);
+    Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color);
     virtual ~Player() {}
 
     // getter:
@@ -58,6 +58,7 @@ class Player {
     std::map<int, Transfer::Resource> t_resources();
     std::map<int, Transfer::Technology> t_technologies();
     std::vector<Player*> enemies();
+    int color();
 
     // setter
     void set_enemies(std::vector<Player*> enemies);
@@ -66,6 +67,8 @@ class Player {
     
     std::map<position_t, int> GetEpspAtPosition();
     std::map<position_t, int> GetIpspAtPosition();
+    std::vector<position_t> GetPotentialPositions();
+    std::map<position_t, int> GetAllNeuronsInRange(position_t pos);
 
     /** 
      * Gets the position of the closet neuron of a specific type to a given position.
@@ -282,6 +285,7 @@ class Player {
     RandomGenerator* ran_gen_;
     std::vector<Player*> enemies_;
     int cur_range_;
+    int color_;
 
     std::shared_mutex mutex_resources_;
     std::map<int, Resource> resources_;

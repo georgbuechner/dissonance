@@ -6,6 +6,7 @@
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 #include <mutex>
+#include <utility>
 
 #define LOGGER "logger"
 
@@ -76,13 +77,63 @@ void Drawrer::set_msg(std::string msg) {
   msg_ = msg;
 }
 
-void Drawrer::set_transfter(nlohmann::json& data) {
+void Drawrer::set_transfer(nlohmann::json& data) {
   transfer_ = Transfer(data);
+  field_ = transfer_.field();
 }
 
 void Drawrer::set_stop_render(bool stop) {
   std::unique_lock ul(mutex_print_field_);
   stop_render_ = stop;
+}
+void Drawrer::AddMarker(position_t pos, std::string symbol, int color) {
+  std::unique_lock ul(mutex_print_field_);
+  markers_[pos] = {symbol, color};
+}
+
+position_t Drawrer::GetMarkerPos(std::string symbol) {
+  std::unique_lock sl(mutex_print_field_);
+  for (const auto& it : markers_) {
+    if (it.second.first == symbol)
+      return it.first;
+  }
+  return {-1, -1};
+}
+
+void Drawrer::ClearMarkers() {
+  std::unique_lock ul(mutex_print_field_);
+  markers_.clear();
+}
+
+void Drawrer::AddNewUnitToPos(position_t pos, int unit, int color) {
+  std::unique_lock ul(mutex_print_field_);
+  if (unit == UnitsTech::ACTIVATEDNEURON)
+    field_[pos.first][pos.second] = {SYMBOL_DEF, color};
+  else if (unit == UnitsTech::SYNAPSE)
+    field_[pos.first][pos.second] = {SYMBOL_BARACK, color};
+  else if (unit == UnitsTech::NUCLEUS)
+    field_[pos.first][pos.second] = {SYMBOL_DEN, color};
+}
+
+void Drawrer::UpdateTranser(nlohmann::json &transfer_json) {
+  std::unique_lock ul(mutex_print_field_);
+  Transfer t(transfer_json);
+  transfer_.set_resources(t.resources());
+  transfer_.set_technologies(t.technologies());
+  transfer_.set_audio_played(t.audio_played());
+  transfer_.set_players(t.players());
+
+  // Remove temp fields.
+  for (const auto& it : temp_symbols_)
+    field_[it.first.first][it.first.second] = it.second;
+  temp_symbols_.clear();
+
+  // Add potentials
+  for (const auto& it : t.potentials()) {
+    // Add potential to field as temporary.
+    temp_symbols_[it.first] = field_[it.first.first][it.first.second];
+    field_[it.first.first][it.first.second] = {it.second.first, it.second.second};
+  }
 }
 
 void Drawrer::SetUpBorders(int lines, int cols) {
@@ -150,9 +201,9 @@ void Drawrer::PrintGame(bool only_field, bool only_side_column) {
   std::unique_lock ul(mutex_print_field_);
   if (stop_render_ || !transfer_.initialized()) 
     return;
-  PrintHeader(transfer_.audio_played(), transfer_.players());
+  PrintHeader(transfer_.audio_played(), transfer_.PlayersToString());
   if (!only_side_column)
-    PrintField(transfer_.field());
+    PrintField();
   if (!only_field)
     PrintSideColumn(transfer_.resources(), transfer_.technologies());
   PrintMessage();
@@ -169,20 +220,31 @@ void Drawrer::PrintHeader(float audio_played, const std::string& players) {
     mvaddstr(l_audio_, c_field_+10+i, "x");
 }
 
-void Drawrer::PrintField(const std::vector<std::vector<Transfer::Symbol>>& field) {
+void Drawrer::PrintField() {
   spdlog::get(LOGGER)->info("Drawrer::PrintField");
   position_t sel = field_pos();
   auto range = cur_selection_.at(VP_FIELD).range_;
 
-  for (unsigned int l=0; l<field.size(); l++) {
-    for (unsigned int c=0; c<field[l].size(); c++) {
-      if (cur_view_point_ == VP_FIELD && l == (unsigned int)sel.first && c == (unsigned int)sel.second)
+  for (unsigned int l=0; l<field_.size(); l++) {
+    for (unsigned int c=0; c<field_[l].size(); c++) {
+      position_t cur = {l, c};
+      // Select color 
+      if (cur_view_point_ == VP_FIELD && cur == sel)
         attron(COLOR_PAIR(COLOR_AVAILIBLE));
-      else if (cur_view_point_ == VP_FIELD && utils::Dist({l, c}, range.first) <= range.second)
+      else if (cur_view_point_ == VP_FIELD && utils::Dist(cur, range.first) <= range.second)
         attron(COLOR_PAIR(COLOR_SUCCESS));
       else
-        attron(COLOR_PAIR(field[l][c].color_));
-      mvaddstr(l_main_+l, c_field_ + 2*c, field[l][c].symbol_.c_str());
+        attron(COLOR_PAIR(field_[l][c].color_));
+
+      // Print symbol or marker
+      if (markers_.count(cur) > 0) {
+        attron(COLOR_PAIR(markers_.at(cur).second));
+        mvaddstr(l_main_+l, c_field_ + 2*c, markers_.at(cur).first.c_str());
+      }
+      else 
+        mvaddstr(l_main_+l, c_field_ + 2*c, field_[l][c].symbol_.c_str());
+      
+      // Add extra with space for map shape and change color back to default.
       mvaddch(l_main_+l, c_field_ + 2*c+1, ' ' );
       attron(COLOR_PAIR(COLOR_DEFAULT));
     }

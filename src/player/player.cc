@@ -33,8 +33,8 @@
 #define FREE char(46)
 #define DEF 'T'
 
-Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen) 
-    : cur_range_(4), resource_slowdown_(3) {
+Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color) 
+    : cur_range_(4), color_(color), resource_slowdown_(3) {
   field_ = field;
   ran_gen_ = ran_gen;
 
@@ -112,6 +112,10 @@ std::vector<Player*> Player::enemies() {
   return enemies_;
 }
 
+int Player::color() {
+  return color_;
+}
+
 // setter 
 void Player::set_enemies(std::vector<Player*> enemies) {
   enemies_ = enemies;
@@ -136,7 +140,26 @@ std::map<position_t, int> Player::GetIpspAtPosition() {
       ipsps[it.second.pos_]++;
   }
   return ipsps;
+}
 
+std::vector<position_t> Player::GetPotentialPositions() {
+  std::shared_lock sl(mutex_potentials_);
+  std::map<position_t, int> potentials;
+  for (const auto& it : potential_)
+    potentials[it.second.pos_]++;
+  std::vector<position_t> potentials_vec;
+  for (const auto& it : potentials)
+    potentials_vec.push_back(it.first);
+  return potentials_vec;
+}
+
+std::map<position_t, int> Player::GetAllNeuronsInRange(position_t pos) {
+  std::map<position_t, int> neurons_in_range;
+  for (const auto& it : neurons_) {
+    if (utils::Dist(it.first, pos) < cur_range_)
+      neurons_in_range[it.first] = it.second->type_;
+  }
+  return neurons_in_range;
 }
 
 

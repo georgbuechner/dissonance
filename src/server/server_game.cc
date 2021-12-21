@@ -8,6 +8,7 @@
 #include "server/websocket_server.h"
 #include "share/eventmanager.h"
 #include "spdlog/spdlog.h"
+#include "utils/utils.h"
 #include <cctype>
 #include <cstddef>
 #include <mutex>
@@ -15,6 +16,9 @@
 #include <thread>
 #include <unistd.h>
 #include <vector>
+
+#define COLOR_PLAYER 2 
+#define COLOR_KI 1 
 
 std::string CheckMissingResources(Costs missing_costs) {
   std::string res = "";
@@ -40,7 +44,8 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   eventmanager_.AddHandler("resign", &ServerGame::m_Resign);
   eventmanager_.AddHandler("check_build_neuron", &ServerGame::m_CheckBuildNeuron);
   eventmanager_.AddHandler("check_build_potential", &ServerGame::m_CheckBuildPotential);
-  eventmanager_.AddHandler("build", &ServerGame::m_Build);
+  eventmanager_.AddHandler("build_neuron", &ServerGame::m_BuildNeurons);
+  eventmanager_.AddHandler("build_potential", &ServerGame::m_BuildPotentials);
 }
 
 int ServerGame::status() {
@@ -111,12 +116,8 @@ void ServerGame::m_Resign(nlohmann::json& msg) {
   status_ = CLOSING;
   ul.unlock();
   // If multi player, inform other player.
-  for (const auto& player : players_) {
-    if (player.first != msg["username"]) {
-      nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU WON - opponent resigned"}} }};
-      ws_server_->SendMessage(player.first, resp.dump());
-    }
-  }
+  nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU WON - opponent resigned"}} }};
+  SendToAllPlayers(resp.dump(), msg["username"]);
   msg = nlohmann::json();
 }
 
@@ -145,36 +146,54 @@ void ServerGame::m_CheckBuildPotential(nlohmann::json& msg) {
       msg = {{"command", "set_msg"}, {"data", {{"msg", "No synapse" + missing}} }};
     else if (synapses.size() == 1) {
       msg["data"]["pos"] = synapses.front();
-      m_Build(msg);
+      m_BuildPotentials(msg);
     }
+    else if (msg["data"].contains("pos"))
+      m_BuildPotentials(msg);
     else  
       msg = {{"command", "select_position"}, {"data", {{"unit", unit}, {"positions", 
         player->GetAllPositionsOfNeurons(SYNAPSE)}} }}; 
   }
 }
 
-void ServerGame::m_Build(nlohmann::json& msg) {
+void ServerGame::m_BuildNeurons(nlohmann::json& msg) {
   int unit = msg["data"]["unit"];
   position_t pos = {msg["data"]["pos"][0], msg["data"]["pos"][1]};
   Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
   if (player) {
     bool success = false;
-    if (unit == EPSP || unit == IPSP) {
-      for (int i=0; i < msg["data"]["num"]; i++) {
-        success = player->AddPotential(pos, unit);
-        // Wait a bit.
-        auto cur_time = std::chrono::steady_clock::now();
-        while (utils::GetElapsed(cur_time, std::chrono::steady_clock::now()) < 110) {}
-      }
+    // In case of synapse get random position for epsp- and ipsp-target.
+    if (unit == SYNAPSE)
+      success = player->AddNeuron(pos, unit, player->enemies().front()->GetOneNucleus(), 
+        player->enemies().front()->GetRandomNeuron());
+    // Otherwise simply add.
+    else 
+      success = player->AddNeuron(pos, unit);
+    // Add position to field, tell all players to add position and send success mesage.
+    if (success) {
+      field_->AddNewUnitToPos(pos, unit);
+      msg = {{"command", "set_unit"}, {"data", {{"unit", unit}, {"pos", pos}, 
+        {"color", player->color()}} }};
     }
-    else {
-      if (unit == SYNAPSE)
-        success = player->AddNeuron(pos, unit, player->enemies().front()->GetOneNucleus(), 
-          player->enemies().front()->GetRandomNeuron());
-      else 
-        success = player->AddNeuron(pos, unit);
-      if (success) 
-        field_->AddNewUnitToPos(pos, unit);
+    else
+      msg = {{"command", "set_msg"}, {"data", {{"msg", "Failed!"}} }};
+  }
+}
+
+void ServerGame::m_BuildPotentials(nlohmann::json& msg) {
+  int unit = msg["data"]["unit"];
+  position_t pos = {msg["data"]["pos"][0], msg["data"]["pos"][1]};
+  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  if (player) {
+    bool success = false;
+    int num_potenials_to_build = msg["data"].value("num", 1);
+    for (int i=0; i < num_potenials_to_build; i++) {
+      success = player->AddPotential(pos, unit);
+      if (!success)
+        break;
+      // Wait a bit.
+      auto cur_time = std::chrono::steady_clock::now();
+      while (utils::GetElapsed(cur_time, std::chrono::steady_clock::now()) < 110) {}
     }
     if (success)
       msg = {{"command", "set_msg"}, {"data", {{"msg", "Success!"}} }};
@@ -233,7 +252,8 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
 
   // Setup players.
   for (unsigned int i=0; i<nucleus_positions.size(); i++)
-    players_[std::to_string(i)] = new Player(nucleus_positions[i], field_, ran_gen);
+    players_[std::to_string(i)] = new Player(nucleus_positions[i], field_, ran_gen, 
+        ((i % 2) == 0) ? COLOR_PLAYER : COLOR_KI);
   
   // For host player, replace key with username.
   players_[username] = players_["0"];
@@ -283,11 +303,8 @@ void ServerGame::StartGame() {
   // Start update-shedule.
   std::thread update([this]() { Thread_RenderField(); });
   update.detach();
-  // Inform players, to start game.
-  for (const auto& it : players_) {
-    if (it.first != "AI")
-      ws_server_->SendMessage(it.first, nlohmann::json({{"command", "game_start"}, {"data", {}}}).dump());
-  }
+  // Inform players, to start game with initial field included
+  SendTranser(0, false);
   return ;
 }
 
@@ -326,39 +343,13 @@ void ServerGame::Thread_RenderField() {
       data_per_beat.pop_front();
 
       // Create player agnostic transfer-data
-      Transfer transfer;
-      std::map<std::string, std::string> players_status;
-      std::vector<Player*> vec_players;
-      for (const auto& it : players_) {
-        players_status[it.first] = it.second->GetNucleusLive();
-        vec_players.push_back(it.second);
-      }
-      transfer.set_players(players_status);
-      transfer.set_field(field_->ToJson(vec_players));
-      spdlog::get(LOGGER)->debug("Game::RenderField: audio played {}, {}", total_audio_length, data_per_beat.size());
-      transfer.set_audio_played(1-(static_cast<float>(data_per_beat.size())/total_audio_length));
-      spdlog::get(LOGGER)->debug("Game::RenderField: audio played result: {}", transfer.audio_played());
-      nlohmann::json resp = {{"command", "print_field"}, {"data", nlohmann::json()}};
-
-      // Add player-specific transfer-data (resources/ technologies) and send
-      // data to player.
-      for (const auto& it : players_) {
-        if (it.first != "AI") {
-          transfer.set_resources(it.second->t_resources());
-          transfer.set_technologies(it.second->t_technologies());
-          resp["data"] = transfer.json();
-          ws_server_->SendMessage(it.first, resp.dump());
-        }
-      }
+      SendTranser(1-(static_cast<float>(data_per_beat.size())/total_audio_length));
     }
 
     // All players lost, because time is up:
     if (data_per_beat.size() == 0) {
       nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST - times up"}} }};
-      for (const auto& it : players_) {
-        if (it.first != "AI")
-          ws_server_->SendMessage(it.first, resp.dump());
-      }
+      SendToAllPlayers(resp.dump());
       break;
     }
 
@@ -415,6 +406,20 @@ void ServerGame::Thread_RenderField() {
       // Remove enemy soldiers in renage of defence towers.
       for (const auto& it : players_)
         it.second->HandleDef();
+      // Check if neuron has reached view of enemy:
+      for (const auto& it : players_) {
+        for (const auto& potential : it.second->GetPotentialPositions()) {
+          for (const auto& enemy : it.second->enemies()) {
+            for (const auto& nucleus : enemy->GetAllPositionsOfNeurons(NUCLEUS)) {
+              if (utils::Dist(potential, nucleus) < enemy->cur_range()) {
+                nlohmann::json resp = {{"command", "set_units"}, {"data", {{"neurons", 
+                  enemy->GetAllNeuronsInRange(nucleus)}, {"color", enemy->color()}} }};
+                ws_server_->SendMessage(it.first, resp.dump());
+              }
+            }
+          }
+        }
+      }
 
       // Refresh page
       last_update = cur_time;
@@ -450,19 +455,69 @@ void ServerGame::Thread_Ai() {
 
 
 std::map<position_t, std::pair<std::string, int>> ServerGame::GetPotentials() {
-  std::map<std::string, std::map<position_t, int>> epsp_per_player_;
-  std::map<std::string, std::map<position_t, int>> ipsp_per_player_;
-
-  std::map<position_t, std::pair<std::string, int>> ipsp_per_pos;
-  std::map<position_t, std::pair<std::string, int>> epsp_per_pos;
-
+  std::map<position_t, std::pair<std::string, int>> potential_per_pos;
   for (const auto& it : players_) {
-    epsp_per_player_[it.first] = it.second->GetEpspAtPosition();
-    ipsp_per_player_[it.first] = it.second->GetIpspAtPosition();
+    // Add epsp first
+    for (const auto& jt : it.second->GetEpspAtPosition()) {
+      std::string symbol = utils::CharToString('1', jt.second-1);
+      // Always add, if field is not jet occupied.
+      if (potential_per_pos.count(jt.first) == 0)
+        potential_per_pos[jt.first] = {symbol, it.second->color()};
+      // Only overwride entry of other player, if this players units are more
+      else if (potential_per_pos[jt.first].first < symbol)
+        potential_per_pos[jt.first] = {symbol, it.second->color()};
+    }
+    // Ipsp always dominates epsp
+    for (const auto& jt : it.second->GetIpspAtPosition()) {
+      std::string symbol = utils::CharToString('a', jt.second-1);
+      if (potential_per_pos.count(jt.first) == 0)
+        potential_per_pos[jt.first] = {symbol, it.second->color()};
+      // Always overwride epsps (digits)
+      else if (std::isdigit(potential_per_pos[jt.first].first.front()))
+        potential_per_pos[jt.first] = {symbol, it.second->color()};
+      // Only overwride entry of other player, if this players units are more
+      else if (potential_per_pos[jt.first].first < symbol)
+        potential_per_pos[jt.first] = {symbol, it.second->color()};
+    }
   }
 
-  // Check colliding.
-
   // Build full map:
-  return std::map<position_t, std::pair<std::string, int>>();
+  return potential_per_pos;
+}
+
+void ServerGame::SendTranser(float audio_played, bool update) {
+  // Create player agnostic transfer-data
+  Transfer transfer;
+  std::map<std::string, std::string> players_status;
+  std::vector<Player*> vec_players;
+  for (const auto& it : players_) {
+    players_status[it.first] = it.second->GetNucleusLive();
+    vec_players.push_back(it.second);
+  }
+  transfer.set_players(players_status);
+  if (update)
+    transfer.set_potentials(GetPotentials());
+  else 
+    transfer.set_field(field_->ToJson(vec_players));
+  transfer.set_audio_played(audio_played);
+
+  std::string command = (update) ? "update_game" : "init_game";
+  nlohmann::json resp = {{"command", command}, {"data", nlohmann::json()}};
+
+  // Add player-specific transfer-data (resources/ technologies) and send data to player.
+  for (const auto& it : players_) {
+    if (it.first != "AI") {
+      transfer.set_resources(it.second->t_resources());
+      transfer.set_technologies(it.second->t_technologies());
+      resp["data"] = transfer.json();
+      ws_server_->SendMessage(it.first, resp.dump());
+    }
+  }
+}
+
+void ServerGame::SendToAllPlayers(std::string msg, std::string ignore_username) {
+  for (const auto& it : players_) {
+    if (it.first != "AI" && (ignore_username == "" || it.first != ignore_username))
+      ws_server_->SendMessage(it.first, msg);
+  }
 }

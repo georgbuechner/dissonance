@@ -124,9 +124,12 @@ class ServerGame {
      */
     void m_CheckBuildNeuron(nlohmann::json& msg);
     void m_CheckBuildPotential(nlohmann::json& msg);
-    void m_Build(nlohmann::json& msg);
+    void m_BuildNeurons(nlohmann::json& msg);
+    void m_BuildPotentials(nlohmann::json& msg);
 
     std::map<position_t, std::pair<std::string, int>> GetPotentials();
+    void SendTranser(float audio_played, bool update=true);
+    void SendToAllPlayers(std::string msg, std::string ignore_username="");
 };
 
 #endif
