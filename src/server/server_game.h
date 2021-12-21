@@ -110,11 +110,23 @@ class ServerGame {
      * @param[in, out] msg
      */
     void m_AddTechnology(nlohmann::json& msg);
+
     /**
      * Handles if a player resignes
      * @param[in, out] msg
      */
     void m_Resign(nlohmann::json& msg);
+
+    /**
+     * Checks if resources (or other criterial) are bet for building neuron/
+     * unit.
+     * @param[in, out] msg
+     */
+    void m_CheckBuildNeuron(nlohmann::json& msg);
+    void m_CheckBuildPotential(nlohmann::json& msg);
+    void m_Build(nlohmann::json& msg);
+
+    std::map<position_t, std::pair<std::string, int>> GetPotentials();
 };
 
 #endif

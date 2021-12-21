@@ -42,8 +42,8 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen)
   auto r_pos= field_->AddResources(nucleus_pos);
   // Max only 20 as iron should be rare.
   resources_.insert(std::pair<int, Resource>(IRON, Resource(3, 22, 2, true, {-1, -1})));  
-  resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(5.5, 100, 0, false, r_pos[OXYGEN]))); 
-  resources_.insert(std::pair<int, Resource>(Resources::POTASSIUM, Resource(0, 100, 0, false, r_pos[POTASSIUM]))); 
+  resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(15.5, 100, 0, false, r_pos[OXYGEN]))); 
+  resources_.insert(std::pair<int, Resource>(Resources::POTASSIUM, Resource(10, 100, 0, false, r_pos[POTASSIUM]))); 
   resources_.insert(std::pair<int, Resource>(Resources::CHLORIDE, Resource(0, 100, 0, false, r_pos[CHLORIDE]))); 
   // Max 150: allows 7 activated neurons withput updates.
   resources_.insert(std::pair<int, Resource>(Resources::GLUTAMATE, Resource(0, 150, 0, false, r_pos[GLUTAMATE]))); 
@@ -64,31 +64,6 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen)
     {UnitsTech::DEF_POTENTIAL, {0,3}},
     {UnitsTech::DEF_SPEED, {0,3}},
     {UnitsTech::NUCLEUS_RANGE, {0,3}},
-  };
-}
-
-std::vector<std::string> Player::GetCurrentStatusLine() {
-  std::shared_lock sl(mutex_resources_);
-  std::string end = ": ";
-  return { 
-    "RESOURCES",
-    "",
-    "slowdown: ", std::to_string(resource_slowdown_), "",
-    "resources format: ", "[free]+[bound]/[limit]", "++[boost]", "",
-    "Iron " SYMBOL_IRON + end, resources_.at(IRON).Print(), "",
-    "oxygen: ", resources_.at(OXYGEN).Print(),
-      "+" + utils::Dtos(resources_.at(OXYGEN).distributed_iron()), "",
-    "potassium " SYMBOL_POTASSIUM + end, resources_.at(POTASSIUM).Print(), 
-      "+" + utils::Dtos(resources_.at(POTASSIUM).distributed_iron()), "",
-    "chloride " SYMBOL_CHLORIDE + end, resources_.at(CHLORIDE).Print(),
-      "+" + utils::Dtos(resources_.at(CHLORIDE).distributed_iron()), "",
-    "glutamate " SYMBOL_GLUTAMATE + end, resources_.at(GLUTAMATE).Print(),
-      "+" + utils::Dtos(resources_.at(GLUTAMATE).distributed_iron()), "",
-    "dopamine " SYMBOL_DOPAMINE + end, resources_.at(DOPAMINE).Print(),
-      "+" + utils::Dtos(resources_.at(DOPAMINE).distributed_iron()), "",
-    "serotonin " SYMBOL_SEROTONIN + end, resources_.at(SEROTONIN).Print(),
-      "+" + utils::Dtos(resources_.at(SEROTONIN).distributed_iron()), "",
-    "nucleus " SYMBOL_DEN " potential" + end, GetNucleusLive()
   };
 }
 
@@ -133,12 +108,37 @@ std::map<int, Transfer::Technology> Player::t_technologies() {
   return technologies;
 }
 
+std::vector<Player*> Player::enemies() {
+  return enemies_;
+}
+
 // setter 
 void Player::set_enemies(std::vector<Player*> enemies) {
   enemies_ = enemies;
 }
 
 // methods 
+
+std::map<position_t, int> Player::GetEpspAtPosition() {
+  std::shared_lock sl(mutex_potentials_);
+  std::map<position_t, int> epsps;
+  for (const auto& it : potential_) {
+    if (it.second.type_ == EPSP) 
+      epsps[it.second.pos_]++;
+  }
+  return epsps;
+}
+std::map<position_t, int> Player::GetIpspAtPosition() {
+  std::shared_lock sl(mutex_potentials_);
+  std::map<position_t, int> ipsps;
+  for (const auto& it : potential_) {
+    if (it.second.type_ == IPSP) 
+      ipsps[it.second.pos_]++;
+  }
+  return ipsps;
+
+}
+
 
 position_t Player::GetPositionOfClosestNeuron(position_t pos, int unit) {
   spdlog::get(LOGGER)->info("Player::GetPositionOfClosestNeuron");

@@ -9,11 +9,21 @@
 #include "share/eventmanager.h"
 #include "spdlog/spdlog.h"
 #include <cctype>
+#include <cstddef>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <unistd.h>
 #include <vector>
+
+std::string CheckMissingResources(Costs missing_costs) {
+  std::string res = "";
+  if (missing_costs.size() == 0)
+    return res;
+  for (const auto& it : missing_costs)
+    res += "Missing " + std::to_string(it.second) + " " + resources_name_mapping.at(it.first) + "! ";
+  return res;
+}
 
 ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv) 
     : audio_(base_path), ws_server_(srv), status_(WAITING), mode_(mode), lines_(lines), cols_(cols) {
@@ -28,8 +38,10 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   eventmanager_.AddHandler("remove_iron", &ServerGame::m_RemoveIron);
   eventmanager_.AddHandler("add_technology", &ServerGame::m_AddTechnology);
   eventmanager_.AddHandler("resign", &ServerGame::m_Resign);
+  eventmanager_.AddHandler("check_build_neuron", &ServerGame::m_CheckBuildNeuron);
+  eventmanager_.AddHandler("check_build_potential", &ServerGame::m_CheckBuildPotential);
+  eventmanager_.AddHandler("build", &ServerGame::m_Build);
 }
-
 
 int ServerGame::status() {
   return status_;
@@ -108,6 +120,69 @@ void ServerGame::m_Resign(nlohmann::json& msg) {
   msg = nlohmann::json();
 }
 
+void ServerGame::m_CheckBuildNeuron(nlohmann::json& msg) {
+  int unit = msg["data"]["unit"];
+  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  if (player) {
+    std::string missing = CheckMissingResources(player->GetMissingResources(unit));
+    if (missing == "")
+      msg = {{"command", "select_position"}, {"data", {{"unit", unit}, {"positions", 
+        player->GetAllPositionsOfNeurons(NUCLEUS)}, {"range", player->cur_range()}} }}; 
+    else 
+      msg = {{"command", "set_msg"}, {"data", {{"msg", "Not enough resource! missing: " + missing}} }};
+  }
+}
+
+void ServerGame::m_CheckBuildPotential(nlohmann::json& msg) {
+  int unit = msg["data"]["unit"];
+  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  if (player) {
+    auto synapses = player->GetAllPositionsOfNeurons(SYNAPSE);
+    std::string missing = CheckMissingResources(player->GetMissingResources(unit));
+    if (missing != "")
+      msg = {{"command", "set_msg"}, {"data", {{"msg", "Not enough resource! missing: " + missing}} }};
+    else if (synapses.size() == 0)
+      msg = {{"command", "set_msg"}, {"data", {{"msg", "No synapse" + missing}} }};
+    else if (synapses.size() == 1) {
+      msg["data"]["pos"] = synapses.front();
+      m_Build(msg);
+    }
+    else  
+      msg = {{"command", "select_position"}, {"data", {{"unit", unit}, {"positions", 
+        player->GetAllPositionsOfNeurons(SYNAPSE)}} }}; 
+  }
+}
+
+void ServerGame::m_Build(nlohmann::json& msg) {
+  int unit = msg["data"]["unit"];
+  position_t pos = {msg["data"]["pos"][0], msg["data"]["pos"][1]};
+  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  if (player) {
+    bool success = false;
+    if (unit == EPSP || unit == IPSP) {
+      for (int i=0; i < msg["data"]["num"]; i++) {
+        success = player->AddPotential(pos, unit);
+        // Wait a bit.
+        auto cur_time = std::chrono::steady_clock::now();
+        while (utils::GetElapsed(cur_time, std::chrono::steady_clock::now()) < 110) {}
+      }
+    }
+    else {
+      if (unit == SYNAPSE)
+        success = player->AddNeuron(pos, unit, player->enemies().front()->GetOneNucleus(), 
+          player->enemies().front()->GetRandomNeuron());
+      else 
+        success = player->AddNeuron(pos, unit);
+      if (success) 
+        field_->AddNewUnitToPos(pos, unit);
+    }
+    if (success)
+      msg = {{"command", "set_msg"}, {"data", {{"msg", "Success!"}} }};
+    else
+      msg = {{"command", "set_msg"}, {"data", {{"msg", "Failed!"}} }};
+  }
+}
+
 void ServerGame::m_InitializeGame(nlohmann::json& msg) {
   std::string username = msg["username"];
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: initializing with user: {}", username);
@@ -117,6 +192,7 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
   spdlog::get(LOGGER)->info("Selected path: {}", source_path);
   audio_.set_source_path(source_path);
   audio_.Analyze();
+  auto intervals_ = audio_.analysed_data().intervals_;
 
   // Build field.
   RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
@@ -132,13 +208,12 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
 
     field_ = new Field(lines_, cols_, ran_gen);
     field_->AddHills(map_1, map_2, denceness++);
-    int player_one_section = (int)audio_.analysed_data().average_bpm_%8+1;
-    int player_two_section = (int)audio_.analysed_data().average_level_%8+1;
-    if (player_one_section == player_two_section)
-      player_two_section = (player_two_section+1)%8;
+    
     // Create a nucleus for each player.
-    for (unsigned int i=0; i<players_.size(); i++)
-      nucleus_positions.push_back(field_->AddNucleus(player_one_section));
+    for (unsigned int i=0; i<players_.size(); i++) {
+      int section = (intervals_[i].darkness_ + intervals_[i].notes_out_key_) % 8 + 1;
+      nucleus_positions.push_back(field_->AddNucleus(section));
+    }
     // Build graph.
     try {
       field_->BuildGraph(nucleus_positions);
@@ -160,19 +235,23 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
   for (unsigned int i=0; i<nucleus_positions.size(); i++)
     players_[std::to_string(i)] = new Player(nucleus_positions[i], field_, ran_gen);
   
+  // For host player, replace key with username.
   players_[username] = players_["0"];
   players_.erase("0");
 
+  // If single-player replace Player with AudioAI
   if (mode_ == SINGLE_PLAYER) {
     players_["AI"] = new AudioKi(nucleus_positions[1], field_, &audio_, ran_gen);
-    // TODO (fux): delete player["1"]
+    delete players_["1"];
+    players_.erase("1");
   }
 
+  // Pass all players a vector of all enemies.
   for (const auto& it : players_) {
     std::vector<Player*> enemies;
     for (const auto& jt : players_) {
       if (jt.first != it.first)
-        enemies.push_back(it.second);
+        enemies.push_back(jt.second);
     }
     it.second->set_enemies(enemies);
   }
@@ -217,6 +296,7 @@ void ServerGame::Thread_RenderField() {
   auto audio_start_time = std::chrono::steady_clock::now();
   auto analysed_data = audio_.analysed_data();
   std::list<AudioDataTimePoint> data_per_beat = analysed_data.data_per_beat_;
+  size_t total_audio_length = data_per_beat.size();
 
   auto last_update = std::chrono::steady_clock::now();
   auto last_resource_player_one = std::chrono::steady_clock::now();
@@ -255,6 +335,9 @@ void ServerGame::Thread_RenderField() {
       }
       transfer.set_players(players_status);
       transfer.set_field(field_->ToJson(vec_players));
+      spdlog::get(LOGGER)->debug("Game::RenderField: audio played {}, {}", total_audio_length, data_per_beat.size());
+      transfer.set_audio_played(1-(static_cast<float>(data_per_beat.size())/total_audio_length));
+      spdlog::get(LOGGER)->debug("Game::RenderField: audio played result: {}", transfer.audio_played());
       nlohmann::json resp = {{"command", "print_field"}, {"data", nlohmann::json()}};
 
       // Add player-specific transfer-data (resources/ technologies) and send
@@ -269,7 +352,6 @@ void ServerGame::Thread_RenderField() {
       }
     }
 
-
     // All players lost, because time is up:
     if (data_per_beat.size() == 0) {
       nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST - times up"}} }};
@@ -277,6 +359,7 @@ void ServerGame::Thread_RenderField() {
         if (it.first != "AI")
           ws_server_->SendMessage(it.first, resp.dump());
       }
+      break;
     }
 
     // Send message to all players, which have lost (don't worry about player no
@@ -363,4 +446,23 @@ void ServerGame::Thread_Ai() {
     }
   }
   spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");
+}
+
+
+std::map<position_t, std::pair<std::string, int>> ServerGame::GetPotentials() {
+  std::map<std::string, std::map<position_t, int>> epsp_per_player_;
+  std::map<std::string, std::map<position_t, int>> ipsp_per_player_;
+
+  std::map<position_t, std::pair<std::string, int>> ipsp_per_pos;
+  std::map<position_t, std::pair<std::string, int>> epsp_per_pos;
+
+  for (const auto& it : players_) {
+    epsp_per_player_[it.first] = it.second->GetEpspAtPosition();
+    ipsp_per_player_[it.first] = it.second->GetIpspAtPosition();
+  }
+
+  // Check colliding.
+
+  // Build full map:
+  return std::map<position_t, std::pair<std::string, int>>();
 }

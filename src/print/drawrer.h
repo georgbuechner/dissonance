@@ -2,6 +2,7 @@
 #define SRC_PRINT_DRAWER_H_
 
 #include "nlohmann/json_fwd.hpp"
+#include "objects/units.h"
 #define NCURSES_NOMACROS
 #include "constants/texts.h"
 #include "constants/costs.h"
@@ -32,14 +33,19 @@ class Drawrer {
     // getter
     int field_height();
     int field_width();
+    position_t field_pos();
 
     int GetResource(); 
     int GetTech(); 
 
     // setter 
-    void inc_cur_sidebar_elem(int value); void set_msg(std::string msg);
+    void set_viewpoint(int viewpoint);
+    void inc_cur_sidebar_elem(int value); 
+    void set_msg(std::string msg);
     void set_transfter(nlohmann::json& data);
     void set_stop_render(bool stop);
+    void set_field_start_pos(position_t pos);
+    void set_range(std::pair<position_t, int> range);
 
     /**
      * Move viewpoint to next viewpoint
@@ -98,11 +104,26 @@ class Drawrer {
 
         int x_;
         int y_;
+        std::pair<position_t, int> range_; // start, range
         void inc(int val) { (this->*inc_)(val); }
         std::string to_string(const Transfer& transfer) { return(this->*to_string_)(transfer); }
 
         void inc_resource(int val) { x_= utils::Mod(x_+val, SEROTONIN+1); }
         void inc_tech(int val) { x_= utils::Mod(x_+val, NUCLEUS_RANGE+1, WAY); }
+        void inc_field(int val) { 
+          int old_x = x_;
+          int old_y = y_;
+
+          if (val == 1) y_++;
+          if (val == -1) y_--;
+          if (val == 2) x_++;
+          if (val == -2) x_--;
+
+          if (utils::Dist(range_.first, {y_, x_}) > range_.second) {
+            x_ = old_x;
+            y_ = old_y;
+          }
+        }
 
         std::string to_string_resource(const Transfer& transfer) {   
           Transfer::Resource resource = transfer.resources().at(x_);
@@ -120,6 +141,10 @@ class Drawrer {
           }
           return units_tech_name_mapping.at(x_) + ": " + tech.cur_ + "/" + tech.max_ 
             + "$" + units_tech_description_mapping.at(x_) + "$" + costs;
+        }
+
+        std::string to_string_field(const Transfer& transfer) {
+          return std::to_string(x_) + "|" + std::to_string(y_);
         }
 
       private:
@@ -148,7 +173,7 @@ class Drawrer {
 
     // Print methods
     void PrintField(const std::vector<std::vector<Transfer::Symbol>>& field);
-    void PrintHeader(const std::string& players);
+    void PrintHeader(float audio_played, const std::string& players);
     void PrintTechnologies(const std::string& players);
     void PrintSideColumn(const std::map<int, Transfer::Resource>& resources, 
         const std::map<int, Transfer::Technology>& technologies);

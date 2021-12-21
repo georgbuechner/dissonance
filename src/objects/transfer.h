@@ -61,6 +61,10 @@ class Transfer {
         for (const auto& it : json["technologies"].get<std::map<std::string, nlohmann::json>>())
           technologies_[stoi(it.first)] = {it.second["cur"], it.second["max"], it.second["active"]};
       }
+
+      // Audio Played
+      if (json.contains("audio_played"))
+        audio_played_ = json["audio_played"];
       initialized_ = true;
       spdlog::get(LOGGER)->info("DONE");
     }
@@ -89,6 +93,10 @@ class Transfer {
       return technologies_;
     }
 
+    float audio_played() const {
+      return audio_played_;
+    }
+
     // setter
     void set_field(std::vector<std::vector<Symbol>> field) {
       field_ = field;
@@ -101,6 +109,9 @@ class Transfer {
     }
     void set_technologies(std::map<int, Technology> technologies) {
       technologies_ = technologies;
+    }
+    void set_audio_played(float audio_played) {
+      audio_played_ = (audio_played < 0) ? 0 : audio_played;
     }
 
     nlohmann::json json() {
@@ -123,6 +134,7 @@ class Transfer {
         data["technologies"][std::to_string(it.first)] = {{"cur", it.second.cur_}, {"max", it.second.max_}, 
           {"active", it.second.active_}};
       }
+      data["audio_played"] = audio_played_;
       return data;
     }
 
@@ -131,6 +143,7 @@ class Transfer {
     std::map<std::string, std::string> players_;
     std::map<int, Resource> resources_;
     std::map<int, Technology> technologies_;
+    float audio_played_;
     bool initialized_;
 };
 

@@ -1,6 +1,7 @@
 #include "client/client_game.h"
 #include "client/client.h"
 #include "client/context.h"
+#include "objects/units.h"
 #include "share/eventmanager.h"
 #include "constants/codes.h"
 #include "constants/texts.h"
@@ -10,12 +11,15 @@
 #include "print/drawrer.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
+#include <cctype>
 #include <unistd.h>
 #include <vector>
 
 #define CONTEXT_FIELD 0
 #define CONTEXT_RESOURCES 1
 #define CONTEXT_TECHNOLOGIES 2
+#define CONTEXT_NEURON_SELECT 3 
+
 #define CONTEXT_RESOURCES_MSG "Distribute (+)/ remove (-) iron to handler resource-gain"
 #define CONTEXT_TECHNOLOGIES_MSG "Research technology by pressing [enter]"
 
@@ -59,7 +63,13 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   current_context_ = CONTEXT_RESOURCES;
   // Basic handlers shared by standard-contexts
   std::map<char, void(ClientGame::*)(int)> std_handlers = { {'j', &ClientGame::h_MoveSelectionUp}, 
-    {'k', &ClientGame::h_MoveSelectionDown}, {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit} };
+    {'k', &ClientGame::h_MoveSelectionDown}, {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit},
+    {'A', &ClientGame::h_BuildActivatedNeuron}, {'S', &ClientGame::h_BuildSynapse},
+    {'e', &ClientGame::h_BuildEpsp}, {'i', &ClientGame::h_BuildIpsp}
+  };
+  // field context 
+  contexts_[CONTEXT_FIELD] = Context("", std_handlers, {{'h', &ClientGame::h_MoveSelectionLeft},
+      {'l', &ClientGame::h_MoveSelectionRight}, {'\n', &ClientGame::h_Build}});
   // Resource context:
   contexts_[CONTEXT_RESOURCES] = Context(CONTEXT_RESOURCES_MSG, std_handlers, {{'+', &ClientGame::h_AddIron}, 
       {'-', &ClientGame::h_RemoveIron}});
@@ -74,6 +84,7 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   eventmanager_.AddHandler("set_msg", &ClientGame::m_SetMsg);
   eventmanager_.AddHandler("game_start", &ClientGame::m_GameStart);
   eventmanager_.AddHandler("game_end", &ClientGame::m_GameEnd);
+  eventmanager_.AddHandler("select_position", &ClientGame::m_SelectPosition);
 }
 
 nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
@@ -98,6 +109,7 @@ void ClientGame::GetAction() {
     if (status_ == WAITING) continue; // Skip as long as not active.
     if (status_ == CLOSING) break; // Leave thread.
     char choice = getch();
+    history_.push_back(choice);
     spdlog::get(LOGGER)->info("ClientGame::GetAction action_ {}, in: {}", status_, choice);
     if (status_ == WAITING) continue; // Skip as long as not active. 
     if (status_ == CLOSING) break; // Leave thread.
@@ -132,7 +144,7 @@ void ClientGame::GetAction() {
 void ClientGame::h_Quit(int) {
   drawrer_.ClearField();
   drawrer_.set_stop_render(true);
-  drawrer_.PrintCenteredLine(LINES/2, "Are you sure you want to quit? (y/n/)");
+  drawrer_.PrintCenteredLine(LINES/2, "Are you sure you want to quit? (y/n)");
   char choice = getch();
   if (choice == 'y') {
     status_ = CLOSING;
@@ -143,12 +155,21 @@ void ClientGame::h_Quit(int) {
     drawrer_.set_stop_render(false);
   }
 }
+
 void ClientGame::h_MoveSelectionUp(int) {
   drawrer_.inc_cur_sidebar_elem(1);
 }
 
 void ClientGame::h_MoveSelectionDown(int) {
   drawrer_.inc_cur_sidebar_elem(-1);
+}
+
+void ClientGame::h_MoveSelectionLeft(int) {
+  drawrer_.inc_cur_sidebar_elem(-2);
+}
+
+void ClientGame::h_MoveSelectionRight(int) {
+  drawrer_.inc_cur_sidebar_elem(2);
 }
 
 void ClientGame::h_ChangeViewPoint(int) {
@@ -177,11 +198,49 @@ void ClientGame::h_AddTech(int) {
   ws_srv_->SendMessage(response.dump());
 }
 
+void ClientGame::h_BuildActivatedNeuron(int) {
+  nlohmann::json response = {{"command", "check_build_neuron"}, {"username", username_}, {"data",
+    {{"unit", ACTIVATEDNEURON}} }};
+  ws_srv_->SendMessage(response.dump());
+}
+
+void ClientGame::h_BuildSynapse(int) {
+  nlohmann::json response = {{"command", "check_build_neuron"}, {"username", username_}, {"data",
+    {{"unit", SYNAPSE}} }};
+  ws_srv_->SendMessage(response.dump());
+}
+
+void ClientGame::h_BuildEpsp(int) {
+  nlohmann::json response = {{"command", "check_build_potential"}, {"username", username_}, {"data",
+    {{"unit", EPSP}} }};
+  if (history_.size() > 1 && std::isdigit(history_[history_.size()-2]))
+    response["data"]["num"] = history_[history_.size()-2];
+  else 
+    response["data"]["num"] = 1;
+  ws_srv_->SendMessage(response.dump());
+}
+
+void ClientGame::h_BuildIpsp(int) {
+  nlohmann::json response = {{"command", "check_build_potential"}, {"username", username_}, {"data",
+    {{"unit", IPSP}} }};
+  ws_srv_->SendMessage(response.dump());
+}
+
+void ClientGame::h_Build(int) {
+  nlohmann::json response = {{"command", "build"}, {"username", username_}, {"data",
+    {{"unit", contexts_.at(current_context_).current_unit()}, {"pos", drawrer_.field_pos()}} }};
+  ws_srv_->SendMessage(response.dump());
+}
+
 void ClientGame::m_SelectMode(nlohmann::json& msg) {
   spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode: {}", msg.dump());
   // Print welcome text.
   drawrer_.PrintCenteredParagraphs(texts::welcome);
   
+  // Update msg
+  msg["command"] = "init_game";
+  msg["data"] = {{"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, {"base_path", base_path_}};
+ 
   // Select single-player, mulit-player (host/ client), observer.
   choice_mapping_t mapping = {
     {SINGLE_PLAYER, {"singe-player", COLOR_AVAILIBLE}}, 
@@ -189,11 +248,17 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
     {MULTI_PLAYER_CLIENT, {"muli-player (client)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     {OBSERVER, {"watch ki", COLOR_DEFAULT}}
   };
-  // Update msg
-  msg["command"] = "init_game";
-  msg["data"] = {{"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, {"base_path", base_path_},
-    {"num_players", 2}};
   msg["data"]["mode"] = SelectInteger("Select mode", true, mapping, {mapping.size()+1}, "Mode not available");
+  // If host, then also select number of players.
+  if (msg["data"]["mode"] == MULTI_PLAYER) {
+    mapping = {
+      {0, {"2 players", COLOR_AVAILIBLE}}, 
+      {1, {"3 players", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
+      {2, {"4 players", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
+    };
+    msg["data"]["num_players"] = 2 + SelectInteger("Select number of players", true, 
+        mapping, {mapping.size()+1}, "Max 4 players!");
+  }
 }
 
 void ClientGame::m_SelectAudio(nlohmann::json& msg) {
@@ -230,6 +295,22 @@ void ClientGame::m_GameEnd(nlohmann::json& msg) {
   drawrer_.ClearField();
   drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"]);
   getch();
+  msg = nlohmann::json();
+}
+
+void ClientGame::m_SelectPosition(nlohmann::json& msg) {
+  std::vector<position_t> positions = msg["data"]["positions"];
+  int unit = msg["data"]["unit"];
+  int range = msg["data"]["range"];
+  if (positions.size() == 1) {
+    current_context_ = CONTEXT_FIELD;
+    contexts_.at(current_context_).set_current_unit(unit);
+    drawrer_.set_viewpoint(CONTEXT_FIELD);
+    drawrer_.set_field_start_pos(positions.front());
+    drawrer_.set_range({positions.front(), range});
+    drawrer_.set_msg("Select position where to build " + units_tech_name_mapping.at(unit) 
+        + " (use [t] to return to normal mode)");
+  }
   msg = nlohmann::json();
 }
 

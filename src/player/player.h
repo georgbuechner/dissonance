@@ -47,6 +47,7 @@ class Player {
      * @param[in] resource_positions (map of positions for each resource).
      */
     Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen);
+    virtual ~Player() {}
 
     // getter:
     std::map<std::string, Potential> potential();
@@ -56,11 +57,16 @@ class Player {
 
     std::map<int, Transfer::Resource> t_resources();
     std::map<int, Transfer::Technology> t_technologies();
+    std::vector<Player*> enemies();
 
     // setter
     void set_enemies(std::vector<Player*> enemies);
 
     // methods:
+    
+    std::map<position_t, int> GetEpspAtPosition();
+    std::map<position_t, int> GetIpspAtPosition();
+
     /** 
      * Gets the position of the closet neuron of a specific type to a given position.
      * @param[in] pos 
@@ -160,11 +166,6 @@ class Player {
      */
     choice_mapping_t GetOptionsForSynapes(position_t pos);
    
-    /**
-     * Show current status (resources, gatherers, den-lp ...)
-     */
-    std::vector<std::string> GetCurrentStatusLine();
-
     /** 
      * Increases all resources by a the current boast*gain*negative-faktor.
      * gain is calculated as: `|log(current-oxygen+0.5)|`

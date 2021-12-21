@@ -190,8 +190,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, c
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], data["num_players"], 
-        data["base_path"], this);
+    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], 2, data["base_path"], this);
     SendMessage(id, nlohmann::json({{"command", "select_audio"}, {"data", nlohmann::json()}}).dump());
   }
   else if (data["mode"] == MULTI_PLAYER) {
@@ -213,6 +212,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, c
         found_game = true;
         break;
       }
+      SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", {{"msg", "Waiting for other players"}} }}).dump());
     }
     if (!found_game) {
       SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", {{"msg", "No Game Found"}} }}).dump());

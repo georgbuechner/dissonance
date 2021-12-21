@@ -61,6 +61,7 @@ class ClientGame {
 
     std::map<int, Context> contexts_;
     int current_context_;
+    std::vector<char> history_;
 
     std::vector<std::string> audio_paths_; 
 
@@ -104,10 +105,17 @@ class ClientGame {
     void h_Quit(int);
     void h_MoveSelectionUp(int);
     void h_MoveSelectionDown(int);
+    void h_MoveSelectionLeft(int);
+    void h_MoveSelectionRight(int);
     void h_ChangeViewPoint(int);
     void h_AddIron(int);
     void h_RemoveIron(int);
     void h_AddTech(int);
+    void h_Build(int);
+    void h_BuildActivatedNeuron(int);
+    void h_BuildSynapse(int);
+    void h_BuildEpsp(int);
+    void h_BuildIpsp(int);
 
     // command methods
 
@@ -122,6 +130,7 @@ class ClientGame {
     void m_SetMsg(nlohmann::json&);
     void m_GameStart(nlohmann::json&);
     void m_GameEnd(nlohmann::json&);
+    void m_SelectPosition(nlohmann::json&);
 };
 
 #endif

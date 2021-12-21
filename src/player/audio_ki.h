@@ -11,6 +11,7 @@
 class AudioKi : public Player {
   public:
     AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen);
+    ~AudioKi() {};
 
     // getter 
     

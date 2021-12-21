@@ -38,11 +38,16 @@ class Context {
     // getter
 
     std::string msg() { return msg_; }
+    int current_unit() { return current_unit_; }
     EventManager<char, ClientGame, int>& eventmanager() { return eventmanager_; }
+
+    // setter 
+    void set_current_unit(int unit) { current_unit_ = unit; }
 
   private:
     EventManager<char, ClientGame, int> eventmanager_;
     std::string msg_;
+    int current_unit_;
 };
 
 #endif

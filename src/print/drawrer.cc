@@ -2,6 +2,7 @@
 #include "constants/codes.h"
 #include "curses.h"
 #include "objects/transfer.h"
+#include "objects/units.h"
 #include "spdlog/spdlog.h"
 #include "utils/utils.h"
 #include <mutex>
@@ -11,12 +12,14 @@
 #define SIDE_COLUMN_WIDTH 30
 #define BORDER_LINES 2 
 
+#define VP_FIELD 0
 #define VP_RESOURCE 1
 #define VP_TECH 2
 
 Drawrer::Drawrer() {
   cur_view_point_ = VP_RESOURCE;
   cur_selection_ = {
+    {VP_FIELD, {-1, -1, &ViewPoint::inc_field, &ViewPoint::to_string_field}},
     {VP_RESOURCE, {IRON, -1, &ViewPoint::inc_resource, &ViewPoint::to_string_resource}},
     {VP_TECH, {WAY, -1, &ViewPoint::inc_tech, &ViewPoint::to_string_tech}}
   };
@@ -31,6 +34,10 @@ int Drawrer::field_width() {
   return (c_resources_ - SIDE_COLUMN_WIDTH/2 - 3)/2;
 }
 
+position_t Drawrer::field_pos() {
+  return {cur_selection_.at(VP_FIELD).y_, cur_selection_.at(VP_FIELD).x_};
+}
+
 int Drawrer::GetResource() {
   if (cur_view_point_ != VP_RESOURCE)
     return -1;
@@ -43,8 +50,21 @@ int Drawrer::GetTech() {
   return cur_selection_.at(VP_TECH).x_;
 }
 
+void Drawrer::set_viewpoint(int viewpoint) {
+  cur_view_point_ = viewpoint;
+}
+
 void Drawrer::inc_cur_sidebar_elem(int value) {
   cur_selection_.at(cur_view_point_).inc(value);
+}
+
+void Drawrer::set_field_start_pos(position_t pos) {
+  cur_selection_.at(VP_FIELD).y_ = pos.first;
+  cur_selection_.at(VP_FIELD).x_ = pos.second;
+}
+
+void Drawrer::set_range(std::pair<position_t, int> range) {
+  cur_selection_.at(VP_FIELD).range_ = range;
 }
 
 int Drawrer::next_viewpoint() {
@@ -130,7 +150,7 @@ void Drawrer::PrintGame(bool only_field, bool only_side_column) {
   std::unique_lock ul(mutex_print_field_);
   if (stop_render_ || !transfer_.initialized()) 
     return;
-  PrintHeader(transfer_.players());
+  PrintHeader(transfer_.audio_played(), transfer_.players());
   if (!only_side_column)
     PrintField(transfer_.field());
   if (!only_field)
@@ -140,16 +160,28 @@ void Drawrer::PrintGame(bool only_field, bool only_side_column) {
   refresh();
 }
 
-void Drawrer::PrintHeader(const std::string& players) {
+void Drawrer::PrintHeader(float audio_played, const std::string& players) {
   PrintCenteredLine(l_headline_, "DISSONANCE");
   PrintCenteredLine(l_headline_+1, players);
+
+  unsigned int length = (c_resources_ - c_field_ - 20) * audio_played;
+  for (unsigned int i=0; i<length; i++)
+    mvaddstr(l_audio_, c_field_+10+i, "x");
 }
 
 void Drawrer::PrintField(const std::vector<std::vector<Transfer::Symbol>>& field) {
   spdlog::get(LOGGER)->info("Drawrer::PrintField");
+  position_t sel = field_pos();
+  auto range = cur_selection_.at(VP_FIELD).range_;
+
   for (unsigned int l=0; l<field.size(); l++) {
     for (unsigned int c=0; c<field[l].size(); c++) {
-      attron(COLOR_PAIR(field[l][c].color_));
+      if (cur_view_point_ == VP_FIELD && l == (unsigned int)sel.first && c == (unsigned int)sel.second)
+        attron(COLOR_PAIR(COLOR_AVAILIBLE));
+      else if (cur_view_point_ == VP_FIELD && utils::Dist({l, c}, range.first) <= range.second)
+        attron(COLOR_PAIR(COLOR_SUCCESS));
+      else
+        attron(COLOR_PAIR(field[l][c].color_));
       mvaddstr(l_main_+l, c_field_ + 2*c, field[l][c].symbol_.c_str());
       mvaddch(l_main_+l, c_field_ + 2*c+1, ' ' );
       attron(COLOR_PAIR(COLOR_DEFAULT));
