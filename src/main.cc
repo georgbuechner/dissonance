@@ -45,7 +45,7 @@ int main(int argc, const char** argv) {
     | lyra::opt(muli_player) ["-m"]["--muli-player"]("If set, starts a multi-player game.")
     | lyra::opt(standalone) ["-s"]["--standalone"]("If set, starts only server.")
     | lyra::opt(server_address, "format [ws://<url>:<port> | wss://<url>:<port>], default: wss://kava-i.de:4444") 
-        ["-c"]["--connect"]("specify address which to connect to.")
+        ["-z"]["--connect"]("specify address which to connect to.")
     | lyra::opt(log_level, "options: [warn, info, debug], default: \"warn\"") ["-l"]["--log_level"]("set log-level")
     | lyra::opt(base_path, "path to dissonance files") 
         ["-p"]["--base-path"]("Set path to dissonance files (logs, settings, data)");
