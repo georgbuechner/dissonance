@@ -3,24 +3,21 @@
 #include <cstdlib>
 #include <curses.h>
 #include <filesystem>
+#include <lyra/lyra.hpp>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
 #include <sstream>
 #include <stdlib.h>
-#include <lyra/lyra.hpp>
-#include "audio/audio.h"
-
 #include <spdlog/spdlog.h>
-#include "lyra/help.hpp"
-#include "server/websocket_server.h"
-
-#include "client/client.h"
-#include "client/client_game.h"
-
 #include "spdlog/common.h"
 #include "spdlog/sinks/basic_file_sink.h"
-#include "utils/utils.h"
+
+#include "share/audio/audio.h"
+#include "server/websocket/websocket_server.h"
+#include "client/websocket/client.h"
+#include "client/game/client_game.h"
+#include "share/tools/utils/utils.h"
 
 #define LOGGER "logger"
 #define ITERMAX 10000
@@ -80,7 +77,7 @@ int main(int argc, const char** argv) {
   }
   else if (log_level == "debug") {
     spdlog::set_level(spdlog::level::debug);
-    spdlog::flush_on(spdlog::level::info);
+    spdlog::flush_on(spdlog::level::debug);
     spdlog::flush_every(std::chrono::seconds(1));
   }
 
@@ -89,6 +86,8 @@ int main(int argc, const char** argv) {
     std::cout << "Enter your username: ";
     std::getline(std::cin, username);
   }
+
+  std::cout << "Base path: " << base_path << std::endl;
   
   // Initialize audio
   Audio::Initialize();
@@ -97,7 +96,7 @@ int main(int argc, const char** argv) {
   WebsocketServer* srv = new WebsocketServer(standalone);
   std::thread thread_server([srv, server_port, muli_player, standalone]() { 
     if (!muli_player) {
-      if (standalone) 
+      if (standalone)
         std::cout << "Server started on port: " << server_port << std::endl;
       srv->Start(server_port);
     }

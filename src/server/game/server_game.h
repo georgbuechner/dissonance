@@ -1,0 +1,195 @@
+#ifndef SRC_SERVER_GAME_H_
+#define SRC_SERVER_GAME_H_
+
+#define NCURSES_NOMACROS
+#include <cstddef>
+#include <curses.h>
+#include <mutex>
+#include <string>
+#include <stdio.h>
+#include <stdlib.h>
+#include <shared_mutex>
+#include <vector>
+
+#include "share/audio/audio.h"
+#include "share/constants/texts.h"
+#include "server/game/field/field.h"
+#include "server/game/player/audio_ki.h"
+#include "server/game/player/player.h"
+#include "share/objects/units.h"
+#include "share/tools/random/random.h"
+#include "share/tools/eventmanager.h"
+
+class WebsocketServer;
+
+class ServerGame {
+  public:
+    /** 
+     * Constructor initializing game with availible lines and columns.
+     * @param[in] lines availible lines.
+     * @param[in] cols availible cols
+     * @param[in] srv pointer to websocket-server, to send messages.
+     */
+    ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv);
+
+    // getter 
+    int status();
+    int mode();
+
+    // setter 
+    void set_status(int status);
+
+    // methods.
+
+    /**
+     * Adds new players and checks if game is ready to start.
+     * @param[in] username 
+     */
+    void AddPlayer(std::string username);
+
+    /**
+     * Handles input.
+     * @param[in] command
+     * @param[in] msg
+     * @return json to forward to user, if "command" is contained.
+     */
+    nlohmann::json HandleInput(std::string command, nlohmann::json msg);
+    
+    // Threads
+
+    /**
+     * Updates game status at every beat.
+     */
+    void Thread_RenderField();
+
+    /**
+     * Handles AI actions at every beat.
+     */
+    void Thread_Ai();
+
+  private: 
+    Field* field_;  ///< field 
+    std::map<std::string, Player*> players_;
+    Audio audio_;
+    WebsocketServer* ws_server_;
+    EventManager<std::string, ServerGame, nlohmann::json&> eventmanager_;
+
+    std::shared_mutex mutex_status_;  ///< mutex locked, when printing field.
+    int status_;
+
+    const int mode_; ///< SINGLE_PLAYER | MULTI_PLAYER | OBSERVER
+    const int lines_; 
+    const int cols_;
+
+    // methods
+
+    /**
+     * Starts game, sending start-game info with initial game data to all
+     * players.
+     */
+    void StartGame();
+
+    /**
+     * Gets map of all potentials in stacked format (ipsp: 1-9, epsp a-z) and
+     * "swallows" epsp if enemy ipsp is on same field.
+     * @return map of potentials in stacked format.
+     */
+    std::map<position_t, std::pair<std::string, int>> GetAndUpdatePotentials();
+
+    /**
+     * Create transfer data and sends it to all online players.
+     * @param[in] audio_played between 0 and 1 indicating song progress.
+     * @param[in] update indicating whether to send update or inital data. (default true)
+     */
+    void CreateAndSendTransferToAllPlaters(float audio_played, bool update=true);
+
+    /**
+     * Sends given message to all online players (ignoring AI). Possibilt to
+     * ignore a specific user.
+     * @param[in] message
+     * @param[in] ignore_username if set, this user is ignored (default: not set)
+     */
+    void SendMessageToAllPlayers(std::string msg, std::string ignore_username="");
+
+    /**
+     * Creates string of missing costs.
+     * @param[in] missing_costs
+     * @return string with missing resources, or empty string.
+     */
+    static std::string GetMissingResourceStr(Costs missing_costs);
+
+    /**
+     * If a enemy epsp is on same field as given ipsp, increase ipsp potential and decrease epsp 
+     * potential by one.
+     * @param[in] ipsp_pos position of ipsp in question.
+     * @param[in] player who "owns" ipsp.
+     * @param[in] list of enemies of given player.
+     */
+    static void IpspSwallow(position_t ipsp_pos, Player* player, std::vector<Player*> enemies);
+
+
+    // command methods
+
+    /**
+     * Analyzes audio and initialize game.
+     * @param[in, out] msg
+     */
+    void m_InitializeGame(nlohmann::json& data);
+
+    /**
+     * Adds iron
+     * @param[in, out] msg
+     */
+    void m_AddIron(nlohmann::json& msg);
+
+    /**
+     * Removes iron
+     * @param[in, out] msg
+     */
+    void m_RemoveIron(nlohmann::json& msg);
+
+    /**
+     * Adds technology
+     * @param[in, out] msg
+     */
+    void m_AddTechnology(nlohmann::json& msg);
+
+    /**
+     * Handles if a player resignes
+     * @param[in, out] msg
+     */
+    void m_Resign(nlohmann::json& msg);
+
+    /**
+     * Checks if resources (or other criteria) are met for building neuron.
+     * @param[in, out] msg
+     */
+    void m_CheckBuildNeuron(nlohmann::json& msg);
+
+    /**
+     * Checks if resources (or other criteria) are met for building potential.
+     * @param[in, out] msg
+     */
+    void m_CheckBuildPotential(nlohmann::json& msg);
+
+    /**
+     * Build neuron.
+     * @param[in, out] msg
+     */
+    void m_BuildNeurons(nlohmann::json& msg);
+
+    /**
+     * Select synapse
+     * @param[in, out] msg
+     */
+    void m_SelectSynapse(nlohmann::json& msg);
+
+    /**
+     * Build potential.
+     * @param[in, out] msg
+     */
+    void BuildPotentials(int unit, position_t pos, int num_potenials_to_build, std::string username, 
+        Player* player);
+};
+
+#endif
