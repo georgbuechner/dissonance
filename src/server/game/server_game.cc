@@ -32,6 +32,7 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   eventmanager_.AddHandler("check_build_potential", &ServerGame::m_CheckBuildPotential);
   eventmanager_.AddHandler("build_neuron", &ServerGame::m_BuildNeurons);
   eventmanager_.AddHandler("select_synapse", &ServerGame::m_SelectSynapse);
+  eventmanager_.AddHandler("toggle_swarm_attack", &ServerGame::m_SelectSynapse);
 }
 
 int ServerGame::status() {
@@ -180,6 +181,13 @@ void ServerGame::m_SelectSynapse(nlohmann::json& msg) {
         {"pos", synapses.front()}} }};
     else 
       msg = {{"command", "select_position_synapse"}, {"data", {{"positions", synapses}} }};
+  }
+}
+
+void ServerGame::m_ToggleSwarmAttack(nlohmann::json& msg) {
+  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  if (player) {
+    player->SwitchSwarmAttack(msg["data"]["pos"]);
   }
 }
 

@@ -185,6 +185,12 @@ class ServerGame {
     void m_SelectSynapse(nlohmann::json& msg);
 
     /**
+     * Select synapse
+     * @param[in, out] msg
+     */
+    void m_ToggleSwarmAttack(nlohmann::json& msg);
+
+    /**
      * Build potential.
      * @param[in, out] msg
      */

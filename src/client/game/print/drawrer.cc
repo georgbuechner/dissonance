@@ -42,7 +42,8 @@ int Drawrer::GetTech() {
 }
 
 void Drawrer::set_viewpoint(int viewpoint) {
-  cur_view_point_ = viewpoint;
+  if (viewpoint <= 2)
+    cur_view_point_ = viewpoint;
 }
 
 void Drawrer::inc_cur_sidebar_elem(int value) {

@@ -304,25 +304,25 @@ void ClientGame::h_SetWP(int) {
 
 void ClientGame::h_AddWP(int) {
   nlohmann::json response = {{"command", "add_way_point"}, {"username", username_}, {"data",
-    nlohmann::json()}};
+    {{"pos", contexts_.at(current_context_).current_pos()}} }};
   ws_srv_->SendMessage(response.dump());
 }
 
 void ClientGame::h_EpspTarget(int) {
   nlohmann::json response = {{"command", "set_epsp_target"}, {"username", username_}, {"data",
-    nlohmann::json()}};
+    {{"pos", contexts_.at(current_context_).current_pos()}} }};
   ws_srv_->SendMessage(response.dump());
 }
 
 void ClientGame::h_IpspTarget(int) {
   nlohmann::json response = {{"command", "set_ipsp_target"}, {"username", username_}, {"data",
-    nlohmann::json()}};
+    {{"pos", contexts_.at(current_context_).current_pos()}} }};
   ws_srv_->SendMessage(response.dump());
 }
 
 void ClientGame::h_SwarmAttack(int) {
   nlohmann::json response = {{"command", "toggle_swarm_attack"}, {"username", username_}, {"data",
-    nlohmann::json()}};
+    {{"pos", contexts_.at(current_context_).current_pos()}} }};
   ws_srv_->SendMessage(response.dump());
 }
 
@@ -454,8 +454,9 @@ void ClientGame::m_ChangeContext(nlohmann::json& msg) {
   spdlog::get(LOGGER)->debug("ClientGame::m_ChangeContext");
   current_context_ = msg["data"]["context"];
   spdlog::get(LOGGER)->debug("ClientGame::m_ChangeContext: changed context to {}", current_context_);
+  // Add data to context.
   if (msg["data"].contains("pos"))
-    contexts_.at(current_context_).set_current_pos(msg["data"]["pos"]);
+    contexts_.at(current_context_).set_current_pos(utils::PositionFromVector(msg["data"]["pos"]));
   if (msg["data"].contains("range"))
     contexts_.at(current_context_).set_current_range(msg["data"]["range"]);
   if (msg["data"].contains("unit"))
@@ -464,7 +465,6 @@ void ClientGame::m_ChangeContext(nlohmann::json& msg) {
   drawrer_.set_viewpoint(current_context_);
   drawrer_.PrintGame(false, false);
   drawrer_.set_msg(contexts_.at(current_context_).msg());
-
 }
 
 // Selection methods
