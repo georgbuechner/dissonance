@@ -253,6 +253,7 @@ void Drawrer::PrintField() {
 void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources,
     const std::map<int, Transfer::Technology>& technologies) {
   mvaddstr(l_main_, c_resources_, "RESOURCES");
+  int inc = (static_cast<int>(resources.size()*2 + technologies.size()*2+4) > field_height()) ? 1 : 2;
   unsigned int counter = 2;
   for (const auto& it : resources) {
     if (cur_selection_.at(VP_RESOURCE).x_ == it.first)
@@ -262,7 +263,7 @@ void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources
     std::string str = resources_name_mapping.at(it.first) + ": " + it.second.value_;
     mvaddstr(l_main_ + counter, c_resources_, str.c_str());
     attron(COLOR_PAIR(COLOR_DEFAULT));
-    counter += 2;
+    counter += inc;
   }
   counter += 2;
   mvaddstr(l_main_ + counter, c_resources_, "TECHNOLOGIES");
@@ -275,7 +276,7 @@ void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources
     std::string str = units_tech_name_mapping.at(it.first) + " (" + it.second.cur_ + "/" + it.second.max_ + ")";
     mvaddstr(l_main_ + counter, c_resources_, str.c_str());
     attron(COLOR_PAIR(COLOR_DEFAULT));
-    counter += 2;
+    counter += inc;
   }
 }
 
