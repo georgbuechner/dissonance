@@ -22,6 +22,7 @@
 
 enum GameStatus {
   WAITING = 0,
+  WAITING_FOR_PLAYERS,
   SETTING_UP,
   RUNNING,
   CLOSING,

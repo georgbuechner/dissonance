@@ -177,6 +177,8 @@ class Drawrer {
     int l_main_;  ///< start of main-content
     int l_message_;  ///< start of quick-message
     int l_bottom_;  ///< start of footer
+    int extra_height_;  ///< modifies start of field y-coordinate, if size is smaller that screen resolution suggests.
+    int extra_width_;  ///< modifies start of field x-coordinate, if size is smaller that screen resolution suggests.
 
     // start-cols 
     int c_tech_;  ///< start technologies

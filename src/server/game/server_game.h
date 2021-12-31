@@ -45,7 +45,7 @@ class ServerGame {
      * Adds new players and checks if game is ready to start.
      * @param[in] username 
      */
-    void AddPlayer(std::string username);
+    void AddPlayer(std::string username, int lines, int cols);
 
     /**
      * Handles input.
@@ -69,7 +69,9 @@ class ServerGame {
 
   private: 
     Field* field_;  ///< field 
+    std::shared_mutex mutex_players_;
     std::map<std::string, Player*> players_;
+    const unsigned int num_players_;
     Audio audio_;
     WebsocketServer* ws_server_;
     EventManager<std::string, ServerGame, nlohmann::json&> eventmanager_;
@@ -78,8 +80,8 @@ class ServerGame {
     int status_;
 
     const int mode_; ///< SINGLE_PLAYER | MULTI_PLAYER | OBSERVER
-    const int lines_; 
-    const int cols_;
+    int lines_; 
+    int cols_;
 
     // methods
 

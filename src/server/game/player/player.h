@@ -38,17 +38,6 @@ class Player {
      */
     Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color);
 
-    /**
-     * Constructor initializing all resources and gatherers with defaul values
-     * and creates den with given position.
-     * @param[in] nucleus_pos position of player's nucleus.
-     * @param[in] field.
-     * @param[in] ran_gen (random number generator).
-     * @param[in] color (random number generator).
-     */
-    Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color, 
-        std::map<int, Resource> resources);
-
     virtual ~Player() {}
 
     // getter:

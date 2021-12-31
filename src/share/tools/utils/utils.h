@@ -116,20 +116,6 @@ namespace utils {
   std::string Dtos(double value, unsigned int precision=2);
 
   /**
-   * Slices vector from `begin` to `begin+len`.
-   * @param[in] begin
-   * @param[in] len
-   * @return slices vector.
-   */
-  template<class T>
-  std::vector<T> SliceVector(std::vector<T> in_vec, unsigned int begin, unsigned int len) {
-    std::vector<T> out_vec;
-    for (unsigned int i=begin; i<begin+len && i<in_vec.size(); i++)
-      out_vec.push_back(in_vec[i]);
-    return out_vec;
-  }
-  
-  /**
    * Creates id in format: [type][random(0, 9) x 39].
    * @param[in] type
    * @return id in format: [type][random(0, 9) x 39].
@@ -168,6 +154,28 @@ namespace utils {
 
   void WaitABit(int milliseconds);
 
+  /**
+   * Slices vector from `begin` to `begin+len`.
+   * @param[in] begin
+   * @param[in] len
+   * @return slices vector.
+   */
+  template<class T>
+  std::vector<T> SliceVector(std::vector<T> in_vec, unsigned int begin, unsigned int len) {
+    std::vector<T> out_vec;
+    for (unsigned int i=begin; i<begin+len && i<in_vec.size(); i++)
+      out_vec.push_back(in_vec[i]);
+    return out_vec;
+  }
+
+  template<class K, class V>
+  std::vector<V> MapToVec(std::map<K, V>& m) {
+    std::vector<V> v;
+    for (const auto& it : m) 
+      v.push_back(it.second);
+    return v;
+  }
+  
   template<class T>
   int Index(std::list<T> list, T elem) {
     auto it = std::find(list.begin(), list.end(), elem);

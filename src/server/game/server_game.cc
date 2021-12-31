@@ -11,17 +11,14 @@
 
 #include "spdlog/spdlog.h"
 
+#include <algorithm>
 #include <cctype>
+#include <mutex>
 #include <thread>
 #include <unistd.h>
 
 ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv) 
-    : audio_(base_path), ws_server_(srv), status_(WAITING), mode_(mode), lines_(lines), cols_(cols) {
-
-  // initialize players
-  for (int i=0; i<num_players; i++) 
-    players_[std::to_string(i)] = nullptr;
-
+    : num_players_(num_players), audio_(base_path), ws_server_(srv), status_(WAITING), mode_(mode), lines_(lines), cols_(cols) {
   // Initialize eventmanager.
   eventmanager_.AddHandler("initialize_game", &ServerGame::m_InitializeGame);
   eventmanager_.AddHandler("add_iron", &ServerGame::m_AddIron);
@@ -48,19 +45,23 @@ void ServerGame::set_status(int status) {
   status_ = status;
 }
 
-void ServerGame::AddPlayer(std::string username) {
-  std::string player_position = "";
-  int missing_players = 0;
-  for (const auto& it : players_) {
-    if (std::isdigit(it.first.front())) {
-      player_position = it.first;
-      missing_players++;
-    }
+void ServerGame::AddPlayer(std::string username, int lines, int cols) {
+  std::unique_lock ul(mutex_players_);
+  spdlog::get(LOGGER)->info("ServerGame::AddPlayer: {}", username);
+  // Check is free slots in lobby.
+  if (players_.size() < num_players_) {
+    spdlog::get(LOGGER)->debug("ServerGame::AddPlayer: adding user.");
+    players_[username] = nullptr;
+    // Adjust field size and width
+    lines_ = (lines < lines_) ? lines : lines_;
+    cols_ = (cols < cols_) ? cols : cols_;
   }
-  players_[username] = players_[player_position];
-  players_.erase(player_position);
-  if (missing_players == 1)
+  // Only start game if status is still waiting, to avoid starting game twice.
+  if (players_.size() >= num_players_ && status_ == WAITING_FOR_PLAYERS) {
+    spdlog::get(LOGGER)->debug("ServerGame::AddPlayer: starting game.");
+    ul.unlock();
     StartGame();
+  }
 }
 
 nlohmann::json ServerGame::HandleInput(std::string command, nlohmann::json msg) {
@@ -217,101 +218,92 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Selected path: {}", source_path);
   audio_.set_source_path(source_path);
   audio_.Analyze();
-  auto intervals_ = audio_.analysed_data().intervals_;
 
-  // Build field.
-  RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
-  RandomGenerator* map_1 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_boolean_minor_interval);
-  RandomGenerator* map_2 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_level_peaks);
-  int denceness = 0;
-  bool setup = false;
-  std::vector<position_t> nucleus_positions;
-  std::vector<std::map<int, position_t>> resource_positions;
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: creating map {} {} ", setup, denceness);
-  while (!setup && denceness < 5) {
-    spdlog::get(LOGGER)->info("ServerGame::InitializeGame: creating map try: {}", denceness);
+  // Add host to players.
+  players_[username] = nullptr;
 
-    spdlog::get(LOGGER)->debug("ServerGame::InitializeGame: creating hills}");
-    field_ = new Field(lines_, cols_, ran_gen);
-    field_->AddHills(map_1, map_2, denceness++);
-    
-    // Create a nucleus for each player.
-    for (unsigned int i=0; i<players_.size(); i++) {
-      int section = (intervals_[i].darkness_ + intervals_[i].notes_out_key_) % 8 + 1;
-      nucleus_positions.push_back(field_->AddNucleus(section));
-    }
-    spdlog::get(LOGGER)->debug("ServerGame::InitializeGame: builing graph...");
-
-    // Build graph.
-    try {
-      field_->BuildGraph(nucleus_positions);
-      setup = true;
-    } catch (std::logic_error& e) {
-      spdlog::get(LOGGER)->warn("Game::play: graph could not be build: {}", e.what());
-      field_ = NULL;
-      continue;
-    }
-  }
-  if (!setup) {
-    msg["command"] = "print_msg";
-    msg["data"] = {{"msg", "Game cannot be played with this song, as map is unplayable. "
-        "It might work with a higher resolution. (dissonance -r)"}};
-    return;
-  }
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: successfully created map.");
-
-  // Setup players.
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Creating {} players", nucleus_positions.size());
-  for (unsigned int i=0; i<nucleus_positions.size(); i++) {
-    int color = ((i % 2) == 0) ? COLOR_PLAYER : COLOR_KI;
-    std::string id = std::to_string(i);
-    players_[id] = new Player(nucleus_positions[i], field_, ran_gen, color);
-  }
-  
-  // For host player, replace key with username.
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Changing key for host player.");
-  players_[username] = players_["0"];
-  players_.erase("0");
-
-  // If single-player replace Player with AudioAI
+  // If SINGLE_PLAYER, add AI to players.
   if (mode_ == SINGLE_PLAYER) {
-    spdlog::get(LOGGER)->info("ServerGame::InitializeGame: SINGLE_PLAYER! changing player two to AI!");
-    players_["AI"] = new AudioKi(nucleus_positions[1], field_, &audio_, ran_gen, players_["1"]->resources());
-    delete players_["1"];
-    players_.erase("1");
-  }
-
-  // Pass all players a vector of all enemies.
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Setting enemies for each player");
-  for (const auto& it : players_) {
-    std::vector<Player*> enemies;
-    for (const auto& jt : players_) {
-      if (jt.first != it.first)
-        enemies.push_back(jt.second);
-    }
-    it.second->set_enemies(enemies);
-  }
-
-  if (mode_ == SINGLE_PLAYER) {
-    spdlog::get(LOGGER)->info("ServerGame::InitializeGame: SINGLE_PLAYER: settup AI tactics");
-    // Setup audio-ki
-    players_.at("AI")->SetUpTactics(true); 
-    players_.at("AI")->DistributeIron(Resources::OXYGEN);
-    players_.at("AI")->DistributeIron(Resources::OXYGEN);
-    players_.at("AI")->HandleIron(audio_.analysed_data().data_per_beat_.front());
-    // Start game
+    players_["AI"] = nullptr;
     StartGame();
-    msg = nlohmann::json(); // don't forward message (message is sent in StartGame routine)
   }
+  // Otherwise send info "waiting for players" to host.
   else {
-    spdlog::get(LOGGER)->info("ServerGame::InitializeGame: MULTI_PLAYER: print: waiting for players");
+    status_ = WAITING_FOR_PLAYERS;
     msg["command"] = "print_msg";
     msg["data"] = {{"msg", "Wainting for players..."}};
   }
 }
 
 void ServerGame::StartGame() {
-  // Start to main threads
+  // Build field.
+  RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
+  RandomGenerator* map_1 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_boolean_minor_interval);
+  RandomGenerator* map_2 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_level_peaks);
+  auto intervals_ = audio_.analysed_data().intervals_;
+  int denceness = 0;
+  std::vector<position_t> nucleus_positions;
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: creating map {} ", denceness);
+  while (nucleus_positions.size() == 0 && denceness < 5) {
+    spdlog::get(LOGGER)->info("ServerGame::InitializeGame: creating map try: {}", denceness);
+    spdlog::get(LOGGER)->debug("ServerGame::InitializeGame: creating hills}");
+    // Create field with hills
+    field_ = new Field(lines_, cols_, ran_gen);
+    field_->AddHills(map_1, map_2, denceness++);
+    // Create a nucleus for each player.
+    for (unsigned int i=0; i<num_players_; i++) {
+      int section = (intervals_[i].darkness_ + intervals_[i].notes_out_key_) % 8 + 1;
+      nucleus_positions.push_back(field_->AddNucleus(section));
+    }
+    spdlog::get(LOGGER)->debug("ServerGame::InitializeGame: builing graph...");
+    // Build graph.
+    try {
+      field_->BuildGraph(nucleus_positions);
+    } catch (std::logic_error& e) {
+      spdlog::get(LOGGER)->warn("Game::play: graph could not be build: {}", e.what());
+      field_ = nullptr;
+      nucleus_positions.clear();
+      continue;
+    }
+  }
+  if (!field_) {
+    nlohmann::json msg = {{"command", "print_msg"}, {"data", {{"msg", 
+      "Game cannot be played with this song, as map is unplayable. "
+      "It might work with a higher resolution. (dissonance -r)"}} }};
+    SendMessageToAllPlayers(msg.dump());
+    return;
+  }
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: successfully created map.");
+
+  // Setup players.
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Creating {} players", nucleus_positions.size());
+  unsigned int counter = 0;
+  for (const auto& it : players_) {
+    int color = ((counter % 2) == 0) ? COLOR_PLAYER : COLOR_KI;
+    if (it.first == "AI") {
+      players_[it.first] = new AudioKi(nucleus_positions[1], field_, &audio_, ran_gen);
+      // Setup audio-ki
+      spdlog::get(LOGGER)->info("ServerGame::InitializeGame: SINGLE_PLAYER: settup AI tactics");
+      players_.at("AI")->SetUpTactics(true); 
+      players_.at("AI")->DistributeIron(Resources::OXYGEN);
+      players_.at("AI")->DistributeIron(Resources::OXYGEN);
+      players_.at("AI")->HandleIron(audio_.analysed_data().data_per_beat_.front());
+    }
+    else 
+      players_[it.first] = new Player(nucleus_positions[counter], field_, ran_gen, color);
+    counter++;
+  }
+  // Pass all players a vector of all enemies.
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Setting enemies for each player");
+  for (const auto& it : players_) {
+    std::vector<Player*> enemies;
+    for (const auto& jt : players_) {
+      if (jt.first != it.first) enemies.push_back(jt.second);
+    }
+    it.second->set_enemies(enemies);
+  }
+
+  // Start two main threads.
   status_ = SETTING_UP;
   // If single-player, start ai.
   if (mode_ == SINGLE_PLAYER) {
@@ -515,6 +507,7 @@ std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotent
 }
 
 void ServerGame::CreateAndSendTransferToAllPlaters(float audio_played, bool update) {
+  spdlog::get(LOGGER)->debug("ServerGame::CreateAndSendTransferToAllPlaters: {}, {}", audio_played, update);
   // Create player agnostic transfer-data
   Transfer transfer;
   std::map<std::string, std::string> players_status;

@@ -71,12 +71,19 @@ void Drawrer::set_msg(std::string msg) {
 void Drawrer::set_transfer(nlohmann::json& data) {
   transfer_ = Transfer(data);
   field_ = transfer_.field();
+
+  // Adjust start-point of field if game size is smaller than resolution suggests.
+  unsigned int cur_height = field_height();
+  unsigned int cur_width = field_width();
+  extra_height_ = (cur_height > field_.size()) ? (cur_height-field_.size())/2 : 0;
+  extra_width_ = (cur_width > field_[0].size()) ? cur_width-field_[0].size() : 0;
 }
 
 void Drawrer::set_stop_render(bool stop) {
   std::unique_lock ul(mutex_print_field_);
   stop_render_ = stop;
 }
+
 void Drawrer::AddMarker(position_t pos, std::string symbol, int color) {
   std::unique_lock ul(mutex_print_field_);
   markers_[pos] = {symbol, color};
@@ -238,13 +245,13 @@ void Drawrer::PrintField() {
       // Print symbol or marker
       if (markers_.count(cur) > 0) {
         attron(COLOR_PAIR(markers_.at(cur).second));
-        mvaddstr(l_main_+l, c_field_ + 2*c, markers_.at(cur).first.c_str());
+        mvaddstr(l_main_+extra_height_+l, c_field_+extra_width_+2*c, markers_.at(cur).first.c_str());
       }
       else 
-        mvaddstr(l_main_+l, c_field_ + 2*c, field_[l][c].symbol_.c_str());
+        mvaddstr(l_main_+extra_height_+l, c_field_+extra_width_+2*c, field_[l][c].symbol_.c_str());
       
       // Add extra with space for map shape and change color back to default.
-      mvaddch(l_main_+l, c_field_ + 2*c+1, ' ' );
+      mvaddch(l_main_+extra_height_+l, c_field_+extra_width_+ 2*c+1, ' ' );
       attron(COLOR_PAIR(COLOR_DEFAULT));
     }
   }

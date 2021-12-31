@@ -194,13 +194,14 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, c
     std::unique_lock ul(shared_mutex_games_);
     bool found_game = false;
     for (const auto& it : games_) {
-      if (it.second->status() == WAITING && it.second->mode() == MULTI_PLAYER) {
+      if (it.second->status() == WAITING_FOR_PLAYERS) {
         username_game_id_mapping_[username] = it.first;  // Add username to mapping, to find matching game.
-        it.second->AddPlayer(username); // Add user to game.
+        it.second->AddPlayer(username, data["lines"], data["cols"]); // Add user to game.
         found_game = true;
+        SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", 
+              {{"msg", "Waiting for other players"}}}}).dump());
         break;
       }
-      SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", {{"msg", "Waiting for other players"}} }}).dump());
     }
     if (!found_game) {
       SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", {{"msg", "No Game Found"}} }}).dump());
@@ -238,7 +239,7 @@ void WebsocketServer::h_CloseGame(connection_id id, std::string username, const 
   std::shared_lock ul(shared_mutex_games_);
   if (game->status() < CLOSING) {
     spdlog::get(LOGGER)->debug("Telling game to close.");
-    if (game->status() == WAITING)
+    if (game->status() == WAITING || game->status() == WAITING_FOR_PLAYERS)
       game->set_status(CLOSED);
     else 
       game->set_status(CLOSING);
@@ -308,6 +309,7 @@ std::vector<std::string> WebsocketServer::GetPlayingUsers(std::string username) 
 }
 
 void WebsocketServer::SendMessage(std::string username, std::string msg) {
+  spdlog::get(LOGGER)->debug("WebsocketFrame::SendMessage: username {}", username);
   SendMessage(GetConnectionIdByUsername(username), msg);
 }
 

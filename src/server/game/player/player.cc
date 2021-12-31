@@ -52,29 +52,6 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
   };
 }
 
-Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color,
-    std::map<int, Resource> resources) : cur_range_(4), color_(color), resource_slowdown_(3) {
-  field_ = field;
-  ran_gen_ = ran_gen;
-
-  neurons_[nucleus_pos] = std::make_unique<Nucleus>(nucleus_pos);
-  resources_ = resources;
-  
-  technologies_ = {
-    {UnitsTech::WAY, {0,3}},
-    {UnitsTech::SWARM, {0,3}},
-    {UnitsTech::TARGET, {0,2}},
-    {UnitsTech::TOTAL_RESOURCE, {0,3}},
-    {UnitsTech::CURVE, {0,3}},
-    {UnitsTech::ATK_POTENIAL, {0,3}},
-    {UnitsTech::ATK_SPEED, {0,3}},
-    {UnitsTech::ATK_DURATION, {0,3}},
-    {UnitsTech::DEF_POTENTIAL, {0,3}},
-    {UnitsTech::DEF_SPEED, {0,3}},
-    {UnitsTech::NUCLEUS_RANGE, {0,3}},
-  };
-}
-
 // getter 
 std::map<std::string, Potential> Player::potential() { 
   std::shared_lock sl(mutex_potentials_);

@@ -15,12 +15,9 @@
 #include <shared_mutex>
 #include <vector>
 
-AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen,
-    std::map<int, Resource> resources) 
-  : Player(nucleus_pos, field, ran_gen, COLOR_KI, resources), 
-    average_bpm_(audio->analysed_data().average_bpm_), 
-    average_level_(audio->analysed_data().average_level_) 
-{
+AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen) 
+  : Player(nucleus_pos, field, ran_gen, COLOR_KI), average_bpm_(audio->analysed_data().average_bpm_), 
+    average_level_(audio->analysed_data().average_level_) {
   audio_ = audio;
   max_activated_neurons_ = 3;
   nucleus_pos_ = nucleus_pos;
