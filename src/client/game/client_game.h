@@ -100,29 +100,26 @@ class ClientGame {
      */
     std::string InputString(std::string msg);
 
-    void h_Quit(int);
-    void h_MoveSelectionUp(int);
-    void h_MoveSelectionDown(int);
-    void h_MoveSelectionLeft(int);
-    void h_MoveSelectionRight(int);
-    void h_ChangeViewPoint(int);
-    void h_AddIron(int);
-    void h_RemoveIron(int);
-    void h_AddTech(int);
-    void h_BuildNeuron(int);
-    void h_BuildActivatedNeuron(int);
-    void h_SendSelectSynapse(int);
-    void h_BuildSynapse(int);
-    void h_BuildEpsp(int);
-    void h_BuildIpsp(int);
-    void h_SelectNeuron(int);
-    void h_SelectSynapse(int);
+    void h_Quit(nlohmann::json&);
+    void h_MoveSelectionUp(nlohmann::json&);
+    void h_MoveSelectionDown(nlohmann::json&);
+    void h_MoveSelectionLeft(nlohmann::json&);
+    void h_MoveSelectionRight(nlohmann::json&);
+    void h_ChangeViewPoint(nlohmann::json&);
+    void h_AddIron(nlohmann::json&);
+    void h_RemoveIron(nlohmann::json&);
+    void h_AddTech(nlohmann::json&);
+    void h_SendSelectSynapse(nlohmann::json&);
+    void h_BuildEpsp(nlohmann::json&);
+    void h_BuildIpsp(nlohmann::json&);
+    void h_SelectNeuron(nlohmann::json&);
+    void h_SelectSynapse(nlohmann::json&);
 
-    void h_SetWP(int);
-    void h_AddWP(int);
-    void h_EpspTarget(int);
-    void h_IpspTarget(int);
-    void h_SwarmAttack(int);
+    void h_SetWP(nlohmann::json&);
+    void h_AddWP(nlohmann::json&);
+    void h_EpspTarget(nlohmann::json&);
+    void h_IpspTarget(nlohmann::json&);
+    void h_SwarmAttack(nlohmann::json&);
 
     void BuildPotential(position_t pos, int unit, int num);
 
@@ -144,6 +141,12 @@ class ClientGame {
     void m_SetUnit(nlohmann::json&);
     void m_SetUnits(nlohmann::json&);
     void m_ChangeContext(nlohmann::json&);
+
+    void m_BuildNeuron(nlohmann::json&);
+
+    void CreatePickContext(std::vector<position_t> positions, std::string msg, 
+        void(ClientGame::*handler)(nlohmann::json&), nlohmann::json data);
+    void SwitchPickToFieldContext(position_t pos, void(ClientGame::*handler)(nlohmann::json&), nlohmann::json data);
 };
 
 #endif

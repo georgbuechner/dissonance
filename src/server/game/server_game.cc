@@ -114,9 +114,15 @@ void ServerGame::m_CheckBuildNeuron(nlohmann::json& msg) {
   Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
   if (player) {
     std::string missing = GetMissingResourceStr(player->GetMissingResources(unit));
-    if (missing == "")
-      msg = {{"command", "select_position"}, {"data", {{"unit", unit}, {"positions", 
-        player->GetAllPositionsOfNeurons(NUCLEUS)}, {"range", player->cur_range()}} }}; 
+    std::vector<position_t> positions = player->GetAllPositionsOfNeurons(NUCLEUS);
+    // Can be build (enough resources) and start-position for selecting pos is known (only one nucleus)
+    if (missing == "" && positions.size() == 1)
+      msg = {{"command", "build_neuron"}, {"data", {{"unit", unit}, {"start_pos", positions.front()}, 
+        {"range", player->cur_range()}} }}; 
+    // Can be build (enough resources) and start-position for selecting pos is unknown (multiple nucleus)
+    else if (missing == "") 
+      msg = {{"command", "build_neuron"}, {"data", {{"unit", unit}, {"positions", positions}, 
+        {"range", player->cur_range()}} }}; 
     else 
       msg = {{"command", "set_msg"}, {"data", {{"msg", "Not enough resource! missing: " + missing}}}};
   }

@@ -7,6 +7,7 @@
 #include "share/defines.h"
 #include "share/objects/units.h"
 #include "share/objects/transfer.h"
+#include "share/tools/context.h"
 #include "share/tools/eventmanager.h"
 #include "share/tools/utils/utils.h"
 
@@ -17,6 +18,7 @@
 #include <string>
 #include <unistd.h>
 #include <utility>
+#include <vector>
 
 #define CONTEXT_RESOURCES_MSG "Distribute (+)/ remove (-) iron to handler resource-gain"
 #define CONTEXT_TECHNOLOGIES_MSG "Research technology by pressing [enter]"
@@ -75,14 +77,14 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   // Initialize contexts
   current_context_ = CONTEXT_RESOURCES;
   // Basic handlers shared by standard-contexts
-  std::map<char, void(ClientGame::*)(int)> std_handlers = { {'j', &ClientGame::h_MoveSelectionUp}, 
+  std::map<char, void(ClientGame::*)(nlohmann::json&)> std_handlers = { {'j', &ClientGame::h_MoveSelectionUp}, 
     {'k', &ClientGame::h_MoveSelectionDown}, {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit},
-    {'A', &ClientGame::h_BuildActivatedNeuron}, {'S', &ClientGame::h_BuildSynapse}, {'s', &ClientGame::h_SendSelectSynapse},
+    {'A', &ClientGame::m_BuildNeuron}, {'S', &ClientGame::m_BuildNeuron}, {'s', &ClientGame::h_SendSelectSynapse},
     {'e', &ClientGame::h_BuildEpsp}, {'i', &ClientGame::h_BuildIpsp}
   };
   // field context 
   contexts_[CONTEXT_FIELD] = Context("", std_handlers, {{'h', &ClientGame::h_MoveSelectionLeft},
-      {'l', &ClientGame::h_MoveSelectionRight}, {'\n', &ClientGame::h_BuildNeuron}}, field_topline);
+      {'l', &ClientGame::h_MoveSelectionRight}, {'\n', &ClientGame::m_BuildNeuron}}, field_topline);
   // Resource context:
   contexts_[CONTEXT_RESOURCES] = Context(CONTEXT_RESOURCES_MSG, std_handlers, {{'+', &ClientGame::h_AddIron}, 
       {'-', &ClientGame::h_RemoveIron}}, std_topline);
@@ -90,7 +92,7 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   contexts_[CONTEXT_TECHNOLOGIES] = Context(CONTEXT_TECHNOLOGIES_MSG, std_handlers, {{'\n', &ClientGame::h_AddTech}},
       std_topline);
   // Synapse context:
-  std::map<char, void(ClientGame::*)(int)> synapse_handlers = {{'s', &ClientGame::h_SetWP},
+  std::map<char, void(ClientGame::*)(nlohmann::json&)> synapse_handlers = {{'s', &ClientGame::h_SetWP},
       {'a', &ClientGame::h_AddWP}, {'i', &ClientGame::h_IpspTarget}, 
       {'e', &ClientGame::h_EpspTarget}, {'w', &ClientGame::h_SwarmAttack},
       {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit}};
@@ -105,6 +107,7 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   eventmanager_.AddHandler("set_msg", &ClientGame::m_SetMsg);
   eventmanager_.AddHandler("game_end", &ClientGame::m_GameEnd);
   eventmanager_.AddHandler("select_position", &ClientGame::m_SelectPosition);
+  eventmanager_.AddHandler("build_neuron", &ClientGame::m_BuildNeuron);
   eventmanager_.AddHandler("select_position_synapse", &ClientGame::m_SelectPositionSynapse);
   eventmanager_.AddHandler("set_unit", &ClientGame::m_SetUnit);
   eventmanager_.AddHandler("set_units", &ClientGame::m_SetUnits);
@@ -143,7 +146,9 @@ void ClientGame::GetAction() {
     if (contexts_.at(current_context_).eventmanager().handlers().count(choice) > 0) {
       spdlog::get(LOGGER)->debug("ClientGame::GetAction: calling handler.");
       spdlog::get(LOGGER)->flush();
-      (this->*contexts_.at(current_context_).eventmanager().handlers().at(choice))(0);
+      nlohmann::json data = contexts_.at(current_context_).data();
+      contexts_.at(current_context_).set_cmd(choice);
+      (this->*contexts_.at(current_context_).eventmanager().handlers().at(choice))(data);
     }
     // If event not in context-event-manager print availible options.
     else {
@@ -169,7 +174,7 @@ void ClientGame::GetAction() {
   endwin();
 }
 
-void ClientGame::h_Quit(int) {
+void ClientGame::h_Quit(nlohmann::json&) {
   drawrer_.ClearField();
   drawrer_.set_stop_render(true);
   drawrer_.PrintCenteredLine(LINES/2, "Are you sure you want to quit? (y/n)");
@@ -184,81 +189,62 @@ void ClientGame::h_Quit(int) {
   }
 }
 
-void ClientGame::h_MoveSelectionUp(int) {
+void ClientGame::h_MoveSelectionUp(nlohmann::json&) {
   drawrer_.inc_cur_sidebar_elem(1);
 }
 
-void ClientGame::h_MoveSelectionDown(int) {
+void ClientGame::h_MoveSelectionDown(nlohmann::json&) {
   drawrer_.inc_cur_sidebar_elem(-1);
 }
 
-void ClientGame::h_MoveSelectionLeft(int) {
+void ClientGame::h_MoveSelectionLeft(nlohmann::json&) {
   drawrer_.inc_cur_sidebar_elem(-2);
 }
 
-void ClientGame::h_MoveSelectionRight(int) {
+void ClientGame::h_MoveSelectionRight(nlohmann::json&) {
   drawrer_.inc_cur_sidebar_elem(2);
 }
 
-void ClientGame::h_ChangeViewPoint(int) {
+void ClientGame::h_ChangeViewPoint(nlohmann::json&) {
   current_context_ = drawrer_.next_viewpoint();
   drawrer_.set_msg(contexts_.at(current_context_).msg());
   drawrer_.PrintTopline(contexts_.at(current_context_).topline());
 }
 
-void ClientGame::h_AddIron(int) {
+void ClientGame::h_AddIron(nlohmann::json&) {
   int resource = drawrer_.GetResource();
   nlohmann::json response = {{"command", "add_iron"}, {"username", username_}, {"data", 
     {{"resource", resource}} }};
   ws_srv_->SendMessage(response.dump());
 }
 
-void ClientGame::h_RemoveIron(int) {
+void ClientGame::h_RemoveIron(nlohmann::json&) {
   int resource = drawrer_.GetResource();
   nlohmann::json response = {{"command", "remove_iron"}, {"username", username_}, {"data", 
     {{"resource", resource}} }};
   ws_srv_->SendMessage(response.dump());
 }
 
-void ClientGame::h_AddTech(int) {
+void ClientGame::h_AddTech(nlohmann::json&) {
   int technology = drawrer_.GetTech();
   nlohmann::json response = {{"command", "add_technology"}, {"username", username_}, {"data", 
     {{"technology", technology}} }};
   ws_srv_->SendMessage(response.dump());
 }
 
-void ClientGame::h_BuildActivatedNeuron(int) {
-  nlohmann::json response = {{"command", "check_build_neuron"}, {"username", username_}, {"data",
-    {{"unit", ACTIVATEDNEURON}} }};
-  ws_srv_->SendMessage(response.dump());
-}
-
-void ClientGame::h_BuildSynapse(int) {
-  nlohmann::json response = {{"command", "check_build_neuron"}, {"username", username_}, {"data",
-    {{"unit", SYNAPSE}} }};
-  ws_srv_->SendMessage(response.dump());
-}
-
-void ClientGame::h_BuildEpsp(int) {
+void ClientGame::h_BuildEpsp(nlohmann::json&) {
   int num = (history_.size() > 1 && std::isdigit(history_[history_.size()-2])) 
     ? history_[history_.size()-2] - '0' : 1;
   BuildPotential({-1, -1}, EPSP, num);
 }
 
-void ClientGame::h_BuildIpsp(int) {
+void ClientGame::h_BuildIpsp(nlohmann::json&) {
   int num = (history_.size() > 1 && std::isdigit(history_[history_.size()-2])) 
     ? history_[history_.size()-2] - '0' : 1;
   BuildPotential({-1, -1}, IPSP, num);
 }
 
-void ClientGame::h_BuildNeuron(int) {
-  int unit = contexts_.at(current_context_).current_unit();
-  nlohmann::json response = {{"command", "build_neuron"}, {"username", username_}, {"data",
-    {{"unit", unit}, {"pos", drawrer_.field_pos()}} }};
-  ws_srv_->SendMessage(response.dump());
-}
-
-void ClientGame::h_SelectNeuron(int) {
+void ClientGame::h_SelectNeuron(nlohmann::json&) {
   position_t pos = drawrer_.GetMarkerPos(utils::CharToString(history_.back(), 0));
   if (pos.first != -1) {
     int unit = contexts_[current_context_].current_unit();
@@ -273,14 +259,14 @@ void ClientGame::h_SelectNeuron(int) {
     // For neurons, continue selection process.
     else 
       SetUpFieldPositionSelect(pos, unit, contexts_[current_context_].current_range());
-    contexts_.erase(CONTEXT_NEURON_SELECT);
+    contexts_.erase(CONTEXT_PICK);
     drawrer_.ClearMarkers();
   }
   else
     drawrer_.set_msg("Invalid position selected.");
 }
 
-void ClientGame::h_SelectSynapse(int) {
+void ClientGame::h_SelectSynapse(nlohmann::json&) {
   position_t pos = drawrer_.GetMarkerPos(utils::CharToString(history_.back(), 0));
   if (pos.first != -1) {
     nlohmann::json msg = {{"data", {{"context", CONTEXT_SYNAPSE}, {"pos", pos}} }};
@@ -290,37 +276,91 @@ void ClientGame::h_SelectSynapse(int) {
     drawrer_.set_msg("Invalid position selected.");
 }
 
-void ClientGame::h_SendSelectSynapse(int) {
+void ClientGame::m_BuildNeuron(nlohmann::json& msg) {
+  char cmd = contexts_.at(current_context_).cmd();
+  position_t pos = drawrer_.GetMarkerPos(utils::CharToString(cmd, 0));
+  // If first call: send message to server, checking wether neuron can be build.
+  if (msg.size() == 0) {
+    int unit = (cmd == 'A') ? ACTIVATEDNEURON : SYNAPSE;
+    nlohmann::json response = {{"command", "check_build_neuron"}, {"username", username_}, {"data",
+      {{"unit", unit}} }};
+    ws_srv_->SendMessage(response.dump());
+  }
+  // Second call no start-position: Add Pick-Context to select start position
+  else if (!msg["data"].contains("start_pos")) {
+    current_context_ = CONTEXT_PICK;
+    CreatePickContext(msg["data"]["positions"], "Select nucleus", &ClientGame::m_BuildNeuron, msg);
+  }
+  // Second call with start-position, or third call with start position from marker: select pos from field
+  else if (msg["data"].contains("start_pos") || pos.first != -1) {
+    position_t start_pos = (pos.first != -1) ? pos : utils::PositionFromVector(msg["data"]["start_pos"]);
+    SwitchPickToFieldContext(start_pos, &ClientGame::m_BuildNeuron, msg);
+  }
+  // Final call with position: send message to server to build neuron.
+  else if (msg["data"].contains("pos")) {
+    nlohmann::json response = {{"command", "build_neuron"}, {"username", username_}, {"data",
+      {{"unit", msg["data"]["unit"]}, {"pos", drawrer_.field_pos()}} }};
+    ws_srv_->SendMessage(response.dump());
+  }
+}
+
+void ClientGame::CreatePickContext(std::vector<position_t> positions, std::string msg, 
+    void(ClientGame::*handler)(nlohmann::json&), nlohmann::json data) {
+  std::map<char, void(ClientGame::*)(nlohmann::json&)> new_handlers = {{'t', &ClientGame::h_ChangeViewPoint}};
+  for (unsigned int i=0; i<positions.size(); i++) {
+    new_handlers['a'+i] = &ClientGame::h_SelectSynapse;
+    drawrer_.AddMarker(positions[i], utils::CharToString('a', i), COLOR_AVAILIBLE);
+  }
+  Context context = Context(msg, new_handlers, {{" [a, b, ...] to pick from", 
+      COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}});
+  context.set_data(data);
+  current_context_ = CONTEXT_PICK;
+  contexts_[current_context_] = context;
+  drawrer_.PrintTopline(contexts_.at(current_context_).topline());
+}
+
+void ClientGame::SwitchPickToFieldContext(position_t pos, void(ClientGame::*handler)(nlohmann::json&), 
+    nlohmann::json data) {
+  contexts_.at(CONTEXT_FIELD).eventmanager().AddHandler('\n', &ClientGame::m_BuildNeuron); // replace select handler.
+  contexts_.at(CONTEXT_FIELD).set_data(data);
+  current_context_ = CONTEXT_FIELD;
+  drawrer_.set_field_start_pos(pos);
+  drawrer_.set_viewpoint(current_context_);
+  contexts_.erase(CONTEXT_PICK);
+  drawrer_.ClearMarkers();
+}
+
+void ClientGame::h_SendSelectSynapse(nlohmann::json&) {
   nlohmann::json response = {{"command", "select_synapse"}, {"username", username_}, {"data",
     nlohmann::json()}};
   ws_srv_->SendMessage(response.dump());
 }
 
-void ClientGame::h_SetWP(int) {
+void ClientGame::h_SetWP(nlohmann::json&) {
   nlohmann::json response = {{"command", "set_way_point"}, {"username", username_}, {"data",
     {{"pos", contexts_.at(current_context_).current_pos()}} }};
   ws_srv_->SendMessage(response.dump());
 }
 
-void ClientGame::h_AddWP(int) {
+void ClientGame::h_AddWP(nlohmann::json&) {
   nlohmann::json response = {{"command", "add_way_point"}, {"username", username_}, {"data",
     {{"pos", contexts_.at(current_context_).current_pos()}} }};
   ws_srv_->SendMessage(response.dump());
 }
 
-void ClientGame::h_EpspTarget(int) {
+void ClientGame::h_EpspTarget(nlohmann::json&) {
   nlohmann::json response = {{"command", "set_epsp_target"}, {"username", username_}, {"data",
     {{"pos", contexts_.at(current_context_).current_pos()}} }};
   ws_srv_->SendMessage(response.dump());
 }
 
-void ClientGame::h_IpspTarget(int) {
+void ClientGame::h_IpspTarget(nlohmann::json&) {
   nlohmann::json response = {{"command", "set_ipsp_target"}, {"username", username_}, {"data",
     {{"pos", contexts_.at(current_context_).current_pos()}} }};
   ws_srv_->SendMessage(response.dump());
 }
 
-void ClientGame::h_SwarmAttack(int) {
+void ClientGame::h_SwarmAttack(nlohmann::json&) {
   nlohmann::json response = {{"command", "toggle_swarm_attack"}, {"username", username_}, {"data",
     {{"pos", contexts_.at(current_context_).current_pos()}} }};
   ws_srv_->SendMessage(response.dump());
@@ -420,14 +460,14 @@ void ClientGame::m_SelectPositionSynapse(nlohmann::json& msg) {
   spdlog::get(LOGGER)->flush();
   std::vector<position_t> positions = msg["data"]["positions"];
 
-  std::map<char, void(ClientGame::*)(int)> new_handlers = {{'t', &ClientGame::h_ChangeViewPoint}};
+  std::map<char, void(ClientGame::*)(nlohmann::json&)> new_handlers = {{'t', &ClientGame::h_ChangeViewPoint}};
   for (unsigned int i=0; i<positions.size(); i++) {
     new_handlers['a'+i] = &ClientGame::h_SelectSynapse;
     drawrer_.AddMarker(positions[i], utils::CharToString('a', i), COLOR_AVAILIBLE);
   }
   Context context = Context("Select neuron", new_handlers, {{" [a, b, ...] to select neuron ", 
       COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}});
-  current_context_ = CONTEXT_NEURON_SELECT;
+  current_context_ = CONTEXT_PICK;
   contexts_[current_context_] = context;
   drawrer_.PrintTopline(contexts_.at(current_context_).topline());
   msg = nlohmann::json();
@@ -481,7 +521,7 @@ void ClientGame::SetUpFieldPositionSelect(position_t pos, int unit, int range) {
 }
 
 void ClientGame::SetUpFieldNeuronSelect(std::vector<position_t> positions, int unit, int range) {
-  std::map<char, void(ClientGame::*)(int)> new_handlers = {{'t', &ClientGame::h_ChangeViewPoint}};
+  std::map<char, void(ClientGame::*)(nlohmann::json&)> new_handlers = {{'t', &ClientGame::h_ChangeViewPoint}};
   for (unsigned int i=0; i<positions.size(); i++) {
     new_handlers['a'+i] = &ClientGame::h_SelectNeuron;
     drawrer_.AddMarker(positions[i], utils::CharToString('a', i), COLOR_AVAILIBLE);
@@ -490,7 +530,7 @@ void ClientGame::SetUpFieldNeuronSelect(std::vector<position_t> positions, int u
       COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}});
   context.set_current_unit(unit);
   context.set_current_range(range);
-  current_context_ = CONTEXT_NEURON_SELECT;
+  current_context_ = CONTEXT_PICK;
   contexts_[current_context_] = context;
   drawrer_.PrintTopline(contexts_.at(current_context_).topline());
 }
@@ -676,6 +716,7 @@ ClientGame::AudioSelector ClientGame::SetupAudioSelector(std::string path, std::
   return AudioSelector({path, title, options});
 }
 
+
 std::string ClientGame::InputString(std::string instruction) {
   drawrer_.ClearField();
   drawrer_.PrintCenteredLine(LINES/2, instruction.c_str());
@@ -691,4 +732,3 @@ std::string ClientGame::InputString(std::string instruction) {
   curs_set(0);
   return input;
 }
-
