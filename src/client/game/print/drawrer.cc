@@ -47,6 +47,7 @@ void Drawrer::set_viewpoint(int viewpoint) {
 }
 
 void Drawrer::inc_cur_sidebar_elem(int value) {
+  spdlog::get(LOGGER)->debug("Drawrer::inc_cur_sidebar_elem: {}", value);
   cur_selection_.at(cur_view_point_).inc(value);
 }
 
@@ -268,6 +269,7 @@ void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources
     else if (it.second.active_)
       attron(COLOR_PAIR(COLOR_SUCCESS));
     std::string str = resources_name_mapping.at(it.first) + ": " + it.second.value_;
+    ClearLine(l_main_ + counter, c_resources_);
     mvaddstr(l_main_ + counter, c_resources_, str.c_str());
     attron(COLOR_PAIR(COLOR_DEFAULT));
     counter += inc;
@@ -300,7 +302,7 @@ void Drawrer::PrintFooter(std::string str) {
   }
 }
 
-void Drawrer::ClearLine(int line) {
-  std::string clear_string(COLS, ' ');
-  mvaddstr(line, 0, clear_string.c_str());
+void Drawrer::ClearLine(int line, int start_col) {
+  std::string clear_string(COLS - start_col, ' ');
+  mvaddstr(line, start_col, clear_string.c_str());
 }

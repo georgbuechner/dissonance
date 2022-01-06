@@ -285,9 +285,9 @@ void ServerGame::StartGame() {
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Creating {} players", nucleus_positions.size());
   unsigned int counter = 0;
   for (const auto& it : players_) {
-    int color = ((counter % 2) == 0) ? COLOR_PLAYER : COLOR_KI;
+    int color = ((counter % 2) == 1) ? COLOR_PLAYER : COLOR_KI;
     if (it.first == "AI") {
-      players_[it.first] = new AudioKi(nucleus_positions[1], field_, &audio_, ran_gen);
+      players_[it.first] = new AudioKi(nucleus_positions[counter], field_, &audio_, ran_gen);
       // Setup audio-ki
       spdlog::get(LOGGER)->info("ServerGame::InitializeGame: SINGLE_PLAYER: settup AI tactics");
       players_.at("AI")->SetUpTactics(true); 
@@ -320,7 +320,7 @@ void ServerGame::StartGame() {
   std::thread update([this]() { Thread_RenderField(); });
   update.detach();
   // Inform players, to start game with initial field included
-  CreateAndSendTransferToAllPlaters(0, false);
+  CreateAndSendTransferToAllPlayers(0, false);
   return ;
 }
 
@@ -357,7 +357,6 @@ void ServerGame::Thread_RenderField() {
     
       off_notes = audio_.MoreOffNotes(data_at_beat);
       data_per_beat.pop_front();
-
     }
 
     // All players lost, because time is up:
@@ -437,7 +436,7 @@ void ServerGame::Thread_RenderField() {
       }
 
       // Create player agnostic transfer-data
-      CreateAndSendTransferToAllPlaters(1-(static_cast<float>(data_per_beat.size())/total_audio_length));
+      CreateAndSendTransferToAllPlayers(1-(static_cast<float>(data_per_beat.size())/total_audio_length));
 
       // Refresh page
       last_update = cur_time;
@@ -512,7 +511,7 @@ std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotent
   return potential_per_pos;
 }
 
-void ServerGame::CreateAndSendTransferToAllPlaters(float audio_played, bool update) {
+void ServerGame::CreateAndSendTransferToAllPlayers(float audio_played, bool update) {
   spdlog::get(LOGGER)->debug("ServerGame::CreateAndSendTransferToAllPlaters: {}, {}", audio_played, update);
   // Create player agnostic transfer-data
   Transfer transfer;

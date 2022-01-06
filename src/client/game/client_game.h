@@ -144,9 +144,12 @@ class ClientGame {
 
     void m_BuildNeuron(nlohmann::json&);
 
+    void m_AddPosition(nlohmann::json&);
+
     void CreatePickContext(std::vector<position_t> positions, std::string msg, 
         void(ClientGame::*handler)(nlohmann::json&), nlohmann::json data);
-    void SwitchPickToFieldContext(position_t pos, void(ClientGame::*handler)(nlohmann::json&), nlohmann::json data);
+    void SwitchPickToFieldContext(position_t pos, int range, 
+        void(ClientGame::*handler)(nlohmann::json&), nlohmann::json data);
 };
 
 #endif

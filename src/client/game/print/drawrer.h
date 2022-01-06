@@ -1,6 +1,7 @@
 #ifndef SRC_PRINT_DRAWER_H_
 #define SRC_PRINT_DRAWER_H_
 
+#include "spdlog/spdlog.h"
 #define NCURSES_NOMACROS
 #include <cstddef>
 #include <curses.h>
@@ -124,6 +125,7 @@ class Drawrer {
         void inc_resource(int val) { x_= utils::Mod(x_+val, SEROTONIN+1); }
         void inc_tech(int val) { x_= utils::Mod(x_+val, NUCLEUS_RANGE+1, WAY); }
         void inc_field(int val) { 
+          spdlog::get(LOGGER)->debug("ViewPoint::inc_field: Changing field selection: {}|{}", y_, x_);
           int old_x = x_;
           int old_y = y_;
 
@@ -136,6 +138,7 @@ class Drawrer {
             x_ = old_x;
             y_ = old_y;
           }
+          spdlog::get(LOGGER)->debug("ViewPoint::inc_field: Changing field selection done: {}|{}", y_, x_);
         }
 
         std::string to_string_resource(const Transfer& transfer) {   
@@ -193,7 +196,7 @@ class Drawrer {
         const std::map<int, Transfer::Technology>& technologies);
     void PrintMessage();
     void PrintFooter(std::string str);
-    void ClearLine(int line);
+    void ClearLine(int line, int start_col=0);
 };
 
 #endif

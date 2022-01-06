@@ -103,7 +103,7 @@ class ServerGame {
      * @param[in] audio_played between 0 and 1 indicating song progress.
      * @param[in] update indicating whether to send update or inital data. (default true)
      */
-    void CreateAndSendTransferToAllPlaters(float audio_played, bool update=true);
+    void CreateAndSendTransferToAllPlayers(float audio_played, bool update=true);
 
     /**
      * Sends given message to all online players (ignoring AI). Possibilt to
