@@ -57,23 +57,10 @@ class Context {
     EventManager<char, ClientGame, nlohmann::json&>& eventmanager() { return eventmanager_; }
 
     // setter 
-    void set_current_unit(int unit) { current_unit_ = unit; }
-    void set_current_range(int range) { current_range_ = range; }
-    void set_current_pos(position_t pos) { current_pos_ = pos; }
-
     void set_data(nlohmann::json data) { data_ = data; }
     void set_cmd(char cmd) { cmd_ = cmd; }
     void set_action(std::string action) { action_ = action; }
     
-    // methods
-    void AddPosition(position_t pos) {
-      positions_.push_back(pos);
-    }
-
-    void ClearPositions() {
-      positions_.clear();
-    }
-
   private:
     EventManager<char, ClientGame, nlohmann::json&> eventmanager_;
     std::string action_;
@@ -84,8 +71,6 @@ class Context {
 
     char cmd_;
     nlohmann::json data_;
-
-    std::vector<position_t> positions_;
 
     std::vector<std::pair<std::string, int>> topline_;
 };

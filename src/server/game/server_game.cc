@@ -141,15 +141,15 @@ void ServerGame::m_CheckBuildPotential(nlohmann::json& msg) {
     else if (synapses.size() == 0)
       msg = {{"command", "set_msg"}, {"data", {{"msg", "No synapse!"}} }};
     // Only one synapse or player specified position => add potential
-    else if (synapses.size() == 1 || msg["data"].contains("pos")) {
-      position_t pos = (synapses.size() == 1) ? synapses.front() : utils::PositionFromVector(msg["data"]["pos"]);
-      BuildPotentials(unit, pos, msg["data"].value("num", 1), msg["username"], player);
+    else if (synapses.size() == 1 || msg["data"].contains("start_pos")) {
+      position_t pos = (synapses.size() == 1) ? synapses.front() : utils::PositionFromVector(msg["data"]["start_pos"]);
+      BuildPotentials(unit, pos, msg["data"]["num"], msg["username"], player);
       msg = nlohmann::json();
     }
     // More than one synapse and position not given => tell user to select position.
     else  
-      msg = {{"command", "select_position"}, {"data", {{"unit", unit}, {"positions", 
-        player->GetAllPositionsOfNeurons(SYNAPSE)}} }}; 
+      msg = {{"command", "build_potential"}, {"data", {{"unit", unit}, {"positions", 
+        player->GetAllPositionsOfNeurons(SYNAPSE)}, {"num", msg["data"]["num"]}} }}; 
   }
 }
 

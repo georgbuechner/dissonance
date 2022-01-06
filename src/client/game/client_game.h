@@ -62,10 +62,6 @@ class ClientGame {
 
     // Selection methods
     
-    void SetUpFieldPositionSelect(position_t pos, int unit, int range);
-    void SetUpFieldNeuronSelect(std::vector<position_t> positions, int unit, int range);
-
-    
     /**
      * Selects one of x options. (Clears field and locks mutex; pauses game??)
      * @param[in] instruction to let the user know what to do
@@ -109,19 +105,17 @@ class ClientGame {
     void h_AddIron(nlohmann::json&);
     void h_RemoveIron(nlohmann::json&);
     void h_AddTech(nlohmann::json&);
+
+    void h_BuildNeuron(nlohmann::json&);
+    void h_BuildPotential(nlohmann::json&);
+
     void h_SendSelectSynapse(nlohmann::json&);
-    void h_BuildEpsp(nlohmann::json&);
-    void h_BuildIpsp(nlohmann::json&);
-    void h_SelectNeuron(nlohmann::json&);
-    void h_SelectSynapse(nlohmann::json&);
 
     void h_SetWP(nlohmann::json&);
     void h_AddWP(nlohmann::json&);
     void h_EpspTarget(nlohmann::json&);
     void h_IpspTarget(nlohmann::json&);
     void h_SwarmAttack(nlohmann::json&);
-
-    void BuildPotential(position_t pos, int unit, int num);
 
     // command methods
 
@@ -136,20 +130,22 @@ class ClientGame {
     void m_UpdateGame(nlohmann::json&);
     void m_SetMsg(nlohmann::json&);
     void m_GameEnd(nlohmann::json&);
-    void m_SelectPosition(nlohmann::json&);
-    void m_SelectPositionSynapse(nlohmann::json&);
     void m_SetUnit(nlohmann::json&);
     void m_SetUnits(nlohmann::json&);
-    void m_ChangeContext(nlohmann::json&);
 
-    void m_BuildNeuron(nlohmann::json&);
+    /**
+     * Add `pos`-field to current data, by taking pos from current field-position.
+     */
+    void h_AddPosition(nlohmann::json&);
 
-    void m_AddPosition(nlohmann::json&);
+    /**
+     * Add `start_pos`-field to current data, by taking pos from marker-position at last symbol.
+     */
+    void h_AddStartPosition(nlohmann::json&);
 
-    void CreatePickContext(std::vector<position_t> positions, std::string msg, 
-        void(ClientGame::*handler)(nlohmann::json&), nlohmann::json data);
-    void SwitchPickToFieldContext(position_t pos, int range, 
-        void(ClientGame::*handler)(nlohmann::json&), nlohmann::json data);
+    void SwitchToPickContext(std::vector<position_t> positions, std::string msg, std::string action, nlohmann::json data);
+    void SwitchToFieldContext(position_t pos, int range, std::string action, nlohmann::json data);
+    void RemovePickContext(int new_context=-1);
 };
 
 #endif
