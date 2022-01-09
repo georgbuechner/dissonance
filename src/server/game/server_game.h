@@ -194,6 +194,12 @@ class ServerGame {
     void m_ToggleSwarmAttack(nlohmann::json& msg);
 
     /**
+     * Set Ipsp target.
+     * @param[in, out] msg
+     */
+    void m_SetIpspTarget(nlohmann::json& msg);
+
+    /**
      * Build potential.
      * @param[in, out] msg
      */

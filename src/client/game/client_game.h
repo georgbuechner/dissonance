@@ -144,8 +144,9 @@ class ClientGame {
     void h_AddStartPosition(nlohmann::json&);
 
     void SwitchToPickContext(std::vector<position_t> positions, std::string msg, std::string action, nlohmann::json data);
-    void SwitchToFieldContext(position_t pos, int range, std::string action, nlohmann::json data);
+    void SwitchToFieldContext(position_t pos, int range, std::string action, nlohmann::json data, std::string msg);
     void SwitchToResourceContext(std::string msg = "");
+    void SwitchToSynapseContext(nlohmann::json data = nlohmann::json());
     void RemovePickContext(int new_context=-1);
 };
 

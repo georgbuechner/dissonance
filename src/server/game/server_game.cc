@@ -30,6 +30,7 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   eventmanager_.AddHandler("build_neuron", &ServerGame::m_BuildNeurons);
   eventmanager_.AddHandler("get_positions", &ServerGame::m_GetPositions);
   eventmanager_.AddHandler("toggle_swarm_attack", &ServerGame::m_ToggleSwarmAttack);
+  eventmanager_.AddHandler("set_ipsp_target", &ServerGame::m_SetIpspTarget);
 }
 
 int ServerGame::status() {
@@ -207,6 +208,14 @@ void ServerGame::m_ToggleSwarmAttack(nlohmann::json& msg) {
   if (player) {
     std::string on_off = (player->SwitchSwarmAttack(utils::PositionFromVector(msg["data"]["pos"]))) ? "on" : "off";
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Toggle swarm-attack successfull. Swarm attack " + on_off}} }};
+  }
+}
+
+void ServerGame::m_SetIpspTarget(nlohmann::json& msg) {
+  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  if (player) {
+    player->ChangeIpspTargetForSynapse(msg["data"]["synapse_pos"], msg["data"]["pos"]);
+    msg = {{"command", "set_msg"}, {"data", {{"msg", "Ipsp target for this synapse set"}} }};
   }
 }
 
