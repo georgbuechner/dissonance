@@ -102,11 +102,10 @@ class Field {
         double min_dist, bool free=false);
 
     /**
-     * Gets all positions of a given section.
-     * @param[in] section]
-     * @return all positions of a given section.
+     * Gets the positions of the center of each section.
+     * @return positions of the center of each section.
      */
-    std::vector<position_t> GetAllPositionsOfSection(unsigned short section);
+    std::vector<position_t> GetAllCenterPositionsOfSections();
 
     /**
      * Converts current field to transfer-object.
@@ -125,6 +124,13 @@ class Field {
     std::shared_mutex mutex_field_;
 
     // functions
+    
+    /**
+     * Gets all positions of a given section.
+     * @param[in] section]
+     * @return all positions of a given section.
+     */
+    std::vector<position_t> GetAllPositionsOfSection(unsigned short section);
 
     /**
      * Checks whether given position is inside of field.

@@ -181,13 +181,14 @@ class ServerGame {
     void m_BuildNeurons(nlohmann::json& msg);
 
     /**
-     * Select synapse
+     * Gets all requested positions: might be of own- or enemy-units. Sends command given command
+     * at msg["data"]["return_cmd"]
      * @param[in, out] msg
      */
-    void m_SelectSynapse(nlohmann::json& msg);
+    void m_GetPositions(nlohmann::json& msg);
 
     /**
-     * Select synapse
+     * Toggles swarm-attack.
      * @param[in, out] msg
      */
     void m_ToggleSwarmAttack(nlohmann::json& msg);

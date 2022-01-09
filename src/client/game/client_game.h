@@ -145,6 +145,7 @@ class ClientGame {
 
     void SwitchToPickContext(std::vector<position_t> positions, std::string msg, std::string action, nlohmann::json data);
     void SwitchToFieldContext(position_t pos, int range, std::string action, nlohmann::json data);
+    void SwitchToResourceContext(std::string msg = "");
     void RemovePickContext(int new_context=-1);
 };
 

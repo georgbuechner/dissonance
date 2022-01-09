@@ -20,6 +20,12 @@
 #define SYMBOL_FREE "\u2219" // simple dot.
 #define SYMBOL_INFINITY "\u221E"
 
+enum Positions {
+  PLAYER = 0, 
+  ENEMY,
+  CENTER
+};
+
 enum GameStatus {
   WAITING = 0,
   WAITING_FOR_PLAYERS,

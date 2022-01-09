@@ -206,6 +206,16 @@ std::vector<position_t> Field::GetAllInRange(position_t start, double max_dist, 
   return positions_in_range;
 }
 
+std::vector<position_t> Field::GetAllCenterPositionsOfSections() {
+  std::vector<position_t> positions;
+  for (int i=1; i<=SECTIONS; i++) {
+    int l = (i-1)%(SECTIONS/2)*(cols_/4);
+    int c = (i < (SECTIONS/2)+1) ? 0 : lines_/2;
+    positions.push_back({(c+c+lines_/2)/2, (l+l+cols_/4)/2});
+  }
+  return positions;
+}
+
 std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval) {
   std::vector<position_t> positions;
   int l = (interval-1)%(SECTIONS/2)*(cols_/4);

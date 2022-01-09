@@ -136,7 +136,7 @@ class Player {
      * Switch swarm-attack on/ off.
      * @param[in] pos position of synapse.
      */
-    void SwitchSwarmAttack(position_t pos);
+    bool SwitchSwarmAttack(position_t pos);
 
     /**
      * Sets target position for ipsp.

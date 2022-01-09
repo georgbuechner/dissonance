@@ -28,8 +28,8 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   eventmanager_.AddHandler("check_build_neuron", &ServerGame::m_CheckBuildNeuron);
   eventmanager_.AddHandler("check_build_potential", &ServerGame::m_CheckBuildPotential);
   eventmanager_.AddHandler("build_neuron", &ServerGame::m_BuildNeurons);
-  eventmanager_.AddHandler("select_synapse", &ServerGame::m_SelectSynapse);
-  eventmanager_.AddHandler("toggle_swarm_attack", &ServerGame::m_SelectSynapse);
+  eventmanager_.AddHandler("get_positions", &ServerGame::m_GetPositions);
+  eventmanager_.AddHandler("toggle_swarm_attack", &ServerGame::m_ToggleSwarmAttack);
 }
 
 int ServerGame::status() {
@@ -177,24 +177,36 @@ void ServerGame::m_BuildNeurons(nlohmann::json& msg) {
   }
 }
 
-void ServerGame::m_SelectSynapse(nlohmann::json& msg) {
+void ServerGame::m_GetPositions(nlohmann::json& msg) {
   Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
   if (player) {
-    auto synapses = player->GetAllPositionsOfNeurons(SYNAPSE);
-    if (synapses.size() == 0)
-      msg = {{"command", "set_msg"}, {"data", {{"msg", "No synapse!"}} }};
-    else if (synapses.size() == 1) 
-      msg = {{"command", "change_context"}, {"data", {{"context", CONTEXT_SYNAPSE},
-        {"pos", synapses.front()}} }};
-    else 
-      msg = {{"command", "select_position_synapse"}, {"data", {{"positions", synapses}} }};
+    std::vector<position_t> positions;
+    int type = msg["data"]["positions_type"];
+    
+    // player-units
+    if (type == Positions::PLAYER) {
+      positions = player->GetAllPositionsOfNeurons(msg["data"]["unit"]);
+    }
+    // enemy-units
+    else if (type == Positions::ENEMY) {
+      int unit = msg["data"]["unit"];
+      for (const auto& enemy : player->enemies()) 
+        for (const auto& it : enemy->GetAllPositionsOfNeurons(unit))
+          positions.push_back(it);
+    }
+    // center-positions
+    else if (type == Positions::CENTER) {
+      positions = field_->GetAllCenterPositionsOfSections();
+    }
+    msg = {{"command", msg["data"]["return_cmd"]}, {"data", {{"positions", positions}} }};
   }
 }
 
 void ServerGame::m_ToggleSwarmAttack(nlohmann::json& msg) {
   Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
   if (player) {
-    player->SwitchSwarmAttack(msg["data"]["pos"]);
+    std::string on_off = (player->SwitchSwarmAttack(utils::PositionFromVector(msg["data"]["pos"]))) ? "on" : "off";
+    msg = {{"command", "set_msg"}, {"data", {{"msg", "Toggle swarm-attack successfull. Swarm attack " + on_off}} }};
   }
 }
 

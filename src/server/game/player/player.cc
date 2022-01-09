@@ -39,7 +39,7 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
   
   technologies_ = {
     {UnitsTech::WAY, {0,3}},
-    {UnitsTech::SWARM, {0,3}},
+    {UnitsTech::SWARM, {1,3}},
     {UnitsTech::TARGET, {0,2}},
     {UnitsTech::TOTAL_RESOURCE, {0,3}},
     {UnitsTech::CURVE, {0,3}},
@@ -254,12 +254,15 @@ int Player::AddWayPosForSynapse(position_t pos, position_t way_position) {
   }
 }
 
-void Player::SwitchSwarmAttack(position_t pos) {
+bool Player::SwitchSwarmAttack(position_t pos) {
   spdlog::get(LOGGER)->info("Player::SwitchSwarmAttack");
   std::unique_lock ul(mutex_all_neurons_);
-  if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE)
+  if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE) {
     neurons_.at(pos)->set_swarm(!neurons_.at(pos)->swarm());
+    return neurons_.at(pos)->swarm();
+  }
   spdlog::get(LOGGER)->info("Player::SwitchSwarmAttack: done");
+  return false;
 }
 
 void Player::ChangeIpspTargetForSynapse(position_t pos, position_t target_pos) {
