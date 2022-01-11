@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 #include <spdlog/spdlog.h>
+#include "share/defines.h"
 #include "spdlog/logger.h"
 
 #include "server/game/field/field.h"
@@ -38,7 +39,7 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
   resources_.insert(std::pair<int, Resource>(Resources::SEROTONIN, Resource(0, 70, 0, false, r_pos[SEROTONIN]))); 
   
   technologies_ = {
-    {UnitsTech::WAY, {0,3}},
+    {UnitsTech::WAY, {3,3}},
     {UnitsTech::SWARM, {0,3}},
     {UnitsTech::TARGET, {1,2}},
     {UnitsTech::TOTAL_RESOURCE, {0,3}},
@@ -99,6 +100,21 @@ std::vector<Player*> Player::enemies() {
 
 int Player::color() {
   return color_;
+}
+
+position_t Player::GetSynapesTarget(position_t synape_pos, int unit) {
+  if (neurons_.count(synape_pos) > 0)
+    return neurons_.at(synape_pos)->target(unit);
+  return {-1, -1};
+}
+std::vector<position_t> Player::GetSynapesWayPoints(position_t synapse_pos, int unit) {
+  if (neurons_.count(synapse_pos) > 0) {
+    if (unit == -1)
+      return neurons_.at(synapse_pos)->ways_points();
+    else 
+      return neurons_.at(synapse_pos)->GetWayPoints(unit);
+  }
+  return {};
 }
 
 // setter 

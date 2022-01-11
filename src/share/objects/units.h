@@ -49,6 +49,7 @@ struct Neuron : Unit {
     virtual unsigned int num_availible_ways() { return 0; }
     virtual unsigned int max_stored() { return 0; }
     virtual size_t resource() { return 9999; }
+    virtual position_t target(int unit) { return {-1, -1}; }
 
     // setter
     void set_blocked(bool blocked);
@@ -101,6 +102,11 @@ struct Synapse : Neuron {
     bool swarm();
     unsigned int num_availible_ways();
     unsigned int max_stored();
+    position_t target(int unit) { 
+      if (unit == IPSP) return ipsp_target_;
+      if (unit == EPSP) return epsp_target_;
+      return {-1, -1};
+    }
    
     // setter: 
     void set_way_points(std::vector<position_t> way_points);

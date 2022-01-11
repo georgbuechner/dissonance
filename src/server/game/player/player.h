@@ -51,6 +51,9 @@ class Player {
     std::vector<Player*> enemies();
     int color();
 
+    position_t GetSynapesTarget(position_t synapse_pos, int unit);
+    std::vector<position_t> GetSynapesWayPoints(position_t synapse_pos, int unit=-1);
+
     // setter
     void set_enemies(std::vector<Player*> enemies);
 

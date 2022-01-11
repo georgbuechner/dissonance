@@ -194,6 +194,12 @@ class ServerGame {
     void m_ToggleSwarmAttack(nlohmann::json& msg);
 
     /**
+     * Set Way Point
+     * @param[in, out] msg
+     */
+    void m_SetWayPoint(nlohmann::json& msg);
+
+    /**
      * Set Ipsp target.
      * @param[in, out] msg
      */

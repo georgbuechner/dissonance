@@ -40,9 +40,9 @@ class Drawrer {
     void set_field_start_pos(position_t pos);
     void set_range(std::pair<position_t, int> range);
 
-    void AddMarker(position_t pos, std::string symbol, int color);
-    position_t GetMarkerPos(std::string symbol);
-    void ClearMarkers();
+    void AddMarker(int type, position_t pos, int color, std::string symbol = "");
+    position_t GetMarkerPos(int type, std::string symbol);
+    void ClearMarkers(int type = -1);
 
     /**
      * Adds a new neuron to given position.
@@ -106,7 +106,7 @@ class Drawrer {
     Transfer transfer_;
     std::vector<std::vector<Transfer::Symbol>> field_;
     std::map<position_t, Transfer::Symbol> temp_symbols_;
-    std::map<position_t, std::pair<std::string, int>> markers_;
+    std::map<int, std::map<position_t, std::pair<std::string, int>>> markers_;
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
     bool stop_render_;
 
@@ -197,6 +197,9 @@ class Drawrer {
     void PrintMessage();
     void PrintFooter(std::string str);
     void ClearLine(int line, int start_col=0);
+
+    // helpers
+    std::pair<std::string, int> GetReplaceMentFromMarker(position_t pos);
 };
 
 #endif

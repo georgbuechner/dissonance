@@ -111,8 +111,7 @@ class ClientGame {
 
     void h_SendSelectSynapse(nlohmann::json&);
 
-    void h_SetWP(nlohmann::json&);
-    void h_AddWP(nlohmann::json&);
+    void h_SetWPs(nlohmann::json&);
     void h_EpspTarget(nlohmann::json&);
     void h_IpspTarget(nlohmann::json&);
     void h_SwarmAttack(nlohmann::json&);

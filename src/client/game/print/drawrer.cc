@@ -85,23 +85,30 @@ void Drawrer::set_stop_render(bool stop) {
   stop_render_ = stop;
 }
 
-void Drawrer::AddMarker(position_t pos, std::string symbol, int color) {
+void Drawrer::AddMarker(int type, position_t pos, int color, std::string symbol) {
   std::unique_lock ul(mutex_print_field_);
-  markers_[pos] = {symbol, color};
+  // If Symbol is not given, use current field symbol.
+  if (symbol == "")
+    markers_[type][pos] = {field_[pos.first][pos.second].symbol_, color};
+  else 
+    markers_[type][pos] = {symbol, color};
 }
 
-position_t Drawrer::GetMarkerPos(std::string symbol) {
+position_t Drawrer::GetMarkerPos(int type, std::string symbol) {
   std::unique_lock sl(mutex_print_field_);
-  for (const auto& it : markers_) {
+  for (const auto& it : markers_[type]) {
     if (it.second.first == symbol)
       return it.first;
   }
   return {-1, -1};
 }
 
-void Drawrer::ClearMarkers() {
+void Drawrer::ClearMarkers(int type) {
   std::unique_lock ul(mutex_print_field_);
-  markers_.clear();
+  if (type == -1)
+    markers_.clear();
+  else 
+    markers_[type].clear();
 }
 
 void Drawrer::AddNewUnitToPos(position_t pos, int unit, int color) {
@@ -244,9 +251,10 @@ void Drawrer::PrintField() {
         attron(COLOR_PAIR(field_[l][c].color_));
 
       // Print symbol or marker
-      if (markers_.count(cur) > 0) {
-        attron(COLOR_PAIR(markers_.at(cur).second));
-        mvaddstr(l_main_+extra_height_+l, c_field_+extra_width_+2*c, markers_.at(cur).first.c_str());
+      auto replacment = GetReplaceMentFromMarker(cur);
+      if (replacment.first != "") {
+        attron(COLOR_PAIR(replacment.second));
+        mvaddstr(l_main_+extra_height_+l, c_field_+extra_width_+2*c, replacment.first.c_str());
       }
       else 
         mvaddstr(l_main_+extra_height_+l, c_field_+extra_width_+2*c, field_[l][c].symbol_.c_str());
@@ -256,6 +264,15 @@ void Drawrer::PrintField() {
       attron(COLOR_PAIR(COLOR_DEFAULT));
     }
   }
+}
+
+std::pair<std::string, int> Drawrer::GetReplaceMentFromMarker(position_t pos) {
+  std::pair<std::string, int> symbol = {"", COLOR_DEFAULT};
+  for (const auto& it : markers_) {
+    if (it.second.count(pos) > 0)
+      symbol = it.second.at(pos);
+  }
+  return symbol;
 }
 
 void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources,

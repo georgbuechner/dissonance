@@ -20,10 +20,20 @@
 #define SYMBOL_FREE "\u2219" // simple dot.
 #define SYMBOL_INFINITY "\u221E"
 
+enum Markers {
+  SYNAPSE_MARKER,
+  TARGETS_MARKER,
+  WAY_MARKER,
+  PICK_MARKER,
+};
+
 enum Positions {
   PLAYER = 0, 
   ENEMY,
-  CENTER
+  CENTER,
+  TARGETS,
+  CURRENT_WAY,
+  CURRENT_WAY_POINTS,
 };
 
 enum GameStatus {

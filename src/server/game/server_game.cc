@@ -3,6 +3,7 @@
 #include "server/game/player/player.h"
 #include "share/constants/codes.h"
 #include "share/defines.h"
+#include "share/objects/dtos.h"
 #include "share/objects/transfer.h"
 #include "share/objects/units.h"
 #include "server/websocket/websocket_server.h"
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <cctype>
 #include <mutex>
+#include <string>
 #include <thread>
 #include <unistd.h>
 
@@ -30,6 +32,7 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   eventmanager_.AddHandler("build_neuron", &ServerGame::m_BuildNeurons);
   eventmanager_.AddHandler("get_positions", &ServerGame::m_GetPositions);
   eventmanager_.AddHandler("toggle_swarm_attack", &ServerGame::m_ToggleSwarmAttack);
+  eventmanager_.AddHandler("set_way_point", &ServerGame::m_SetWayPoint);
   eventmanager_.AddHandler("set_ipsp_target", &ServerGame::m_SetIpspTarget);
 }
 
@@ -180,26 +183,51 @@ void ServerGame::m_BuildNeurons(nlohmann::json& msg) {
 
 void ServerGame::m_GetPositions(nlohmann::json& msg) {
   Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  spdlog::get(LOGGER)->debug("ServerGame::m_GetPositions: dezerialising dto.");
+  GetPosition req = GetPosition(msg);
+  spdlog::get(LOGGER)->debug("ServerGame::m_GetPositions: dezerialising dto done.");
   if (player) {
-    std::vector<position_t> positions;
-    int type = msg["data"]["positions_type"];
-    
-    // player-units
-    if (type == Positions::PLAYER) {
-      positions = player->GetAllPositionsOfNeurons(msg["data"]["unit"]);
-    }
-    // enemy-units
-    else if (type == Positions::ENEMY) {
-      int unit = msg["data"]["unit"];
-      for (const auto& enemy : player->enemies()) 
-        for (const auto& it : enemy->GetAllPositionsOfNeurons(unit))
+    std::vector<std::vector<position_t>> all_positions;
+    for (const auto& it : req.position_requests()) {
+      std::vector<position_t> positions;
+      // player-units
+      if (it.first == Positions::PLAYER)
+        positions = player->GetAllPositionsOfNeurons(it.second.unit());
+      // enemy-units
+      else if (it.first == Positions::ENEMY) {
+        for (const auto& enemy : player->enemies()) 
+          for (const auto& it : enemy->GetAllPositionsOfNeurons(it.second.unit()))
+            positions.push_back(it);
+      }
+      // center-positions
+      else if (it.first == Positions::CENTER)
+        positions = field_->GetAllCenterPositionsOfSections();
+      // ipsp-/ epsp-targets
+      else if (it.first == Positions::TARGETS) {
+        position_t ipsp_target_pos = player->GetSynapesTarget(it.second.pos(), IPSP);
+        if (ipsp_target_pos.first != -1)
+          positions.push_back(ipsp_target_pos);
+      }
+      else if (it.first == Positions::CURRENT_WAY) {
+        spdlog::get(LOGGER)->debug("Creating way to ipsp target...");
+        // Get way to ipsp-target
+        for (const auto& it : field_->GetWayForSoldier(it.second.pos(), 
+              player->GetSynapesWayPoints(it.second.pos(), IPSP)))
           positions.push_back(it);
+        spdlog::get(LOGGER)->debug("Creating way to ipsp target... done");
+        spdlog::get(LOGGER)->debug("Creating way to epsp target...");
+        // Get way to epsp-target
+        for (const auto& it : field_->GetWayForSoldier(it.second.pos(), 
+              player->GetSynapesWayPoints(it.second.pos(), EPSP)))
+          positions.push_back(it);
+        spdlog::get(LOGGER)->debug("Creating way to epsp target... done");
+      }
+      else if (it.first == Positions::CURRENT_WAY_POINTS) {
+        positions = player->GetSynapesWayPoints(it.second.pos());
+      }
+      all_positions.push_back(positions);
     }
-    // center-positions
-    else if (type == Positions::CENTER) {
-      positions = field_->GetAllCenterPositionsOfSections();
-    }
-    msg = {{"command", msg["data"]["return_cmd"]}, {"data", {{"positions", positions}} }};
+    msg = {{"command", msg["data"]["return_cmd"]}, {"data", {{"positions", all_positions}} }};
   }
 }
 
@@ -208,6 +236,22 @@ void ServerGame::m_ToggleSwarmAttack(nlohmann::json& msg) {
   if (player) {
     std::string on_off = (player->SwitchSwarmAttack(utils::PositionFromVector(msg["data"]["pos"]))) ? "on" : "off";
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Toggle swarm-attack successfull. Swarm attack " + on_off}} }};
+  }
+}
+
+void ServerGame::m_SetWayPoint(nlohmann::json& msg) {
+  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  if (player) {
+    int num = msg["data"]["num"];
+    int tech = player->technologies().at(WAY).first;
+    position_t synapse_pos = utils::PositionFromVector(msg["data"]["synapse_pos"]);
+    std::string x_of = std::to_string(num) + "/" + std::to_string(tech);
+    if (num == 1) 
+      player->ResetWayForSynapse(synapse_pos, msg["data"]["pos"]);
+    else 
+      player->AddWayPosForSynapse(synapse_pos, msg["data"]["pos"]);
+    msg = {{"command", "set_wps"}, {"data", {{"msg", "New way-point added: " + x_of}, {"synapse_pos", synapse_pos}} }};
+    msg["data"]["num"] = (num < tech) ? num+1 : -1;  // indicate setting next way-point or that last way-point was set.
   }
 }
 

@@ -5,6 +5,7 @@
 #include "share/constants/codes.h"
 #include "share/constants/texts.h"
 #include "share/defines.h"
+#include "share/objects/dtos.h"
 #include "share/objects/units.h"
 #include "share/objects/transfer.h"
 #include "share/tools/context.h"
@@ -32,9 +33,8 @@ std::vector<std::pair<std::string, int>> std_topline = {{" [i]psp ", COLOR_DEFAU
 std::vector<std::pair<std::string, int>> field_topline = {{" [h, j, k, l] to navigate field "
   " [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}};
 
-std::vector<std::pair<std::string, int>> synapse_topline = {{" [s]et way-point ", COLOR_DEFAULT}, 
-  {" [a]dd way-point ", COLOR_DEFAULT}, {" [i]psp-target ", COLOR_DEFAULT}, 
-  { " [e]psp-target ", COLOR_DEFAULT}, { " toggle s[w]arm-attack ", COLOR_DEFAULT},
+std::vector<std::pair<std::string, int>> synapse_topline = {{" [s]et way-points ", COLOR_DEFAULT}, 
+  {" [i]psp-target ", COLOR_DEFAULT}, { " [e]psp-target ", COLOR_DEFAULT}, { " toggle s[w]arm-attack ", COLOR_DEFAULT},
   {" [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}
 };
 
@@ -92,9 +92,8 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   contexts_[CONTEXT_TECHNOLOGIES] = Context(CONTEXT_TECHNOLOGIES_MSG, std_handlers, {{'\n', &ClientGame::h_AddTech}},
       std_topline);
   // Synapse context:
-  std::map<char, void(ClientGame::*)(nlohmann::json&)> synapse_handlers = {{'s', &ClientGame::h_SetWP},
-      {'a', &ClientGame::h_AddWP}, {'i', &ClientGame::h_IpspTarget}, 
-      {'e', &ClientGame::h_EpspTarget}, {'w', &ClientGame::h_SwarmAttack},
+  std::map<char, void(ClientGame::*)(nlohmann::json&)> synapse_handlers = {{'s', &ClientGame::h_SetWPs},
+      {'i', &ClientGame::h_IpspTarget}, {'e', &ClientGame::h_EpspTarget}, {'w', &ClientGame::h_SwarmAttack},
       {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit}};
   contexts_[CONTEXT_SYNAPSE] = Context(CONTEXT_SYNAPSE_MSG, synapse_handlers, synapse_topline);
 
@@ -106,12 +105,13 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   eventmanager_.AddHandler("update_game", &ClientGame::m_UpdateGame);
   eventmanager_.AddHandler("set_msg", &ClientGame::m_SetMsg);
   eventmanager_.AddHandler("game_end", &ClientGame::m_GameEnd);
+  eventmanager_.AddHandler("set_unit", &ClientGame::m_SetUnit);
+  eventmanager_.AddHandler("set_units", &ClientGame::m_SetUnits);
   eventmanager_.AddHandler("build_neuron", &ClientGame::h_BuildNeuron);
   eventmanager_.AddHandler("build_potential", &ClientGame::h_BuildPotential);
   eventmanager_.AddHandler("select_synapse", &ClientGame::h_SendSelectSynapse);
+  eventmanager_.AddHandler("set_wps", &ClientGame::h_SetWPs);
   eventmanager_.AddHandler("ipsp_target", &ClientGame::h_IpspTarget);
-  eventmanager_.AddHandler("set_unit", &ClientGame::m_SetUnit);
-  eventmanager_.AddHandler("set_units", &ClientGame::m_SetUnits);
 }
 
 nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
@@ -293,14 +293,13 @@ void ClientGame::h_SendSelectSynapse(nlohmann::json& msg) {
   if (msg.size() == 0) {
     spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: sending initial request...");
     SwitchToSynapseContext();
-    nlohmann::json response = {{"command", "get_positions"}, {"username", username_}, {"data", 
-      {{"unit", SYNAPSE}, {"positions_type", Positions::PLAYER}, {"return_cmd", "select_synapse"}} }};
-    ws_srv_->SendMessage(response.dump());
+    GetPosition req(username_, "select_synapse", {{PLAYER, GetPositionInfo(SYNAPSE)}});
+    ws_srv_->SendMessage(req.ToJson().dump());
   }
   // If no start-pos selected, select start-pos (synapse)
   else if (!msg["data"].contains("start_pos")) {
     spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: setting up pick context...");
-    std::vector<position_t> positions = msg["data"]["positions"];
+    std::vector<position_t> positions = msg["data"]["positions"][0];
     if (positions.size() == 0) {
       spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: no synapse!");
       drawrer_.set_msg("No synapse.");
@@ -310,7 +309,7 @@ void ClientGame::h_SendSelectSynapse(nlohmann::json& msg) {
       spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: only one synapse...");
       SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", positions.front()}} }}));
       drawrer_.set_msg("Choose what to do.");
-      drawrer_.AddMarker(positions.front(), SYMBOL_BARACK, COLOR_MARKED);
+      drawrer_.AddMarker(SYNAPSE_MARKER, positions.front(), COLOR_MARKED);
     }
     else {
       spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: switching to pick context...");
@@ -324,20 +323,70 @@ void ClientGame::h_SendSelectSynapse(nlohmann::json& msg) {
     position_t synapse_pos = utils::PositionFromVector(msg["data"]["start_pos"]);
     SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", synapse_pos}} }}));
     drawrer_.set_msg("Choose what to do.");
-    drawrer_.AddMarker(synapse_pos, SYMBOL_BARACK, COLOR_MARKED);
+    drawrer_.AddMarker(SYNAPSE_MARKER, synapse_pos, COLOR_MARKED);
   }
+  msg = nlohmann::json();
 }
 
-void ClientGame::h_SetWP(nlohmann::json& msg) {
-  nlohmann::json response = {{"command", "set_way_point"}, {"username", username_}, {"data",
-    {{"pos", contexts_.at(current_context_).current_pos()}} }};
-  ws_srv_->SendMessage(response.dump());
-}
-
-void ClientGame::h_AddWP(nlohmann::json&) {
-  nlohmann::json response = {{"command", "add_way_point"}, {"username", username_}, {"data",
-    {{"pos", contexts_.at(current_context_).current_pos()}} }};
-  ws_srv_->SendMessage(response.dump());
+void ClientGame::h_SetWPs(nlohmann::json& msg) {
+  spdlog::get(LOGGER)->debug("Calling set-wp with data: {}", msg.dump());
+  // Final call (set new way point)
+  if (msg["data"].contains("pos")) {
+    nlohmann::json response = {{"command", "set_way_point"}, {"username", username_}, {"data",
+      {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}, {"num", msg["data"]["num"]}} }};
+    ws_srv_->SendMessage(response.dump());
+    // Clear markers and reset msg-json to initial data
+    drawrer_.ClearMarkers();
+  }
+  // Thirst call (select field position)
+  else if (msg["data"].contains("start_pos")) {
+    RemovePickContext();
+    SwitchToFieldContext(msg["data"]["start_pos"], 1000, "set_wps", msg, "Select new way-point position.");
+  }
+  // Second call (select start position)
+  else if (msg["data"].contains("positions")) {
+    // Set synapse-position.
+    msg["data"]["synapse_pos"] = contexts_.at(current_context_).data()["data"]["synapse_pos"];
+    msg["data"]["num"] = contexts_.at(current_context_).data()["data"]["num"];
+    // Print ways
+    std::vector<position_t> way = msg["data"]["positions"][1];
+    for (const auto& it : way)
+      drawrer_.AddMarker(WAY_MARKER, it, COLOR_MARKED);
+    std::vector<position_t> way_points = msg["data"]["positions"][2];
+    for (unsigned int i=0; i<way_points.size(); i++)
+      drawrer_.AddMarker(WAY_MARKER, way_points[i], COLOR_MARKED, utils::CharToString('1', i));
+    // Set up pick-context
+    std::vector<position_t> center_positions = msg["data"]["positions"][0];
+    SwitchToPickContext(center_positions, "select start position", "set_wps", msg);
+  }
+  // First call (request positions)
+  else {
+    // If "msg" is contained, print message
+    if (msg["data"].contains("msg"))
+      drawrer_.set_msg(msg["data"]["msg"]);
+    // Set "1" as number (indicating first way-point) if num is not given.
+    if (!msg["data"].contains("num"))
+      msg["data"]["num"] = 1;
+    // If num is -1, this indicates, that no more way-point can be set.
+    if (msg["data"]["num"] == -1) {
+      SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", msg["data"]["synapse_pos"]}} }}));
+      drawrer_.set_viewpoint(CONTEXT_RESOURCES);
+      drawrer_.ClearMarkers(TARGETS_MARKER);
+    }
+    // Otherwise, request inital data.
+    else {
+      // Memorize number.
+      nlohmann::json data = contexts_.at(current_context_).data();
+      data["data"]["num"] = msg["data"]["num"];
+      contexts_.at(current_context_).set_data(data);
+      // Request inital data.
+      position_t synapse_pos = utils::PositionFromVector(msg["data"]["synapse_pos"]);
+      GetPosition req(username_, "set_wps", {{CURRENT_WAY, GetPositionInfo(synapse_pos)}, 
+          {CURRENT_WAY_POINTS, GetPositionInfo(synapse_pos)}, {CENTER, GetPositionInfo()}});
+      ws_srv_->SendMessage(req.ToJson().dump());
+    }
+  }
+  msg = nlohmann::json();
 }
 
 void ClientGame::h_EpspTarget(nlohmann::json&) {
@@ -348,24 +397,42 @@ void ClientGame::h_EpspTarget(nlohmann::json&) {
 
 void ClientGame::h_IpspTarget(nlohmann::json& msg) {
   spdlog::get(LOGGER)->debug("Calling ipsp-target with data: {}", msg.dump());
+  // final call (set ipsp target and reset to synapse-context)
   if (msg["data"].contains("pos")) {
     // Switch (back) to synapse-context.
     SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", msg["data"]["start_pos"]}} }}));
     drawrer_.set_viewpoint(CONTEXT_RESOURCES);
+    drawrer_.ClearMarkers(TARGETS_MARKER);
     // Send request to server.
     nlohmann::json response = {{"command", "set_ipsp_target"}, {"username", username_}, {"data",
       {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}} }};
     ws_srv_->SendMessage(response.dump());
   }
+  // First call (request positions)
   else if (!msg["data"].contains("positions")) {
-    nlohmann::json response = {{"command", "get_positions"}, {"username", username_}, {"data", 
-      {{"unit", NUCLEUS}, {"positions_type", Positions::ENEMY}, {"return_cmd", "ipsp_target"}} }};
-    ws_srv_->SendMessage(response.dump());
+    GetPosition req(username_, "ipsp_target", {{ENEMY, GetPositionInfo(NUCLEUS)}, 
+        {TARGETS, GetPositionInfo(msg["data"]["synapse_pos"].get<position_t>())}});
+    ws_srv_->SendMessage(req.ToJson().dump());
   }
+  // Second call (select start position)
   else if (!msg["data"].contains("start_pos")) {
+    // Set synapse-position.
     msg["data"]["synapse_pos"] = contexts_.at(current_context_).data()["data"]["synapse_pos"];
-    SwitchToPickContext(msg["data"]["positions"], "Select select enemy base", "ipsp_target", msg);
+    std::vector<position_t> enemy_nucleus_positions = msg["data"]["positions"][0];
+    // If only one enemy nucleus, set-up field-select and add start-pos to message-json.
+    if (enemy_nucleus_positions.size() == 1) {
+      msg["data"]["start_pos"] = enemy_nucleus_positions.front();
+      SwitchToFieldContext(enemy_nucleus_positions.front(), 1000, "ipsp_target", msg, "Select ipsp-target position.");
+    }
+    // Create pick-context to select synapse.
+    else 
+      SwitchToPickContext(msg["data"]["positions"][0], "Select select enemy base", "ipsp_target", msg);
+    // Display current target on field.
+    std::vector<std::vector<int>> target_positions = msg["data"]["positions"][1];
+    if (target_positions.size() > 0)
+      drawrer_.AddMarker(TARGETS_MARKER, utils::PositionFromVector(target_positions.front()), COLOR_MARKED, "T");
   }
+  // third call (select field position)
   else if (msg["data"].contains("start_pos")) {
     RemovePickContext();
     SwitchToFieldContext(msg["data"]["start_pos"], 1000, "ipsp_target", msg, "Select ipsp-target position.");
@@ -386,6 +453,8 @@ void ClientGame::h_AddPosition(nlohmann::json&) {
   std::string action = contexts_.at(current_context_).action();
   if (action == "build_neuron")
     h_BuildNeuron(msg);
+  else if (action == "set_wps") 
+    h_SetWPs(msg);
   else if (action == "ipsp_target") 
     h_IpspTarget(msg);
 }
@@ -393,7 +462,7 @@ void ClientGame::h_AddPosition(nlohmann::json&) {
 void ClientGame::h_AddStartPosition(nlohmann::json&) {
   spdlog::get(LOGGER)->debug("ClientGame::AddStartPosition: action: {}", contexts_.at(current_context_).action());
   nlohmann::json msg = contexts_.at(current_context_).data();
-  msg["data"]["start_pos"] = drawrer_.GetMarkerPos(utils::CharToString(history_.back(), 0));
+  msg["data"]["start_pos"] = drawrer_.GetMarkerPos(PICK_MARKER, utils::CharToString(history_.back(), 0));
   std::string action = contexts_.at(current_context_).action();
   if (action == "build_potential")
     h_BuildPotential(msg);
@@ -401,6 +470,8 @@ void ClientGame::h_AddStartPosition(nlohmann::json&) {
     h_BuildNeuron(msg);
   else if (action == "select_synapse") 
     h_SendSelectSynapse(msg);
+  else if (action == "set_wps") 
+    h_SetWPs(msg);
   else if (action == "ipsp_target") 
     h_IpspTarget(msg);
 }
@@ -423,11 +494,11 @@ void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::str
     nlohmann::json data) {
   spdlog::get(LOGGER)->info("ClientGame::CreatePickContext: switched to pick context.");
   // Get all handlers and add markers to drawrer.
-  drawrer_.ClearMarkers();
+  drawrer_.ClearMarkers(PICK_MARKER);
   std::map<char, void(ClientGame::*)(nlohmann::json&)> new_handlers = {{'t', &ClientGame::h_ChangeViewPoint}};
   for (unsigned int i=0; i<positions.size(); i++) {
     new_handlers['a'+i] = &ClientGame::h_AddStartPosition;
-    drawrer_.AddMarker(positions[i], utils::CharToString('a', i), COLOR_AVAILIBLE);
+    drawrer_.AddMarker(PICK_MARKER, positions[i], COLOR_AVAILIBLE, utils::CharToString('a', i));
   }
   // Create pick context
   Context context = Context(msg, new_handlers, {{" [a, b, ...] to pick from", 
@@ -460,6 +531,7 @@ void ClientGame::RemovePickContext(int new_context) {
   if (new_context != -1) {
     current_context_ = new_context;
     drawrer_.set_viewpoint(current_context_);
+    drawrer_.PrintTopline(contexts_.at(current_context_).topline());
   }
 }
 
