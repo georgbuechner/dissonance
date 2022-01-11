@@ -14,18 +14,16 @@ struct GetPositionInfo {
     GetPositionInfo() : unit_(-1), pos_({-1, -1}) {}
     GetPositionInfo(int unit) : unit_(unit), pos_({-1, -1}) {}
     GetPositionInfo(position_t pos) : unit_(-1), pos_(pos) {}
-    
+    GetPositionInfo(int unit, position_t pos) : unit_(unit), pos_(pos) {}
+    GetPositionInfo(nlohmann::json json) : unit_(json["unit"]), pos_(json["pos"]) {} 
+   
     // getter
     int unit() const { return unit_; }
     position_t pos() const { return pos_; }
 
     // methods 
     nlohmann::json ToJson() const {
-      if (unit_ != -1) 
-        return unit_;
-      if (pos_.first != -1)
-        return pos_;
-      return nlohmann::json();
+      return nlohmann::json({{"unit", unit_}, {"pos", pos_}});
     }
 
   private:
@@ -64,12 +62,7 @@ class GetPosition : Dto {
     GetPosition(nlohmann::json json) 
         : Dto(json["command"], json["username"]), return_cmd_(json["data"]["return_cmd"]) {
       for (const auto& it : json["data"]["position_requests"].get<std::map<std::string, nlohmann::json>>()) {
-        if (it.second.is_null())
-          position_requests_.insert(std::make_pair(std::stoi(it.first), GetPositionInfo()));
-        else if (it.second.is_number())
-          position_requests_.insert(std::make_pair(std::stoi(it.first), GetPositionInfo(it.second.get<int>())));
-        else 
-          position_requests_.insert(std::make_pair(std::stoi(it.first), GetPositionInfo(it.second.get<position_t>())));
+        position_requests_.insert(std::make_pair(std::stoi(it.first), GetPositionInfo(it.second)));
       }
     }
     

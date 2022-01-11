@@ -94,7 +94,7 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   // Synapse context:
   std::map<char, void(ClientGame::*)(nlohmann::json&)> synapse_handlers = {{'s', &ClientGame::h_SetWPs},
       {'i', &ClientGame::h_IpspTarget}, {'e', &ClientGame::h_EpspTarget}, {'w', &ClientGame::h_SwarmAttack},
-      {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit}};
+      {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_ResetOrQuitSynapseContext}};
   contexts_[CONTEXT_SYNAPSE] = Context(CONTEXT_SYNAPSE_MSG, synapse_handlers, synapse_topline);
 
   // Initialize eventmanager.
@@ -112,6 +112,7 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   eventmanager_.AddHandler("select_synapse", &ClientGame::h_SendSelectSynapse);
   eventmanager_.AddHandler("set_wps", &ClientGame::h_SetWPs);
   eventmanager_.AddHandler("ipsp_target", &ClientGame::h_IpspTarget);
+  eventmanager_.AddHandler("epsp_target", &ClientGame::h_EpspTarget);
 }
 
 nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
@@ -358,6 +359,8 @@ void ClientGame::h_SetWPs(nlohmann::json& msg) {
     // Set up pick-context
     std::vector<position_t> center_positions = msg["data"]["positions"][0];
     SwitchToPickContext(center_positions, "select start position", "set_wps", msg);
+    if (contexts_.count(CONTEXT_PICK) > 0)
+      contexts_.at(CONTEXT_PICK).eventmanager().AddHandler('q', &ClientGame::h_ResetOrQuitSynapseContext);
   }
   // First call (request positions)
   else {
@@ -389,10 +392,50 @@ void ClientGame::h_SetWPs(nlohmann::json& msg) {
   msg = nlohmann::json();
 }
 
-void ClientGame::h_EpspTarget(nlohmann::json&) {
-  nlohmann::json response = {{"command", "set_epsp_target"}, {"username", username_}, {"data",
-    {{"pos", contexts_.at(current_context_).current_pos()}} }};
-  ws_srv_->SendMessage(response.dump());
+void ClientGame::h_EpspTarget(nlohmann::json& msg) {
+  spdlog::get(LOGGER)->debug("Calling epsp-target with data: {}", msg.dump());
+  // final call (set epsp target and reset to synapse-context)
+  if (msg["data"].contains("pos")) {
+    // Switch (back) to synapse-context.
+    SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", msg["data"]["start_pos"]}} }}));
+    drawrer_.set_viewpoint(CONTEXT_RESOURCES);
+    drawrer_.ClearMarkers(TARGETS_MARKER);
+    // Send request to server.
+    nlohmann::json response = {{"command", "set_epsp_target"}, {"username", username_}, {"data",
+      {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}} }};
+    ws_srv_->SendMessage(response.dump());
+  }
+  // third call (select field position)
+  else if (msg["data"].contains("start_pos")) {
+    RemovePickContext();
+    SwitchToFieldContext(msg["data"]["start_pos"], 1000, "epsp_target", msg, "Select epsp-target position.");
+  }
+  // Second call (select start position)
+  else if (msg["data"].contains("positions")) {
+    // Set synapse-position.
+    msg["data"]["synapse_pos"] = contexts_.at(current_context_).data()["data"]["synapse_pos"];
+    std::vector<position_t> enemy_nucleus_positions = msg["data"]["positions"][0];
+    // If only one enemy nucleus, set-up field-select and add start-pos to message-json.
+    if (enemy_nucleus_positions.size() == 1) {
+      msg["data"]["start_pos"] = enemy_nucleus_positions.front();
+      SwitchToFieldContext(enemy_nucleus_positions.front(), 1000, "epsp_target", msg, "Select epsp-target position.");
+    }
+    // Create pick-context to select synapse.
+    else 
+      SwitchToPickContext(msg["data"]["positions"][0], "Select select enemy base", "epsp_target", msg);
+    // Display current target on field.
+    std::vector<std::vector<int>> target_positions = msg["data"]["positions"][1];
+    if (target_positions.size() > 0)
+      drawrer_.AddMarker(TARGETS_MARKER, utils::PositionFromVector(target_positions.front()), COLOR_MARKED, "T");
+  }
+  // First call (request positions)
+  else {
+    GetPosition req(username_, "epsp_target", {{ENEMY, GetPositionInfo(NUCLEUS)}, 
+        {TARGETS, GetPositionInfo(EPSP, msg["data"]["synapse_pos"].get<position_t>())}});
+    ws_srv_->SendMessage(req.ToJson().dump());
+  }
+  msg = nlohmann::json();
+
 }
 
 void ClientGame::h_IpspTarget(nlohmann::json& msg) {
@@ -408,14 +451,13 @@ void ClientGame::h_IpspTarget(nlohmann::json& msg) {
       {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}} }};
     ws_srv_->SendMessage(response.dump());
   }
-  // First call (request positions)
-  else if (!msg["data"].contains("positions")) {
-    GetPosition req(username_, "ipsp_target", {{ENEMY, GetPositionInfo(NUCLEUS)}, 
-        {TARGETS, GetPositionInfo(msg["data"]["synapse_pos"].get<position_t>())}});
-    ws_srv_->SendMessage(req.ToJson().dump());
+  // third call (select field position)
+  else if (msg["data"].contains("start_pos")) {
+    RemovePickContext();
+    SwitchToFieldContext(msg["data"]["start_pos"], 1000, "ipsp_target", msg, "Select ipsp-target position.");
   }
   // Second call (select start position)
-  else if (!msg["data"].contains("start_pos")) {
+  else if (msg["data"].contains("positions")) {
     // Set synapse-position.
     msg["data"]["synapse_pos"] = contexts_.at(current_context_).data()["data"]["synapse_pos"];
     std::vector<position_t> enemy_nucleus_positions = msg["data"]["positions"][0];
@@ -432,10 +474,11 @@ void ClientGame::h_IpspTarget(nlohmann::json& msg) {
     if (target_positions.size() > 0)
       drawrer_.AddMarker(TARGETS_MARKER, utils::PositionFromVector(target_positions.front()), COLOR_MARKED, "T");
   }
-  // third call (select field position)
-  else if (msg["data"].contains("start_pos")) {
-    RemovePickContext();
-    SwitchToFieldContext(msg["data"]["start_pos"], 1000, "ipsp_target", msg, "Select ipsp-target position.");
+  // First call (request positions)
+  else {
+    GetPosition req(username_, "ipsp_target", {{ENEMY, GetPositionInfo(NUCLEUS)}, 
+        {TARGETS, GetPositionInfo(IPSP, msg["data"]["synapse_pos"].get<position_t>())}});
+    ws_srv_->SendMessage(req.ToJson().dump());
   }
   msg = nlohmann::json();
 }
@@ -444,6 +487,20 @@ void ClientGame::h_SwarmAttack(nlohmann::json& msg) {
   nlohmann::json response = {{"command", "toggle_swarm_attack"}, {"username", username_}, {"data",
     {{"pos", msg["data"]["synapse_pos"] }} }};
   ws_srv_->SendMessage(response.dump());
+}
+
+void ClientGame::h_ResetOrQuitSynapseContext(nlohmann::json& msg) {
+  nlohmann::json data = contexts_.at(current_context_).data()["data"];
+  if (data.size() == 1) {
+    position_t s_pos = (data.contains("start_pos")) ? data["start_pos"] : data["synapse_pos"];
+    SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", s_pos}} }}));
+    drawrer_.set_viewpoint(CONTEXT_RESOURCES);
+    drawrer_.ClearMarkers();
+  }
+  else {
+    drawrer_.ClearMarkers();
+    SwitchToResourceContext();
+  }
 }
 
 void ClientGame::h_AddPosition(nlohmann::json&) {
@@ -457,6 +514,8 @@ void ClientGame::h_AddPosition(nlohmann::json&) {
     h_SetWPs(msg);
   else if (action == "ipsp_target") 
     h_IpspTarget(msg);
+  else if (action == "epsp_target") 
+    h_EpspTarget(msg);
 }
 
 void ClientGame::h_AddStartPosition(nlohmann::json&) {
@@ -474,6 +533,8 @@ void ClientGame::h_AddStartPosition(nlohmann::json&) {
     h_SetWPs(msg);
   else if (action == "ipsp_target") 
     h_IpspTarget(msg);
+  else if (action == "epsp_target") 
+    h_EpspTarget(msg);
 }
 
 void ClientGame::SwitchToResourceContext(std::string msg) {
@@ -526,7 +587,8 @@ void ClientGame::SwitchToFieldContext(position_t pos, int range, std::string act
 }
 
 void ClientGame::RemovePickContext(int new_context) {
-  contexts_.erase(CONTEXT_PICK);
+  if (contexts_.count(CONTEXT_PICK) > 0)
+    contexts_.erase(CONTEXT_PICK);
   drawrer_.ClearMarkers();
   if (new_context != -1) {
     current_context_ = new_context;

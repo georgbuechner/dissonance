@@ -41,7 +41,7 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
   technologies_ = {
     {UnitsTech::WAY, {3,3}},
     {UnitsTech::SWARM, {0,3}},
-    {UnitsTech::TARGET, {1,2}},
+    {UnitsTech::TARGET, {2,2}},
     {UnitsTech::TOTAL_RESOURCE, {0,3}},
     {UnitsTech::CURVE, {0,3}},
     {UnitsTech::ATK_POTENIAL, {0,3}},

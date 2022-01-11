@@ -115,6 +115,7 @@ class ClientGame {
     void h_EpspTarget(nlohmann::json&);
     void h_IpspTarget(nlohmann::json&);
     void h_SwarmAttack(nlohmann::json&);
+    void h_ResetOrQuitSynapseContext(nlohmann::json&);
 
     // command methods
 

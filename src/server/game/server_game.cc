@@ -34,6 +34,7 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   eventmanager_.AddHandler("toggle_swarm_attack", &ServerGame::m_ToggleSwarmAttack);
   eventmanager_.AddHandler("set_way_point", &ServerGame::m_SetWayPoint);
   eventmanager_.AddHandler("set_ipsp_target", &ServerGame::m_SetIpspTarget);
+  eventmanager_.AddHandler("set_epsp_target", &ServerGame::m_SetEpspTarget);
 }
 
 int ServerGame::status() {
@@ -204,23 +205,19 @@ void ServerGame::m_GetPositions(nlohmann::json& msg) {
         positions = field_->GetAllCenterPositionsOfSections();
       // ipsp-/ epsp-targets
       else if (it.first == Positions::TARGETS) {
-        position_t ipsp_target_pos = player->GetSynapesTarget(it.second.pos(), IPSP);
+        position_t ipsp_target_pos = player->GetSynapesTarget(it.second.pos(), it.second.unit());
         if (ipsp_target_pos.first != -1)
           positions.push_back(ipsp_target_pos);
       }
       else if (it.first == Positions::CURRENT_WAY) {
-        spdlog::get(LOGGER)->debug("Creating way to ipsp target...");
         // Get way to ipsp-target
         for (const auto& it : field_->GetWayForSoldier(it.second.pos(), 
               player->GetSynapesWayPoints(it.second.pos(), IPSP)))
           positions.push_back(it);
-        spdlog::get(LOGGER)->debug("Creating way to ipsp target... done");
-        spdlog::get(LOGGER)->debug("Creating way to epsp target...");
         // Get way to epsp-target
         for (const auto& it : field_->GetWayForSoldier(it.second.pos(), 
               player->GetSynapesWayPoints(it.second.pos(), EPSP)))
           positions.push_back(it);
-        spdlog::get(LOGGER)->debug("Creating way to epsp target... done");
       }
       else if (it.first == Positions::CURRENT_WAY_POINTS) {
         positions = player->GetSynapesWayPoints(it.second.pos());
@@ -262,6 +259,15 @@ void ServerGame::m_SetIpspTarget(nlohmann::json& msg) {
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Ipsp target for this synapse set"}} }};
   }
 }
+
+void ServerGame::m_SetEpspTarget(nlohmann::json& msg) {
+  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
+  if (player) {
+    player->ChangeEpspTargetForSynapse(msg["data"]["synapse_pos"], msg["data"]["pos"]);
+    msg = {{"command", "set_msg"}, {"data", {{"msg", "Epsp target for this synapse set"}} }};
+  }
+}
+
 
 void ServerGame::BuildPotentials(int unit, position_t pos, int num_potenials_to_build, 
     std::string username, Player* player) {
