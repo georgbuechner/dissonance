@@ -332,11 +332,8 @@ bool Player::DistributeIron(int resource) {
   int active_after = resources_.at(resource).Active();
   if (active_after && !active_before)
     AddNeuron(resources_.at(resource).pos(), RESOURCENEURON);  // Add resource neuron.
-
-
   resources_.at(IRON).set_cur(resources_.at(IRON).cur() - 1);
   resources_.at(IRON).set_bound(resources_.at(IRON).bound() + 1);
-
   spdlog::get(LOGGER)->info("Player::DistributeIron: success!");
   return true;
 }
@@ -422,7 +419,7 @@ bool Player::AddNeuron(position_t pos, int neuron_type, position_t epsp_target, 
   }
   else if (neuron_type == UnitsTech::RESOURCENEURON) {
     std::string symbol = field_->GetSymbolAtPos(pos);
-    int resource_type = resources_symbol_mapping.at(symbol);
+    int resource_type = symbol_resource_mapping.at(symbol);
     neurons_[pos] = std::make_unique<ResourceNeuron>(pos, resource_type);
   }
   spdlog::get(LOGGER)->info("Player::AddNeuron: done");

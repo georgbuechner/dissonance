@@ -55,10 +55,11 @@ void ClientGame::init() {
 }
 
 // std-topline
-std::vector<std::pair<std::string, int>> std_topline = {{" [i]psp ", COLOR_DEFAULT}, 
-  {" [e]psp  ", COLOR_DEFAULT}, {" [A]ctivated Neuron  ", COLOR_DEFAULT}, 
-  {" [S]ynape ", COLOR_DEFAULT}, {" [s]elect-synapse ", COLOR_DEFAULT}, 
-  {" [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}};
+std::vector<std::pair<std::string, int>> std_topline = {{"[i]psp (a..z)  ", COLOR_DEFAULT}, 
+  {"[e]psp (1..9)  ", COLOR_DEFAULT}, {"[A]ctivated Neuron (" SYMBOL_DEF ")  ", COLOR_DEFAULT}, 
+  {"[S]ynape (" SYMBOL_BARACK ")  ", COLOR_DEFAULT}, {"[N]ucleus (" SYMBOL_DEN ")  ", COLOR_DEFAULT}, 
+  {" [s]elect-synapse ", COLOR_DEFAULT}, {" [t]oggle-navigation ", COLOR_DEFAULT}, 
+  {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}};
 
 std::vector<std::pair<std::string, int>> field_topline = {{" [h, j, k, l] to navigate field "
   " [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}};

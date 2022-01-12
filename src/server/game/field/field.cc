@@ -55,13 +55,15 @@ std::map<int, position_t> Field::AddResources(position_t start_pos) {
   // Get positions sourrounding start position, with enough free spaces for all resources.
   unsigned int nth_try = 0;
   std::vector<position_t> positions = GetAllInRange(start_pos, 4, 2, true);
-  while(positions.size() < resources_symbol_mapping.size()) {
+  while(positions.size() < symbol_resource_mapping.size()-1) {
     spdlog::get(LOGGER)->debug("Field::AddResources: {}th try getting positions", nth_try);
     positions = GetAllInRange(start_pos, 4+nth_try++, 3, true);
   }
 
   // Randomly asign each resource one of these free positions.
-  for (const auto& it : resources_symbol_mapping) {
+  for (const auto& it : symbol_resource_mapping) {
+    if (it.second == IRON)
+      continue;
     int ran = ran_gen_->RandomInt(0, positions.size());
     auto pos = positions[ran];
     positions.erase(positions.begin()+ran);
@@ -241,7 +243,7 @@ std::vector<std::vector<Transfer::Symbol>> Field::Export(std::vector<Player*> pl
       // Check if belongs to either player, is blocked or is resource-neuron
       for (unsigned int i=0; i<players.size(); i++) {
         if (players[i]->GetNeuronTypeAtPosition(cur) == RESOURCENEURON)
-          color = COLOR_RESOURCES;
+          continue;
         else if (players[i]->GetNeuronTypeAtPosition(cur) != -1)
           color = players[i]->color();
       }

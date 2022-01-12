@@ -1,4 +1,5 @@
 #include "client/game/print/drawrer.h"
+#include "share/constants/codes.h"
 #include "share/objects/units.h"
 #include "spdlog/spdlog.h"
 #include <mutex>
@@ -119,6 +120,8 @@ void Drawrer::AddNewUnitToPos(position_t pos, int unit, int color) {
     field_[pos.first][pos.second] = {SYMBOL_BARACK, color};
   else if (unit == UnitsTech::NUCLEUS)
     field_[pos.first][pos.second] = {SYMBOL_DEN, color};
+  else if (unit == UnitsTech::RESOURCENEURON)
+    field_[pos.first][pos.second] = {field_[pos.first][pos.second].symbol_, color};
 }
 
 void Drawrer::UpdateTranser(nlohmann::json &transfer_json) {
@@ -291,7 +294,8 @@ void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources
       attron(COLOR_PAIR(COLOR_AVAILIBLE));
     else if (it.second.active_)
       attron(COLOR_PAIR(COLOR_SUCCESS));
-    std::string str = resources_name_mapping.at(it.first) + ": " + it.second.value_;
+    std::string str = resource_symbol_mapping.at(it.first) + " " + resources_name_mapping.at(it.first) 
+      + ": " + it.second.value_;
     ClearLine(l_main_ + counter, c_resources_);
     mvaddstr(l_main_ + counter, c_resources_, str.c_str());
     attron(COLOR_PAIR(COLOR_DEFAULT));

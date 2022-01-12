@@ -147,7 +147,7 @@ const std::map<int, std::string> resources_name_mapping = {
   {SEROTONIN, "serotonin"},
 };
 
-const std::map<std::string, int> resources_symbol_mapping = {
+const std::map<std::string, int> symbol_resource_mapping = {
   {SYMBOL_IRON, IRON},
   {SYMBOL_OXYGEN, OXYGEN},
   {SYMBOL_POTASSIUM, POTASSIUM},
@@ -155,6 +155,16 @@ const std::map<std::string, int> resources_symbol_mapping = {
   {SYMBOL_GLUTAMATE, GLUTAMATE},
   {SYMBOL_DOPAMINE, DOPAMINE},
   {SYMBOL_SEROTONIN, SEROTONIN},
+};
+
+const std::map<int, std::string> resource_symbol_mapping = {
+  {IRON, SYMBOL_IRON},
+  {OXYGEN, SYMBOL_OXYGEN},
+  {POTASSIUM, SYMBOL_POTASSIUM},
+  {CHLORIDE, SYMBOL_CHLORIDE},
+  {GLUTAMATE, SYMBOL_GLUTAMATE},
+  {DOPAMINE, SYMBOL_DOPAMINE},
+  {SEROTONIN, SYMBOL_SEROTONIN},
 };
 
 const std::map<int, std::string> resource_description_mapping = {

@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -81,17 +82,43 @@ nlohmann::json ServerGame::HandleInput(std::string command, nlohmann::json msg) 
 // command methods
 
 void ServerGame::m_AddIron(nlohmann::json& msg) {
-  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
-  if (player && player->DistributeIron(msg["data"]["resource"]))
+  std::string username = msg["username"];
+  Player* player = (players_.count(username) > 0) ? players_.at(username) : NULL;
+  int resource = msg["data"]["resource"];
+  if (player && player->DistributeIron(resource)) {
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Distribute iron: done!"}} }};
+    spdlog::get(LOGGER)->debug("ServerGame::m_AddIron: checking whether to send player new resource-neuron: {} cur: {}", 
+        resource, player->resources().at(resource).distributed_iron());
+    // If resource is newly created, send client resource-neuron as new unit.
+    if (player->resources().at(resource).distributed_iron() == 2) {
+      spdlog::get(LOGGER)->debug("ServerGame::m_AddIron: sending player new resource-neuron");
+      position_t pos = player->resources().at(resource).pos();
+      spdlog::get(LOGGER)->debug("ServerGame::m_AddIron: 1");
+      nlohmann::json req = {{"command", "set_unit"}, {"data", {{"unit", RESOURCENEURON}, {"pos", pos}, 
+          {"color", COLOR_RESOURCES}} }};
+      spdlog::get(LOGGER)->debug("ServerGame::m_AddIron: 2");
+      ws_server_->SendMessage(username, req.dump());
+      spdlog::get(LOGGER)->debug("ServerGame::m_AddIron: 3");
+    }
+  }
   else 
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Distribute iron: not enough iron!"}} }};
 }
 
 void ServerGame::m_RemoveIron(nlohmann::json& msg) {
   Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
-  if (player && player->RemoveIron(msg["data"]["resource"]))
+  int resource = msg["data"]["resource"];
+  if (player && player->RemoveIron(msg["data"]["resource"])) {
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Remove iron: done!"}} }};
+    // If resource is newly created, send client resource-neuron as new unit.
+    if (player->resources().at(resource).bound() == 1) {
+      spdlog::get(LOGGER)->debug("ServerGame::m_AddIron: sending player removed resource-neuron");
+      position_t pos = player->resources().at(resource).pos();
+      nlohmann::json req = {{"command", "set_unit"}, {"data", {{"unit", RESOURCENEURON}, {"pos", pos}, 
+          {"color", COLOR_DEFAULT}} }};
+      ws_server_->SendMessage(msg["username"], req.dump());
+    }
+  }
   else 
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Remove iron: not enough iron!"}} }};
 }
