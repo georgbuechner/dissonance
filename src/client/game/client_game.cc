@@ -815,26 +815,37 @@ std::string ClientGame::SelectAudio() {
 
     // Get players choice.
     char choice = getch();
+    // Goes to child directory.
     if (utils::IsRight(choice)) {
       level++;
-      if (visible_options[selected].first == "dissonance_recently_played")
+      // Go to "recently played" songs
+      if (visible_options[selected].first == "dissonance_recently_played") {
         selector = SetupAudioSelector("", "Recently Played", recently_played);
+        selected = 0;
+        print_start = 0;
+      }
+      // Go to child directory (if path exists and is a directory)
       else if (std::filesystem::is_directory(visible_options[selected].first)) {
         selector = SetupAudioSelector(visible_options[selected].first, visible_options[selected].second, 
             utils::GetAllPathsInDirectory(visible_options[selected].first));
         selected = 0;
         print_start = 0;
       }
+      // Otherwise: show error.
       else 
         error = "Not a directory!";
     }
+    // Go to parent directory
     else if (utils::IsLeft(choice)) {
+      // if "top level" reached, then show error.
       if (level == 0) 
         error = "No parent directory.";
+      // otherwise go to parent directory (decreases level)
       else {
         level--;
         selected = 0;
         print_start = 0;
+        // If "top level" use initial AudioSelector (displaying initial/ customn user directory)
         if (level == 0) {
           selector = SetupAudioSelector("", "select audio", audio_paths_);
           selector.options_.push_back({"dissonance_recently_played", "recently played"});
