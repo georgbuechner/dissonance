@@ -22,7 +22,7 @@ struct GetPositionInfo {
     position_t pos() const { return pos_; }
 
     // methods 
-    nlohmann::json ToJson() const {
+    nlohmann::json json() const {
       return nlohmann::json({{"unit", unit_}, {"pos", pos_}});
     }
 
@@ -44,7 +44,7 @@ class Dto {
     // setter
     
     // methods
-    virtual nlohmann::json ToJson() const {
+    virtual nlohmann::json json() const {
       return {{"command", command_}, { "username", username_}, {"data", nlohmann::json()}};
     }
 
@@ -71,12 +71,12 @@ class GetPosition : Dto {
     std::map<int, GetPositionInfo> position_requests() { return position_requests_; }
 
     // methods 
-    nlohmann::json ToJson() const {
-      nlohmann::json json = Dto::ToJson();
+    nlohmann::json json() const {
+      nlohmann::json json = Dto::json();
       json["data"]["return_cmd"] = return_cmd_;
       json["data"]["position_requests"] = nlohmann::json();
       for (const auto& it : position_requests_)
-        json["data"]["position_requests"][std::to_string(it.first)] = it.second.ToJson();
+        json["data"]["position_requests"][std::to_string(it.first)] = it.second.json();
       return json;
     }
 

@@ -48,6 +48,7 @@ class Player {
 
     std::map<int, Transfer::Resource> t_resources();
     std::map<int, Transfer::Technology> t_technologies();
+    std::map<position_t, int> new_dead_neurons();
     std::vector<Player*> enemies();
     int color();
 
@@ -288,6 +289,7 @@ class Player {
 
     std::shared_mutex mutex_all_neurons_;
     std::map<position_t, std::unique_ptr<Neuron>> neurons_;
+    std::map<position_t, int> new_dead_neurons_;
     position_t main_nucleus_pos_;
 
     std::shared_mutex mutex_potentials_;

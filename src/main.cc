@@ -103,6 +103,7 @@ int main(int argc, const char** argv) {
   });
 
   // Create client and client-game.
+  ClientGame::init();
   ClientGame* client_game = (standalone) ? nullptr : new ClientGame(relative_size, base_path, username, muli_player);
   Client* client = (standalone) ? nullptr : new Client(client_game, username);
   if (client_game)

@@ -94,6 +94,13 @@ std::map<int, Transfer::Technology> Player::t_technologies() {
   return technologies;
 }
 
+std::map<position_t, int> Player::new_dead_neurons() {
+  std::shared_lock sl(mutex_all_neurons_);
+  std::map<position_t, int> new_dead_neurons = new_dead_neurons_;
+  new_dead_neurons_.clear();
+  return new_dead_neurons;
+}
+
 std::vector<Player*> Player::enemies() {
   return enemies_;
 }
@@ -527,9 +534,9 @@ void Player::MovePotential() {
         for (const auto& enemy : enemies_) {
           if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1) {
             enemy->AddPotentialToNeuron(it.second.pos_, it.second.potential_);
-            potential_to_remove.push_back(it.first); // remove 
           }
         }
+        potential_to_remove.push_back(it.first); // remove 
       }
     }
     // Ipsp: check if just time is up -> remove ipsp, otherwise -> block target.
@@ -635,6 +642,7 @@ void Player::AddPotentialToNeuron(position_t pos, int potential) {
         ul_all_neurons.lock();
         UpdateResourceLimits(-0.1);  // Remove added max resources when nucleus dies.
       }
+      new_dead_neurons_[pos] = type;
       spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: adding potential finished.");
     }
   }

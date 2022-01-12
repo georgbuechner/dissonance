@@ -588,9 +588,12 @@ void ServerGame::CreateAndSendTransferToAllPlayers(float audio_played, bool upda
   Transfer transfer;
   std::map<std::string, std::string> players_status;
   std::vector<Player*> vec_players;
+  std::map<position_t, int> new_dead_neurons;
   for (const auto& it : players_) {
     players_status[it.first] = it.second->GetNucleusLive();
     vec_players.push_back(it.second);
+    for (const auto& it : it.second->new_dead_neurons())
+      new_dead_neurons[it.first]= it.second;
   }
   transfer.set_players(players_status);
   if (update)
@@ -607,6 +610,7 @@ void ServerGame::CreateAndSendTransferToAllPlayers(float audio_played, bool upda
     if (it.first != "AI") {
       transfer.set_resources(it.second->t_resources());
       transfer.set_technologies(it.second->t_technologies());
+      transfer.set_new_dead_neurons(new_dead_neurons);
       resp["data"] = transfer.json();
       ws_server_->SendMessage(it.first, resp.dump());
     }

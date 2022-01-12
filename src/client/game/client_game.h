@@ -39,6 +39,8 @@ class ClientGame {
 
     void GetAction();
 
+    static void init();
+
   private: 
     // member variables.
     const std::string username_;
@@ -143,11 +145,15 @@ class ClientGame {
      */
     void h_AddStartPosition(nlohmann::json&);
 
-    void SwitchToPickContext(std::vector<position_t> positions, std::string msg, std::string action, nlohmann::json data);
-    void SwitchToFieldContext(position_t pos, int range, std::string action, nlohmann::json data, std::string msg);
+    void SwitchToPickContext(std::vector<position_t> positions, std::string msg, std::string action, 
+        nlohmann::json data, std::vector<char> slip_handlers = {});
+    void SwitchToFieldContext(position_t pos, int range, std::string action, nlohmann::json data, std::string msg, 
+        std::vector<char> slip_handlers = {});
     void SwitchToResourceContext(std::string msg = "");
     void SwitchToSynapseContext(nlohmann::json data = nlohmann::json());
     void RemovePickContext(int new_context=-1);
+
+    static std::map<int, std::map<char, void(ClientGame::*)(nlohmann::json&)>> handlers_;
 };
 
 #endif

@@ -140,6 +140,12 @@ void Drawrer::UpdateTranser(nlohmann::json &transfer_json) {
     temp_symbols_[it.first] = field_[it.first.first][it.first.second];
     field_[it.first.first][it.first.second] = {it.second.first, it.second.second};
   }
+
+  // Update dead neurons
+  for (const auto & it : t.new_dead_neurons()) {
+    ul.unlock();
+    AddNewUnitToPos(it.first, it.second, COLOR_DEFAULT);
+  }
 }
 
 void Drawrer::SetUpBorders(int lines, int cols) {
