@@ -14,8 +14,8 @@
 #define COLOR_MARKED 6
 #define COLOR_PROGRESS 7
 
-#define COLOR_KI 1 
-#define COLOR_PLAYER 2 
+#define COLOR_KI 2
+#define COLOR_PLAYER 1
 #define COLOR_RESOURCES 4 
 
 // Contexts 

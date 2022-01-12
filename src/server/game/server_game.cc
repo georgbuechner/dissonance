@@ -393,8 +393,12 @@ void ServerGame::StartGame() {
       players_.at("AI")->DistributeIron(Resources::OXYGEN);
       players_.at("AI")->HandleIron(audio_.analysed_data().data_per_beat_.front());
     }
-    else 
+    else {
+      // If single-player, always use standard-player color.
+      if (mode_ == SINGLE_PLAYER)
+        color = COLOR_PLAYER;
       players_[it.first] = new Player(nucleus_positions[counter], field_, ran_gen, color);
+    }
     counter++;
   }
   // Pass all players a vector of all enemies.
