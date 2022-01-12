@@ -383,7 +383,7 @@ void ServerGame::StartGame() {
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Creating {} players", nucleus_positions.size());
   unsigned int counter = 0;
   for (const auto& it : players_) {
-    int color = ((counter % 2) == 1) ? COLOR_PLAYER : COLOR_KI;
+    int color = (counter % 4) + 10;
     if (it.first == "AI") {
       players_[it.first] = new AudioKi(nucleus_positions[counter], field_, &audio_, ran_gen);
       // Setup audio-ki

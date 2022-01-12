@@ -18,6 +18,12 @@
 #define COLOR_PLAYER 1
 #define COLOR_RESOURCES 4 
 
+#define COLOR_P2 10
+#define COLOR_P3 11
+#define COLOR_P4 12
+#define COLOR_P5 13
+#define COLOR_P6 14
+
 // Contexts 
 #define CONTEXT_FIELD 0
 #define CONTEXT_RESOURCES 1

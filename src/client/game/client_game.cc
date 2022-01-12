@@ -1,6 +1,7 @@
 #include "client/game/client_game.h"
 #include "client/game/print/drawrer.h"
 #include "client/websocket/client.h"
+#include "curses.h"
 #include "nlohmann/json_fwd.hpp"
 #include "share/constants/codes.h"
 #include "share/constants/texts.h"
@@ -90,6 +91,11 @@ ClientGame::ClientGame(bool relative_size, std::string base_path, std::string us
   init_pair(COLOR_MSG, COLOR_CYAN, -1);
   init_pair(COLOR_SUCCESS, COLOR_GREEN, -1);
   init_pair(COLOR_MARKED, COLOR_MAGENTA, -1);
+
+  init_pair(COLOR_P2, 10, -1);
+  init_pair(COLOR_P3, 11, -1);
+  init_pair(COLOR_P4, 12, -1);
+  init_pair(COLOR_P5, 13, -1);
 
   // Setup map-size
   drawrer_.SetUpBorders(LINES, COLS);

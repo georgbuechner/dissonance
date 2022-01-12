@@ -1,4 +1,5 @@
 #include "client/game/print/drawrer.h"
+#include "curses.h"
 #include "share/constants/codes.h"
 #include "share/objects/units.h"
 #include "spdlog/spdlog.h"
@@ -256,8 +257,12 @@ void Drawrer::PrintField() {
         attron(COLOR_PAIR(COLOR_AVAILIBLE));
       else if (cur_view_point_ == VP_FIELD && utils::Dist(cur, range.first) <= range.second)
         attron(COLOR_PAIR(COLOR_SUCCESS));
-      else
-        attron(COLOR_PAIR(field_[l][c].color_));
+      else {
+        int color = field_[l][c].color_;
+        if (!can_change_color() && color >= 10)
+          color = (color % 2) + 1;
+        attron(COLOR_PAIR(color));
+      }
 
       // Print symbol or marker
       auto replacment = GetReplaceMentFromMarker(cur);
