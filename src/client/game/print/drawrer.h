@@ -2,6 +2,8 @@
 #define SRC_PRINT_DRAWER_H_
 
 #include "spdlog/spdlog.h"
+#include <set>
+#include <vector>
 #define NCURSES_NOMACROS
 #include <cstddef>
 #include <curses.h>
@@ -105,6 +107,7 @@ class Drawrer {
     int cols_;
     Transfer transfer_;
     std::vector<std::vector<Transfer::Symbol>> field_;
+    std::set<position_t> graph_positions_;
     std::map<position_t, Transfer::Symbol> temp_symbols_;
     std::map<int, std::map<position_t, std::pair<std::string, int>>> markers_;
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
@@ -116,9 +119,13 @@ class Drawrer {
         ViewPoint(int x, int y, void(ViewPoint::*f_inc)(int val), 
             std::string(ViewPoint::*f_ts)(const Transfer&)) : x_(x), y_(y), inc_(f_inc), to_string_(f_ts) {}
 
+        // member
         int x_;
         int y_;
         std::pair<position_t, int> range_; // start, range
+        std::set<position_t> graph_positions_;
+
+        // methods
         void inc(int val) { (this->*inc_)(val); }
         std::string to_string(const Transfer& transfer) { return(this->*to_string_)(transfer); }
 
@@ -134,7 +141,8 @@ class Drawrer {
           if (val == 2) x_++;
           if (val == -2) x_--;
 
-          if (utils::Dist(range_.first, {y_, x_}) > range_.second) {
+          position_t pos = {y_, x_};
+          if (utils::Dist(range_.first, pos) > range_.second && graph_positions_.count(pos) > 0) {
             x_ = old_x;
             y_ = old_y;
           }

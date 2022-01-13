@@ -19,6 +19,7 @@
 #include <string>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
 ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv) 
     : num_players_(num_players), audio_(base_path), ws_server_(srv), status_(WAITING), mode_(mode), lines_(lines), cols_(cols) {
@@ -340,47 +341,41 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
 }
 
 void ServerGame::StartGame() {
-  // Build field.
+  // Initialize random generators.
   RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
   RandomGenerator* map_1 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_boolean_minor_interval);
   RandomGenerator* map_2 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_level_peaks);
-  auto intervals_ = audio_.analysed_data().intervals_;
-  int denceness = 0;
+  // Create field.
+  field_ = nullptr;
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: creating map. field initialized? {}", field_ != nullptr);
   std::vector<position_t> nucleus_positions;
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: creating map {} ", denceness);
-  while (nucleus_positions.size() == 0 && denceness < 5) {
-    spdlog::get(LOGGER)->info("ServerGame::InitializeGame: creating map try: {}", denceness);
-    spdlog::get(LOGGER)->debug("ServerGame::InitializeGame: creating hills}");
-    // Create field with hills
+  int denseness = 0;
+  while (!field_ && denseness < 2) {
     field_ = new Field(lines_, cols_, ran_gen);
-    field_->AddHills(map_1, map_2, denceness++);
-    // Create a nucleus for each player.
-    for (unsigned int i=0; i<num_players_; i++) {
-      int section = (intervals_[i].darkness_ + intervals_[i].notes_out_key_) % 8 + 1;
-      nucleus_positions.push_back(field_->AddNucleus(section));
-    }
-    spdlog::get(LOGGER)->debug("ServerGame::InitializeGame: builing graph...");
-    // Build graph.
-    try {
-      field_->BuildGraph(nucleus_positions);
-    } catch (std::logic_error& e) {
-      spdlog::get(LOGGER)->warn("Game::play: graph could not be build: {}", e.what());
+    field_->AddHills(map_1, map_2, denseness++);
+    field_->BuildGraph();
+    nucleus_positions = field_->AddNucleus(num_players_);
+    if (nucleus_positions.size() == 0) {
+      delete field_;
       field_ = nullptr;
-      nucleus_positions.clear();
-      continue;
     }
   }
+  delete map_1;
+  delete map_2;
+  // Check if map is playable (all nucleus-positions could be found)
   if (!field_) {
-    nlohmann::json msg = {{"command", "print_msg"}, {"data", {{"msg", 
-      "Game cannot be played with this song, as map is unplayable. "
-      "It might work with a higher resolution. (dissonance -r)"}} }};
+    nlohmann::json msg = {{"command", "print_msg"}, {"data", {{"msg", "Game cannot be played with this song, "
+      "as map is unplayable. It might work with a higher resolution. (dissonance -r)"}} }};
     SendMessageToAllPlayers(msg.dump());
     return;
   }
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: successfully created map.");
 
   // Setup players.
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Creating {} players", nucleus_positions.size());
+  std::string nucleus_positions_str = "nucleus': ";
+  for (const auto& it : nucleus_positions)
+    nucleus_positions_str += utils::PositionToString(it) + ", ";
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Creating {} players at {}", num_players_, nucleus_positions_str);
   unsigned int counter = 0;
   for (const auto& it : players_) {
     int color = (counter % 4) + 10;
@@ -405,9 +400,8 @@ void ServerGame::StartGame() {
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Setting enemies for each player");
   for (const auto& it : players_) {
     std::vector<Player*> enemies;
-    for (const auto& jt : players_) {
+    for (const auto& jt : players_)
       if (jt.first != it.first) enemies.push_back(jt.second);
-    }
     it.second->set_enemies(enemies);
   }
 
@@ -546,6 +540,9 @@ void ServerGame::Thread_RenderField() {
   } 
   sleep(1);
   std::unique_lock ul(mutex_status_);
+  delete field_;
+  for (const auto& it : players_)
+    delete players_[it.first];
   status_ = CLOSED;
   spdlog::get(LOGGER)->info("Game::Thread_RenderField: ended");
 }
@@ -629,8 +626,10 @@ void ServerGame::CreateAndSendTransferToAllPlayers(float audio_played, bool upda
   transfer.set_players(players_status);
   if (update)
     transfer.set_potentials(GetAndUpdatePotentials());
-  else 
+  else {
     transfer.set_field(field_->Export(vec_players));
+    transfer.set_graph_positions(field_->GraphPositions());
+  }
   transfer.set_audio_played(audio_played);
 
   std::string command = (update) ? "update_game" : "init_game";

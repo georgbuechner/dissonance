@@ -9,7 +9,9 @@
 #include <locale>
 #include <random>
 #include <stdexcept>
+#include <vector>
 
+#include "share/defines.h"
 #include "spdlog/spdlog.h"
 
 #include "server/game/field/field.h"
@@ -36,16 +38,48 @@ Field::Field(int lines, int cols, RandomGenerator* ran_gen) {
   }
 }
 
-position_t Field::AddNucleus(int section) {
-  spdlog::get(LOGGER)->debug("Field::AddNucleus");
-  auto positions_in_section = GetAllPositionsOfSection(section);
-  position_t pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size())];
-  field_[pos.first][pos.second] = SYMBOL_DEN;
-  // Mark positions surrounding nucleus as free:
-  for (const auto& it : GetAllInRange(pos, 1.5, 1))
-    field_[it.first][it.second] = SYMBOL_FREE;
-  spdlog::get(LOGGER)->debug("Field::AddNucleus: done");
-  return pos;
+std::vector<position_t> Field::GraphPositions() {
+  std::vector<position_t> graph_positions;
+  for (const auto& it : graph_.nodes())
+    graph_positions.push_back(it.first);
+  return graph_positions;
+}
+
+std::vector<position_t> Field::AddNucleus(unsigned int num_players) {
+  spdlog::get(LOGGER)->info("Field::AddNucleus");
+  // Get all availible sections (more than a fourth of the positions of a section exist in graph). 
+  std::vector<unsigned int> availible_sections;
+  for (unsigned int i=1; i<=8; i++) {
+    unsigned int free_positions = 0;
+    auto positions_in_section = GetAllPositionsOfSection(i);
+    for (const auto& it : positions_in_section) {
+      if (graph_.InGraph(it)) 
+        free_positions++;
+    }
+    if (free_positions > positions_in_section.size()/4)
+      availible_sections.push_back(i);
+  }
+  // If not at least half as many sections are availible as players (max 2 players per section) omit.
+  if (availible_sections.size() < num_players/2)
+    return {};
+  // Create nucleus-positions.
+  std::vector<position_t> nucleus_positions;
+  for (unsigned int i=0; i<num_players; i++) {
+    // Get random section and then erase retreived section from availible sections
+    int section = ran_gen_->RandomInt(0, availible_sections.size()-1);
+    auto positions_in_section = GetAllPositionsOfSection(availible_sections[section], true);
+    availible_sections.erase(availible_sections.begin() + section);
+    // Make sure no other nucleus is too near.
+    position_t pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size())];
+    while (NucleusInRange(pos, 8))
+      pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size())];
+    // Add to field and nucleus positions.
+    field_[pos.first][pos.second] = SYMBOL_DEN;
+    nucleus_positions.push_back(pos);
+    spdlog::get(LOGGER)->info("Adding nucleus at position: {}", utils::PositionToString(pos));
+  }
+  spdlog::get(LOGGER)->info("Field::AddNucleus: done");
+  return nucleus_positions;
 }
 
 std::map<int, position_t> Field::AddResources(position_t start_pos) {
@@ -59,7 +93,6 @@ std::map<int, position_t> Field::AddResources(position_t start_pos) {
     spdlog::get(LOGGER)->debug("Field::AddResources: {}th try getting positions", nth_try);
     positions = GetAllInRange(start_pos, 4+nth_try++, 3, true);
   }
-
   // Randomly asign each resource one of these free positions.
   for (const auto& it : symbol_resource_mapping) {
     if (it.second == IRON)
@@ -70,13 +103,12 @@ std::map<int, position_t> Field::AddResources(position_t start_pos) {
     field_[pos.first][pos.second] = it.first;
     resource_positions[it.second] = pos;
   }
-  spdlog::get(LOGGER)->debug("Field::AddResources: done");
+  spdlog::get(LOGGER)->info("Field::AddResources: done");
   return resource_positions;
 }
 
-void Field::BuildGraph(std::vector<position_t> nucleus_positions) {
-  spdlog::get(LOGGER)->info("Field::BuildGraph: for {} nucleus positions", nucleus_positions.size());
-
+void Field::BuildGraph() {
+  spdlog::get(LOGGER)->info("Field::BuildGraph");
   // Add all nodes.
   spdlog::get(LOGGER)->debug("Field::BuildGraph: Adding nodes...");
   for (int l=0; l<lines_; l++) {
@@ -85,7 +117,6 @@ void Field::BuildGraph(std::vector<position_t> nucleus_positions) {
         graph_.AddNode(l, c);
     }
   }
-
   // For each node, add edges.
   spdlog::get(LOGGER)->debug("Field::BuildGraph: Adding edged...");
   for (auto node : graph_.nodes()) {
@@ -94,17 +125,11 @@ void Field::BuildGraph(std::vector<position_t> nucleus_positions) {
         graph_.AddEdge(node.second, graph_.nodes().at(pos));
     }
   }
-
   // Remove all nodes not in main circle
-  spdlog::get(LOGGER)->debug("Field::BuildGraph: checking whether all nucleus can be reached...");
-  for (const auto& it : nucleus_positions) {
-    if (graph_.nodes().count(it) > 0)
-      graph_.RemoveInvalid(it);
-  }
-  for (const auto& it : nucleus_positions) 
-    if (graph_.nodes().count(it) == 0)
-      throw std::logic_error("Invalid world.");
-  spdlog::get(LOGGER)->info("Field::BuildGraph: Done!");
+  spdlog::get(LOGGER)->debug("Field::BuildGraph: reducing to greates component...");
+  int num_positions_before = graph_.nodes().size();
+  graph_.ReduceToGreatestComponent();
+  spdlog::get(LOGGER)->info("Field::BuildGraph: Done. {}/{} positions left!", graph_.nodes().size(), num_positions_before);
 }
 
 void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned short denceness) {
@@ -143,7 +168,7 @@ std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<
       sorted_way[lines_+cols_-utils::Dist(it, target_pos)] = it;
     for (const auto& it : sorted_way) {
       try {
-        auto new_part = graph_.find_way(way.back(), it.second);
+        auto new_part = graph_.FindWay(way.back(), it.second);
         way.pop_back();
         way.insert(way.end(), new_part.begin(), new_part.end());
       }
@@ -154,7 +179,7 @@ std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<
   }
   // Create way from last position to target.
   try {
-    auto new_part = graph_.find_way(way.back(), target_pos);
+    auto new_part = graph_.FindWay(way.back(), target_pos);
     way.pop_back();
     way.insert(way.end(), new_part.begin(), new_part.end());
   }
@@ -220,13 +245,15 @@ std::vector<position_t> Field::GetAllCenterPositionsOfSections() {
   return positions;
 }
 
-std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval) {
+std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval, bool in_graph) {
   std::vector<position_t> positions;
   int l = (interval-1)%(SECTIONS/2)*(cols_/4);
   int c = (interval < (SECTIONS/2)+1) ? 0 : lines_/2;
   for (int i=l; i<l+cols_/4; i++) {
-    for (int j=c; j<c+lines_/2; j++)
-      positions.push_back({j, i});
+    for (int j=c; j<c+lines_/2; j++) {
+      if (!in_graph || graph_.InGraph({j, i}))
+        positions.push_back({j, i});
+    }
   }
   return positions;
 }
@@ -252,4 +279,11 @@ std::vector<std::vector<Transfer::Symbol>> Field::Export(std::vector<Player*> pl
     }
   }
   return t_field;
+}
+
+bool Field::NucleusInRange(position_t pos, unsigned int range) {
+  for (const auto& it : GetAllInRange(pos, range, 0))
+    if (field_[it.first][it.second] == SYMBOL_DEN)
+      return true;
+  return false; 
 }

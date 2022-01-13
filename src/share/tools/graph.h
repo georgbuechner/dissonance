@@ -7,6 +7,7 @@
 #include <utility>
 #include <list>
 #include <map>
+#include <vector>
 
 struct Node {
   int line_;
@@ -38,17 +39,50 @@ class Graph {
       return nodes_.count(pos) > 0;
     }
 
-    int RemoveInvalid(position_t pos_a) {
+    position_t GetPosNotInComponent(std::vector<position_t> component) {
+      for (const auto& it : nodes_) {
+        if (std::find(component.begin(), component.end(), it.first) == component.end())
+          return it.first;
+      }
+      return {-1, -1};
+    }
+
+    /**
+     * Removes all components from graph expecpt the greates component.
+     * @return array of all positions remaining in graph.
+     */
+    void ReduceToGreatestComponent() {
+      std::vector<position_t> cur = GetAllVisited(nodes_.begin()->first);
+      std::vector<position_t> next;
+      while(true) {
+        // Get new component
+        position_t new_pos = GetPosNotInComponent(cur);
+        if (new_pos.first == -1 && new_pos.second == -1)
+          break;
+        next = GetAllVisited(new_pos);
+        // Determine greater component: swap next and cur if next is greater than cur.
+        if (next.size() > cur.size()) {
+          auto swap = cur;
+          cur = next;
+          next = cur;
+        }
+        // Erase all nodes in smaller component
+        for (auto it : next) {
+          delete nodes_[it];
+          nodes_.erase(it);
+        }
+      }
+    }
+
+    std::vector<position_t> GetAllVisited(position_t pos) {
       // Initialize all nodes as not-vistited.
       std::map<position_t, bool> visited; 
       for (auto node : nodes_) {
-        position_t pos = {node.second->line_, node.second->col_};
-        visited[pos] = false;
+        position_t cur_pos = {node.second->line_, node.second->col_};
+        visited[cur_pos] = cur_pos == pos;  // initialize all with false expecpt given position.
       }
       // Get all nodes which can be visited from player-den.
-      std::list<Node*> queue;
-      visited[pos_a] = true;
-      queue.push_back(nodes_[pos_a]);
+      std::list<Node*> queue = {nodes_.at(pos)};
       while(!queue.empty()) {
         auto cur = queue.front();
         queue.pop_front();
@@ -60,26 +94,21 @@ class Graph {
           }
         }
       }
-
-      // erase all nodes not visited
-      int removed_nodes = 0;
+      std::vector<position_t> vistited_positions;
       for (auto it : visited) {
-        if (!it.second) {
-          delete nodes_[it.first];
-          nodes_.erase(it.first);
-          removed_nodes++;
-        }
+        if (it.second)
+          vistited_positions.push_back(it.first);
       }
-      return removed_nodes;
+      return vistited_positions;
     }
 
-    std::list<position_t> find_way(position_t pos_a, position_t pos_b) const {
+    std::list<position_t> FindWay(position_t pos_a, position_t pos_b) const {
+      // Initialize all nodes as not-visited.
       std::map<position_t, position_t> visited; 
       for (auto node : nodes_) {
         position_t pos = {node.second->line_, node.second->col_};
         visited[pos] = {-1, -1};
       }
-
       // Get all nodes which can be visited from player-den.
       std::list<Node*> queue;
       visited[pos_a] = {pos_a.first, pos_a.second};
@@ -103,9 +132,8 @@ class Graph {
         throw "Could not find enemy den!.";
       
       std::list<position_t> way = { pos_b };
-      while (way.back() != pos_a) {
+      while (way.back() != pos_a)
         way.push_back({visited[way.back()].first, visited[way.back()].second});
-      }
       //Reverse path and return.
       std::reverse(std::begin(way), std::end(way));
       return way;

@@ -1,6 +1,7 @@
 #include "client/game/print/drawrer.h"
 #include "curses.h"
 #include "share/constants/codes.h"
+#include "share/defines.h"
 #include "share/objects/units.h"
 #include "spdlog/spdlog.h"
 #include <mutex>
@@ -80,6 +81,9 @@ void Drawrer::set_transfer(nlohmann::json& data) {
   unsigned int cur_width = field_width();
   extra_height_ = (cur_height > field_.size()) ? (cur_height-field_.size())/2 : 0;
   extra_width_ = (cur_width > field_[0].size()) ? cur_width-field_[0].size() : 0;
+  for (const auto& it : transfer_.graph_positions())
+    graph_positions_.insert(it);
+  cur_selection_.at(VP_FIELD).graph_positions_ = graph_positions_;
 }
 
 void Drawrer::set_stop_render(bool stop) {
@@ -255,7 +259,8 @@ void Drawrer::PrintField() {
       // Select color 
       if (cur_view_point_ == VP_FIELD && cur == sel)
         attron(COLOR_PAIR(COLOR_AVAILIBLE));
-      else if (cur_view_point_ == VP_FIELD && utils::Dist(cur, range.first) <= range.second)
+      else if (cur_view_point_ == VP_FIELD && utils::Dist(cur, range.first) <= range.second && 
+          graph_positions_.count(cur) > 0)
         attron(COLOR_PAIR(COLOR_SUCCESS));
       else {
         int color = field_[l][c].color_;

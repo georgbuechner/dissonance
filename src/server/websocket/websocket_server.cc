@@ -263,9 +263,12 @@ void WebsocketServer::h_CloseGame(connection_id id, std::string username, const 
       spdlog::get(LOGGER)->debug("Waiting for game to close.");
       if (game->status() == CLOSED) {
         // Delete game and remove from list of games.
+        spdlog::get(LOGGER)->debug("deleting game...");
         delete game;
+        spdlog::get(LOGGER)->debug("erasing game...");
         games_.erase(username_game_id_mapping_.at(username));
         // Remove all username-game-mappings
+        spdlog::get(LOGGER)->debug("removing all player mappings...");
         for (const auto& it : all_users)
           username_game_id_mapping_.erase(it);
         spdlog::get(LOGGER)->debug("Removed all {} user mappings", all_users.size());

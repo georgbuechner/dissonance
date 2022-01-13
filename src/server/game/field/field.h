@@ -31,6 +31,11 @@ class Field {
     // methods:
     
     /**
+     *
+     */
+    std::vector<position_t> GraphPositions();
+    
+    /**
      * Adds random natural barriers.
      */
     void AddHills(RandomGenerator*, RandomGenerator*, unsigned short denceness=1);
@@ -46,7 +51,7 @@ class Field {
      * @param[in] section
      * @return position of player nucleus.
      */
-    position_t AddNucleus(int section);
+    std::vector<position_t> AddNucleus(unsigned int num_players);
 
     /**
      * Builds graph to calculate ways.
@@ -54,7 +59,7 @@ class Field {
      * fields reachable from player-den (this could be the den of any player).
      * @param[in] player_nucleus (list to check if each nucleus is reachable).
      */
-    void BuildGraph(std::vector<position_t> player_nucleus);
+    void BuildGraph();
 
     /**
      * Finds a free position for a defence tower and adds tower to player/ ki
@@ -130,7 +135,7 @@ class Field {
      * @param[in] section]
      * @return all positions of a given section.
      */
-    std::vector<position_t> GetAllPositionsOfSection(unsigned short section);
+    std::vector<position_t> GetAllPositionsOfSection(unsigned short section, bool in_graph = false);
 
     /**
      * Checks whether given position is inside of field.
@@ -138,6 +143,8 @@ class Field {
      * @return boolen indicating, whether given position is inside of field.
      */
     bool InField(position_t pos);
+
+    bool NucleusInRange(position_t pos, unsigned int range);
 };
 
 

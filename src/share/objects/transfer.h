@@ -53,6 +53,10 @@ class Transfer {
         field_.push_back(vec);
       }
 
+      // build graph_positions
+      if (json.contains("g"))
+        graph_positions_ = json["g"].get<std::vector<position_t>>();
+
       // build resources from json.
       spdlog::get(LOGGER)->info("from json: resources {}", json["r"].dump());
       if (json.contains("r")) {
@@ -98,6 +102,10 @@ class Transfer {
       return field_;
     };
 
+    std::vector<position_t> graph_positions() const {
+      return graph_positions_;
+    }
+
     std::map<std::string, std::string> players() const {
       return players_;
     }
@@ -131,6 +139,9 @@ class Transfer {
     void set_field(std::vector<std::vector<Symbol>> field) {
       field_ = field;
     }
+    void set_graph_positions(std::vector<position_t> graph_positions) {
+      graph_positions_ = graph_positions;
+    }
     void set_players(std::map<std::string, std::string> players) {
       players_ = players;
     }
@@ -161,6 +172,7 @@ class Transfer {
           vec.push_back({{"s", jt.symbol_}, {"c", jt.color_}});
         data["f"].push_back(vec);
       }
+      data["g"] = graph_positions_;
       data["r"] = nlohmann::json::object();
       for (const auto& it : resources_) {
         data["r"][std::to_string(it.first)] = {{"v", it.second.value_}, {"b", it.second.bound_}, 
@@ -183,6 +195,7 @@ class Transfer {
 
   private:
     std::vector<std::vector<Symbol>> field_;
+    std::vector<position_t> graph_positions_;
     std::map<position_t, std::pair<std::string, int>> potentials_;
     std::map<std::string, std::string> players_;
     std::map<int, Resource> resources_;
