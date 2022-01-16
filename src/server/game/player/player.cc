@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 #include <spdlog/spdlog.h>
+#include "share/constants/costs.h"
 #include "share/defines.h"
 #include "spdlog/logger.h"
 
@@ -376,7 +377,7 @@ Costs Player::GetMissingResources(int unit, int boast) {
 bool Player::TakeResources(int type, bool bind_resources, int boast) {
   spdlog::get(LOGGER)->info("Player::TakeResources");
   if (units_costs_.count(type) == 0) {
-    spdlog::get(LOGGER)->info("Player::TakeResources: done as free resource.");
+    spdlog::get(LOGGER)->info("Player::TakeResources: done as free resource-neuron");
     return true;
   }
   if (GetMissingResources(type, boast).size() > 0) {
@@ -392,6 +393,20 @@ bool Player::TakeResources(int type, bool bind_resources, int boast) {
   }
   spdlog::get(LOGGER)->info("Player::TakeResources: done");
   return true;
+}
+
+void Player::FreeBoundResources(int type) {
+  spdlog::get(LOGGER)->info("Player::FreeBoundResources: {}", type);
+  if (units_costs_.count(type) == 0) {
+    spdlog::get(LOGGER)->warn("Player::FreeBoundResources: attempting to free, but no costs known");
+    return;
+  }
+  // Get costs for this unit.
+  auto costs = units_costs_.at(type);
+  std::unique_lock ul_resources(mutex_resources_);
+  // Free bound resources.
+  for (const auto& it : costs)
+    resources_.at(it.first).set_bound(resources_.at(it.first).bound() - it.second);
 }
 
 bool Player::AddNeuron(position_t pos, int neuron_type, position_t epsp_target, position_t ipsp_target) {
@@ -529,10 +544,11 @@ void Player::MovePotential() {
     if (it.second.type_ == UnitsTech::EPSP) {
       if (it.second.way_.size() == 0) {
         for (const auto& enemy : enemies_) {
-          if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1) {
+          if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1)
             enemy->AddPotentialToNeuron(it.second.pos_, it.second.potential_);
-          }
         }
+        // Friendly fire
+        AddPotentialToNeuron(it.second.pos_, it.second.potential_);
         potential_to_remove.push_back(it.first); // remove 
       }
     }
@@ -632,6 +648,7 @@ void Player::AddPotentialToNeuron(position_t pos, int potential) {
       spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: erasing {}", type);
       neurons_.erase(pos);
       spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: erasing done");
+      FreeBoundResources(type);
       // Potentially deactivate all neurons formally in range of the destroyed nucleus.
       if (type == UnitsTech::NUCLEUS) {
         ul_all_neurons.unlock();

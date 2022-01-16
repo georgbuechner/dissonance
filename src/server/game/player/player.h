@@ -300,6 +300,7 @@ class Player {
 
     // methods
     bool TakeResources(int type, bool bind_resources, int boast=1);
+    void FreeBoundResources(int type);
 
     /**
      * Increases limit for each resource by given faktor. Faktor should be
