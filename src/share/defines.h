@@ -4,6 +4,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <vector>
 
 // Colors 
 #define COLOR_AVAILIBLE 1
@@ -48,5 +49,8 @@ typedef std::pair<int, int> position_t;
 
 /// i of m
 typedef std::pair<size_t, size_t> tech_of_t;
+
+/// topline (vector of string if color paired to each string)
+typedef std::vector<std::pair<std::string, int>> t_topline;
 
 #endif

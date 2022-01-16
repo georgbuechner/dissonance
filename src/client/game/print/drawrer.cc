@@ -63,6 +63,10 @@ void Drawrer::set_range(std::pair<position_t, int> range) {
   cur_selection_.at(VP_FIELD).range_ = range;
 }
 
+void Drawrer::set_topline(t_topline topline) {
+  topline_ = topline;
+}
+
 int Drawrer::next_viewpoint() {
   cur_view_point_ = (1+cur_view_point_+1)%2 + 1;
   return cur_view_point_;
@@ -136,6 +140,8 @@ void Drawrer::UpdateTranser(nlohmann::json &transfer_json) {
   transfer_.set_technologies(t.technologies());
   transfer_.set_audio_played(t.audio_played());
   transfer_.set_players(t.players());
+  transfer_.set_build_options(t.build_options());
+  transfer_.set_synapse_options(t.synapse_options());
 
   // Remove temp fields.
   for (const auto& it : temp_symbols_)
@@ -217,15 +223,25 @@ void Drawrer::PrintCenteredParagraphs(texts::paragraphs_t paragraphs) {
   }
 }
 
-void Drawrer::PrintGame(bool only_field, bool only_side_column) {
+void Drawrer::PrintGame(bool only_field, bool only_side_column, int context) {
   std::unique_lock ul(mutex_print_field_);
   if (stop_render_ || !transfer_.initialized()) 
     return;
+  // Print headline
   PrintHeader(transfer_.audio_played(), transfer_.PlayersToString());
+  // Print topline.
+  if (context == CONTEXT_RESOURCES || context == CONTEXT_TECHNOLOGIES)
+    PrintTopline(transfer_.build_options());
+  else if (context == CONTEXT_SYNAPSE)
+    PrintTopline(transfer_.synapse_options());
+  else 
+    PrintTopline({});
+  // Print field and/or side-column
   if (!only_side_column)
     PrintField();
   if (!only_field)
     PrintSideColumn(transfer_.resources(), transfer_.technologies());
+  // Print footer and message
   PrintMessage();
   PrintFooter(cur_selection_.at(cur_view_point_).to_string(transfer_));
   refresh();
@@ -234,18 +250,22 @@ void Drawrer::PrintGame(bool only_field, bool only_side_column) {
 void Drawrer::PrintHeader(float audio_played, const std::string& players) {
   PrintCenteredLine(l_headline_, "DISSONANCE");
   PrintCenteredLine(l_headline_+1, players);
-
   // Print audio
   unsigned int length = (c_resources_ - c_field_ - 20) * audio_played;
   for (unsigned int i=0; i<length; i++)
     mvaddstr(l_audio_, c_field_+10+i, "x");
 }
 
-void Drawrer::PrintTopline(std::vector<std::pair<std::string, int>> topline) {
-  std::unique_lock ul(mutex_print_field_);
-  // Print topline
+void Drawrer::PrintTopline(std::vector<bool> availible_options) {
+  // Update copied topline and mark availible-options with COLOR_AVAILIBLE.
+  t_topline copied_topline = topline_;
+  for (unsigned int i=0; i<copied_topline.size(); i++) {
+    if (availible_options.size() > i && availible_options[i])
+      copied_topline[i].second = COLOR_AVAILIBLE;
+  }
+  // Print topline.
   ClearLine(l_bar_);
-  PrintCenteredLineColored(l_bar_, topline);
+  PrintCenteredLineColored(l_bar_, copied_topline);
 }
 
 void Drawrer::PrintField() {

@@ -641,6 +641,8 @@ void ServerGame::CreateAndSendTransferToAllPlayers(float audio_played, bool upda
       transfer.set_resources(it.second->t_resources());
       transfer.set_technologies(it.second->t_technologies());
       transfer.set_new_dead_neurons(new_dead_neurons);
+      transfer.set_build_options(it.second->GetBuildingOptions());
+      transfer.set_synapse_options(it.second->GetSynapseOptions());
       resp["data"] = transfer.json();
       ws_server_->SendMessage(it.first, resp.dump());
     }

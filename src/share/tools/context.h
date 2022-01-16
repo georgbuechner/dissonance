@@ -44,7 +44,6 @@ class Context {
     } 
 
     // getter
-
     std::string msg() const { return msg_; }
     int current_unit() const { return current_unit_; }
     int current_range() const { return current_range_; }
@@ -72,7 +71,7 @@ class Context {
     char cmd_;
     nlohmann::json data_;
 
-    std::vector<std::pair<std::string, int>> topline_;
+    t_topline topline_;
 };
 
 #endif

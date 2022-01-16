@@ -56,17 +56,17 @@ void ClientGame::init() {
 }
 
 // std-topline
-std::vector<std::pair<std::string, int>> std_topline = {{"[i]psp (a..z)  ", COLOR_DEFAULT}, 
-  {"[e]psp (1..9)  ", COLOR_DEFAULT}, {"[A]ctivated Neuron (" SYMBOL_DEF ")  ", COLOR_DEFAULT}, 
-  {"[S]ynape (" SYMBOL_BARACK ")  ", COLOR_DEFAULT}, {"[N]ucleus (" SYMBOL_DEN ")  ", COLOR_DEFAULT}, 
-  {" [s]elect-synapse ", COLOR_DEFAULT}, {" [t]oggle-navigation ", COLOR_DEFAULT}, 
-  {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}};
+t_topline std_topline = {{"[i]psp (a..z)  ", COLOR_DEFAULT}, {"[e]psp (1..9)  ", COLOR_DEFAULT}, 
+  {"[A]ctivated Neuron (" SYMBOL_DEF ")  ", COLOR_DEFAULT}, {"[S]ynape (" SYMBOL_BARACK ")  ", 
+  COLOR_DEFAULT}, {"[N]ucleus (" SYMBOL_DEN ")  ", COLOR_DEFAULT}, {" [s]elect-synapse ", 
+  COLOR_DEFAULT}, {" [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, 
+  {" [q]uit ", COLOR_DEFAULT}};
 
-std::vector<std::pair<std::string, int>> field_topline = {{" [h, j, k, l] to navigate field "
-  " [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}};
+t_topline field_topline = {{" [h, j, k, l] to navigate field " " [t]oggle-navigation ", 
+  COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}};
 
-std::vector<std::pair<std::string, int>> synapse_topline = {{" [s]et way-points ", COLOR_DEFAULT}, 
-  {" [i]psp-target ", COLOR_DEFAULT}, { " [e]psp-target ", COLOR_DEFAULT}, { " toggle s[w]arm-attack ", COLOR_DEFAULT},
+t_topline synapse_topline = {{" [s]et way-points ", COLOR_DEFAULT}, {" [i]psp-target ", 
+  COLOR_DEFAULT}, { " [e]psp-target ", COLOR_DEFAULT}, { " toggle s[w]arm-attack ", COLOR_DEFAULT},
   {" [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}
 };
 
@@ -182,9 +182,9 @@ void ClientGame::GetAction() {
 
     // Refresh field (only side-column)
     if (current_context_ == CONTEXT_FIELD)
-      drawrer_.PrintGame(false, false); 
+      drawrer_.PrintGame(false, false, current_context_); 
     else 
-      drawrer_.PrintGame(false, true); 
+      drawrer_.PrintGame(false, true, current_context_); 
   }
 
   // Send server message to close game.
@@ -232,7 +232,7 @@ void ClientGame::h_ChangeViewPoint(nlohmann::json&) {
   drawrer_.ClearMarkers();
   current_context_ = drawrer_.next_viewpoint();
   drawrer_.set_msg(contexts_.at(current_context_).msg());
-  drawrer_.PrintTopline(contexts_.at(current_context_).topline());
+  drawrer_.set_topline(contexts_.at(current_context_).topline());
 }
 
 void ClientGame::h_AddIron(nlohmann::json&) {
@@ -565,7 +565,7 @@ void ClientGame::h_AddStartPosition(nlohmann::json&) {
 
 void ClientGame::SwitchToResourceContext(std::string msg) {
   current_context_ = CONTEXT_RESOURCES;
-  drawrer_.PrintTopline(contexts_.at(current_context_).topline());
+  drawrer_.set_topline(contexts_.at(current_context_).topline());
   drawrer_.set_viewpoint(current_context_);
   if (msg != "")
     drawrer_.set_msg(msg);
@@ -574,7 +574,7 @@ void ClientGame::SwitchToResourceContext(std::string msg) {
 void ClientGame::SwitchToSynapseContext(nlohmann::json msg) {
   current_context_ = CONTEXT_SYNAPSE;
   contexts_.at(current_context_).set_data(msg);
-  drawrer_.PrintTopline(contexts_.at(current_context_).topline());
+  drawrer_.set_topline(contexts_.at(current_context_).topline());
 }
 
 void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::string msg, std::string action, 
@@ -599,7 +599,7 @@ void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::str
   }
   current_context_ = CONTEXT_PICK;
   contexts_[current_context_] = context;
-  drawrer_.PrintTopline(contexts_.at(current_context_).topline());
+  drawrer_.set_topline(contexts_.at(current_context_).topline());
 }
 
 void ClientGame::SwitchToFieldContext(position_t pos, int range, std::string action, nlohmann::json data,
@@ -637,7 +637,7 @@ void ClientGame::SwitchToFieldContext(position_t pos, int range, std::string act
   drawrer_.set_field_start_pos(pos);
   drawrer_.set_range({pos, range});
   drawrer_.set_viewpoint(current_context_);
-  drawrer_.PrintTopline(contexts_.at(current_context_).topline());
+  drawrer_.set_topline(contexts_.at(current_context_).topline());
   drawrer_.set_msg(msg);
   spdlog::get(LOGGER)->debug("ClientGame::SwitchToFieldContext: done.");
 }
@@ -649,7 +649,7 @@ void ClientGame::RemovePickContext(int new_context) {
   if (new_context != -1) {
     current_context_ = new_context;
     drawrer_.set_viewpoint(current_context_);
-    drawrer_.PrintTopline(contexts_.at(current_context_).topline());
+    drawrer_.set_topline(contexts_.at(current_context_).topline());
   }
 }
 
@@ -696,16 +696,16 @@ void ClientGame::m_PrintMsg(nlohmann::json& msg) {
 
 void ClientGame::m_InitGame(nlohmann::json& msg) {
   drawrer_.set_transfer(msg["data"]);
-  drawrer_.PrintGame(false, false);
+  drawrer_.PrintGame(false, false, current_context_);
   status_ = RUNNING;
   drawrer_.set_msg(contexts_.at(current_context_).msg());
-  drawrer_.PrintTopline(contexts_.at(current_context_).topline());
+  drawrer_.set_topline(contexts_.at(current_context_).topline());
   msg = nlohmann::json();
 }
 
 void ClientGame::m_UpdateGame(nlohmann::json& msg) {
   drawrer_.UpdateTranser(msg["data"]);
-  drawrer_.PrintGame(false, false);
+  drawrer_.PrintGame(false, false, current_context_);
   msg = nlohmann::json();
 }
 
@@ -725,7 +725,7 @@ void ClientGame::m_GameEnd(nlohmann::json& msg) {
 void ClientGame::m_SetUnit(nlohmann::json& msg) {
   drawrer_.AddNewUnitToPos(msg["data"]["pos"], msg["data"]["unit"], msg["data"]["color"]);
   SwitchToResourceContext("Success!");
-  drawrer_.PrintGame(false, false);
+  drawrer_.PrintGame(false, false, current_context_);
   msg = nlohmann::json();
 }
 
@@ -734,7 +734,7 @@ void ClientGame::m_SetUnits(nlohmann::json& msg) {
   int color = msg["data"]["color"];
   for (const auto& it : neurons) 
     drawrer_.AddNewUnitToPos(it.first, it.second, color);
-  drawrer_.PrintGame(false, false);
+  drawrer_.PrintGame(false, false, current_context_);
   msg = nlohmann::json();
 }
 

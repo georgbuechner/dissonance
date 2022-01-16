@@ -156,13 +156,8 @@ class Player {
      */
     void ChangeEpspTargetForSynapse(position_t pos, position_t target_pos);
 
-    /**
-     * Gets availible option (depending of current synapse-state and
-     * technologies) for synapse.
-     * @param[in] pos position of synapse
-     * @return options.
-     */
-    choice_mapping_t GetOptionsForSynapes(position_t pos);
+    std::vector<bool> GetBuildingOptions();
+    std::vector<bool> GetSynapseOptions();
    
     /** 
      * Increases all resources by a the current boast*gain*negative-faktor.

@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 #include <spdlog/spdlog.h>
+#include "share/constants/codes.h"
 #include "share/constants/costs.h"
 #include "share/defines.h"
 #include "spdlog/logger.h"
@@ -695,28 +696,24 @@ std::string Player::GetPotentialIdIfPotential(position_t pos, int unit) {
   return "";
 }
 
-choice_mapping_t Player::GetOptionsForSynapes(position_t pos) {
-  spdlog::get(LOGGER)->info("Player::GetOptionsForSynapes");
-  std::shared_lock sl_technologies(mutex_technologies_);
-  choice_mapping_t mapping;
+std::vector<bool> Player::GetBuildingOptions() {
+  return {
+    (GetAllPositionsOfNeurons(SYNAPSE).size() > 0 && GetMissingResources(IPSP).size() == 0),
+    (GetAllPositionsOfNeurons(SYNAPSE).size() > 0 && GetMissingResources(EPSP).size() == 0),
+    (GetMissingResources(ACTIVATEDNEURON).size() == 0),
+    (GetMissingResources(SYNAPSE).size() == 0),
+    (GetMissingResources(NUCLEUS).size() == 0),
+    (GetAllPositionsOfNeurons(SYNAPSE).size() > 0)
+  };
+}
 
-  if (neurons_.count(pos) == 0 || neurons_.at(pos)->type_ != SYNAPSE) {
-    spdlog::get(LOGGER)->warn("Player::GetOptionsForSynapes: neuron at position does'n exist, or is no synapse: {}.", 
-        utils::PositionToString(pos));
-    return mapping;
-  }
-  
-  mapping[0] = {"(Re-)set way.", (technologies_.at(UnitsTech::WAY).first > 0) ? COLOR_AVAILIBLE : COLOR_DEFAULT};
-  mapping[1] = {"Add way-point.", (neurons_.at(pos)->ways_points().size() < neurons_.at(pos)->num_availible_ways()) 
-    ? COLOR_AVAILIBLE : COLOR_DEFAULT};
-  mapping[2] = {"Select target for ipsp.", (technologies_.at(UnitsTech::TARGET).first > 0) 
-    ? COLOR_AVAILIBLE : COLOR_DEFAULT};
-  mapping[3] = {"Select target for epsp.", (technologies_.at(UnitsTech::TARGET).first > 1) 
-    ? COLOR_AVAILIBLE : COLOR_DEFAULT};
-  mapping[4] = {(neurons_.at(pos)->swarm()) ? "Turn swarm-attack off" : "Turn swarm-attack on", 
-    (technologies_.at(UnitsTech::SWARM).first > 0) ? COLOR_AVAILIBLE : COLOR_DEFAULT};
-  spdlog::get(LOGGER)->info("Player::GetOptionsForSynapes: done");
-  return mapping;
+std::vector<bool> Player::GetSynapseOptions() {
+  return {
+    (technologies_.at(UnitsTech::WAY).first > 0),
+    (technologies_.at(UnitsTech::TARGET).first > 0),
+    (technologies_.at(UnitsTech::TARGET).first > 1),
+    (technologies_.at(UnitsTech::SWARM).first > 0),
+  };
 }
 
 void Player::UpdateResourceLimits(float faktor) {

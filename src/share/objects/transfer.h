@@ -85,6 +85,14 @@ class Transfer {
           new_dead_neurons_[utils::PositionFromString(it.first)] = it.second;
       }
 
+      // build build-options.
+      if (json.contains("b"))
+        build_options_ = json["b"].get<std::vector<bool>>();
+      // build build-options.
+      if (json.contains("s"))
+        synapse_options_ = json["s"].get<std::vector<bool>>();
+
+
       // Audio Played
       if (json.contains("a"))
         audio_played_ = json["a"];
@@ -97,27 +105,15 @@ class Transfer {
     bool initialized() {
       return initialized_;
     }
-
     std::vector<std::vector<Symbol>> field() const {
       return field_;
     };
-
     std::vector<position_t> graph_positions() const {
       return graph_positions_;
     }
-
     std::map<std::string, std::string> players() const {
       return players_;
     }
-
-    std::string PlayersToString() const {
-      std::string str;
-      for (const auto& it : players_)
-        str += it.first + ": " + it.second + " | ";
-      str.erase(str.length()-3);
-      return str;
-    }
-
     std::map<int, Resource> resources() const {
       return resources_;
     }
@@ -127,9 +123,14 @@ class Transfer {
     std::map<position_t, int> new_dead_neurons() const {
       return new_dead_neurons_;
     }
-
-    std::map<position_t, std::pair<std::string, int>> potentials() {
+    std::map<position_t, std::pair<std::string, int>> potentials() const {
       return potentials_;
+    }
+    std::vector<bool> build_options() const {
+      return build_options_;
+    }
+    std::vector<bool> synapse_options() const {
+      return synapse_options_;
     }
     float audio_played() const {
       return audio_played_;
@@ -154,12 +155,27 @@ class Transfer {
     void set_new_dead_neurons(std::map<position_t, int> new_dead_neurons) {
       new_dead_neurons_ = new_dead_neurons;
     }
-
     void set_potentials(std::map<position_t, std::pair<std::string, int>> potentials) {
       potentials_ = potentials;
     }
+    void set_build_options(std::vector<bool> build_options) {
+      build_options_ = build_options;
+    }
+    void set_synapse_options(std::vector<bool> synapse_options) {
+      synapse_options_ = synapse_options;
+    }
     void set_audio_played(float audio_played) {
       audio_played_ = (audio_played < 0) ? 0 : audio_played;
+    }
+
+    // methods: 
+    
+    std::string PlayersToString() const {
+      std::string str;
+      for (const auto& it : players_)
+        str += it.first + ": " + it.second + " | ";
+      str.erase(str.length()-3);
+      return str;
     }
 
     nlohmann::json json() {
@@ -190,6 +206,8 @@ class Transfer {
       for (const auto& it : potentials_) {
         data["p"][utils::PositionToString(it.first)] = {{"s", it.second.first}, {"c", it.second.second}};
       }
+      data["b"] = build_options_;
+      data["s"] = synapse_options_;
       return data;
     }
 
@@ -201,6 +219,8 @@ class Transfer {
     std::map<int, Resource> resources_;
     std::map<int, Technology> technologies_;
     std::map<position_t, int> new_dead_neurons_;
+    std::vector<bool> build_options_;
+    std::vector<bool> synapse_options_;
     float audio_played_;
     bool initialized_;
 };

@@ -41,6 +41,7 @@ class Drawrer {
     void set_stop_render(bool stop);
     void set_field_start_pos(position_t pos);
     void set_range(std::pair<position_t, int> range);
+    void set_topline(t_topline topline);
 
     void AddMarker(int type, position_t pos, int color, std::string symbol = "");
     position_t GetMarkerPos(int type, std::string symbol);
@@ -99,8 +100,7 @@ class Drawrer {
      */
     void PrintCenteredParagraphs(texts::paragraphs_t paragraph);
 
-    void PrintGame(bool only_field, bool only_side_column);
-    void PrintTopline(std::vector<std::pair<std::string, int>> topline);
+    void PrintGame(bool only_field, bool only_side_column, int context);
 
   private:
     int lines_;
@@ -110,6 +110,7 @@ class Drawrer {
     std::set<position_t> graph_positions_;
     std::map<position_t, Transfer::Symbol> temp_symbols_;
     std::map<int, std::map<position_t, std::pair<std::string, int>>> markers_;
+    t_topline topline_;
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
     bool stop_render_;
 
@@ -199,6 +200,7 @@ class Drawrer {
     // Print methods
     void PrintField();
     void PrintHeader(float audio_played, const std::string& players);
+    void PrintTopline(std::vector<bool> availible_options);
     void PrintTechnologies(const std::string& players);
     void PrintSideColumn(const std::map<int, Transfer::Resource>& resources, 
         const std::map<int, Transfer::Technology>& technologies);
