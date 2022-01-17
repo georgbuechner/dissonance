@@ -1,6 +1,7 @@
 #ifndef SRC_SERVER_GAME_H_
 #define SRC_SERVER_GAME_H_
 
+#include "share/defines.h"
 #define NCURSES_NOMACROS
 #include <cstddef>
 #include <curses.h>
@@ -65,7 +66,7 @@ class ServerGame {
     /**
      * Handles AI actions at every beat.
      */
-    void Thread_Ai();
+    void Thread_Ai(std::string username);
 
   private: 
     Field* field_;  ///< field 
@@ -90,6 +91,7 @@ class ServerGame {
      * players.
      */
     void StartGame();
+    std::vector<position_t> SetUpField(RandomGenerator* ran_gen);
 
     /**
      * Gets map of all potentials in stacked format (ipsp: 1-9, epsp a-z) and

@@ -43,12 +43,17 @@ void AudioKi::set_last_time_point(const AudioDataTimePoint &data_at_beat) {
   last_data_point_ = data_at_beat;
 }
 
-void AudioKi::SetUpTactics(bool economy_tactics) {
+void AudioKi::SetUpTactics(bool inital_setup) {
   spdlog::get(LOGGER)->info("AudioKi::SetUpTactics");
   // Setup tactics.
   SetBattleTactics();
-  if (economy_tactics)
+  // If initial setup, also set up economy tactics and distribite initial resources.
+  if (inital_setup) {
     SetEconomyTactics();
+    DistributeIron(Resources::OXYGEN);
+    DistributeIron(Resources::OXYGEN);
+    HandleIron(audio_->analysed_data().data_per_beat_.front());
+  }
   
   // Increase interval.
   if (cur_interval_.id_+1 < audio_->analysed_data().intervals_.size())
