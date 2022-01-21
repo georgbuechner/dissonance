@@ -11,10 +11,11 @@
 
 class AudioKi : public Player {
   public:
-    AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen);
+    AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, int color);
     ~AudioKi() {};
 
     // getter 
+    std::list<AudioDataTimePoint> data_per_beat();
     
     // setter
     void set_last_time_point(const AudioDataTimePoint& data_at_beat);

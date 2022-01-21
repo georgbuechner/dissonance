@@ -207,6 +207,14 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, c
       SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", {{"msg", "No Game Found"}} }}).dump());
     }
   }
+  else if (data["mode"] == OBSERVER) {
+    spdlog::get(LOGGER)->info("Server: initializing new observer game.");
+    std::string game_id = username;
+    std::unique_lock ul(shared_mutex_games_);
+    username_game_id_mapping_[username] = game_id;
+    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], 2, data["base_path"], this);
+    SendMessage(id, nlohmann::json({{"command", "select_audio"}, {"data", nlohmann::json()}}).dump());
+  }
 }
 
 void WebsocketServer::h_InGameAction(connection_id id, std::string username, const nlohmann::json& msg) {

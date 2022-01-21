@@ -31,7 +31,13 @@ class ServerGame {
      * @param[in] cols availible cols
      * @param[in] srv pointer to websocket-server, to send messages.
      */
-    ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv);
+    ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv, float speed=1);
+
+    /**
+     * Analyzes audio and initialize game.
+     * @param[in, out] msg
+     */
+    void m_InitializeGame(nlohmann::json& data);
 
     // getter 
     int status();
@@ -41,6 +47,8 @@ class ServerGame {
     void set_status(int status);
 
     // methods.
+    
+    void PrintStatistics();
 
     /**
      * Adds new players and checks if game is ready to start.
@@ -72,6 +80,11 @@ class ServerGame {
     Field* field_;  ///< field 
     std::shared_mutex mutex_players_;
     std::map<std::string, Player*> players_;
+    std::map<std::string, Player*> human_players_;
+
+
+    std::vector<std::string> observers_;
+    std::set<std::string> dead_players_;
     const unsigned int num_players_;
     Audio audio_;
     WebsocketServer* ws_server_;
@@ -84,13 +97,15 @@ class ServerGame {
     int lines_; 
     int cols_;
 
+    const float ai_speed_;
+
     // methods
 
     /**
      * Starts game, sending start-game info with initial game data to all
      * players.
      */
-    void StartGame();
+    void StartGame(std::vector<Audio*> audios);
     std::vector<position_t> SetUpField(RandomGenerator* ran_gen);
 
     /**
@@ -106,6 +121,23 @@ class ServerGame {
      * @param[in] update indicating whether to send update or inital data. (default true)
      */
     void CreateAndSendTransferToAllPlayers(float audio_played, bool update=true);
+
+    /**
+     * Checks if new players have died. Eventually sends messages or finally closes game, 
+     * when all players except of one have died.
+     */
+    void HandlePlayersLost();
+
+    /**
+     * Checks if for any (human) player a potential has scouted new enemy
+     * neurons. If so, send these to client.
+     */
+    void SendScoutedNeurons();
+
+    /**
+     * Sends all new neurons created to all "listening" observers.
+     */
+    void SendNeuronsToObservers();
 
     /**
      * Sends given message to all online players (ignoring AI). Possibilt to
@@ -131,14 +163,8 @@ class ServerGame {
      */
     static void IpspSwallow(position_t ipsp_pos, Player* player, std::vector<Player*> enemies);
 
-
     // command methods
 
-    /**
-     * Analyzes audio and initialize game.
-     * @param[in, out] msg
-     */
-    void m_InitializeGame(nlohmann::json& data);
 
     /**
      * Adds iron
@@ -217,8 +243,7 @@ class ServerGame {
      * Build potential.
      * @param[in, out] msg
      */
-    void BuildPotentials(int unit, position_t pos, int num_potenials_to_build, std::string username, 
-        Player* player);
+    void BuildPotentials(int unit, position_t pos, int num_potenials_to_build, std::string username, Player* player);
 };
 
 #endif

@@ -15,8 +15,8 @@
 #include <shared_mutex>
 #include <vector>
 
-AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen) 
-  : Player(nucleus_pos, field, ran_gen, COLOR_KI), average_bpm_(audio->analysed_data().average_bpm_), 
+AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, int color) 
+  : Player(nucleus_pos, field, ran_gen, color), average_bpm_(audio->analysed_data().average_bpm_), 
     average_level_(audio->analysed_data().average_level_) {
   audio_ = audio;
   max_activated_neurons_ = 3;
@@ -37,6 +37,12 @@ AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGener
     else if (i>4) extra_activated_neurons_[i] = 1;
     else extra_activated_neurons_[i] = 0;
   }
+
+  SetUpTactics(true);
+}
+
+std::list<AudioDataTimePoint> AudioKi::data_per_beat() {
+  return audio_->analysed_data().data_per_beat_;
 }
 
 void AudioKi::set_last_time_point(const AudioDataTimePoint &data_at_beat) {
@@ -348,7 +354,8 @@ void AudioKi::CreateEpsps(position_t synapse_pos, position_t target_pos, int bpm
   // Calculate update number of epsps to create and update interval
   double update_interval = 60000.0/(bpm*16);
   auto last_epsp = std::chrono::steady_clock::now();  
-  while (GetMissingResources(UnitsTech::EPSP).size() == 0) {
+  int counter = 0;
+  while (GetMissingResources(UnitsTech::EPSP).size() == 0 && counter++ <= 25) {
     // Add epsp in certain interval.
     if (utils::GetElapsed(last_epsp, std::chrono::steady_clock::now()) < update_interval) {
       AddPotential(synapse_pos, UnitsTech::EPSP);
@@ -363,7 +370,8 @@ void AudioKi::CreateIpsps(position_t synapse_pos, position_t target_pos, int num
   // Calculate update number of ipsps to create and update interval
   double update_interval = 60000.0/(bpm*16);
   auto last_ipsp = std::chrono::steady_clock::now();  
-  while (GetMissingResources(UnitsTech::IPSP).size() == 0) {
+  int counter = 0;
+  while (GetMissingResources(UnitsTech::IPSP).size() == 0 && counter++ <= 9) {
     // Add ipsp in certain interval.
     if (utils::GetElapsed(last_ipsp, std::chrono::steady_clock::now()) >= update_interval) {
       AddPotential(synapse_pos, UnitsTech::IPSP);
@@ -608,6 +616,8 @@ size_t AudioKi::GetMaxLevelExeedance() const {
 size_t AudioKi::GetLaunchAttack(const AudioDataTimePoint& data_at_beat, size_t ipsps_to_create) {
   size_t num_epsps_to_create = GetMaxLevelExeedance();
   size_t available_epsps = AvailibleEpsps(ipsps_to_create);
+  if (num_epsps_to_create > 25)
+    num_epsps_to_create = 25;
   // Always launch attack in first interval.
   if (cur_interval_.id_ == 0)
     return num_epsps_to_create;
@@ -620,13 +630,11 @@ size_t AudioKi::GetLaunchAttack(const AudioDataTimePoint& data_at_beat, size_t i
 
   // Crop, to not exeed a to high number of potassium:
   auto costs_epsp = units_costs_.at(UnitsTech::EPSP);
-  double diff = resources_.at(POTASSIUM).limit() * 0.6 - num_epsps_to_create * costs_epsp[POTASSIUM]; // max-to-spend -                                                                                                       // total costs.
+  double diff = resources_.at(POTASSIUM).limit() * 0.6 - num_epsps_to_create * costs_epsp[POTASSIUM]; 
   if (diff < 0)
     num_epsps_to_create += diff/costs_epsp[POTASSIUM]; // + because diff is negative
-  spdlog::get(LOGGER)->info("AudioKi::GetLaunchAttack: epsps to create: {}, available: {}", 
-      num_epsps_to_create, available_epsps);
   // Now, only launch, if target-amount can be reached.
-  return (num_epsps_to_create > available_epsps) ? 0 : num_epsps_to_create;
+  return (num_epsps_to_create < available_epsps) ? num_epsps_to_create : 0;
 }
 
 void AudioKi::SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length) {

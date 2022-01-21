@@ -167,6 +167,12 @@ const std::map<int, std::string> resource_symbol_mapping = {
   {SEROTONIN, SYMBOL_SEROTONIN},
 };
 
+const std::map<int, std::string> unit_symbol_mapping = {
+  {ACTIVATEDNEURON, SYMBOL_DEF},
+  {SYNAPSE, SYMBOL_BARACK},
+  {NUCLEUS, SYMBOL_DEN},
+};
+
 const std::map<int, std::string> resource_description_mapping = {
   {IRON, "Used for technologies and for boosting resource-gain"},
   {OXYGEN,"Used for creating neurons, also influences resource-gain"},

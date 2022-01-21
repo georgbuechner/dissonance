@@ -42,7 +42,7 @@ class Transfer {
     Transfer(nlohmann::json json) {
       spdlog::get(LOGGER)->info("from json: players {}", json["players"].dump());
       // build players from json.
-      players_ = json["players"].get<std::map<std::string, std::string>>();
+      players_ = json["players"].get<std::map<std::string, std::pair<std::string, int>>>();
 
       // build field from json
       spdlog::get(LOGGER)->info("from json: field {}", json["f"].dump());
@@ -108,11 +108,11 @@ class Transfer {
     std::vector<std::vector<Symbol>> field() const {
       return field_;
     };
+    std::map<std::string, std::pair<std::string, int>> players() const {
+      return players_;
+    }
     std::vector<position_t> graph_positions() const {
       return graph_positions_;
-    }
-    std::map<std::string, std::string> players() const {
-      return players_;
     }
     std::map<int, Resource> resources() const {
       return resources_;
@@ -143,7 +143,7 @@ class Transfer {
     void set_graph_positions(std::vector<position_t> graph_positions) {
       graph_positions_ = graph_positions;
     }
-    void set_players(std::map<std::string, std::string> players) {
+    void set_players(std::map<std::string, std::pair<std::string, int>> players) {
       players_ = players;
     }
     void set_resources(std::map<int, Resource> resources) {
@@ -170,12 +170,15 @@ class Transfer {
 
     // methods: 
     
-    std::string PlayersToString() const {
-      std::string str;
-      for (const auto& it : players_)
-        str += it.first + ": " + it.second + " | ";
-      str.erase(str.length()-3);
-      return str;
+    t_topline PlayersToPrint() const {
+      t_topline print;
+      for (const auto& it : players_) {
+        print.push_back({it.first + ": " + it.second.first, it.second.second});
+        print.push_back({" | ", COLOR_DEFAULT});
+      }
+      if (print.size() > 0)
+        print.pop_back();
+      return print;
     }
 
     nlohmann::json json() {
@@ -215,7 +218,7 @@ class Transfer {
     std::vector<std::vector<Symbol>> field_;
     std::vector<position_t> graph_positions_;
     std::map<position_t, std::pair<std::string, int>> potentials_;
-    std::map<std::string, std::string> players_;
+    std::map<std::string, std::pair<std::string, int>> players_;
     std::map<int, Resource> resources_;
     std::map<int, Technology> technologies_;
     std::map<position_t, int> new_dead_neurons_;

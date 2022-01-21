@@ -25,11 +25,9 @@ class ClientGame {
 
     /** 
      * Constructor initializing basic settings and ncurses.
-     * @param[in] relative_size
      * @param[in] audio_base_path
      */
-    ClientGame(bool relative_size, std::string base_path, std::string username, 
-        bool muliplayer_availible);
+    ClientGame(std::string base_path, std::string username, bool muliplayer_availible);
 
     void set_client(Client* ws_srv) {
       ws_srv_ = ws_srv;
@@ -54,6 +52,7 @@ class ClientGame {
     bool render_pause_;
     Drawrer drawrer_;
     int status_;
+    int mode_;
 
     std::map<int, Context> contexts_;
     int current_context_;

@@ -42,6 +42,7 @@ class Drawrer {
     void set_field_start_pos(position_t pos);
     void set_range(std::pair<position_t, int> range);
     void set_topline(t_topline topline);
+    void set_mode(int mode);
 
     void AddMarker(int type, position_t pos, int color, std::string symbol = "");
     position_t GetMarkerPos(int type, std::string symbol);
@@ -105,6 +106,7 @@ class Drawrer {
   private:
     int lines_;
     int cols_;
+    int mode_;
     Transfer transfer_;
     std::vector<std::vector<Transfer::Symbol>> field_;
     std::set<position_t> graph_positions_;
@@ -199,7 +201,7 @@ class Drawrer {
 
     // Print methods
     void PrintField();
-    void PrintHeader(float audio_played, const std::string& players);
+    void PrintHeader(float audio_played, const t_topline& players);
     void PrintTopline(std::vector<bool> availible_options);
     void PrintTechnologies(const std::string& players);
     void PrintSideColumn(const std::map<int, Transfer::Resource>& resources, 

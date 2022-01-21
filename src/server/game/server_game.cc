@@ -1,6 +1,8 @@
 #include "server/game/server_game.h"
 #include "nlohmann/json_fwd.hpp"
+#include "server/game/player/audio_ki.h"
 #include "server/game/player/player.h"
+#include "share/audio/audio.h"
 #include "share/constants/codes.h"
 #include "share/defines.h"
 #include "share/objects/dtos.h"
@@ -15,8 +17,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <thread>
 #include <unistd.h>
@@ -26,8 +30,9 @@ bool IsAi(std::string username) {
   return username.find("AI") != std::string::npos;
 }
 
-ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv) 
-    : num_players_(num_players), audio_(base_path), ws_server_(srv), status_(WAITING), mode_(mode), lines_(lines), cols_(cols) {
+ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, 
+    WebsocketServer* srv, float speed) : num_players_(num_players), audio_(base_path), ws_server_(srv), 
+    status_(WAITING), mode_(mode), lines_(lines), cols_(cols), ai_speed_(speed) {
   // Initialize eventmanager.
   eventmanager_.AddHandler("initialize_game", &ServerGame::m_InitializeGame);
   eventmanager_.AddHandler("add_iron", &ServerGame::m_AddIron);
@@ -57,6 +62,13 @@ void ServerGame::set_status(int status) {
   status_ = status;
 }
 
+void ServerGame::PrintStatistics() {
+  for (const auto& it : players_) {
+    std::cout << it.first << std::endl;
+    it.second->statistics().print();
+  }
+}
+
 void ServerGame::AddPlayer(std::string username, int lines, int cols) {
   std::unique_lock ul(mutex_players_);
   spdlog::get(LOGGER)->info("ServerGame::AddPlayer: {}", username);
@@ -72,7 +84,7 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
   if (players_.size() >= num_players_ && status_ == WAITING_FOR_PLAYERS) {
     spdlog::get(LOGGER)->debug("ServerGame::AddPlayer: starting game.");
     ul.unlock();
-    StartGame();
+    StartGame({});
   }
 }
 
@@ -321,26 +333,41 @@ void ServerGame::BuildPotentials(int unit, position_t pos, int num_potenials_to_
 void ServerGame::m_InitializeGame(nlohmann::json& msg) {
   std::string username = msg["username"];
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: initializing with user: {}", username);
-  spdlog::get(LOGGER)->flush();
   nlohmann::json data = msg["data"];
 
+  // Get and analyze main audio-file (used for map and in SP for AI).
   std::string source_path = data["source_path"];
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Selected path: {}", source_path);
   audio_.set_source_path(source_path);
   audio_.Analyze();
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: audio has {} beats", audio_.analysed_data().data_per_beat_.size());
+
+  // Get and analyze audio-files for AIs (OBSERVER-mode).
+  std::vector<Audio*> audios; 
+  if (msg["data"].contains("ais")) {
+    for (const auto& it : msg["data"]["ais"]) {
+      Audio* new_audio = new Audio(msg["data"]["base_path"].get<std::string>());
+      new_audio->set_source_path(it);
+      new_audio->Analyze();
+      audios.push_back(new_audio);
+    }
+  }
 
   // Add host to players.
-  players_[username] = nullptr;
+  if (mode_ < OBSERVER)
+    players_[username] = nullptr;
+  else if (mode_ == OBSERVER)
+    observers_.push_back(username);
 
   // If SINGLE_PLAYER, add AI to players.
   if (mode_ == SINGLE_PLAYER) {
-    players_["AI 1"] = nullptr;
-    StartGame();
+    players_["AI (" + audio_.filename(true) + ")"] = nullptr;
+    StartGame(audios);
   }
-  else if (mode_ == OBSERVER) {
-    players_["AI 1"] = nullptr;
-    players_["AI 2"] = nullptr;
-    StartGame();
+  else if (mode_ >= OBSERVER) {
+    players_["AI (" + audios[0]->filename(true) + ")"] = nullptr;
+    players_["AI (" + audios[1]->filename(true) + ")"] = nullptr;
+    StartGame(audios);
   }
   // Otherwise send info "waiting for players" to host.
   else {
@@ -350,7 +377,7 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
   }
 }
 
-void ServerGame::StartGame() {
+void ServerGame::StartGame(std::vector<Audio*> audios) {
   // Initialize field.
   RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
   auto nucleus_positions = SetUpField(ran_gen);
@@ -363,19 +390,18 @@ void ServerGame::StartGame() {
     nucleus_positions_str += utils::PositionToString(it) + ", ";
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Creating {} players at {}", num_players_, nucleus_positions_str);
   unsigned int counter = 0;
+  unsigned int ai_counter = 0;
   for (const auto& it : players_) {
     int color = (counter % 4) + 10;
     if (IsAi(it.first)) {
-      players_[it.first] = new AudioKi(nucleus_positions[counter], field_, &audio_, ran_gen);
-      // Setup audio-ki
-      spdlog::get(LOGGER)->info("ServerGame::InitializeGame: SINGLE_PLAYER: settup AI tactics");
-      players_.at(it.first)->SetUpTactics(true); 
+      if (audios.size() == 0)
+        players_[it.first] = new AudioKi(nucleus_positions[counter], field_, &audio_, ran_gen, color);
+      else 
+        players_[it.first] = new AudioKi(nucleus_positions[counter], field_, audios[ai_counter++], ran_gen, color);
     }
     else {
-      // If single-player, always use standard-player color.
-      if (mode_ == SINGLE_PLAYER)
-        color = COLOR_PLAYER;
       players_[it.first] = new Player(nucleus_positions[counter], field_, ran_gen, color);
+      human_players_[it.first] = players_[it.first];
     }
     counter++;
   }
@@ -384,26 +410,25 @@ void ServerGame::StartGame() {
   for (const auto& it : players_) {
     std::vector<Player*> enemies;
     for (const auto& jt : players_)
-      if (jt.first != it.first && (mode_ != OBSERVER || IsAi(it.first)))
+      if (jt.first != it.first) 
         enemies.push_back(jt.second);
     it.second->set_enemies(enemies);
   }
+  
+  // Inform players, to start game with initial field included
+  CreateAndSendTransferToAllPlayers(0, false);
 
   // Start two main threads.
   status_ = SETTING_UP;
-  // 
   for (const auto& it : players_) {
-    std::string username = it.first;
-    if (IsAi(username)) {
-      std::thread ai([this, username]() { Thread_Ai(username); });
+    if (IsAi(it.first)) {
+      std::thread ai([this, it]() { Thread_Ai(it.first); });
       ai.detach();
     }
   }
   // Start update-shedule.
   std::thread update([this]() { Thread_RenderField(); });
   update.detach();
-  // Inform players, to start game with initial field included
-  CreateAndSendTransferToAllPlayers(0, false);
   return ;
 }
 
@@ -415,7 +440,7 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: creating map. field initialized? {}", field_ != nullptr);
   std::vector<position_t> nucleus_positions;
   int denseness = 0;
-  while (!field_ && denseness < 2) {
+  while (!field_ && denseness < 3) {
     field_ = new Field(lines_, cols_, ran_gen);
     field_->AddHills(map_1, map_2, denseness++);
     field_->BuildGraph();
@@ -438,107 +463,56 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
 }
 
 void ServerGame::Thread_RenderField() {
-  spdlog::get(LOGGER)->info("Game::Thread_RenderField: started");
+  std::cout << "Game::Thread_RenderField: started. status? " << status_ << std::endl;
+  spdlog::get(LOGGER)->info("");
   auto audio_start_time = std::chrono::steady_clock::now();
-  auto analysed_data = audio_.analysed_data();
-  std::list<AudioDataTimePoint> data_per_beat = analysed_data.data_per_beat_;
-  size_t total_audio_length = data_per_beat.size();
-
+  // spdlog::get(LOGGER)->info("Game::Thread_RenderField: started 1");
+  std::list<AudioDataTimePoint> data_per_beat = audio_.analysed_data().data_per_beat_;
   auto last_update = std::chrono::steady_clock::now();
-  auto last_resource_update = std::chrono::steady_clock::now();
-
-  double resource_update_freqeuncy = data_per_beat.front().bpm_;
   double render_frequency = 40;
-
-  spdlog::get(LOGGER)->debug("Game::Thread_RenderField: setup finished, starting main-loop");
  
+  auto data_at_beat = data_per_beat.front();
   while (status_ < CLOSING) {
     auto cur_time = std::chrono::steady_clock::now();
-
     // Analyze audio data.
-    auto elapsed = utils::GetElapsed(audio_start_time, cur_time);
-    auto data_at_beat = data_per_beat.front();
-    if (elapsed >= data_at_beat.time_) {
+    if (utils::GetElapsed(audio_start_time, cur_time)>= data_at_beat.time_) {
       spdlog::get(LOGGER)->debug("Game::RenderField: next data_at_beat");
-      // Update render- an resource-update-frequency.
+      // Update render-frequency.
       render_frequency = 60000.0/(data_at_beat.bpm_*16);
-      resource_update_freqeuncy = 60000.0/(static_cast<double>(data_at_beat.bpm_)/2);
       data_per_beat.pop_front();
-    }
-
-    // All players lost, because time is up:
-    if (data_per_beat.size() == 0) {
-      nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST - times up"}} }};
-      SendMessageToAllPlayers(resp.dump());
-      break;
-    }
-
-    // Send message to all players, which have lost (don't worry about player no
-    // longer connected at this point, handler by webserver). And count all
-    // players, which have lost and store the last player which has not lost.
-    unsigned int num_players_lost = 0;
-    std::string player_not_lost = "";
-    for (const auto& it : players_) {
-      if (it.second->HasLost()) {
-        num_players_lost++;
-        if (!IsAi(it.first)) {
-          nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST"}} }};
-          ws_server_->SendMessage(it.first, resp.dump());
-        }
+      // All players lost, because time is up:
+      if (data_per_beat.size() == 0) {
+        nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST - times up"}} }};
+        SendMessageToAllPlayers(resp.dump());
       }
       else 
-        player_not_lost = it.first;
-    }
-
-    // If number of player which have lost is one less than total of number of
-    // players, then one player has wone.
-    if (num_players_lost == players_.size() -1) {
-      nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU WON"}} }};
-      ws_server_->SendMessage(player_not_lost, resp.dump());
-      {
-        std::unique_lock ul(mutex_status_);
-        status_ = CLOSING;
-      }
-      break;
-    }
-
-    // Increase resources for all players.
-    if (utils::GetElapsed(last_resource_update, cur_time) > resource_update_freqeuncy) {
-      for (const auto& it : players_) {
+        data_at_beat = data_per_beat.front();
+      // Increase resources for all non-ai players.
+      for (const auto& it : human_players_)
         it.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
-        last_resource_update = cur_time;
-      }
     }
 
     // Move potential
     if (utils::GetElapsed(last_update, cur_time) > render_frequency) {
-      // Move player soldiers and check if enemy den's lp is down to 0.
-      for (const auto& it : players_)
-        it.second->MovePotential();
-      // Remove enemy soldiers in renage of defence towers.
-      for (const auto& it : players_)
-        it.second->HandleDef();
-
-      // Check if neuron has reached view of enemy:
-      for (const auto& it : players_) {
-        for (const auto& potential : it.second->GetPotentialPositions()) {
-          for (const auto& enemy : it.second->enemies()) {
-            for (const auto& nucleus : enemy->GetAllPositionsOfNeurons(NUCLEUS)) {
-              if (utils::Dist(potential, nucleus) < enemy->cur_range()) {
-                nlohmann::json resp = {{"command", "set_units"}, {"data", {{"neurons", 
-                  enemy->GetAllNeuronsInRange(nucleus)}, {"color", enemy->color()}} }};
-                ws_server_->SendMessage(it.first, resp.dump());
-              }
-            }
-          }
-        }
-      }
-
+      // Move potentials of all players.
+      std::unique_lock ul(mutex_players_);
+      for (const auto& it : human_players_)
+        it.second->MovePotential(1);
+      ul.unlock();
+      // After potentials where move check if a new player has lost and whether a player has scouted new enemy neuerons
+      HandlePlayersLost();
+      SendScoutedNeurons();
+      // Handle actiaved-neurons of all players.
+      ul.lock();
+      for (const auto& it : human_players_)
+        it.second->HandleDef(1);
+      ul.unlock();
       // Create player agnostic transfer-data
-      CreateAndSendTransferToAllPlayers(1-(static_cast<float>(data_per_beat.size())/total_audio_length));
-
+      CreateAndSendTransferToAllPlayers(1-(static_cast<float>(data_per_beat.size())
+            /audio_.analysed_data().data_per_beat_.size()));
       // Refresh page
       last_update = cur_time;
+      spdlog::get(LOGGER)->debug("Game::RenderField: checking... render_frequency {}", render_frequency);
     }
   } 
   sleep(1);
@@ -551,22 +525,51 @@ void ServerGame::Thread_RenderField() {
 }
 
 void ServerGame::Thread_Ai(std::string username) {
-  spdlog::get(LOGGER)->info("Game::Thread_Ai: started: {}", username);
+  std::cout << "Game::Thread_Ai: started: " << username << std::endl;
+  // spdlog::get(LOGGER)->info("Game::Thread_Ai: started: {}", username);
   auto audio_start_time = std::chrono::steady_clock::now();
-  auto analysed_data = audio_.analysed_data();
-  std::list<AudioDataTimePoint> data_per_beat = analysed_data.data_per_beat_;
+  std::list<AudioDataTimePoint> data_per_beat = players_.at(username)->data_per_beat();
+  // spdlog::get(LOGGER)->info("Game::Thread_Ai: audio-data for player {} has {} beats", username, data_per_beat.size());
+  Player* ai = players_.at(username);
+
+  // Markers for unit-updates
+  auto last_update = std::chrono::steady_clock::now();
+  double render_frequency = 40;
 
   // Handle building neurons and potentials.
-  while(status_ < CLOSING) {
+  auto data_at_beat = data_per_beat.front();
+  while(ai && !ai->HasLost() && status_ < CLOSING) {
+    auto cur_time = std::chrono::steady_clock::now();
     // Analyze audio data.
-    auto elapsed = utils::GetElapsed(audio_start_time, std::chrono::steady_clock::now());
-    if (data_per_beat.size() == 0)
-      continue;
-    auto data_at_beat = data_per_beat.front();
-    if (elapsed >= data_at_beat.time_) {
-      players_.at(username)->DoAction(data_at_beat);
-      players_.at(username)->set_last_time_point(data_at_beat);
+    if (utils::GetElapsed(audio_start_time, cur_time) >= data_at_beat.time_*ai_speed_) {
+      // Do action.
+      ai->DoAction(data_at_beat);
+      ai->set_last_time_point(data_at_beat);
+      // Increase reasources twice every beat.
+      ai->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      ai->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      // Update render-frequency.
+      render_frequency = 60000.0/(data_at_beat.bpm_*16)*ai_speed_;
       data_per_beat.pop_front();
+      // If all beats have been used, restart at beginning.
+      if (data_per_beat.size() == 0) {
+        spdlog::get(LOGGER)->info("AI audio-data done. Resetting... {}", players_.at(username)->data_per_beat().size());
+        data_per_beat = players_.at(username)->data_per_beat();
+        audio_start_time = std::chrono::steady_clock::now();
+      }
+      else 
+        data_at_beat = data_per_beat.front();
+    }
+    
+    // Move potential
+    if (utils::GetElapsed(last_update, cur_time) > render_frequency) {
+      std::unique_lock ul(mutex_players_);
+      // Move potentials of all players.
+      ai->MovePotential(ai_speed_);
+      // Handle actiaved-neurons of all players.
+      ai->HandleDef(ai_speed_);
+      ul.unlock();
+      HandlePlayersLost();
     }
   }
   spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");
@@ -578,8 +581,7 @@ std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotent
   // 1: Swallow epsp potential if on same field as enemies ipsp.
   std::map<position_t, int> positions;
   for (const auto& player : players_) {
-    positions = player.second->GetIpspAtPosition();
-    for (const auto& it : positions)
+    for (const auto& it : player.second->GetIpspAtPosition())
       IpspSwallow(it.first, player.second, player.second->enemies());
   }
 
@@ -588,6 +590,10 @@ std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotent
     // Add epsp first
     for (const auto& jt : it.second->GetEpspAtPosition()) {
       std::string symbol = utils::CharToString('a', jt.second-1);
+      if (symbol > "z") {
+        spdlog::get(LOGGER)->error("Symbol to great: {}", symbol);
+        symbol = "z";
+      }
       // Always add, if field is not jet occupied.
       if (potential_per_pos.count(jt.first) == 0)
         potential_per_pos[jt.first] = {symbol, it.second->color()};
@@ -598,6 +604,10 @@ std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotent
     // Ipsp always dominates epsp
     for (const auto& jt : it.second->GetIpspAtPosition()) {
       std::string symbol = utils::CharToString('1', jt.second-1);
+      if (symbol > "9") {
+        spdlog::get(LOGGER)->error("Symbol to great: {}", symbol);
+        symbol = "9";
+      }
       if (potential_per_pos.count(jt.first) == 0)
         potential_per_pos[jt.first] = {symbol, it.second->color()};
       // Always overwride epsps (digits)
@@ -614,47 +624,125 @@ std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotent
 }
 
 void ServerGame::CreateAndSendTransferToAllPlayers(float audio_played, bool update) {
-  spdlog::get(LOGGER)->debug("ServerGame::CreateAndSendTransferToAllPlaters: {}, {}", audio_played, update);
+  spdlog::get(LOGGER)->debug("ServerGame::CreateAndSendTransferToAllPlaters: sending? {}", ws_server_ != nullptr);
+
+  auto updated_potentials = GetAndUpdatePotentials();
+  if (ws_server_ == nullptr) {
+    spdlog::get(LOGGER)->debug("ServerGame::CreateAndSendTransferToAllPlaters: ommitted");
+    return;
+  }
+
   // Create player agnostic transfer-data
-  Transfer transfer;
-  std::map<std::string, std::string> players_status;
+  std::map<std::string, std::pair<std::string, int>> players_status;
   std::vector<Player*> vec_players;
   std::map<position_t, int> new_dead_neurons;
   for (const auto& it : players_) {
-    players_status[it.first] = it.second->GetNucleusLive();
+    players_status[it.first] = {it.second->GetNucleusLive(), it.second->color()};
     vec_players.push_back(it.second);
     for (const auto& it : it.second->new_dead_neurons())
       new_dead_neurons[it.first]= it.second;
   }
+  Transfer transfer;
   transfer.set_players(players_status);
+  transfer.set_new_dead_neurons(new_dead_neurons);
+  transfer.set_audio_played(audio_played);
+  
+  // Set data for game update (only potentials)
   if (update)
-    transfer.set_potentials(GetAndUpdatePotentials());
+    transfer.set_potentials(updated_potentials);
+  // Set data for inital setup (full field and all graph-positions)
   else {
     transfer.set_field(field_->Export(vec_players));
     transfer.set_graph_positions(field_->GraphPositions());
   }
-  transfer.set_audio_played(audio_played);
-
-  std::string command = (update) ? "update_game" : "init_game";
-  nlohmann::json resp = {{"command", command}, {"data", nlohmann::json()}};
 
   // Add player-specific transfer-data (resources/ technologies) and send data to player.
+  nlohmann::json resp = {{"command", (update) ? "update_game" : "init_game"}, {"data", nlohmann::json()}};
+  for (const auto& it : human_players_) {
+    transfer.set_resources(it.second->t_resources());
+    transfer.set_technologies(it.second->t_technologies());
+    transfer.set_build_options(it.second->GetBuildingOptions());
+    transfer.set_synapse_options(it.second->GetSynapseOptions());
+    resp["data"] = transfer.json();
+    ws_server_->SendMessage(it.first, resp.dump());
+  }
+  // Send data to all observers.
+  resp["data"] = transfer.json();
+  for (const auto& it : observers_)
+    ws_server_->SendMessage(it, resp.dump());
+  // Send all new neurons to obersers.
+  SendNeuronsToObservers();
+}
+
+void ServerGame::HandlePlayersLost() {
+  std::unique_lock ul(mutex_players_);
+  // Check if new players have lost.
   for (const auto& it : players_) {
-    if (!IsAi(it.first)) {
-      transfer.set_resources(it.second->t_resources());
-      transfer.set_technologies(it.second->t_technologies());
-      transfer.set_new_dead_neurons(new_dead_neurons);
-      transfer.set_build_options(it.second->GetBuildingOptions());
-      transfer.set_synapse_options(it.second->GetSynapseOptions());
-      resp["data"] = transfer.json();
-      ws_server_->SendMessage(it.first, resp.dump());
+    if (it.second->HasLost() && dead_players_.count(it.first) == 0) {
+      dead_players_.insert(it.first);
+      // Send message if not AI.
+      if (!IsAi(it.first) && ws_server_) {
+        nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST"}} }};
+        ws_server_->SendMessage(it.first, resp.dump());
+      }
+    }
+  }
+  // If all but one players have one:
+  if (dead_players_.size() == players_.size()-1) {
+    nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", ""}} }};
+    for (const auto& it : players_) {
+      if (dead_players_.count(it.first) == 0) {
+        resp["data"]["msg"] = it.first + " WON";
+        std::cout << it.first << " won." << std::endl;
+        // If not AI, send message.
+        if (!IsAi(it.first) && ws_server_)
+          ws_server_->SendMessage(it.first, resp.dump());
+      }
+    }
+    // Also inform all obersers.
+    for (const auto& it : observers_) 
+      ws_server_->SendMessage(it, resp.dump());
+    // Finally end game.
+    std::unique_lock ul(mutex_status_);
+    status_ = CLOSING;
+  }
+}
+
+void ServerGame::SendScoutedNeurons() {
+  std::shared_lock sl(mutex_players_);
+  for (const auto& it : human_players_) {
+    for (const auto& potential : it.second->GetPotentialPositions()) {
+      for (const auto& enemy : it.second->enemies()) {
+        for (const auto& nucleus : enemy->GetAllPositionsOfNeurons(NUCLEUS)) {
+          if (utils::Dist(potential, nucleus) < enemy->cur_range()) {
+            nlohmann::json resp = {{"command", "set_units"}, {"data", {{"neurons", 
+              enemy->GetAllNeuronsInRange(nucleus)}, {"color", enemy->color()}} }};
+            ws_server_->SendMessage(it.first, resp.dump());
+          }
+        }
+      }
+    }
+  }
+}
+
+void ServerGame::SendNeuronsToObservers() {
+  if (observers_.size() == 0)
+    return;
+  // Iterate through (playing) players and send all new neurons to obersers.
+  for (const auto& it : players_) {
+    for (const auto& enemy : it.second->enemies()) {
+      nlohmann::json resp = {{"command", "set_units"}, {"data", {{"neurons", 
+        enemy->new_neurons()}, {"color", enemy->color()}} }};
+      for (const auto& it : observers_)
+        ws_server_->SendMessage(it, resp.dump());
     }
   }
 }
 
 void ServerGame::SendMessageToAllPlayers(std::string msg, std::string ignore_username) {
-  for (const auto& it : players_) {
-    if (!IsAi(it.first) && (ignore_username == "" || it.first != ignore_username))
+  spdlog::get(LOGGER)->debug("ServerGame::SendMessageToAllPlayers: num human players: {}", human_players_.size());
+  for (const auto& it : human_players_) {
+    if (ignore_username == "" || it.first != ignore_username)
       ws_server_->SendMessage(it.first, msg);
   }
 }
@@ -666,6 +754,7 @@ void ServerGame::IpspSwallow(position_t ipsp_pos, Player* player, std::vector<Pl
     if (id.find("epsp") != std::string::npos) {
       player->NeutralizePotential(ipsp_id, -1); // increase potential by one
       enemy->NeutralizePotential(id, 1); // decrease potential by one
+      player->statistics().AddEpspSwallowed();
       spdlog::get(LOGGER)->info("IPSP at {} swallowed esps", utils::PositionToString(ipsp_pos));
     }
   }

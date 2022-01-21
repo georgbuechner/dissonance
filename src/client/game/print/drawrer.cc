@@ -3,6 +3,7 @@
 #include "share/constants/codes.h"
 #include "share/defines.h"
 #include "share/objects/units.h"
+#include "share/tools/utils/utils.h"
 #include "spdlog/spdlog.h"
 #include <mutex>
 #include <utility>
@@ -67,6 +68,14 @@ void Drawrer::set_topline(t_topline topline) {
   topline_ = topline;
 }
 
+void Drawrer::set_mode(int mode) {
+  mode_ = mode;
+  if (mode_ == OBSERVER) {
+    c_field_ += SIDE_COLUMN_WIDTH/3;
+    c_resources_ += SIDE_COLUMN_WIDTH/3; 
+  }
+}
+
 int Drawrer::next_viewpoint() {
   cur_view_point_ = (1+cur_view_point_+1)%2 + 1;
   return cur_view_point_;
@@ -123,14 +132,16 @@ void Drawrer::ClearMarkers(int type) {
 
 void Drawrer::AddNewUnitToPos(position_t pos, int unit, int color) {
   std::unique_lock ul(mutex_print_field_);
-  if (unit == UnitsTech::ACTIVATEDNEURON)
-    field_[pos.first][pos.second] = {SYMBOL_DEF, color};
-  else if (unit == UnitsTech::SYNAPSE)
-    field_[pos.first][pos.second] = {SYMBOL_BARACK, color};
-  else if (unit == UnitsTech::NUCLEUS)
-    field_[pos.first][pos.second] = {SYMBOL_DEN, color};
-  else if (unit == UnitsTech::RESOURCENEURON)
-    field_[pos.first][pos.second] = {field_[pos.first][pos.second].symbol_, color};
+  //if (pos.first < static_cast<int>(field_.size()) && pos.second < static_cast<int>(field_[pos.first].size())) {
+    if (unit == UnitsTech::RESOURCENEURON)
+      field_[pos.first][pos.second] = {field_[pos.first][pos.second].symbol_, color};
+    else if (unit_symbol_mapping.count(unit) > 0)
+      field_[pos.first][pos.second] = {unit_symbol_mapping.at(unit), color};
+  //}
+  // else {
+  //   spdlog::get(LOGGER)->error("Drawrer::AddNewUnitToPos: trying to add unit to pos not in field: {}.", 
+  //       utils::PositionToString(pos));
+  // }
 }
 
 void Drawrer::UpdateTranser(nlohmann::json &transfer_json) {
@@ -175,7 +186,6 @@ void Drawrer::SetUpBorders(int lines, int cols) {
 
   // Setup cols
   c_field_ = SIDE_COLUMN_WIDTH/2;
-
   c_resources_ = cols - SIDE_COLUMN_WIDTH - c_field_ + 3;
 }
 
@@ -228,28 +238,34 @@ void Drawrer::PrintGame(bool only_field, bool only_side_column, int context) {
   if (stop_render_ || !transfer_.initialized()) 
     return;
   // Print headline
-  PrintHeader(transfer_.audio_played(), transfer_.PlayersToString());
+  PrintHeader(transfer_.audio_played(), transfer_.PlayersToPrint());
   // Print topline.
-  if (context == CONTEXT_RESOURCES || context == CONTEXT_TECHNOLOGIES)
-    PrintTopline(transfer_.build_options());
-  else if (context == CONTEXT_SYNAPSE)
-    PrintTopline(transfer_.synapse_options());
-  else 
-    PrintTopline({});
+  std::vector<bool> topline_colors; 
+  if (context == CONTEXT_RESOURCES || context == CONTEXT_TECHNOLOGIES) 
+    topline_colors = transfer_.build_options();
+  else if (context == CONTEXT_SYNAPSE) 
+    topline_colors = transfer_.synapse_options();
+
+  if (mode_ != OBSERVER)
+    PrintTopline(topline_colors);
+
   // Print field and/or side-column
   if (!only_side_column)
     PrintField();
-  if (!only_field)
+  if (!only_field && mode_ != OBSERVER)
     PrintSideColumn(transfer_.resources(), transfer_.technologies());
+
   // Print footer and message
-  PrintMessage();
-  PrintFooter(cur_selection_.at(cur_view_point_).to_string(transfer_));
+  if (mode_ != OBSERVER) {
+    PrintMessage();
+    PrintFooter(cur_selection_.at(cur_view_point_).to_string(transfer_));
+  }
   refresh();
 }
 
-void Drawrer::PrintHeader(float audio_played, const std::string& players) {
+void Drawrer::PrintHeader(float audio_played, const t_topline& players) {
   PrintCenteredLine(l_headline_, "DISSONANCE");
-  PrintCenteredLine(l_headline_+1, players);
+  PrintCenteredLineColored(l_headline_+1, players);
   // Print audio
   unsigned int length = (c_resources_ - c_field_ - 20) * audio_played;
   for (unsigned int i=0; i<length; i++)

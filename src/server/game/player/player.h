@@ -11,6 +11,7 @@
 #include <shared_mutex>
 #include <vector>
 
+#include "server/game/player/statistics.h"
 #include "share/audio/audio.h"
 #include "share/constants/codes.h"
 #include "share/constants/costs.h"
@@ -41,6 +42,7 @@ class Player {
     virtual ~Player() {}
 
     // getter:
+    Statictics& statistics();
     std::map<std::string, Potential> potential();
     int cur_range();
     std::map<int, Resource> resources();
@@ -49,8 +51,10 @@ class Player {
     std::map<int, Transfer::Resource> t_resources();
     std::map<int, Transfer::Technology> t_technologies();
     std::map<position_t, int> new_dead_neurons();
+    std::map<position_t, int> new_neurons();
     std::vector<Player*> enemies();
     int color();
+    virtual std::list<AudioDataTimePoint> data_per_beat() { return {}; }
 
     position_t GetSynapesTarget(position_t synapse_pos, int unit);
     std::vector<position_t> GetSynapesWayPoints(position_t synapse_pos, int unit=-1);
@@ -218,7 +222,7 @@ class Player {
      * @param[in] enemy 
      * @return potential transfered to the target.
      */
-    void MovePotential();
+    void MovePotential(float speed);
 
     void SetBlockForNeuron(position_t pos, bool block);
 
@@ -227,13 +231,14 @@ class Player {
      * @param player 
      * @param ki_
      */
-    void HandleDef();
+    void HandleDef(float speed);
 
     /**
      * Decrease potential and removes potential if potential is down to zero.
      * @param id of potential.
+     * @return whether potential was removed.
      */
-    void NeutralizePotential(std::string id, int potential);
+    bool NeutralizePotential(std::string id, int potential);
 
     /**
      * Adds potential to neuron and destroies neuron if max potential is reached.
@@ -272,6 +277,7 @@ class Player {
   protected: 
     Field* field_;
     Audio* audio_;
+    Statictics statistics_;
     RandomGenerator* ran_gen_;
     std::vector<Player*> enemies_;
     int cur_range_;
@@ -285,6 +291,7 @@ class Player {
     std::shared_mutex mutex_all_neurons_;
     std::map<position_t, std::unique_ptr<Neuron>> neurons_;
     std::map<position_t, int> new_dead_neurons_;
+    std::map<position_t, int> new_neurons_;
     position_t main_nucleus_pos_;
 
     std::shared_mutex mutex_potentials_;

@@ -58,8 +58,8 @@ class Audio {
     // getter
     AudioData& analysed_data();
     static std::map<std::string, std::vector<std::string>> keys();
+    std::string filename(bool shortened);
 
-    
     // setter 
     void set_source_path(std::string source_path);
     
@@ -82,6 +82,7 @@ class Audio {
   private:
     // members:
     std::string source_path_;
+    std::string filename_;
     const std::string base_path_;
     AudioData analysed_data_;
     ma_device device_;

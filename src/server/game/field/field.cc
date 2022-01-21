@@ -83,12 +83,13 @@ std::vector<position_t> Field::AddNucleus(unsigned int num_players) {
 }
 
 std::map<int, position_t> Field::AddResources(position_t start_pos) {
-  spdlog::get(LOGGER)->info("Field::AddResources");
+  spdlog::get(LOGGER)->info("Field::AddResources {}", utils::PositionToString(start_pos));
   std::map<int, position_t> resource_positions;
 
   // Get positions sourrounding start position, with enough free spaces for all resources.
   unsigned int nth_try = 0;
   std::vector<position_t> positions = GetAllInRange(start_pos, 4, 2, true);
+  spdlog::get(LOGGER)->info("Field::AddResources, positions: {}", positions.size());
   while(positions.size() < symbol_resource_mapping.size()-1) {
     spdlog::get(LOGGER)->debug("Field::AddResources: {}th try getting positions", nth_try);
     positions = GetAllInRange(start_pos, 4+nth_try++, 3, true);

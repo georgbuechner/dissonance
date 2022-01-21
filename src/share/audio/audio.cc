@@ -9,6 +9,7 @@
 #include <functional>
 #include <iterator>
 #include <nlohmann/json.hpp>
+#include <string>
 #include "spdlog/spdlog.h"
 
 std::atomic<bool> pause_audio(false);
@@ -28,6 +29,13 @@ AudioData& Audio::analysed_data() {
 
 std::map<std::string, std::vector<std::string>> Audio::keys() {
   return keys_;
+}
+
+std::string Audio::filename(bool shortened) {
+  std::string filename = filename_;
+  if (shortened && filename.size() > 7)
+    filename.erase(7);
+  return filename;
 }
 
 // setter 
@@ -367,6 +375,7 @@ size_t Audio::NextOfNotesIn(double cur_time) const {
 
 std::string Audio::GetOutPath(std::filesystem::path source_path) {
   source_path.replace_extension(".json");
+  filename_ = source_path.filename();
   std::hash<std::string> hasher;
   size_t hash = hasher(source_path);
   std::string out_path = base_path_ + "/data/analysis/" + std::to_string(hash) + source_path.filename().string();

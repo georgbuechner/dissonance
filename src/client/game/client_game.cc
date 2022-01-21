@@ -70,8 +70,8 @@ t_topline synapse_topline = {{" [s]et way-points ", COLOR_DEFAULT}, {" [i]psp-ta
   {" [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}
 };
 
-ClientGame::ClientGame(bool relative_size, std::string base_path, std::string username, bool mp) 
-    : username_(username), muliplayer_availible_(mp), base_path_(base_path), render_pause_(false), drawrer_() {
+ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : username_(username), 
+    muliplayer_availible_(mp), base_path_(base_path), render_pause_(false), drawrer_() {
   status_ = WAITING;
   // Initialize curses
   setlocale(LC_ALL, "");
@@ -667,11 +667,13 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
     {SINGLE_PLAYER, {"singe-player", COLOR_AVAILIBLE}}, 
     {MULTI_PLAYER, {"muli-player (host)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     {MULTI_PLAYER_CLIENT, {"muli-player (client)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
-    {OBSERVER, {"watch ki", COLOR_DEFAULT}}
+    {OBSERVER, {"watch ki", COLOR_AVAILIBLE}}
   };
-  msg["data"]["mode"] = SelectInteger("Select mode", true, mapping, {mapping.size()+1}, "Mode not available");
+  mode_ = SelectInteger("Select mode", true, mapping, {mapping.size()+1}, "Mode not available");
+  drawrer_.set_mode(mode_);
+  msg["data"]["mode"] = mode_;
   // If host, then also select number of players.
-  if (msg["data"]["mode"] == MULTI_PLAYER) {
+  if (mode_ == MULTI_PLAYER) {
     mapping = {
       {0, {"2 players", COLOR_AVAILIBLE}}, 
       {1, {"3 players", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
@@ -685,6 +687,12 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
 void ClientGame::m_SelectAudio(nlohmann::json& msg) {
   msg["command"] = "initialize_game";
   msg["data"]["source_path"] = SelectAudio();
+  if (mode_ == OBSERVER) {
+    msg["data"]["ais"] = nlohmann::json::array();
+    msg["data"]["base_path"] = base_path_;
+    for (unsigned int i = 0; i<2; i++)
+      msg["data"]["ais"].push_back(SelectAudio());
+  }
 }
 
 void ClientGame::m_PrintMsg(nlohmann::json& msg) {
@@ -730,11 +738,14 @@ void ClientGame::m_SetUnit(nlohmann::json& msg) {
 }
 
 void ClientGame::m_SetUnits(nlohmann::json& msg) {
+  spdlog::get(LOGGER)->info("ClientGame::m_SetUnits");
   std::map<position_t, int> neurons = msg["data"]["neurons"];
   int color = msg["data"]["color"];
   for (const auto& it : neurons) 
     drawrer_.AddNewUnitToPos(it.first, it.second, color);
+  spdlog::get(LOGGER)->debug("ClientGame::m_SetUnits. Done. Printing field...");
   drawrer_.PrintGame(false, false, current_context_);
+  spdlog::get(LOGGER)->debug("ClientGame::m_SetUnits. Done.");
   msg = nlohmann::json();
 }
 
@@ -770,17 +781,14 @@ int ClientGame::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapp
     int int_choice = choice-'a';
     if (choice == 'q' && omit)
       end = true;
-    else if (mapping.count(int_choice) > 0 && (mapping.at(int_choice).second == COLOR_AVAILIBLE || !omit)) {
-      // TODO(fux): see above  `pause_ = false;`
+    else if (mapping.count(int_choice) > 0 && (mapping.at(int_choice).second == COLOR_AVAILIBLE || !omit))
       return int_choice;
-    }
     else if (mapping.count(int_choice) > 0 && mapping.at(int_choice).second != COLOR_AVAILIBLE && omit)
       drawrer_.PrintCenteredLine(LINES/2+counter+5, "Selection not available (" + error_msg + "): " 
           + std::to_string(int_choice));
     else 
       drawrer_.PrintCenteredLine(LINES/2+counter+5, "Wrong selection: " + std::to_string(int_choice));
   }
-  // TODO(fux): see above  `pause_ = false;`
   return -1;
 }
 
