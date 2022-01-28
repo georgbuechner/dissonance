@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iterator>
@@ -40,21 +41,32 @@ std::string Audio::filename(bool shortened) {
 
 // setter 
 void Audio::set_source_path(std::string source_path) {
+  std::filesystem::path p = source_path;
+  filename_ = p.filename();
   source_path_ = source_path;
 }
 
 void Audio::Analyze() {
   spdlog::get(LOGGER)->debug("Audio::Analyze: starting analyses. Starting audi-data extraction");
-  spdlog::get(LOGGER)->flush();
-
   // Load or analyse data.
   std::string out_path = GetOutPath(source_path_);
-  if (std::filesystem::exists(out_path))
-    analysed_data_ = Load(out_path);
-  else  {
-    analysed_data_ = AnalyzeFile(source_path_);
-  }
+  analysed_data_ = (std::filesystem::exists(out_path)) ? Load(out_path) : AnalyzeFile(source_path_);
+  AnalyzePeak();
+}
 
+void Audio::Analyze(nlohmann::json data) {
+  spdlog::get(LOGGER)->debug("Audio::Analyze: starting analyses. Starting audi-data extraction");
+  // Load or analyse data.
+  analysed_data_ = Load(data);
+  AnalyzePeak();
+}
+
+nlohmann::json Audio::GetAnalyzedData() {
+  std::string out_path = GetOutPath(source_path_);
+  return utils::LoadJsonFromDisc(out_path);
+}
+
+void Audio::AnalyzePeak() {
   spdlog::get(LOGGER)->info("Analyzing max peak");
   int max = 0;
   for (const auto& it : analysed_data_.data_per_beat_) {
@@ -160,8 +172,12 @@ void Audio::Safe(AudioData analysed_data, std::string source_path) {
 }
 
 AudioData Audio::Load(std::string source_path) {
-  AudioData audio_data;
   nlohmann::json data = utils::LoadJsonFromDisc(source_path);
+  return Load(data);
+}
+
+AudioData Audio::Load(nlohmann::json data) {
+  AudioData audio_data;
   audio_data.average_bpm_ = data["average_bpm"];
   audio_data.average_level_ = data["average_level"];
   std::list<AudioDataTimePoint> data_per_beat;
@@ -375,7 +391,6 @@ size_t Audio::NextOfNotesIn(double cur_time) const {
 
 std::string Audio::GetOutPath(std::filesystem::path source_path) {
   source_path.replace_extension(".json");
-  filename_ = source_path.filename();
   std::hash<std::string> hasher;
   size_t hash = hasher(source_path);
   std::string out_path = base_path_ + "/data/analysis/" + std::to_string(hash) + source_path.filename().string();

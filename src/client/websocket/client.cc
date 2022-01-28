@@ -7,7 +7,12 @@ Client::Client(ClientGame* game, std::string username) : username_(username) {
     game_ = game;
   }
 
+bool Client::same_device() {
+  return same_device_;
+}
+
 void Client::Start(std::string address) {
+  same_device_ = address.find("localhost") != std::string::npos || address.find("127.0.0.1") != std::string::npos;
   try {
     // Set logging to be pretty verbose (everything except message payloads)
     c_.set_access_channels(websocketpp::log::alevel::none);
@@ -39,6 +44,7 @@ void Client::Start(std::string address) {
     // Start the ASIO io_service run loop
     // this will cause a single connection to be made to the server. c.run()
     // will exit when this connection is closed.
+    spdlog::get(LOGGER)->info("WebsocketFrame:: successfully started client to: {}", address);
     c_.run();
   } catch (websocketpp::exception const & e) {
     std::cout << e.what() << std::endl;
@@ -68,6 +74,8 @@ void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr 
   // If data is contained in response, add username and send.
   if (resp.contains("data")) {
     resp["username"] = username_;
+    spdlog::get(LOGGER)->debug("About to send message:");
+    spdlog::get(LOGGER)->debug("{}", resp.dump());
     SendMessage(resp.dump());
   }
 }

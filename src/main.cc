@@ -34,10 +34,6 @@
 void SetupLogger(bool clear_log, std::string base_path, std::string log_level);
 
 int main(int argc, const char** argv) {
-  // Initialize random numbers and audio.
-  srand (time(NULL));
-  Audio::Initialize();
-  
   // Command line arguments 
   bool show_help = false;
   bool clear_log = false;
@@ -85,6 +81,10 @@ int main(int argc, const char** argv) {
 
   // Setup logger.
   SetupLogger(clear_log, base_path, log_level);
+  
+  // Initialize random numbers and audio.
+  srand (time(NULL));
+  Audio::Initialize();
 
   // Enter-username (omitted for standalone server or only-ai)
   std::string username = "";
@@ -109,15 +109,7 @@ int main(int argc, const char** argv) {
   // only ai-game
   if (only_ai) {
     ServerGame* game = new ServerGame(50, 50, 10, 2, base_path, nullptr, speed);
-    nlohmann::json data = {{"username", "---"}, {"data", {{"base_path", base_path}, 
-      {"source_path", path_sound_map}, { "ais", {path_sound_ai_1, path_sound_ai_2 } }} 
-    }};
-    auto audio_start_time = std::chrono::steady_clock::now();
-    game->m_InitializeGame(data);
-    while (game->status() < CLOSING) {}
-    auto elapsed = utils::GetElapsed(audio_start_time, std::chrono::steady_clock::now());
-    std::cout << "Game took " << elapsed << " milli seconds " << std::endl;
-    game->PrintStatistics();
+    game->StartAiGame(base_path, path_sound_map, path_sound_ai_1, path_sound_ai_2);
     utils::WaitABit(100);
     return 0;
   }

@@ -33,12 +33,6 @@ class ServerGame {
      */
     ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv, float speed=1);
 
-    /**
-     * Analyzes audio and initialize game.
-     * @param[in, out] msg
-     */
-    void m_InitializeGame(nlohmann::json& data);
-
     // getter 
     int status();
     int mode();
@@ -48,6 +42,16 @@ class ServerGame {
 
     // methods.
     
+
+    /**
+     *
+     */
+    void StartAiGame(std::string base_path, std::string path_audio_map, std::string path_audio_a, 
+        std::string path_audio_b);
+
+    /**
+     * Prints statistics to stdout for all players.
+     */
     void PrintStatistics();
 
     /**
@@ -165,6 +169,11 @@ class ServerGame {
 
     // command methods
 
+    /**
+     * Analyzes audio and initialize game.
+     * @param[in, out] msg
+     */
+    void m_InitializeGame(nlohmann::json& data);
 
     /**
      * Adds iron

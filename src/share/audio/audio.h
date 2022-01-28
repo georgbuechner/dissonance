@@ -1,6 +1,8 @@
 #ifndef SRC_ANALYSES_H_
 #define SRC_ANALYSES_H_
 
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 #include <aubio/aubio.h>
 #include <aubio/musicutils.h>
 #include <aubio/notes/notes.h>
@@ -65,6 +67,9 @@ class Audio {
     
     // methods:
     void Analyze();
+    void Analyze(nlohmann::json data);
+    nlohmann::json GetAnalyzedData();
+
     void play();
     
     void Pause();
@@ -97,8 +102,10 @@ class Audio {
     void CreateLevels(int intervals);
     void CalcLevel(size_t quater, std::map<std::string, int> notes_by_frequency, size_t darkness);
 
+    void AnalyzePeak();
     AudioData AnalyzeFile(std::string source_path);
     AudioData Load(std::string source_path);
+    AudioData Load(nlohmann::json data);
     void Safe(AudioData audio_data, std::string source_path);
     std::string GetOutPath(std::filesystem::path source_path);
 

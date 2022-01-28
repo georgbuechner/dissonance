@@ -76,6 +76,7 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
   if (players_.size() < num_players_) {
     spdlog::get(LOGGER)->debug("ServerGame::AddPlayer: adding user.");
     players_[username] = nullptr;
+    human_players_[username] = nullptr;
     // Adjust field size and width
     lines_ = (lines < lines_) ? lines : lines_;
     cols_ = (cols < cols_) ? cols : cols_;
@@ -332,30 +333,29 @@ void ServerGame::BuildPotentials(int unit, position_t pos, int num_potenials_to_
 
 void ServerGame::m_InitializeGame(nlohmann::json& msg) {
   std::string username = msg["username"];
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: initializing with user: {}", username);
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: initializing with user: {} {}", username, mode_);
   nlohmann::json data = msg["data"];
 
   // Get and analyze main audio-file (used for map and in SP for AI).
-  std::string source_path = data["source_path"];
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Selected path: {}", source_path);
-  audio_.set_source_path(source_path);
-  audio_.Analyze();
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: audio has {} beats", audio_.analysed_data().data_per_beat_.size());
+  audio_.Analyze(data["analysed_data"]);
 
   // Get and analyze audio-files for AIs (OBSERVER-mode).
   std::vector<Audio*> audios; 
   if (msg["data"].contains("ais")) {
-    for (const auto& it : msg["data"]["ais"]) {
+    for (const auto& it : msg["data"]["ais"].get<std::map<std::string, nlohmann::json>>()) {
       Audio* new_audio = new Audio(msg["data"]["base_path"].get<std::string>());
-      new_audio->set_source_path(it);
-      new_audio->Analyze();
+      new_audio->set_source_path(it.first);
+      // Analyze with given base-anaysis.
+      new_audio->Analyze(it.second);
       audios.push_back(new_audio);
     }
   }
 
   // Add host to players.
-  if (mode_ < OBSERVER)
+  if (mode_ != OBSERVER) {
     players_[username] = nullptr;
+    human_players_[username] = nullptr;
+  }
   else if (mode_ == OBSERVER)
     observers_.push_back(username);
 
@@ -364,7 +364,7 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
     players_["AI (" + audio_.filename(true) + ")"] = nullptr;
     StartGame(audios);
   }
-  else if (mode_ >= OBSERVER) {
+  else if (mode_ == OBSERVER) {
     players_["AI (" + audios[0]->filename(true) + ")"] = nullptr;
     players_["AI (" + audios[1]->filename(true) + ")"] = nullptr;
     StartGame(audios);
@@ -375,6 +375,42 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
     msg["command"] = "print_msg";
     msg["data"] = {{"msg", "Wainting for players..."}};
   }
+}
+
+void ServerGame::StartAiGame(std::string base_path, std::string path_audio_map, std::string path_audio_a, 
+    std::string path_audio_b) {
+  // Analyze map audio
+  audio_.set_source_path(path_audio_map);
+  audio_.Analyze();
+  // Analyze audio for ais.
+  std::vector<Audio*> audios; 
+  // Analyze audio for first ai.
+  Audio* audio_a = new Audio(base_path);
+  audio_a->set_source_path(path_audio_a);
+  audio_a->Analyze();
+  audios.push_back(audio_a);
+  // Analyze audio for second ai.
+  Audio* audio_b = new Audio(base_path);
+  audio_b->set_source_path(path_audio_b);
+  audio_b->Analyze();
+  audios.push_back(audio_b);
+
+  // Create players
+  players_["AI (" + audios[0]->filename(true) + ")"] = nullptr;
+  players_["AI (" + audios[1]->filename(true) + ")"] = nullptr;
+
+  // Start game
+  StartGame(audios);
+  auto audio_start_time = std::chrono::steady_clock::now();
+  while (status() < CLOSING) {
+    utils::WaitABit(1000);
+    for (const auto& it : players_)
+      std::cout << it.first << ": " << it.second->GetNucleusLive() << "   ";
+    std::cout << std::endl;
+  }
+  auto elapsed = utils::GetElapsed(audio_start_time, std::chrono::steady_clock::now());
+  std::cout << "Game took " << elapsed << " milli seconds " << std::endl;
+  PrintStatistics();
 }
 
 void ServerGame::StartGame(std::vector<Audio*> audios) {
@@ -418,7 +454,7 @@ void ServerGame::StartGame(std::vector<Audio*> audios) {
   // Inform players, to start game with initial field included
   CreateAndSendTransferToAllPlayers(0, false);
 
-  // Start two main threads.
+  // Start ai-threads for all ai-players.
   status_ = SETTING_UP;
   for (const auto& it : players_) {
     if (IsAi(it.first)) {
@@ -676,6 +712,8 @@ void ServerGame::CreateAndSendTransferToAllPlayers(float audio_played, bool upda
 
 void ServerGame::HandlePlayersLost() {
   std::unique_lock ul(mutex_players_);
+  if (status_ == CLOSING)
+    return;
   // Check if new players have lost.
   for (const auto& it : players_) {
     if (it.second->HasLost() && dead_players_.count(it.first) == 0) {

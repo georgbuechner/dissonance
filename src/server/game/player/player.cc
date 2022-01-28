@@ -87,6 +87,7 @@ std::map<int, tech_of_t> Player::technologies() {
   std::shared_lock sl(mutex_technologies_);
   return technologies_;
 }
+
 std::map<int, Transfer::Resource> Player::t_resources() {
   std::map<int, Transfer::Resource>  resources;
   for (const auto& it : resources_) 
@@ -94,6 +95,7 @@ std::map<int, Transfer::Resource> Player::t_resources() {
       std::to_string(it.second.limit()), std::to_string(it.second.distributed_iron()), it.second.Active()};
   return resources;
 }
+
 std::map<int, Transfer::Technology> Player::t_technologies() {
   std::map<int, Transfer::Technology> technologies;
   for (const auto& it : technologies_) 

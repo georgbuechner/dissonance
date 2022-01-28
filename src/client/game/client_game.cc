@@ -3,6 +3,7 @@
 #include "client/websocket/client.h"
 #include "curses.h"
 #include "nlohmann/json_fwd.hpp"
+#include "share/audio/audio.h"
 #include "share/constants/codes.h"
 #include "share/constants/texts.h"
 #include "share/defines.h"
@@ -686,12 +687,27 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
 
 void ClientGame::m_SelectAudio(nlohmann::json& msg) {
   msg["command"] = "initialize_game";
-  msg["data"]["source_path"] = SelectAudio();
+
+  // Load map-audio.
+  std::string path = SelectAudio();
+  Audio audio(base_path_);
+  audio.set_source_path(path);
+  audio.Analyze();
+  msg["data"]["analysed_data"] = audio.GetAnalyzedData();
+
+  spdlog::get(LOGGER)->debug("Set media data.");
+
+  // If observer load audio for two ai-files.
   if (mode_ == OBSERVER) {
-    msg["data"]["ais"] = nlohmann::json::array();
+    msg["data"]["ais"] = nlohmann::json::object();
     msg["data"]["base_path"] = base_path_;
-    for (unsigned int i = 0; i<2; i++)
-      msg["data"]["ais"].push_back(SelectAudio());
+    for (unsigned int i = 0; i<2; i++) {
+      std::string source_path = SelectAudio();
+      Audio audio(base_path_);
+      audio.set_source_path(source_path);
+      audio.Analyze();
+      msg["data"]["ais"][source_path] = audio.GetAnalyzedData();
+    }
   }
 }
 

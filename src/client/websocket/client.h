@@ -17,9 +17,12 @@ class Client {
   public:
     Client(ClientGame* game, std::string username);
 
+    // getter 
+    bool same_device();
+
+    // methods
     void Start(std::string address);
     void Stop();
-
     void SendMessage(std::string msg);
 
   private:
@@ -27,6 +30,7 @@ class Client {
     typedef websocketpp::config::asio_client::message_type::ptr message_ptr;
     const std::string username_;
     client c_;
+    bool same_device_;
     websocketpp::connection_hdl hdl_;
     ClientGame* game_;
 
