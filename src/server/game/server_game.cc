@@ -19,6 +19,7 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -31,8 +32,8 @@ bool IsAi(std::string username) {
 }
 
 ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, 
-    WebsocketServer* srv, float speed) : num_players_(num_players), audio_(base_path), ws_server_(srv), 
-    status_(WAITING), mode_(mode), lines_(lines), cols_(cols), ai_speed_(speed) {
+    WebsocketServer* srv) : num_players_(num_players), audio_(base_path), ws_server_(srv), 
+    status_(WAITING), mode_(mode), lines_(lines), cols_(cols) {
   // Initialize eventmanager.
   eventmanager_.AddHandler("initialize_game", &ServerGame::m_InitializeGame);
   eventmanager_.AddHandler("add_iron", &ServerGame::m_AddIron);
@@ -64,7 +65,8 @@ void ServerGame::set_status(int status) {
 
 void ServerGame::PrintStatistics() {
   for (const auto& it : players_) {
-    std::cout << it.first << std::endl;
+    std::string status = (it.second->HasLost()) ? "LOST" : "WON";
+    std::cout << it.first << " (" << status << " " << it.second->GetNucleusLive() << ")" << std::endl;
     it.second->statistics().print();
   }
 }
@@ -319,11 +321,8 @@ void ServerGame::BuildPotentials(int unit, position_t pos, int num_potenials_to_
     std::string username, Player* player) {
   bool success = false;
   for (int i=0; i < num_potenials_to_build; i++) {
-    success = player->AddPotential(pos, unit);
-    if (!success)
+    if (!player->AddPotential(pos, unit, i/2))
       break;
-    // Wait a bit.
-    utils::WaitABit(110);
   }
   nlohmann::json msg = {{"command", "set_msg"}, {"data", {{"msg", "Success!"}} }};
   if (!success)
@@ -377,7 +376,7 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
   }
 }
 
-void ServerGame::StartAiGame(std::string base_path, std::string path_audio_map, std::string path_audio_a, 
+void ServerGame::InitAiGame(std::string base_path, std::string path_audio_map, std::string path_audio_a, 
     std::string path_audio_b) {
   // Analyze map audio
   audio_.set_source_path(path_audio_map);
@@ -402,14 +401,11 @@ void ServerGame::StartAiGame(std::string base_path, std::string path_audio_map, 
   // Start game
   StartGame(audios);
   auto audio_start_time = std::chrono::steady_clock::now();
-  while (status() < CLOSING) {
-    utils::WaitABit(1000);
-    for (const auto& it : players_)
-      std::cout << it.first << ": " << it.second->GetNucleusLive() << "   ";
-    std::cout << std::endl;
-  }
+  int one_player_won = RunAiGame();
   auto elapsed = utils::GetElapsed(audio_start_time, std::chrono::steady_clock::now());
   std::cout << "Game took " << elapsed << " milli seconds " << std::endl;
+  if (!one_player_won)
+    std::cout << "BOTH AIS LOST (TIME WAS UP!)" << std::endl;
   PrintStatistics();
 }
 
@@ -456,16 +452,18 @@ void ServerGame::StartGame(std::vector<Audio*> audios) {
 
   // Start ai-threads for all ai-players.
   status_ = SETTING_UP;
-  for (const auto& it : players_) {
-    if (IsAi(it.first)) {
-      std::thread ai([this, it]() { Thread_Ai(it.first); });
-      ai.detach();
+  if (mode_ != AI_GAME) {
+    for (const auto& it : players_) {
+      if (IsAi(it.first)) {
+        std::thread ai([this, it]() { Thread_Ai(it.first); });
+        ai.detach();
+      }
     }
+    // Start update-shedule.
+    std::thread update([this]() { Thread_RenderField(); });
+    update.detach();
   }
-  // Start update-shedule.
-  std::thread update([this]() { Thread_RenderField(); });
-  update.detach();
-  return ;
+  return;
 }
 
 std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
@@ -498,6 +496,54 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
   return nucleus_positions;
 }
 
+bool ServerGame::RunAiGame() {
+  // Get audio-data for map and all ais..
+  auto data_per_beat = audio_.analysed_data().data_per_beat_;
+  std::map<std::string, std::list<AudioDataTimePoint>> audio_ais;
+  for (const auto& it : players_)
+    audio_ais[it.first] = it.second->data_per_beat();
+
+  while(data_per_beat.size() > 0) {
+    // Get next beat.
+    auto data_at_beat = data_per_beat.front();
+    data_per_beat.pop_front();
+
+    // IncreaseResources
+    for (const auto& it : players_) {
+      it.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      it.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      // Get next audio-data and if empty, reset to beginning.
+      auto data_at_beat_ai = audio_ais[it.first].front();
+      audio_ais[it.first].pop_front();
+      if (audio_ais[it.first].size() == 0)
+        audio_ais[it.first] = it.second->data_per_beat();
+      // Do action and set last time-point.
+      it.second->DoAction(data_at_beat_ai);
+      it.second->set_last_time_point(data_at_beat);
+    }
+    // Repeat eight time for every beat.
+    for (int i=0; i<8; i++) {
+      // Move potentials
+      for (const auto& it : players_)
+        it.second->MovePotential();
+      // Check if one player has lost.
+      for (const auto& it : players_) {
+        if (it.second->HasLost())
+          return true;
+      }
+      // Handle def.
+      for (const auto& it : players_)
+        it.second->HandleDef();
+      // Handle ipsp-swallow.
+      for (const auto& player : players_) {
+        for (const auto& it : player.second->GetIpspAtPosition())
+          IpspSwallow(it.first, player.second, player.second->enemies());
+      }
+    }
+  }
+  return false;
+}
+
 void ServerGame::Thread_RenderField() {
   std::cout << "Game::Thread_RenderField: started. status? " << status_ << std::endl;
   spdlog::get(LOGGER)->info("");
@@ -505,16 +551,15 @@ void ServerGame::Thread_RenderField() {
   // spdlog::get(LOGGER)->info("Game::Thread_RenderField: started 1");
   std::list<AudioDataTimePoint> data_per_beat = audio_.analysed_data().data_per_beat_;
   auto last_update = std::chrono::steady_clock::now();
-  double render_frequency = 40;
- 
+  // Get first data-at-beat and initialize rander-frequency (4 times per beat).
   auto data_at_beat = data_per_beat.front();
+  double render_frequency = 60000.0/(data_at_beat.bpm_*8);
   while (status_ < CLOSING) {
     auto cur_time = std::chrono::steady_clock::now();
     // Analyze audio data.
     if (utils::GetElapsed(audio_start_time, cur_time)>= data_at_beat.time_) {
-      spdlog::get(LOGGER)->debug("Game::RenderField: next data_at_beat");
       // Update render-frequency.
-      render_frequency = 60000.0/(data_at_beat.bpm_*16);
+      render_frequency = 60000.0/(data_at_beat.bpm_*8);
       data_per_beat.pop_front();
       // All players lost, because time is up:
       if (data_per_beat.size() == 0) {
@@ -527,21 +572,20 @@ void ServerGame::Thread_RenderField() {
       for (const auto& it : human_players_)
         it.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
     }
-
     // Move potential
     if (utils::GetElapsed(last_update, cur_time) > render_frequency) {
       // Move potentials of all players.
       std::unique_lock ul(mutex_players_);
-      for (const auto& it : human_players_)
-        it.second->MovePotential(1);
+      for (const auto& it : players_)
+        it.second->MovePotential();
       ul.unlock();
       // After potentials where move check if a new player has lost and whether a player has scouted new enemy neuerons
       HandlePlayersLost();
       SendScoutedNeurons();
       // Handle actiaved-neurons of all players.
       ul.lock();
-      for (const auto& it : human_players_)
-        it.second->HandleDef(1);
+      for (const auto& it : players_)
+        it.second->HandleDef();
       ul.unlock();
       // Create player agnostic transfer-data
       CreateAndSendTransferToAllPlayers(1-(static_cast<float>(data_per_beat.size())
@@ -568,16 +612,12 @@ void ServerGame::Thread_Ai(std::string username) {
   // spdlog::get(LOGGER)->info("Game::Thread_Ai: audio-data for player {} has {} beats", username, data_per_beat.size());
   Player* ai = players_.at(username);
 
-  // Markers for unit-updates
-  auto last_update = std::chrono::steady_clock::now();
-  double render_frequency = 40;
-
   // Handle building neurons and potentials.
   auto data_at_beat = data_per_beat.front();
   while(ai && !ai->HasLost() && status_ < CLOSING) {
     auto cur_time = std::chrono::steady_clock::now();
     // Analyze audio data.
-    if (utils::GetElapsed(audio_start_time, cur_time) >= data_at_beat.time_*ai_speed_) {
+    if (utils::GetElapsed(audio_start_time, cur_time) >= data_at_beat.time_) {
       // Do action.
       ai->DoAction(data_at_beat);
       ai->set_last_time_point(data_at_beat);
@@ -585,7 +625,6 @@ void ServerGame::Thread_Ai(std::string username) {
       ai->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
       ai->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
       // Update render-frequency.
-      render_frequency = 60000.0/(data_at_beat.bpm_*16)*ai_speed_;
       data_per_beat.pop_front();
       // If all beats have been used, restart at beginning.
       if (data_per_beat.size() == 0) {
@@ -595,17 +634,6 @@ void ServerGame::Thread_Ai(std::string username) {
       }
       else 
         data_at_beat = data_per_beat.front();
-    }
-    
-    // Move potential
-    if (utils::GetElapsed(last_update, cur_time) > render_frequency) {
-      std::unique_lock ul(mutex_players_);
-      // Move potentials of all players.
-      ai->MovePotential(ai_speed_);
-      // Handle actiaved-neurons of all players.
-      ai->HandleDef(ai_speed_);
-      ul.unlock();
-      HandlePlayersLost();
     }
   }
   spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");
@@ -662,6 +690,7 @@ std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotent
 void ServerGame::CreateAndSendTransferToAllPlayers(float audio_played, bool update) {
   spdlog::get(LOGGER)->debug("ServerGame::CreateAndSendTransferToAllPlaters: sending? {}", ws_server_ != nullptr);
 
+  // Update potential positions and send to players.
   auto updated_potentials = GetAndUpdatePotentials();
   if (ws_server_ == nullptr) {
     spdlog::get(LOGGER)->debug("ServerGame::CreateAndSendTransferToAllPlaters: ommitted");
@@ -731,7 +760,6 @@ void ServerGame::HandlePlayersLost() {
     for (const auto& it : players_) {
       if (dead_players_.count(it.first) == 0) {
         resp["data"]["msg"] = it.first + " WON";
-        std::cout << it.first << " won." << std::endl;
         // If not AI, send message.
         if (!IsAi(it.first) && ws_server_)
           ws_server_->SendMessage(it.first, resp.dump());

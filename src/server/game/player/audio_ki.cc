@@ -271,21 +271,22 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
     spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: launching ipsp attacks...");
     size_t available_ipsps = AvailibleIpsps();
     for (size_t i=0; i<ipsp_targets.size() && i<ipsp_launch_synapes.size(); i++) {
-      CreateIpsps(ipsp_launch_synapes[i], ipsp_targets[i], available_ipsps/ipsp_targets.size(), data_at_beat.bpm_);
+      CreateIpsps(ipsp_launch_synapes[i], ipsp_targets[i], available_ipsps/ipsp_targets.size());
     }
   }
   // Only launch if expected number of epsps to create is reached.
   if (num_epsps_to_create > 0) {
+    int inital_speed_decrease=0;
     if (ipsp_launch_synapes.size() > 0) {
       ul.lock();
       auto ipsp_way = field_->GetWayForSoldier(ipsp_launch_synapes.front(), 
           neurons_.at(ipsp_launch_synapes.front())->GetWayPoints(UnitsTech::IPSP));
       ul.unlock();
-      SynchAttacks(epsp_way.size(), ipsp_way.size());
+      inital_speed_decrease = SynchAttacks(epsp_way.size(), ipsp_way.size());
     }
     spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: launching epsp attack...");
     // Launch epsps next.
-    CreateEpsps(sorted_synapses.back(), epsp_target, data_at_beat.bpm_);
+    CreateEpsps(sorted_synapses.back(), epsp_target, inital_speed_decrease);
   }
 
   // Reset target for all synapses
@@ -348,35 +349,23 @@ std::vector<position_t> AudioKi::GetIpspTargets(std::list<position_t> way, std::
   return isps_targets;
 }
 
-void AudioKi::CreateEpsps(position_t synapse_pos, position_t target_pos, int bpm) {
+void AudioKi::CreateEpsps(position_t synapse_pos, position_t target_pos, int inital_speed_decrease) {
   spdlog::get(LOGGER)->debug("AudioKi::CreateEpsp.");
   ChangeEpspTargetForSynapse(synapse_pos, target_pos);
   // Calculate update number of epsps to create and update interval
-  double update_interval = 60000.0/(bpm*16);
-  auto last_epsp = std::chrono::steady_clock::now();  
-  int counter = 0;
-  while (GetMissingResources(UnitsTech::EPSP).size() == 0 && counter++ <= 25) {
-    // Add epsp in certain interval.
-    if (utils::GetElapsed(last_epsp, std::chrono::steady_clock::now()) < update_interval) {
-      AddPotential(synapse_pos, UnitsTech::EPSP);
-      last_epsp = std::chrono::steady_clock::now();
-    }
+  for (int i=0; i<25; i++) {
+    if (!AddPotential(synapse_pos, UnitsTech::EPSP, inital_speed_decrease+i/2))
+      break;
   }
 }
 
-void AudioKi::CreateIpsps(position_t synapse_pos, position_t target_pos, int num_ipsp_to_create, int bpm) {
+void AudioKi::CreateIpsps(position_t synapse_pos, position_t target_pos, int num_ipsp_to_create) {
   spdlog::get(LOGGER)->debug("AudioKi::CreateIpsp.");
   ChangeIpspTargetForSynapse(synapse_pos, target_pos);
   // Calculate update number of ipsps to create and update interval
-  double update_interval = 60000.0/(bpm*16);
-  auto last_ipsp = std::chrono::steady_clock::now();  
-  int counter = 0;
-  while (GetMissingResources(UnitsTech::IPSP).size() == 0 && counter++ <= 9) {
-    // Add ipsp in certain interval.
-    if (utils::GetElapsed(last_ipsp, std::chrono::steady_clock::now()) >= update_interval) {
-      AddPotential(synapse_pos, UnitsTech::IPSP);
-      last_ipsp = std::chrono::steady_clock::now();
-    }
+  for (int i=0; i<num_ipsp_to_create && i<=9; i++) {
+    if (!AddPotential(synapse_pos, UnitsTech::IPSP, i/2))
+      break;
   }
 }
 
@@ -530,7 +519,6 @@ size_t AudioKi::AvailibleIpsps() {
   auto costs = units_costs_.at(UnitsTech::IPSP);
   size_t res = std::min(resources_.at(POTASSIUM).cur() / costs[POTASSIUM], 
       resources_.at(CHLORIDE).cur() / costs[CHLORIDE]);
-  spdlog::get(LOGGER)->debug("AudioKi::AvailibleIpsps: available ipsps: {}", res);
   if (attack_strategies_.at(EPSP_FOCUSED) > attack_strategies_.at(IPSP_FOCUSED))
     res *= attack_strategies_.at(IPSP_FOCUSED)/attack_strategies_.at(EPSP_FOCUSED);
   return res;
@@ -637,17 +625,13 @@ size_t AudioKi::GetLaunchAttack(const AudioDataTimePoint& data_at_beat, size_t i
   return (num_epsps_to_create < available_epsps) ? num_epsps_to_create : 0;
 }
 
-void AudioKi::SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length) {
+int AudioKi::SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length) {
   std::shared_lock sl_technologies(mutex_technologies_);
   int speed_boast = 50*technologies_.at(UnitsTech::ATK_POTENIAL).first;
   sl_technologies.unlock();
-  size_t ipsp_duration = ipsp_way_length*(420-speed_boast);
-  size_t epsp_duration = epsp_way_length*(370-speed_boast);
-  int wait_time = (ipsp_duration-epsp_duration) + 100;
-  spdlog::get(LOGGER)->info("AudioKi::SynchAttacks: Waiting for {} millisecond.", wait_time);
-  auto start = std::chrono::steady_clock::now();  
-  while (utils::GetElapsed(start, std::chrono::steady_clock::now()) < wait_time) { continue; }
-  spdlog::get(LOGGER)->info("AudioKi::SynchAttacks: Done waiting.");
+  size_t ipsp_duration = ipsp_way_length*(6-speed_boast);
+  size_t epsp_duration = epsp_way_length*(4-speed_boast);
+  return ipsp_duration-epsp_duration;
 }
 
 void AudioKi::CheckResourceLimit() {

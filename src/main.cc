@@ -45,7 +45,6 @@ int main(int argc, const char** argv) {
   std::string server_address = "ws://localhost:4444";
   bool standalone = false;
   bool only_ai = false;
-  float speed = 1;
   std::string path_sound_map = "dissonance//data/examples/Hear_My_Call-coffeeshoppers.mp3";
   std::string path_sound_ai_1 = "dissonance/data/examples/airtone_-_blackSnow_1.mp3";
   std::string path_sound_ai_2 = "dissonance/data/examples/Karstenholymoly_-_The_night_is_calling.mp3";
@@ -65,7 +64,6 @@ int main(int argc, const char** argv) {
         ["-z"]["--connect"]("specify address which to connect to.")
 
     | lyra::opt(only_ai) ["--only-ai"]("If set, starts game between to ais.")
-    | lyra::opt(speed, "for ai games: game-speed") ["--speed"]("If set, starts game between to ais.")
     | lyra::opt(path_sound_map, "for ai games: map sound input") ["--map_sound"]("")
     | lyra::opt(path_sound_ai_1, "for ai games: ai-1 sound input") ["--ai1_sound"]("")
     | lyra::opt(path_sound_ai_2, "for ai games: ai-2 sound input") ["--ai2_sound"]("");
@@ -108,8 +106,8 @@ int main(int argc, const char** argv) {
 
   // only ai-game
   if (only_ai) {
-    ServerGame* game = new ServerGame(50, 50, 10, 2, base_path, nullptr, speed);
-    game->StartAiGame(base_path, path_sound_map, path_sound_ai_1, path_sound_ai_2);
+    ServerGame* game = new ServerGame(50, 50, AI_GAME, 2, base_path, nullptr);
+    game->InitAiGame(base_path, path_sound_map, path_sound_ai_1, path_sound_ai_2);
     utils::WaitABit(100);
     return 0;
   }

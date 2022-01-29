@@ -41,7 +41,7 @@ struct Neuron : Unit {
     int voltage();
     int max_voltage();
     bool blocked();
-    virtual int speed() { return -1; };
+    virtual int movement() { return 999; };
     virtual int potential_slowdown() { return -1; };
     virtual std::chrono::time_point<std::chrono::steady_clock> last_action() {return std::chrono::steady_clock::now(); }
     virtual std::vector<position_t> ways_points() {return {}; }
@@ -62,6 +62,8 @@ struct Neuron : Unit {
     virtual void set_max_stored(unsigned int max_stored) {};
 
     // methods
+    virtual void decrease_cooldown() {}
+    virtual void reset_movement() {}
 
     /**
      * Increases voltage of neuron and returns whether neuron is destroyed.
@@ -146,17 +148,15 @@ struct ActivatedNeuron : Neuron {
     ActivatedNeuron(position_t pos, int slowdown_boast, int speed_boast);
 
     // getter 
-    int speed();
+    int movement();
     int potential_slowdown();
-    std::chrono::time_point<std::chrono::steady_clock> last_action();
     
-    // setter
-    void set_last_action(std::chrono::time_point<std::chrono::steady_clock> time);
+    void decrease_cooldown();
+    void reset_movement();
 
   private:
-    int speed_;  ///< lower number means higher speed.
+    std::pair<int, int>movement_;  ///< lower number means higher speed.
     int potential_slowdown_;
-    std::chrono::time_point<std::chrono::steady_clock> last_action_; 
 };
 
 /**
@@ -190,18 +190,19 @@ struct Nucleus : Neuron {
  * Abstrackt class for all potentials.
  * Attributes:
  * - pos (derived from Unit)
+ * - movement (int cooldown, int speed)
  */
 struct Potential : Unit {
   int potential_;
-  int speed_;  ///< lower number means higher speed.
-  int duration_; ///< only potential
-  std::chrono::time_point<std::chrono::steady_clock> last_action_; 
+  std::pair<int, int> movement_;  ///< lower number means higher speed.
+  int duration_; ///< only ipsp
   std::list<position_t> way_;
+  bool target_blocked_;
 
-  Potential() : Unit(), speed_(999), last_action_(std::chrono::steady_clock::now()) {}
+  Potential() : Unit(), movement_({999, 999}) {}
   Potential(position_t pos, int attack, std::list<position_t> way, int speed, int type, int duration) 
-    : Unit(pos, type), potential_(attack), speed_(speed), duration_(duration),
-    last_action_(std::chrono::steady_clock::now()), way_(way) {}
+    : Unit(pos, type), potential_(attack), movement_({speed, speed}), duration_(duration), 
+    way_(way), target_blocked_(false) {}
 };
 
 /**
@@ -216,7 +217,7 @@ struct Potential : Unit {
 struct Epsp : Potential {
   Epsp() : Potential() {}
   Epsp(position_t pos, std::list<position_t> way, int potential_boast, int speed_boast) 
-    : Potential(pos, 2+potential_boast, way, 370-speed_boast, UnitsTech::EPSP, 0) {}
+    : Potential(pos, 2+potential_boast, way, 4-speed_boast, UnitsTech::EPSP, 0) {}
 };
 
 /**
@@ -229,10 +230,9 @@ struct Epsp : Potential {
  * - way (derived from Potential)
  */
 struct Ipsp: Potential {
-
   Ipsp() : Potential() {}
   Ipsp(position_t pos, std::list<position_t> way, int potential_boast, int speed_boast, int duration_boast) 
-    : Potential(pos, 3+potential_boast, way, 420-speed_boast, UnitsTech::IPSP, 4+duration_boast) {}
+    : Potential(pos, 3+potential_boast, way, 6-speed_boast, UnitsTech::IPSP, 12+duration_boast) {}
 };
 
 #endif

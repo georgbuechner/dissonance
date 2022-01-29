@@ -206,7 +206,7 @@ class Player {
      * @param[in] unit should be either ESPS or IPSP.
      * @return success/ failiure.
      */
-    bool AddPotential(position_t pos, int unit);
+    bool AddPotential(position_t pos, int unit, int inital_speed_decrease=0);
 
     /**
      * Adds a technology if resources availible. Returns false if resources not
@@ -222,16 +222,14 @@ class Player {
      * @param[in] enemy 
      * @return potential transfered to the target.
      */
-    void MovePotential(float speed);
+    void MovePotential();
 
     void SetBlockForNeuron(position_t pos, bool block);
 
     /**
      * Function checking whether a tower has defeted a soldier.
-     * @param player 
-     * @param ki_
      */
-    void HandleDef(float speed);
+    void HandleDef();
 
     /**
      * Decrease potential and removes potential if potential is down to zero.

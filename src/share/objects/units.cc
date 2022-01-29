@@ -118,26 +118,26 @@ void Synapse::UpdateIpspTargetIfNotSet(position_t pos) {
 ActivatedNeuron::ActivatedNeuron() : Neuron() {}
 ActivatedNeuron::ActivatedNeuron(position_t pos, int slowdown_boast, int speed_boast) : 
     Neuron(pos, 17, UnitsTech::ACTIVATEDNEURON) {
-  speed_ = 700-speed_boast;
+  movement_ = {0, 5-speed_boast};
   potential_slowdown_ = 1+slowdown_boast;
-  last_action_ = std::chrono::steady_clock::now();
 }
 
 // getter 
-int ActivatedNeuron::speed() { 
-  return speed_; 
+int ActivatedNeuron::movement() { 
+  return movement_.first; 
 }
 int ActivatedNeuron::potential_slowdown() { 
   return potential_slowdown_; 
 }
-std::chrono::time_point<std::chrono::steady_clock> ActivatedNeuron::last_action() { 
-  return last_action_; 
+
+void ActivatedNeuron::decrease_cooldown() {
+  if (movement_.first > 0)
+    movement_.first--;
+}
+void ActivatedNeuron::reset_movement() {
+  movement_.first = movement_.second;
 }
 
-// setter
-void ActivatedNeuron::set_last_action(std::chrono::time_point<std::chrono::steady_clock> time) { 
-  last_action_ = time; 
-}
 
 // ResourceNeuron...
 ResourceNeuron::ResourceNeuron() : Neuron(), resource_(999) {}

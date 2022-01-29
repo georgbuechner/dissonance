@@ -31,7 +31,7 @@ class ServerGame {
      * @param[in] cols availible cols
      * @param[in] srv pointer to websocket-server, to send messages.
      */
-    ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv, float speed=1);
+    ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv);
 
     // getter 
     int status();
@@ -46,7 +46,7 @@ class ServerGame {
     /**
      *
      */
-    void StartAiGame(std::string base_path, std::string path_audio_map, std::string path_audio_a, 
+    void InitAiGame(std::string base_path, std::string path_audio_map, std::string path_audio_a, 
         std::string path_audio_b);
 
     /**
@@ -80,6 +80,8 @@ class ServerGame {
      */
     void Thread_Ai(std::string username);
 
+    bool RunAiGame();
+
   private: 
     Field* field_;  ///< field 
     std::shared_mutex mutex_players_;
@@ -100,8 +102,6 @@ class ServerGame {
     const int mode_; ///< SINGLE_PLAYER | MULTI_PLAYER | OBSERVER
     int lines_; 
     int cols_;
-
-    const float ai_speed_;
 
     // methods
 

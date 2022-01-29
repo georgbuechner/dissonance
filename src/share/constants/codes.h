@@ -49,7 +49,8 @@ enum Mode {
   SINGLE_PLAYER = 0,
   MULTI_PLAYER,
   MULTI_PLAYER_CLIENT,
-  OBSERVER
+  OBSERVER,
+  AI_GAME
 };
 
 enum ViewRange {

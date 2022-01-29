@@ -49,8 +49,8 @@ class AudioKi : public Player {
     void LaunchAttack(const AudioDataTimePoint& data_at_beat);
 
     // Create potental/ neurons. Add technology
-    void CreateEpsps(position_t synapse_pos, position_t target_pos, int bpm);
-    void CreateIpsps(position_t synapse_pos, position_t target_pos, int num_ipsp_to_create, int bpm);
+    void CreateEpsps(position_t synapse_pos, position_t target_pos, int inital_speed_decrease);
+    void CreateIpsps(position_t synapse_pos, position_t target_pos, int num_ipsp_to_create);
     void CreateIpspThenEpsp(const AudioDataTimePoint& data_at_beat);
     void CreateSynapses(bool force=false);
     void CreateActivatedNeuron(bool force=false);
@@ -82,7 +82,7 @@ class AudioKi : public Player {
     std::vector<position_t> SortPositionsByDistance(position_t start, std::vector<position_t> positions, bool reverse=false);
     std::vector<position_t> GetEnemySynapsesSortedByLeastDef(position_t start);
     size_t GetMaxLevelExeedance() const;
-    void SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length);
+    int SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length);
 
     void SetBattleTactics();
     void SetEconomyTactics();
