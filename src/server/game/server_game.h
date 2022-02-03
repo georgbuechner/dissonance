@@ -88,7 +88,6 @@ class ServerGame {
     std::map<std::string, Player*> players_;
     std::map<std::string, Player*> human_players_;
 
-
     std::vector<std::string> observers_;
     std::set<std::string> dead_players_;
     const unsigned int num_players_;
@@ -102,6 +101,8 @@ class ServerGame {
     const int mode_; ///< SINGLE_PLAYER | MULTI_PLAYER | OBSERVER
     int lines_; 
     int cols_;
+
+    std::string host_;
 
     // methods
 

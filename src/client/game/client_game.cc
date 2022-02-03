@@ -31,7 +31,7 @@
 
 std::map<int, std::map<char, void(ClientGame::*)(nlohmann::json&)>> ClientGame::handlers_ = {};
 
-void ClientGame::init() {
+void ClientGame::init(){
   handlers_ = {
     { STD_HANDLERS, {
         {'j', &ClientGame::h_MoveSelectionUp}, {'k', &ClientGame::h_MoveSelectionDown}, 
@@ -72,7 +72,7 @@ t_topline synapse_topline = {{" [s]et way-points ", COLOR_DEFAULT}, {" [i]psp-ta
 };
 
 ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : username_(username), 
-    muliplayer_availible_(mp), base_path_(base_path), render_pause_(false), drawrer_() {
+    muliplayer_availible_(mp), base_path_(base_path), render_pause_(false), drawrer_(), audio_(base_path) {
   status_ = WAITING;
   // Initialize curses
   setlocale(LC_ALL, "");
@@ -687,17 +687,18 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
 
 void ClientGame::m_SelectAudio(nlohmann::json& msg) {
   msg["command"] = "initialize_game";
+  msg["data"] = nlohmann::json::object();
 
   // Load map-audio.
-  std::string path = SelectAudio();
-  Audio audio(base_path_);
-  audio.set_source_path(path);
-  audio.Analyze();
-  msg["data"]["analysed_data"] = audio.GetAnalyzedData();
+  audio_file_path_ = SelectAudio();
+  std::filesystem::path p = audio_file_path_;
+  std::string content = p.filename().string() + "$" + utils::GetMedia(audio_file_path_);
+  ws_srv_->SendMessageBinary(content);
+  msg["data"]["map_name"] = p.filename().string();
 
-  spdlog::get(LOGGER)->debug("Set media data.");
+  // spdlog::get(LOGGER)->debug("Set media data.");
 
-  // If observer load audio for two ai-files.
+  // If observer load audio for two ai-files (no need to send audi-file: only analysed data)
   if (mode_ == OBSERVER) {
     msg["data"]["ais"] = nlohmann::json::object();
     msg["data"]["base_path"] = base_path_;
@@ -724,6 +725,10 @@ void ClientGame::m_InitGame(nlohmann::json& msg) {
   status_ = RUNNING;
   drawrer_.set_msg(contexts_.at(current_context_).msg());
   drawrer_.set_topline(contexts_.at(current_context_).topline());
+  
+  audio_.set_source_path(audio_file_path_);
+  audio_.play();
+
   msg = nlohmann::json();
 }
 

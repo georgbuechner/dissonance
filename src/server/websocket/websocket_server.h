@@ -61,6 +61,13 @@ class WebsocketServer {
      */
     void SendMessage(std::string username, std::string msg);
 
+    /**
+     * Sends message to given connection by username as binary data
+     * @param id of connection over which to send.
+     * @param msg message which to send.
+     */
+    void SendMessageBinary(std::string username, std::string msg);
+
   private:
 
     // typedefs:

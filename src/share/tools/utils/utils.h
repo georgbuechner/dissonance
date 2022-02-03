@@ -46,6 +46,8 @@ namespace utils {
    */
   double GetElapsed(std::chrono::time_point<std::chrono::steady_clock> start,
     std::chrono::time_point<std::chrono::steady_clock> end);
+  double GetElapsedNano(std::chrono::time_point<std::chrono::steady_clock> start,
+    std::chrono::time_point<std::chrono::steady_clock> end);
 
   /** 
    * Euclidean distance between two two-dimensional points.
@@ -136,6 +138,10 @@ namespace utils {
    * @return boolean indicating success.
    */
   void WriteJsonFromDisc(std::string path, nlohmann::json& json);
+
+  std::string GetMedia(std::string path);
+
+  void StoreMedia(std::string path, std::string content);
 
   /**
    * Gets current date-time in YYYY-MM-DD-HH-MM-SS format.

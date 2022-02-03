@@ -1,7 +1,9 @@
 #include "client/websocket/client.h"
 #include "share/objects/units.h"
 
+#include "share/tools/utils/utils.h"
 #include "spdlog/spdlog.h"
+#include "websocketpp/frame.hpp"
 
 Client::Client(ClientGame* game, std::string username) : username_(username) {
     game_ = game;
@@ -68,6 +70,24 @@ void Client::on_open(websocketpp::connection_hdl) {
 // This message handler will be invoked once for each incoming message. It
 // prints the message and then sends a copy of the message back to the server.
 void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr msg) {
+  // Handle binary data (audio-files) in otherwise.
+  if (msg->get_opcode() == websocketpp::frame::opcode::binary) {
+    spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data");
+    std::string content = msg->get_payload(); 
+    auto metadata = utils::Split(content.substr(0, content.find("$")), "&");
+    std::string username = metadata[0];
+    std::string filename = metadata[1];
+    std::string path = game_->base_path() + "/data/user-files/"+username;
+    if (!std::filesystem::exists(path))
+      std::filesystem::create_directory(path);
+    path += +"/"+filename;
+    spdlog::get(LOGGER)->debug("Websocket::on_message: storing binary data to: {}", path);
+    utils::StoreMedia(path, content.substr(content.find("$")+1));
+    game_->set_audio_file_path(path);
+    spdlog::get(LOGGER)->debug("Websocket::on_message: Done.");
+    return;
+  }
+
   spdlog::get(LOGGER)->debug("Client got message: {}", msg->get_payload());
   websocketpp::lib::error_code ec;
   nlohmann::json resp = game_->HandleAction(nlohmann::json::parse(msg->get_payload()));
@@ -84,6 +104,15 @@ void Client::SendMessage(std::string msg) {
   websocketpp::lib::error_code ec;
   spdlog::get(LOGGER)->debug("Client::SendMessage: {}", msg);
   c_.send(hdl_, msg, websocketpp::frame::opcode::text, ec);
+  if (ec)
+    std::cout << "Client: sending failed because: " << ec.message() << std::endl;
+}
+
+void Client::SendMessageBinary(std::string msg) {
+  websocketpp::lib::error_code ec;
+  spdlog::get(LOGGER)->debug("Client::SendMessage: sinding binary message: size {}", msg.size());
+  c_.send(hdl_, msg, websocketpp::frame::opcode::binary, ec);
+  spdlog::get(LOGGER)->debug("Client::SendMessage: sinding binary success", msg.size());
   if (ec)
     std::cout << "Client: sending failed because: " << ec.message() << std::endl;
 }

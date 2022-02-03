@@ -24,6 +24,7 @@ class Client {
     void Start(std::string address);
     void Stop();
     void SendMessage(std::string msg);
+    void SendMessageBinary(std::string msg);
 
   private:
     typedef websocketpp::client<websocketpp::config::asio_client> client;

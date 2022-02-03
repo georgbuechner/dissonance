@@ -2,6 +2,7 @@
  * @author: georgbuechner
  */
 #include <exception>
+#include <filesystem>
 #include <ostream>
 #include <stdexcept>
 #include <sys/socket.h>
@@ -134,6 +135,20 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
 }
 
 void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, message_ptr msg) {
+  // Handle binary data (audio-files) in otherwise.
+  if (msg->get_opcode() == websocketpp::frame::opcode::binary && connections_.count(hdl.lock().get())) {
+    spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data");
+    std::string content = msg->get_payload(); 
+    std::string filename = content.substr(0, content.find("$"));
+    std::string path = "dissonance/data/user-files/"+connections_.at(hdl.lock().get())->username();
+    if (!std::filesystem::exists(path))
+      std::filesystem::create_directory(path);
+    path += +"/"+filename;
+    spdlog::get(LOGGER)->debug("Websocket::on_message: storing binary data to: {}", path);
+    utils::StoreMedia(path, content.substr(content.find("$")+1));
+    spdlog::get(LOGGER)->debug("Websocket::on_message: Done.");
+    return;
+  }
   // Validate json.
   spdlog::get(LOGGER)->debug("Websocket::on_message: validating new msg: {}", msg->get_payload());
   auto json_opt = utils::ValidateJson({"command", "username", "data"}, msg->get_payload());
@@ -332,10 +347,28 @@ void WebsocketServer::SendMessage(connection_id id, std::string msg) {
       spdlog::get(LOGGER)->error("WebsocketFrame::SendMessage: failed to get connection to {}", id);
       return;
     }
-    spdlog::get(LOGGER)->debug("WebsocketFrame::SendMessage: sending message to {} - {}: {}", 
-        id, connections_.at(id)->username(), msg);
     // Send message.
     server_.send(connections_.at(id)->connection(), msg, websocketpp::frame::opcode::value::text);
+    spdlog::get(LOGGER)->debug("WebsocketFrame::SendMessage: successfully sent message.");
+
+  } catch (websocketpp::exception& e) {
+    spdlog::get(LOGGER)->error("WebsocketFrame::SendMessage: failed sending message: {}", e.what());
+  } catch (std::exception& e) {
+    spdlog::get(LOGGER)->error("WebsocketFrame::SendMessage: failed sending message: {}", e.what());
+  }
+}
+
+void WebsocketServer::SendMessageBinary(std::string username, std::string msg) {
+  auto connection_id = GetConnectionIdByUsername(username);
+  try {
+    // Set last incomming and get connection hdl from connection.
+    std::shared_lock sl(shared_mutex_connections_);
+    if (connections_.count(connection_id) == 0) {
+      spdlog::get(LOGGER)->error("WebsocketFrame::SendMessage: failed to get connection to {}", connection_id);
+      return;
+    }
+    // Send message.
+    server_.send(connections_.at(connection_id)->connection(), msg, websocketpp::frame::opcode::binary);
     spdlog::get(LOGGER)->debug("WebsocketFrame::SendMessage: successfully sent message.");
 
   } catch (websocketpp::exception& e) {

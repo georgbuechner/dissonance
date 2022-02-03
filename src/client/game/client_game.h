@@ -1,6 +1,7 @@
 #ifndef SRC_CLIENT_CLIENT_GAME_H_
 #define SRC_CLIENT_CLIENT_GAME_H_
 
+#include "share/audio/audio.h"
 #define NCURSES_NOMACROS
 #include <cstddef>
 #include <curses.h>
@@ -29,6 +30,14 @@ class ClientGame {
      */
     ClientGame(std::string base_path, std::string username, bool muliplayer_availible);
 
+    std::string base_path() {
+      return base_path_;
+    }
+
+    void set_audio_file_path(std::string path) {
+      audio_file_path_ = path;
+    }
+
     void set_client(Client* ws_srv) {
       ws_srv_ = ws_srv;
     }
@@ -53,12 +62,14 @@ class ClientGame {
     Drawrer drawrer_;
     int status_;
     int mode_;
+    Audio audio_;
 
     std::map<int, Context> contexts_;
     int current_context_;
     std::vector<char> history_;
 
     std::vector<std::string> audio_paths_; 
+    std::string audio_file_path_;
 
 
     // Selection methods

@@ -61,6 +61,7 @@ class Audio {
     AudioData& analysed_data();
     static std::map<std::string, std::vector<std::string>> keys();
     std::string filename(bool shortened);
+    std::string source_path();
 
     // setter 
     void set_source_path(std::string source_path);

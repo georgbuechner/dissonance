@@ -2,6 +2,7 @@
 #include "curses.h"
 #include "nlohmann/json.hpp"
 #include <cctype>
+#include <chrono>
 #include <cstddef>
 #include <cstdlib>
 #include <ctime>
@@ -39,6 +40,11 @@ bool utils::IsRight(char choice) {
 double utils::GetElapsed(std::chrono::time_point<std::chrono::steady_clock> start,
     std::chrono::time_point<std::chrono::steady_clock> end) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+}
+
+double utils::GetElapsedNano(std::chrono::time_point<std::chrono::steady_clock> start,
+    std::chrono::time_point<std::chrono::steady_clock> end) {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
 }
 
 double utils::Dist(position_t pos1, position_t pos2) {
@@ -150,6 +156,38 @@ void utils::WriteJsonFromDisc(std::string path, nlohmann::json& json) {
     write << json;
   }
   write.close();
+}
+
+std::string utils::GetMedia(std::string path) {
+  std::ifstream f(path, std::ios::in|std::ios::binary|std::ios::ate);
+  if (!f.is_open()) {
+    spdlog::get(LOGGER)->warn("file could not be found! {}", path);
+    return "";
+  }
+  else {
+    FILE* file_stream = fopen(path.c_str(), "rb");
+    std::vector<char> buffer;
+    fseek(file_stream, 0, SEEK_END);
+    long length = ftell(file_stream);
+    rewind(file_stream);
+    buffer.resize(length);
+    length = fread(&buffer[0], 1, length, file_stream);
+    std::string s(buffer.begin(), buffer.end());
+    return s;
+  }
+}
+
+void utils::StoreMedia(std::string path, std::string content) {
+  try {
+    std::fstream mediaout(path, std::ios::out | std::ios::binary);
+    mediaout.write(content.c_str(), content.size());
+    mediaout.close();
+  }
+  catch (std::exception& e) {
+    std::cout << "Writing media-file failed: " << e.what() << std::endl;
+    return;
+  }
+  std::cout << "Successfully written media file to: " << path << std::endl;
 }
 
 std::string utils::GetFormatedDatetime() {

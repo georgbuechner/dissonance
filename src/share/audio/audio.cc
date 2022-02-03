@@ -39,6 +39,10 @@ std::string Audio::filename(bool shortened) {
   return filename;
 }
 
+std::string Audio::source_path() {
+  return source_path_;
+}
+
 // setter 
 void Audio::set_source_path(std::string source_path) {
   std::filesystem::path p = source_path;

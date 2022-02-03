@@ -5,10 +5,8 @@
 #include <iostream>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <set>
-#include <shared_mutex>
 #include <vector>
 
 #include "server/game/player/statistics.h"
@@ -281,21 +279,17 @@ class Player {
     int cur_range_;
     int color_;
 
-    std::shared_mutex mutex_resources_;
     std::map<int, Resource> resources_;
     double resource_slowdown_;
 
 
-    std::shared_mutex mutex_all_neurons_;
     std::map<position_t, std::unique_ptr<Neuron>> neurons_;
     std::map<position_t, int> new_dead_neurons_;
     std::map<position_t, int> new_neurons_;
     position_t main_nucleus_pos_;
 
-    std::shared_mutex mutex_potentials_;
     std::map<std::string, Potential> potential_;
 
-    std::shared_mutex mutex_technologies_;
     std::map<int, tech_of_t> technologies_;
 
     // methods

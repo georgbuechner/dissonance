@@ -5,8 +5,6 @@
 #include <exception>
 #include <math.h>
 #include <memory>
-#include <mutex>
-#include <shared_mutex>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -62,12 +60,10 @@ Statictics& Player::statistics() {
   return statistics_;
 }
 std::map<std::string, Potential> Player::potential() { 
-  std::shared_lock sl(mutex_potentials_);
   return potential_; 
 }
 
 position_t Player::GetOneNucleus() { 
-  std::shared_lock sl(mutex_all_neurons_); 
   auto all_nucleus_positions = GetAllPositionsOfNeurons(NUCLEUS);
   if (all_nucleus_positions.size() > 0)
     return all_nucleus_positions.front();
@@ -79,12 +75,10 @@ int Player::cur_range() {
 }
 
 std::map<int, Resource> Player::resources() {
-  std::shared_lock sl(mutex_resources_);
   return resources_;
 }
 
 std::map<int, tech_of_t> Player::technologies() {
-  std::shared_lock sl(mutex_technologies_);
   return technologies_;
 }
 
@@ -104,14 +98,12 @@ std::map<int, Transfer::Technology> Player::t_technologies() {
 }
 
 std::map<position_t, int> Player::new_dead_neurons() {
-  std::shared_lock sl(mutex_all_neurons_);
   std::map<position_t, int> new_dead_neurons = new_dead_neurons_;
   new_dead_neurons_.clear();
   return new_dead_neurons;
 }
 
 std::map<position_t, int> Player::new_neurons() {
-  std::shared_lock sl(mutex_all_neurons_);
   std::map<position_t, int> new_neurons = new_neurons_;
   new_neurons_.clear();
   return new_neurons;
@@ -148,7 +140,6 @@ void Player::set_enemies(std::vector<Player*> enemies) {
 // methods 
 
 std::map<position_t, int> Player::GetEpspAtPosition() {
-  std::shared_lock sl(mutex_potentials_);
   std::map<position_t, int> epsps;
   for (const auto& it : potential_) {
     if (it.second.type_ == EPSP) 
@@ -157,7 +148,6 @@ std::map<position_t, int> Player::GetEpspAtPosition() {
   return epsps;
 }
 std::map<position_t, int> Player::GetIpspAtPosition() {
-  std::shared_lock sl(mutex_potentials_);
   std::map<position_t, int> ipsps;
   for (const auto& it : potential_) {
     if (it.second.type_ == IPSP) 
@@ -167,7 +157,6 @@ std::map<position_t, int> Player::GetIpspAtPosition() {
 }
 
 std::vector<position_t> Player::GetPotentialPositions() {
-  std::shared_lock sl(mutex_potentials_);
   std::map<position_t, int> potentials;
   for (const auto& it : potential_)
     potentials[it.second.pos_]++;
@@ -189,7 +178,6 @@ std::map<position_t, int> Player::GetAllNeuronsInRange(position_t pos) {
 
 position_t Player::GetPositionOfClosestNeuron(position_t pos, int unit) {
   spdlog::get(LOGGER)->info("Player::GetPositionOfClosestNeuron");
-  std::shared_lock sl(mutex_all_neurons_);
   int min_dist = 999;
   position_t closest_nucleus_pos = {-1, -1}; 
   for (const auto& it : neurons_) {
@@ -207,7 +195,6 @@ position_t Player::GetPositionOfClosestNeuron(position_t pos, int unit) {
 
 std::string Player::GetNucleusLive() {
   spdlog::get(LOGGER)->info("Player::GetNucleusLive");
-  std::shared_lock sl(mutex_all_neurons_);
   auto positions = GetAllPositionsOfNeurons(NUCLEUS);
   if (positions.size() > 0) {
     return std::to_string(neurons_.at(positions.front())->voltage()) 
@@ -217,19 +204,16 @@ std::string Player::GetNucleusLive() {
 }
 
 bool Player::HasLost() {
-  std::shared_lock sl(mutex_all_neurons_);
   return GetAllPositionsOfNeurons(NUCLEUS).size() == 0;
 }
 
 int Player::GetNeuronTypeAtPosition(position_t pos) {
-  std::shared_lock sl(mutex_all_neurons_);
   if (neurons_.count(pos) > 0)
     return neurons_.at(pos)->type_;
   return -1;
 }
 
 bool Player::IsNeuronBlocked(position_t pos) {
-  std::shared_lock sl(mutex_all_neurons_);
   if (neurons_.count(pos) > 0)
     return neurons_.at(pos)->blocked();
   return false;
@@ -237,7 +221,6 @@ bool Player::IsNeuronBlocked(position_t pos) {
 
 std::vector<position_t> Player::GetAllPositionsOfNeurons(int type) {
   std::vector<position_t> positions;
-  std::shared_lock sl(mutex_all_neurons_);
   for (const auto& it : neurons_)
     if (type == -1 || it.second->type_ == type)
       positions.push_back(it.first);
@@ -246,7 +229,6 @@ std::vector<position_t> Player::GetAllPositionsOfNeurons(int type) {
 
 position_t Player::GetRandomNeuron(std::vector<int>) {
   spdlog::get(LOGGER)->info("Player::GetRandomNeuron");
-  std::shared_lock sl(mutex_all_neurons_);
   // Get all positions at which there are activated neurons
   std::vector<position_t> activated_neuron_postions;
   for (const auto& it : neurons_)
@@ -265,7 +247,6 @@ position_t Player::GetRandomNeuron(std::vector<int>) {
 
 int Player::ResetWayForSynapse(position_t pos, position_t way_position) {
   spdlog::get(LOGGER)->info("Player::ResetWayForSynapse");
-  std::unique_lock ul(mutex_all_neurons_);
   if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE) {
     neurons_.at(pos)->set_way_points({way_position});
     spdlog::get(LOGGER)->info("Player::ResetWayForSynapse: successfully");
@@ -279,7 +260,6 @@ int Player::ResetWayForSynapse(position_t pos, position_t way_position) {
 
 int Player::AddWayPosForSynapse(position_t pos, position_t way_position) {
   spdlog::get(LOGGER)->info("Player::AddWayPosForSynapse");
-  std::unique_lock ul(mutex_all_neurons_);
   if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE) {
     auto cur_way = neurons_.at(pos)->ways_points();
     cur_way.push_back(way_position);
@@ -295,7 +275,6 @@ int Player::AddWayPosForSynapse(position_t pos, position_t way_position) {
 
 bool Player::SwitchSwarmAttack(position_t pos) {
   spdlog::get(LOGGER)->info("Player::SwitchSwarmAttack");
-  std::unique_lock ul(mutex_all_neurons_);
   if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE) {
     neurons_.at(pos)->set_swarm(!neurons_.at(pos)->swarm());
     return neurons_.at(pos)->swarm();
@@ -306,7 +285,6 @@ bool Player::SwitchSwarmAttack(position_t pos) {
 
 void Player::ChangeIpspTargetForSynapse(position_t pos, position_t target_pos) {
   spdlog::get(LOGGER)->info("Player::ChangeIpspTargetForSynapse");
-  std::unique_lock ul(mutex_all_neurons_);
   if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE)
     neurons_.at(pos)->set_ipsp_target_pos(target_pos);
   spdlog::get(LOGGER)->info("Player::ChangeIpspTargetForSynapse: done");
@@ -314,7 +292,6 @@ void Player::ChangeIpspTargetForSynapse(position_t pos, position_t target_pos) {
 
 void Player::ChangeEpspTargetForSynapse(position_t pos, position_t target_pos) {
   spdlog::get(LOGGER)->info("Player::ChangeEpspTargetForSynapse");
-  std::unique_lock ul(mutex_all_neurons_);
   if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE)
     neurons_.at(pos)->set_epsp_target_pos(target_pos);
   spdlog::get(LOGGER)->info("Player::ChangeEpspTargetForSynapse: done");
@@ -322,7 +299,6 @@ void Player::ChangeEpspTargetForSynapse(position_t pos, position_t target_pos) {
 
 void Player::IncreaseResources(bool inc_iron) {
   spdlog::get(LOGGER)->info("Player::IncreaseResources");
-  std::unique_lock ul_resources(mutex_resources_);
   double gain = std::abs(log(resources_.at(Resources::OXYGEN).cur()+0.5));
   for (auto& it : resources_) {
     // Inc only if min 2 iron is distributed, inc iron only depending on audio.
@@ -334,7 +310,6 @@ void Player::IncreaseResources(bool inc_iron) {
 
 bool Player::DistributeIron(int resource) {
   spdlog::get(LOGGER)->info("Player::DistributeIron: resource={}", resource);
-  std::unique_lock ul(mutex_resources_);
   if (resources_.count(resource) == 0 || resource == IRON) {
     spdlog::get(LOGGER)->error("Player::DistributeIron: invalid resource!");
     return false;
@@ -356,7 +331,6 @@ bool Player::DistributeIron(int resource) {
 
 bool Player::RemoveIron(int resource) {
   spdlog::get(LOGGER)->info("Player::RemoveIron: resource={}", resource);
-  std::unique_lock ul(mutex_resources_);
   if (resources_.count(resource) == 0 || resource == IRON) {
     spdlog::get(LOGGER)->error("Player::RemoveIron: invalid resource!");
     return false;
@@ -382,7 +356,6 @@ Costs Player::GetMissingResources(int unit, int boast) {
 
   // Check costs and add to missing.
   std::map<int, double> missing;
-  std::shared_lock sl(mutex_resources_);
   for (const auto& it : needed)
     if (resources_.at(it.first).cur() < it.second*boast) 
       missing[it.first] = it.second - resources_.at(it.first).cur();
@@ -399,7 +372,6 @@ bool Player::TakeResources(int type, bool bind_resources, int boast) {
     spdlog::get(LOGGER)->warn("Player::TakeResources: taking resources with out enough resources!");
     return false;
   }
-  std::unique_lock ul_resources(mutex_resources_);
   auto costs = units_costs_.at(type);
   for (const auto& it : costs) {
     resources_.at(it.first).set_cur(resources_.at(it.first).cur() - it.second*boast);
@@ -418,7 +390,6 @@ void Player::FreeBoundResources(int type) {
   }
   // Get costs for this unit.
   auto costs = units_costs_.at(type);
-  std::unique_lock ul_resources(mutex_resources_);
   // Free bound resources.
   for (const auto& it : costs)
     resources_.at(it.first).set_bound(resources_.at(it.first).bound() - it.second);
@@ -426,12 +397,10 @@ void Player::FreeBoundResources(int type) {
 
 bool Player::AddNeuron(position_t pos, int neuron_type, position_t epsp_target, position_t ipsp_target) {
   spdlog::get(LOGGER)->info("Player::AddNeuron");
-  std::unique_lock ul(mutex_all_neurons_);
   if (!TakeResources(neuron_type, true))
     return false;
   if (neuron_type == UnitsTech::ACTIVATEDNEURON) {
     spdlog::get(LOGGER)->debug("Player::AddNeuron: ActivatedNeuron");
-    std::shared_lock sl(mutex_technologies_);
     int speed_boast = technologies_.at(UnitsTech::DEF_SPEED).first * 40;
     int potential_boast = technologies_.at(UnitsTech::DEF_POTENTIAL).first;
     neurons_[pos] = std::make_unique<ActivatedNeuron>(pos, potential_boast, speed_boast);
@@ -463,7 +432,6 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
   if (!TakeResources(unit, false))
     return false;
   // Get way and target:
-  std::unique_lock ul_neurons(mutex_all_neurons_);
   // Check if synapses is blocked.
   if (neurons_.count(synapes_pos) == 0 || neurons_.at(synapes_pos)->type_ != SYNAPSE 
       || neurons_.at(synapes_pos)->blocked()) 
@@ -475,14 +443,11 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
   auto way = field_->GetWayForSoldier(synapes_pos, neurons_.at(synapes_pos)->GetWayPoints(unit));
 
   // Add potential.
-  std::unique_lock ul_potentials(mutex_potentials_);
-  std::shared_lock sl_technologies(mutex_technologies_);
   // Get boast from technologies.
   int potential_boast = technologies_.at(UnitsTech::ATK_POTENIAL).first;
   int speed_boast = technologies_.at(UnitsTech::ATK_POTENIAL).first;
   int duration_boast = technologies_.at(UnitsTech::ATK_DURATION).first;
   std::string id = "";
-  sl_technologies.unlock();
   if (unit == UnitsTech::EPSP) {
     spdlog::get(LOGGER)->debug("Player::AddPotential: epsp - get num epsps to create.");
     // Increase num of currently stored epsps and get number of epsps to create.
@@ -506,7 +471,6 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
 }
 
 bool Player::AddTechnology(int technology) {
-  std::unique_lock ul(mutex_technologies_);
   spdlog::get(LOGGER)->info("Player::AddTechnology.");
   // Check if technology exists, resources are missing and whether already fully researched.
   if (technologies_.count(technology) == 0)
@@ -518,7 +482,6 @@ bool Player::AddTechnology(int technology) {
     return false;
   // Handle technology.
   spdlog::get(LOGGER)->debug("Player::AddTechnology: Adding new technology");
-  std::unique_lock ul_resources(mutex_resources_);
   technologies_[technology].first++;
   if (technology == UnitsTech::WAY) {
     for (auto& it : neurons_)
@@ -531,9 +494,7 @@ bool Player::AddTechnology(int technology) {
         it.second->set_max_stored(technologies_[technology].first*3+1);
   }
   else if (technology == UnitsTech::TOTAL_RESOURCE) {
-    ul_resources.unlock();
     UpdateResourceLimits(0.2);
-    ul_resources.lock();
   }
   else if (technology == UnitsTech::CURVE) {
     if (technologies_[technology].first == 3)
@@ -550,7 +511,6 @@ bool Player::AddTechnology(int technology) {
 void Player::MovePotential() {
   spdlog::get(LOGGER)->info("Player::MovePotential {}", potential_.size());
   // Move soldiers along the way to it's target and check if target is reached.
-  std::unique_lock ul_potential(mutex_potentials_);
   std::vector<std::string> potential_to_remove;
   for (auto& it : potential_) {
     it.second.movement_.first--; // update cooldown.
@@ -606,7 +566,6 @@ void Player::MovePotential() {
 
 void Player::SetBlockForNeuron(position_t pos, bool blocked) {
   spdlog::get(LOGGER)->info("Player::SetBlockForNeuron");
-  std::unique_lock ul(mutex_all_neurons_);
   if (neurons_.count(pos) > 0) {
     neurons_[pos]->set_blocked(blocked);
     // If resource neuron, block/ unblock resource.
@@ -618,7 +577,6 @@ void Player::SetBlockForNeuron(position_t pos, bool blocked) {
 
 void Player::HandleDef() {
   spdlog::get(LOGGER)->info("Player::HandleDef");
-  std::unique_lock ul(mutex_all_neurons_);
   for (auto& neuron : neurons_) {
     if (neuron.second->type_ != UnitsTech::ACTIVATEDNEURON)
       continue;
@@ -644,7 +602,6 @@ void Player::HandleDef() {
 
 bool Player::NeutralizePotential(std::string id, int potential) {
   spdlog::get(LOGGER)->info("Player::NeutralizePotential: {}", potential);
-  std::unique_lock ul(mutex_potentials_);
   if (potential_.count(id) > 0) {
     spdlog::get(LOGGER)->debug("Player::NeutralizePotential: left potential: {}", potential_.at(id).potential_);
     potential_.at(id).potential_ -= potential;
@@ -660,7 +617,6 @@ bool Player::NeutralizePotential(std::string id, int potential) {
 }
 
 void Player::AddPotentialToNeuron(position_t pos, int potential) {
-  std::unique_lock ul_all_neurons(mutex_all_neurons_);
   spdlog::get(LOGGER)->info("Player::AddPotentialToNeuron: {} {}", utils::PositionToString(pos), potential);
   // If potential is negative: stop.
   if (potential < 0) {
@@ -676,9 +632,7 @@ void Player::AddPotentialToNeuron(position_t pos, int potential) {
       // Potentially deactivate all neurons formally in range of the destroyed nucleus.
       if (type == UnitsTech::NUCLEUS) {
         spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: nucleus died!");
-        ul_all_neurons.unlock();
         CheckNeuronsAfterNucleusDies();
-        ul_all_neurons.lock();
         UpdateResourceLimits(-0.1);  // Remove added max resources when nucleus dies.
       }
       new_dead_neurons_[pos] = type;
@@ -692,7 +646,6 @@ void Player::CheckNeuronsAfterNucleusDies() {
   spdlog::get(LOGGER)->info("Player::CheckNeuronsAfterNucleusDies");
   // Get all nucleus.
   std::vector<position_t> all_nucleus = GetAllPositionsOfNeurons(UnitsTech::NUCLEUS);
-  std::unique_lock ul(mutex_all_neurons_);
   std::vector<position_t> neurons_to_remove;
   for (const auto& neuron : neurons_) {
     // Nucleus are not affekted.
@@ -710,7 +663,6 @@ void Player::CheckNeuronsAfterNucleusDies() {
 }
 
 std::string Player::GetPotentialIdIfPotential(position_t pos, int unit) {
-  std::shared_lock sl(mutex_potentials_);
   for (const auto& it : potential_)
     if (it.second.pos_ == pos && (unit == -1 || it.second.type_ == unit))
       return it.first;
@@ -729,7 +681,6 @@ std::vector<bool> Player::GetBuildingOptions() {
 }
 
 std::vector<bool> Player::GetSynapseOptions() {
-  std::shared_lock sl(mutex_technologies_);
   return {
     (technologies_.at(UnitsTech::WAY).first > 0),
     (technologies_.at(UnitsTech::TARGET).first > 0),
@@ -740,14 +691,12 @@ std::vector<bool> Player::GetSynapseOptions() {
 
 void Player::UpdateResourceLimits(float faktor) {
   spdlog::get(LOGGER)->info("Player::UpdateResourceLimits");
-  std::unique_lock ul(mutex_resources_); 
   for (auto& it : resources_)
     it.second.set_limit(it.second.limit() + it.second.limit()*faktor);
   spdlog::get(LOGGER)->info("Player::Done");
 }
 
 std::string Player::GetCurrentResources() {
-  std::shared_lock sl(mutex_resources_);
   std::string msg = "resources: ";
   for (const auto& it : resources()) 
     msg += resources_name_mapping.at(it.first) + ": " + std::to_string(it.second.cur()) + ", ";
