@@ -35,8 +35,8 @@ void ClientGame::init(){
   handlers_ = {
     { STD_HANDLERS, {
         {'j', &ClientGame::h_MoveSelectionUp}, {'k', &ClientGame::h_MoveSelectionDown}, 
-        {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit}, {'A', &ClientGame::h_BuildNeuron}, 
-        {'S', &ClientGame::h_BuildNeuron}, {'s', &ClientGame::h_SendSelectSynapse}, 
+        {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit}, {'s', &ClientGame::h_SendSelectSynapse}, 
+        {'A', &ClientGame::h_BuildNeuron}, {'S', &ClientGame::h_BuildNeuron}, {'N', &ClientGame::h_BuildNeuron}, 
         {'e', &ClientGame::h_BuildPotential}, {'i', &ClientGame::h_BuildPotential}
       }
     },
@@ -287,7 +287,7 @@ void ClientGame::h_BuildNeuron(nlohmann::json& msg) {
   spdlog::get(LOGGER)->debug("ClientGame::m_BuildNeuron: {}", msg.dump());
   // If first call: send message to server, checking wether neuron can be build.
   if (msg.size() == 0) {
-    int unit = (cmd == 'A') ? ACTIVATEDNEURON : SYNAPSE;
+    int unit = (cmd == 'A') ? ACTIVATEDNEURON : (cmd == 'S') ? SYNAPSE : NUCLEUS;
     nlohmann::json response = {{"command", "check_build_neuron"}, {"username", username_}, {"data",
       {{"unit", unit}} }};
     ws_srv_->SendMessage(response.dump());
@@ -300,12 +300,16 @@ void ClientGame::h_BuildNeuron(nlohmann::json& msg) {
   }
   // Second call no start-position: Add Pick-Context to select start position
   else if (!msg["data"].contains("start_pos")) {
-    SwitchToPickContext(msg["data"]["positions"], "Select nucleus", "build_neuron", msg);
+    if (msg["data"]["unit"] == NUCLEUS)
+      SwitchToPickContext(msg["data"]["positions"], "Select start-position", "build_neuron", msg);
+    else
+      SwitchToPickContext(msg["data"]["positions"], "Select nucleus", "build_neuron", msg);
   }
   // Second call with start-position, or third call with start position from marker: select pos from field
   else if (msg["data"].contains("start_pos")) {
     RemovePickContext();
-    SwitchToFieldContext(msg["data"]["start_pos"], msg["data"]["range"], "build_neuron", msg,
+    int range = (msg["data"]["unit"] == NUCLEUS) ? 999 : msg["data"]["range"].get<int>();
+    SwitchToFieldContext(msg["data"]["start_pos"], range, "build_neuron", msg,
       "Select position to build " + units_tech_name_mapping.at(msg["data"]["unit"]));
   }
   msg = nlohmann::json();
