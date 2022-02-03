@@ -16,7 +16,6 @@
 #include <sstream>
 #include "share/objects/units.h"
 #include "spdlog/spdlog.h"
-#include "libbase64.h"
 
 #define LOGGER "logger"
 
