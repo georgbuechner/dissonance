@@ -169,7 +169,6 @@ void ClientGame::GetAction() {
     // Throw event
     if (contexts_.at(current_context_).eventmanager().handlers().count(choice) > 0) {
       spdlog::get(LOGGER)->debug("ClientGame::GetAction: calling handler.");
-      spdlog::get(LOGGER)->flush();
       nlohmann::json data = contexts_.at(current_context_).data();
       contexts_.at(current_context_).set_cmd(choice);
       (this->*contexts_.at(current_context_).eventmanager().handlers().at(choice))(data);
@@ -177,7 +176,6 @@ void ClientGame::GetAction() {
     // If event not in context-event-manager print availible options.
     else {
       spdlog::get(LOGGER)->debug("ClientGame::GetAction: invalid action for this context.");
-      spdlog::get(LOGGER)->flush();
       drawrer_.set_msg("Invalid option. Availible: " + contexts_.at(current_context_).eventmanager().options());
     }
 
@@ -748,10 +746,10 @@ void ClientGame::m_SetMsg(nlohmann::json& msg) {
 }
 
 void ClientGame::m_GameEnd(nlohmann::json& msg) {
-  status_ = CLOSING;
-  drawrer_.ClearField();
   drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"]);
   getch();
+  status_ = CLOSING;
+  drawrer_.ClearField();
   msg = nlohmann::json();
 }
 

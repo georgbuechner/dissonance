@@ -1,4 +1,5 @@
 #include "client/websocket/client.h"
+#include "nlohmann/json_fwd.hpp"
 #include "share/objects/units.h"
 
 #include "share/tools/utils/utils.h"
@@ -85,9 +86,10 @@ void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr 
     utils::StoreMedia(path, content.substr(content.find("$")+1));
     game_->set_audio_file_path(path);
     spdlog::get(LOGGER)->debug("Websocket::on_message: Done.");
+    SendMessage(nlohmann::json({{"command", "ready"}, {"username", username_}, {"data", nlohmann::json()}}).dump());
     return;
   }
-
+  // Handle json-formatted data:
   spdlog::get(LOGGER)->debug("Client got message: {}", msg->get_payload());
   websocketpp::lib::error_code ec;
   nlohmann::json resp = game_->HandleAction(nlohmann::json::parse(msg->get_payload()));

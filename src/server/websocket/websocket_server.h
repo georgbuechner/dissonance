@@ -131,6 +131,13 @@ class WebsocketServer {
     connection_id GetConnectionIdByUsername(std::string username);
 
     /**
+     * Checks whether a username is already in use.
+     * @param[in] username
+     * @return whether a connection with this username already exists.
+     */
+    bool UsernameExists(std::string username);
+
+    /**
      * Gets game from username. Checks whether username and game exists. 
      * Locks mutex_game_
      * @param[in] username

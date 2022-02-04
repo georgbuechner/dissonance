@@ -81,19 +81,18 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
     // Adjust field size and width
     lines_ = (lines < lines_) ? lines : lines_;
     cols_ = (cols < cols_) ? cols : cols_;
-    // Send audio-data to other players.
+    // Send audio-data to new player.
     std::string audio_path = audio_.source_path();
     std::filesystem::path p = audio_path;
     std::string content = host_ + "&" + p.filename().string() + "$" + utils::GetMedia(audio_path);
     ws_server_->SendMessageBinary(username, content);
-    // Wait a bit for data to be transfered.
-    utils::WaitABit(100);
   }
+}
 
+void ServerGame::PlayerReady(std::string username) {
   // Only start game if status is still waiting, to avoid starting game twice.
   if (players_.size() >= num_players_ && status_ == WAITING_FOR_PLAYERS) {
     spdlog::get(LOGGER)->info("ServerGame::AddPlayer: starting game as last player entered game.");
-    ul.unlock();
     StartGame({});
   }
 }

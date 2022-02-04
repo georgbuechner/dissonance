@@ -15,6 +15,7 @@
 #include <websocketpp/error.hpp>
 #include <websocketpp/frame.hpp>
 #include <spdlog/spdlog.h>
+#include "nlohmann/json_fwd.hpp"
 #include "spdlog/common.h"
 #include "spdlog/logger.h"
 #include "websocketpp/close.hpp"
@@ -165,6 +166,12 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
   // Start new game
   else if (command == "init_game")
     h_InitializeGame(hdl.lock().get(), username, json_opt.second);
+  // Indicate that player is ready (audio downloaded).
+  else if (command == "ready") {
+    if (username_game_id_mapping_.count(username) > 0)
+      games_.at(username_game_id_mapping_.at(username))->PlayerReady(username);
+  }
+  // Close game ???
   else if (command == "close")
     h_CloseGame(hdl.lock().get(), username, json_opt.second);
   // In game action
@@ -174,12 +181,17 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
 
 void WebsocketServer::h_InitializeUser(connection_id id, std::string username, const nlohmann::json& msg) {
   // Create controller connection.
-  std::unique_lock ul(shared_mutex_connections_);
-  if (connections_.count(id)) {
+  // Username already exists.
+  if (connections_.count(id) > 0 && UsernameExists(username)) {
+    nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "Username exists!"}}}};
+    SendMessage(id, resp.dump());
+  }
+  // Everything fine: set username and send next instruction to user.
+  else if (connections_.count(id) > 0) {
+    std::unique_lock ul(shared_mutex_connections_);
     connections_[id]->set_username(username);
     ul.unlock();
-    nlohmann::json resp = {{"command", "select_mode"}};
-    SendMessage(id, resp.dump());
+    SendMessage(id, nlohmann::json({{"command", "select_mode"}}).dump());
   }
   else {
     spdlog::get(LOGGER)->warn("WebsocketServer::h_InitializeUser: connection does not exist! {}", username);
@@ -307,11 +319,19 @@ void WebsocketServer::h_CloseGame(connection_id id, std::string username, const 
 }
 
 WebsocketServer::connection_id WebsocketServer::GetConnectionIdByUsername(std::string username) {
-  spdlog::get(LOGGER)->info("WebsocketServer::GetConnectionIdByUsername: username: {}", username);
+  spdlog::get(LOGGER)->debug("WebsocketServer::GetConnectionIdByUsername: username: {}", username);
   for (const auto& it : connections_)
     if (it.second->username() == username) 
       return it.second->get_connection_id();
   return connection_id();
+}
+
+bool WebsocketServer::UsernameExists(std::string username) {
+  spdlog::get(LOGGER)->debug("WebsocketServer::UsernameExists: username: {}", username);
+  for (const auto& it : connections_)
+    if (it.second->username() == username) 
+      return true;
+  return false;
 }
 
 ServerGame* WebsocketServer::GetGameFromUsername(std::string username) {

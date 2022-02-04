@@ -60,6 +60,8 @@ class ServerGame {
      */
     void AddPlayer(std::string username, int lines, int cols);
 
+    void PlayerReady(std::string username);
+
     /**
      * Handles input.
      * @param[in] command
