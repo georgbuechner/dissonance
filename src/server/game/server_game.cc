@@ -190,7 +190,12 @@ void ServerGame::m_CheckBuildNeuron(nlohmann::json& msg) {
 }
 
 void ServerGame::m_CheckBuildPotential(nlohmann::json& msg) {
-  int unit = msg["data"]["unit"];
+  int unit = msg["data"].value("unit", -1);
+  int num = msg["data"].value("num", -1);
+  if (num == -1 || unit == -1) {
+    msg = nlohmann::json();
+    return;
+  }
   Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
   if (player) {
     auto synapses = player->GetAllPositionsOfNeurons(SYNAPSE);
@@ -204,13 +209,13 @@ void ServerGame::m_CheckBuildPotential(nlohmann::json& msg) {
     // Only one synapse or player specified position => add potential
     else if (synapses.size() == 1 || msg["data"].contains("start_pos")) {
       position_t pos = (synapses.size() == 1) ? synapses.front() : utils::PositionFromVector(msg["data"]["start_pos"]);
-      BuildPotentials(unit, pos, msg["data"]["num"], msg["username"], player);
-      msg = nlohmann::json();
+      BuildPotentials(unit, pos, num, msg["username"], player);
     }
     // More than one synapse and position not given => tell user to select position.
-    else  
+    else  {
       msg = {{"command", "build_potential"}, {"data", {{"unit", unit}, {"positions", 
-        player->GetAllPositionsOfNeurons(SYNAPSE)}, {"num", msg["data"]["num"]}} }}; 
+        player->GetAllPositionsOfNeurons(SYNAPSE)}, {"num", num}} }}; 
+    }
   }
 }
 
@@ -349,7 +354,10 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
 
   // Get and analyze main audio-file (used for map and in SP for AI).
   std::string map_name = data["map_name"];
-  audio_.set_source_path("dissonance/data/user-files/" + host_ + "/" + map_name);
+  if (data.contains("map_path"))
+    audio_.set_source_path(data["map_path"]);
+  else 
+    audio_.set_source_path("dissonance/data/user-files/" + host_ + "/" + map_name);
   audio_.Analyze();
   if (map_name.size() > 10) 
     map_name = map_name.substr(0, 10);

@@ -606,7 +606,7 @@ bool Player::NeutralizePotential(std::string id, int potential) {
     spdlog::get(LOGGER)->debug("Player::NeutralizePotential: left potential: {}", potential_.at(id).potential_);
     potential_.at(id).potential_ -= potential;
     // Remove potential only if not already at it's target (length of way is greater than zero).
-    if (potential_.at(id).potential_ == 0 && potential_.at(id).way_.size() > 0) {
+    if ((potential_.at(id).potential_ == 0 || potential_.at(id).potential_ > 10) && potential_.at(id).way_.size() > 0) {
       potential_.erase(id);
       statistics_.AddLostPotential(id);
       return true;

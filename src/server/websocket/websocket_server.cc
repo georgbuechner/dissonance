@@ -136,6 +136,7 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
 }
 
 void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, message_ptr msg) {
+  spdlog::get(LOGGER)->debug("Websocket::on_message: new message");
   // Handle binary data (audio-files) in otherwise.
   if (msg->get_opcode() == websocketpp::frame::opcode::binary && connections_.count(hdl.lock().get())) {
     spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data");

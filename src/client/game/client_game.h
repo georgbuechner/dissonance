@@ -95,9 +95,10 @@ class ClientGame {
 
     /**
      * Select path to audio-file (Clears field).
+     * @param[in] message to show
      * @return path to audio file.
      */
-    std::string SelectAudio();
+    std::string SelectAudio(std::string mdg);
 
     // input methods
 

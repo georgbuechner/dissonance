@@ -18,6 +18,7 @@
 
 #include <cctype>
 #include <filesystem>
+#include <math.h>
 #include <string>
 #include <unistd.h>
 #include <utility>
@@ -692,20 +693,40 @@ void ClientGame::m_SelectAudio(nlohmann::json& msg) {
   msg["data"] = nlohmann::json::object();
 
   // Load map-audio.
-  audio_file_path_ = SelectAudio();
+  audio_file_path_ = SelectAudio("select map");
+  // If not on same-device send audio file.
+  if (!ws_srv_->same_device()) {
+    std::string content = "";
+    while (true) {
+      // Load file and create content.
+      std::filesystem::path p = audio_file_path_;
+      content = p.filename().string() + "$" + utils::GetMedia(audio_file_path_);
+      spdlog::get(LOGGER)->info("File size: {}", content.size());
+      // Check file size.
+      if (content.size() < pow(2, 25))
+        break;
+      // If insufficient, print error and select audio again
+      drawrer_.ClearField();
+      drawrer_.PrintCenteredLine(LINES/2, "File size too big! (press any key to continue.)");
+      getch();
+      drawrer_.ClearField();
+      audio_file_path_ = SelectAudio("select map");
+    }
+    ws_srv_->SendMessageBinary(content);
+  }
+  // Otherwise send only path.
+  else 
+    msg["data"]["map_path"] = audio_file_path_;
+  // Add map-file name.
   std::filesystem::path p = audio_file_path_;
-  std::string content = p.filename().string() + "$" + utils::GetMedia(audio_file_path_);
-  ws_srv_->SendMessageBinary(content);
   msg["data"]["map_name"] = p.filename().string();
-
-  // spdlog::get(LOGGER)->debug("Set media data.");
 
   // If observer load audio for two ai-files (no need to send audi-file: only analysed data)
   if (mode_ == OBSERVER) {
     msg["data"]["ais"] = nlohmann::json::object();
     msg["data"]["base_path"] = base_path_;
     for (unsigned int i = 0; i<2; i++) {
-      std::string source_path = SelectAudio();
+      std::string source_path = SelectAudio("select ai sound " + std::to_string(i+1));
       Audio audio(base_path_);
       audio.set_source_path(source_path);
       audio.Analyze();
@@ -746,10 +767,11 @@ void ClientGame::m_SetMsg(nlohmann::json& msg) {
 }
 
 void ClientGame::m_GameEnd(nlohmann::json& msg) {
-  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"]);
+  drawrer_.set_stop_render(true);
+  drawrer_.ClearField();
+  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"].get<std::string>() + " [Press any key twice to end game]");
   getch();
   status_ = CLOSING;
-  drawrer_.ClearField();
   msg = nlohmann::json();
 }
 
@@ -815,7 +837,7 @@ int ClientGame::SelectInteger(std::string msg, bool omit, choice_mapping_t& mapp
   return -1;
 }
 
-std::string ClientGame::SelectAudio() {
+std::string ClientGame::SelectAudio(std::string msg) {
   drawrer_.ClearField();
 
   // Create selector and define some variables
@@ -835,6 +857,7 @@ std::string ClientGame::SelectAudio() {
     unsigned int print_max = std::min((unsigned int)selector.options_.size(), max);
     visible_options = utils::SliceVector(selector.options_, print_start, print_max);
     
+    drawrer_.PrintCenteredLine(8, utils::ToUpper(msg));
     drawrer_.PrintCenteredLine(10, utils::ToUpper(selector.title_));
     drawrer_.PrintCenteredLine(11, selector.path_);
     drawrer_.PrintCenteredLine(12, help);
