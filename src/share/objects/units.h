@@ -12,7 +12,13 @@
 #include "share/constants/codes.h"
 #include "share/defines.h"
 
+#define EPSP_SPEED 6 
+#define IPSP_SPEED 8 
+#define ACTIVATEDNEURON_SPEED 6
+#define IPSP_DURATION 24
+
 typedef std::pair<int, int> position_t;
+
 
 /**
  * Abstrackt class for all neurons or potentials.
@@ -37,6 +43,10 @@ struct Unit {
  */
 struct Neuron : Unit {
   public:
+    Neuron();
+    Neuron(position_t pos, int lp, int type);
+    virtual ~Neuron() {}
+
     // getter 
     int voltage();
     int max_voltage();
@@ -76,10 +86,6 @@ struct Neuron : Unit {
     }
     virtual unsigned int AddEpsp() { return 0; }
     virtual void UpdateIpspTargetIfNotSet(position_t pos) { }
-
-    Neuron();
-    Neuron(position_t pos, int lp, int type);
-    virtual ~Neuron() {}
 
   private:
     int lp_;
@@ -217,7 +223,7 @@ struct Potential : Unit {
 struct Epsp : Potential {
   Epsp() : Potential() {}
   Epsp(position_t pos, std::list<position_t> way, int potential_boast, int speed_boast) 
-    : Potential(pos, 2+potential_boast, way, 4-speed_boast, UnitsTech::EPSP, 0) {}
+    : Potential(pos, 2+potential_boast, way, EPSP_SPEED-speed_boast, UnitsTech::EPSP, 0) {}
 };
 
 /**
@@ -232,7 +238,7 @@ struct Epsp : Potential {
 struct Ipsp: Potential {
   Ipsp() : Potential() {}
   Ipsp(position_t pos, std::list<position_t> way, int potential_boast, int speed_boast, int duration_boast) 
-    : Potential(pos, 3+potential_boast, way, 6-speed_boast, UnitsTech::IPSP, 12+duration_boast) {}
+    : Potential(pos, 3+potential_boast, way, IPSP_SPEED-speed_boast, UnitsTech::IPSP, IPSP_DURATION+duration_boast) {}
 };
 
 #endif

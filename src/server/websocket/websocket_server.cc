@@ -266,12 +266,15 @@ void WebsocketServer::h_CloseGame(connection_id id, std::string username, const 
     connections_.at(id)->set_closed(true);
 
   // Get game id and all users currenlt playing.
+  spdlog::get(LOGGER)->info("Checking if game exists...");
   auto game = GetGameFromUsername(username);
   if (!game)
     return;
+  spdlog::get(LOGGER)->info("Getting all players for this game...");
   std::vector<std::string> all_users = GetPlayingUsers(username);
 
   // Check if game-status is already set to CLOSING, if not, set to closing and...
+  spdlog::get(LOGGER)->info("Set game status to CLOSED/ CLOSING, depending on cur status...");
   std::shared_lock ul(shared_mutex_games_);
   if (game->status() < CLOSING) {
     spdlog::get(LOGGER)->debug("Telling game to close.");
@@ -286,12 +289,14 @@ void WebsocketServer::h_CloseGame(connection_id id, std::string username, const 
   }
 
   // Check that all clients are closed.
+  spdlog::get(LOGGER)->info("Check whether all clients are closed...");
   bool all_clients_closed = true;
   for (const auto& it : all_users) {
     connection_id c_id = GetConnectionIdByUsername(it);
     if (connections_.count(c_id) > 0 && !connections_.at(c_id)->closed())
       all_clients_closed = false;
   }
+  spdlog::get(LOGGER)->info("All clients closed: {}", all_clients_closed);
   spdlog::get(LOGGER)->debug("All clients closed: {}", all_clients_closed);
 
   if (all_clients_closed) {

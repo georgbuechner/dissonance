@@ -19,6 +19,7 @@
 #include <cctype>
 #include <filesystem>
 #include <math.h>
+#include <shared_mutex>
 #include <string>
 #include <unistd.h>
 #include <utility>
@@ -75,6 +76,10 @@ t_topline synapse_topline = {{" [s]et way-points ", COLOR_DEFAULT}, {" [i]psp-ta
 ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : username_(username), 
     muliplayer_availible_(mp), base_path_(base_path), render_pause_(false), drawrer_(), audio_(base_path) {
   status_ = WAITING;
+
+  // apply standard settings:
+  stay_in_synapse_menu_ = false;
+
   // Initialize curses
   setlocale(LC_ALL, "");
   initscr();
@@ -168,10 +173,12 @@ void ClientGame::GetAction() {
     if (status_ == CLOSING) break; // Leave thread.
 
     // Throw event
+    std::shared_lock sl(mutex_context_);
     if (contexts_.at(current_context_).eventmanager().handlers().count(choice) > 0) {
       spdlog::get(LOGGER)->debug("ClientGame::GetAction: calling handler.");
       nlohmann::json data = contexts_.at(current_context_).data();
       contexts_.at(current_context_).set_cmd(choice);
+      sl.unlock();
       (this->*contexts_.at(current_context_).eventmanager().handlers().at(choice))(data);
     }
     // If event not in context-event-manager print availible options.
@@ -359,11 +366,12 @@ void ClientGame::h_SetWPs(nlohmann::json& msg) {
   spdlog::get(LOGGER)->debug("Calling set-wp with data: {}", msg.dump());
   // Final call (set new way point)
   if (msg["data"].contains("pos")) {
+    spdlog::get(LOGGER)->debug("h_SetWPs: Setting new wp! context: {}", current_context_);
+    // Send request to set way-point.
     nlohmann::json response = {{"command", "set_way_point"}, {"username", username_}, {"data",
       {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}, {"num", msg["data"]["num"]}} }};
     ws_srv_->SendMessage(response.dump());
-    // Clear markers and reset msg-json to initial data
-    drawrer_.ClearMarkers();
+    spdlog::get(LOGGER)->debug("h_SetWPs: done. Current context: {}", current_context_);
   }
   // Thirst call (select field position)
   else if (msg["data"].contains("start_pos")) {
@@ -394,12 +402,10 @@ void ClientGame::h_SetWPs(nlohmann::json& msg) {
     // Set "1" as number (indicating first way-point) if num is not given.
     if (!msg["data"].contains("num"))
       msg["data"]["num"] = 1;
-    // If num is -1, this indicates, that no more way-point can be set.
-    if (msg["data"]["num"] == -1) {
-      SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", msg["data"]["synapse_pos"]}} }}));
-      drawrer_.set_viewpoint(CONTEXT_RESOURCES);
-      drawrer_.ClearMarkers(TARGETS_MARKER);
-    }
+    // If num is -1, this indicates, that no more way-point can be set: switch
+    // to resource-context or stay at synapse-context depending on settings.
+    if (msg["data"]["num"] == -1)
+      FinalSynapseContextAction(msg["data"]["synapse_pos"]);
     // Otherwise, request inital data.
     else {
       // Memorize number.
@@ -420,10 +426,8 @@ void ClientGame::h_EpspTarget(nlohmann::json& msg) {
   spdlog::get(LOGGER)->debug("Calling epsp-target with data: {}", msg.dump());
   // final call (set epsp target and reset to synapse-context)
   if (msg["data"].contains("pos")) {
-    // Switch (back) to synapse-context.
-    SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", msg["data"]["synapse_pos"]}} }}));
-    drawrer_.set_viewpoint(CONTEXT_RESOURCES);
-    drawrer_.ClearMarkers(TARGETS_MARKER);
+    // Reset synapse-context or go back to resource (standard)-context.
+    FinalSynapseContextAction(msg["data"]["synapse_pos"]);
     // Send request to server.
     nlohmann::json response = {{"command", "set_epsp_target"}, {"username", username_}, {"data",
       {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}} }};
@@ -461,17 +465,14 @@ void ClientGame::h_EpspTarget(nlohmann::json& msg) {
     ws_srv_->SendMessage(req.json().dump());
   }
   msg = nlohmann::json();
-
 }
 
 void ClientGame::h_IpspTarget(nlohmann::json& msg) {
   spdlog::get(LOGGER)->debug("Calling ipsp-target with data: {}", msg.dump());
   // final call (set ipsp target and reset to synapse-context)
   if (msg["data"].contains("pos")) {
-    // Switch (back) to synapse-context.
-    SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", msg["data"]["synapse_pos"]}} }}));
-    drawrer_.set_viewpoint(CONTEXT_RESOURCES);
-    drawrer_.ClearMarkers(TARGETS_MARKER);
+    // Reset synapse-context or go back to resource (standard)-context.
+    FinalSynapseContextAction(msg["data"]["synapse_pos"]);
     // Send request to server.
     nlohmann::json response = {{"command", "set_ipsp_target"}, {"username", username_}, {"data",
       {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}} }};
@@ -512,6 +513,9 @@ void ClientGame::h_IpspTarget(nlohmann::json& msg) {
 }
 
 void ClientGame::h_SwarmAttack(nlohmann::json& msg) {
+  // Depending on setting: switch to resource context
+  FinalSynapseContextAction(msg["data"]["synapse_pos"]);
+  // Send request to server toggling swarm-attack.
   nlohmann::json response = {{"command", "toggle_swarm_attack"}, {"username", username_}, {"data",
     {{"pos", msg["data"]["synapse_pos"] }} }};
   ws_srv_->SendMessage(response.dump());
@@ -535,8 +539,14 @@ void ClientGame::h_ResetOrQuitSynapseContext(nlohmann::json& msg) {
 
 void ClientGame::h_AddPosition(nlohmann::json&) {
   spdlog::get(LOGGER)->debug("ClientGame::AddPosition: action: {}", contexts_.at(current_context_).action());
+  position_t pos = drawrer_.field_pos();
+  if (!drawrer_.InGraph(pos)) {
+    drawrer_.set_msg("Position not reachable!");
+    return;
+  }
+
   nlohmann::json msg = contexts_.at(current_context_).data();
-  msg["data"]["pos"] = drawrer_.field_pos();
+  msg["data"]["pos"] = pos;
   std::string action = contexts_.at(current_context_).action();
   if (action == "build_neuron")
     h_BuildNeuron(msg);
@@ -568,6 +578,8 @@ void ClientGame::h_AddStartPosition(nlohmann::json&) {
 }
 
 void ClientGame::SwitchToResourceContext(std::string msg) {
+  spdlog::get(LOGGER)->debug("ClientGame::SwitchToResourceContext");
+  std::shared_lock sl(mutex_context_);
   current_context_ = CONTEXT_RESOURCES;
   drawrer_.set_topline(contexts_.at(current_context_).topline());
   drawrer_.set_viewpoint(current_context_);
@@ -576,14 +588,33 @@ void ClientGame::SwitchToResourceContext(std::string msg) {
 }
 
 void ClientGame::SwitchToSynapseContext(nlohmann::json msg) {
+  spdlog::get(LOGGER)->debug("ClientGame::SwitchToSynapseContext");
+  std::shared_lock sl(mutex_context_);
   current_context_ = CONTEXT_SYNAPSE;
   contexts_.at(current_context_).set_data(msg);
   drawrer_.set_topline(contexts_.at(current_context_).topline());
 }
 
+void ClientGame::FinalSynapseContextAction(position_t synapse_pos) {
+  spdlog::get(LOGGER)->debug("ClientGame::FinalSynapseContextAction");
+  // Switch (back) to synapse-context (clear only target-markers, leave synapse marked)
+  if (stay_in_synapse_menu_) {
+    SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", synapse_pos}} }}));
+    drawrer_.ClearMarkers(TARGETS_MARKER);
+    drawrer_.ClearMarkers(WAY_MARKER);
+  }
+  // End synapse-context and go to resource-context (clear ALL markers).
+  else {
+    SwitchToResourceContext();
+    drawrer_.ClearMarkers();
+  }
+  drawrer_.set_viewpoint(CONTEXT_RESOURCES);
+}
+
 void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::string msg, std::string action, 
     nlohmann::json data, std::vector<char> slip_handlers) {
   spdlog::get(LOGGER)->info("ClientGame::CreatePickContext: switched to pick context.");
+  std::shared_lock sl(mutex_context_);
   // Get all handlers and add markers to drawrer.
   drawrer_.ClearMarkers(PICK_MARKER);
   std::map<char, void(ClientGame::*)(nlohmann::json&)> new_handlers = {{'t', &ClientGame::h_ChangeViewPoint}};
@@ -609,26 +640,19 @@ void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::str
 void ClientGame::SwitchToFieldContext(position_t pos, int range, std::string action, nlohmann::json data,
     std::string msg, std::vector<char> slip_handlers) {
   spdlog::get(LOGGER)->debug("ClientGame::SwitchToFieldContext: switching...");
-  std::string str = "";
-  for (const auto& it : slip_handlers)
-    str += utils::CharToString(it, 0) + ", ";
-  spdlog::get(LOGGER)->debug("ClientGame::SwitchToFieldContext: current context: {}", current_context_); 
-  spdlog::get(LOGGER)->debug("ClientGame::SwitchToFieldContext: slip_handlers: {}", str); 
+  std::shared_lock sl(mutex_context_);
   // Set data for field-context and empy old positions.
   contexts_.at(CONTEXT_FIELD).set_action(action);
   contexts_.at(CONTEXT_FIELD).set_data(data);
   // Clear potential sliped handlers
   std::vector<char> handlers_to_remove;
-  spdlog::get(LOGGER)->debug("Collecting old sliped handlers");
   for (const auto& it : contexts_.at(CONTEXT_FIELD).eventmanager().handlers()) {
     if (handlers_[CONTEXT_FIELD].count(it.first) == 0)
       handlers_to_remove.push_back(it.first);
   }
-  spdlog::get(LOGGER)->debug("Removing old sliped handlers");
   for (const auto& it : slip_handlers) 
     contexts_.at(CONTEXT_FIELD).eventmanager().handlers().erase(it);
   // Let handlers slip through.
-  spdlog::get(LOGGER)->debug("Adding new slipe handlers");
   for (const auto& it : slip_handlers) {
     if (contexts_.at(current_context_).eventmanager().handlers().count(it) > 0)
       contexts_.at(CONTEXT_FIELD).eventmanager().AddHandler(it, 
@@ -647,6 +671,8 @@ void ClientGame::SwitchToFieldContext(position_t pos, int range, std::string act
 }
 
 void ClientGame::RemovePickContext(int new_context) {
+  spdlog::get(LOGGER)->debug("Removing pick context...");
+  std::shared_lock sl(mutex_context_);
   if (contexts_.count(CONTEXT_PICK) > 0)
     contexts_.erase(CONTEXT_PICK);
   drawrer_.ClearMarkers();

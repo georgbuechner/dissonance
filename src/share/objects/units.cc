@@ -118,7 +118,7 @@ void Synapse::UpdateIpspTargetIfNotSet(position_t pos) {
 ActivatedNeuron::ActivatedNeuron() : Neuron() {}
 ActivatedNeuron::ActivatedNeuron(position_t pos, int slowdown_boast, int speed_boast) : 
     Neuron(pos, 17, UnitsTech::ACTIVATEDNEURON) {
-  movement_ = {0, 3-speed_boast};
+  movement_ = {0, ACTIVATEDNEURON_SPEED-speed_boast};
   potential_slowdown_ = 1+slowdown_boast;
 }
 

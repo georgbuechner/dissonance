@@ -76,6 +76,10 @@ void Drawrer::set_mode(int mode) {
   }
 }
 
+bool Drawrer::InGraph(position_t pos) {
+  return graph_positions_.count(pos) > 0;
+}
+
 int Drawrer::next_viewpoint() {
   cur_view_point_ = (1+cur_view_point_+1)%2 + 1;
   return cur_view_point_;
@@ -126,22 +130,16 @@ void Drawrer::ClearMarkers(int type) {
   std::unique_lock ul(mutex_print_field_);
   if (type == -1)
     markers_.clear();
-  else 
+  else if (markers_.count(type) > 0)
     markers_[type].clear();
 }
 
 void Drawrer::AddNewUnitToPos(position_t pos, int unit, int color) {
   std::unique_lock ul(mutex_print_field_);
-  //if (pos.first < static_cast<int>(field_.size()) && pos.second < static_cast<int>(field_[pos.first].size())) {
-    if (unit == UnitsTech::RESOURCENEURON)
-      field_[pos.first][pos.second] = {field_[pos.first][pos.second].symbol_, color};
-    else if (unit_symbol_mapping.count(unit) > 0)
-      field_[pos.first][pos.second] = {unit_symbol_mapping.at(unit), color};
-  //}
-  // else {
-  //   spdlog::get(LOGGER)->error("Drawrer::AddNewUnitToPos: trying to add unit to pos not in field: {}.", 
-  //       utils::PositionToString(pos));
-  // }
+  if (unit == UnitsTech::RESOURCENEURON)
+    field_[pos.first][pos.second] = {field_[pos.first][pos.second].symbol_, color};
+  else if (unit_symbol_mapping.count(unit) > 0)
+    field_[pos.first][pos.second] = {unit_symbol_mapping.at(unit), color};
 }
 
 void Drawrer::UpdateTranser(nlohmann::json &transfer_json) {
@@ -158,18 +156,17 @@ void Drawrer::UpdateTranser(nlohmann::json &transfer_json) {
   for (const auto& it : temp_symbols_)
     field_[it.first.first][it.first.second] = it.second;
   temp_symbols_.clear();
+  
+  // Update dead neurons
+  ul.unlock();
+  for (const auto & it : t.new_dead_neurons())
+    AddNewUnitToPos(it.first, it.second, COLOR_DEFAULT);
 
   // Add potentials
   for (const auto& it : t.potentials()) {
     // Add potential to field as temporary.
     temp_symbols_[it.first] = field_[it.first.first][it.first.second];
     field_[it.first.first][it.first.second] = {it.second.first, it.second.second};
-  }
-
-  // Update dead neurons
-  for (const auto & it : t.new_dead_neurons()) {
-    ul.unlock();
-    AddNewUnitToPos(it.first, it.second, COLOR_DEFAULT);
   }
 }
 
@@ -292,9 +289,10 @@ void Drawrer::PrintField() {
   for (unsigned int l=0; l<field_.size(); l++) {
     for (unsigned int c=0; c<field_[l].size(); c++) {
       position_t cur = {l, c};
-      // Select color 
+      // If field-view, mark when selected.
       if (cur_view_point_ == VP_FIELD && cur == sel)
         attron(COLOR_PAIR(COLOR_AVAILIBLE));
+      // If field-view, mark when availible.
       else if (cur_view_point_ == VP_FIELD && utils::Dist(cur, range.first) <= range.second && 
           graph_positions_.count(cur) > 0)
         attron(COLOR_PAIR(COLOR_SUCCESS));
@@ -304,16 +302,16 @@ void Drawrer::PrintField() {
           color = (color % 2) + 1;
         attron(COLOR_PAIR(color));
       }
-
       // Print symbol or marker
       auto replacment = GetReplaceMentFromMarker(cur);
       if (replacment.first != "") {
         attron(COLOR_PAIR(replacment.second));
         mvaddstr(l_main_+extra_height_+l, c_field_+extra_width_+2*c, replacment.first.c_str());
       }
+      else if (cur_view_point_ == VP_FIELD && cur == sel)
+        mvaddstr(l_main_+extra_height_+l, c_field_+extra_width_+2*c, "x");
       else 
         mvaddstr(l_main_+extra_height_+l, c_field_+extra_width_+2*c, field_[l][c].symbol_.c_str());
-      
       // Add extra with space for map shape and change color back to default.
       mvaddch(l_main_+extra_height_+l, c_field_+extra_width_+ 2*c+1, ' ' );
       attron(COLOR_PAIR(COLOR_DEFAULT));
@@ -336,12 +334,16 @@ void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources
   int inc = (static_cast<int>(resources.size()*2 + technologies.size()*2+4) > field_height()) ? 1 : 2;
   unsigned int counter = 2;
   for (const auto& it : resources) {
+    // Mark selected resource/ technology
     if (cur_selection_.at(VP_RESOURCE).x_ == it.first)
       attron(COLOR_PAIR(COLOR_AVAILIBLE));
+    // Mark active resouce/ technology
     else if (it.second.active_)
       attron(COLOR_PAIR(COLOR_SUCCESS));
+    // Get string.
     std::string str = resource_symbol_mapping.at(it.first) + " " + resources_name_mapping.at(it.first) 
       + ": " + it.second.value_;
+    // Clear line before printing, then print
     ClearLine(l_main_ + counter, c_resources_);
     mvaddstr(l_main_ + counter, c_resources_, str.c_str());
     attron(COLOR_PAIR(COLOR_DEFAULT));

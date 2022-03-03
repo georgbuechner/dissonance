@@ -57,19 +57,22 @@ class ClientGame {
     int lines_;
     int cols_;
     const std::string base_path_;
-    std::shared_mutex mutex_print_;  ///< mutex locked, when printing.
     bool render_pause_;
     Drawrer drawrer_;
     int status_;
     int mode_;
     Audio audio_;
 
+    std::shared_mutex mutex_context_;  ///< mutex locked, when printing.
     std::map<int, Context> contexts_;
     int current_context_;
     std::vector<char> history_;
 
     std::vector<std::string> audio_paths_; 
     std::string audio_file_path_;
+
+    // settings
+    bool stay_in_synapse_menu_;
 
 
     // Selection methods
@@ -162,6 +165,11 @@ class ClientGame {
         std::vector<char> slip_handlers = {});
     void SwitchToResourceContext(std::string msg = "");
     void SwitchToSynapseContext(nlohmann::json data = nlohmann::json());
+    /**
+     * Either resets synape-context, or goes back to resource-context, depending
+     * on setting.
+     */
+    void FinalSynapseContextAction(position_t synapse_pos);
     void RemovePickContext(int new_context=-1);
 
     static std::map<int, std::map<char, void(ClientGame::*)(nlohmann::json&)>> handlers_;

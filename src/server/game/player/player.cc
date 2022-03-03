@@ -644,21 +644,26 @@ void Player::AddPotentialToNeuron(position_t pos, int potential) {
 
 void Player::CheckNeuronsAfterNucleusDies() {
   spdlog::get(LOGGER)->info("Player::CheckNeuronsAfterNucleusDies");
-  // Get all nucleus.
+  // Get all nucleus and initialize vector of neurons to remove (with position and type)
   std::vector<position_t> all_nucleus = GetAllPositionsOfNeurons(UnitsTech::NUCLEUS);
-  std::vector<position_t> neurons_to_remove;
+  std::vector<std::pair<position_t, int>> neurons_to_remove;  // position and type
+  // Gather all neurons no longer in range of a nucleus.
   for (const auto& neuron : neurons_) {
     // Nucleus are not affekted.
     if (neuron.second->type_ == UnitsTech::NUCLEUS)
       continue;
     // Add first and if in range of a nucleus, remove again.
-    neurons_to_remove.push_back(neuron.first);
+    neurons_to_remove.push_back({neuron.first, neuron.second->type_});
     for (const auto& nucleus_pos : all_nucleus)
       if (utils::Dist(neuron.first, nucleus_pos) <= cur_range_)
         neurons_to_remove.pop_back();
   }
-  for (const auto& it : neurons_to_remove)
-    neurons_.erase(it);
+  // Remove neuerons no longer in range of nucleus, free bound resources and add to new-dead-neurons.
+  for (const auto& it : neurons_to_remove) {
+    neurons_.erase(it.first);
+    FreeBoundResources(it.second);
+    new_dead_neurons_[it.first] = it.second;
+  }
   spdlog::get(LOGGER)->info("Player::CheckNeuronsAfterNucleusDies: done");
 }
 

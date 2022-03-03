@@ -44,6 +44,7 @@ class Drawrer {
     void set_topline(t_topline topline);
     void set_mode(int mode);
 
+    bool InGraph(position_t);
     void AddMarker(int type, position_t pos, int color, std::string symbol = "");
     position_t GetMarkerPos(int type, std::string symbol);
     void ClearMarkers(int type = -1);
@@ -145,7 +146,9 @@ class Drawrer {
           if (val == -2) x_--;
 
           position_t pos = {y_, x_};
-          if (utils::Dist(range_.first, pos) > range_.second && graph_positions_.count(pos) > 0) {
+          // If not full field range: check if next position is a) still in range and b) valid graph positions
+          if (range_.second < 999 && 
+              (utils::Dist(range_.first, pos) > range_.second || graph_positions_.count(pos) == 0)) {
             x_ = old_x;
             y_ = old_y;
           }
