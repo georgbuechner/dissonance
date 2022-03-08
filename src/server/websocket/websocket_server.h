@@ -59,7 +59,7 @@ class WebsocketServer {
      * @param id of connection over which to send.
      * @param msg message which to send.
      */
-    void SendMessage(std::string username, std::string msg);
+    void SendMessage(std::string username, nlohmann::json msg);
 
     /**
      * Sends message to given connection by username as binary data
@@ -67,6 +67,8 @@ class WebsocketServer {
      * @param msg message which to send.
      */
     void SendMessageBinary(std::string username, std::string msg);
+
+    void CloseGames();
 
   private:
 
@@ -146,9 +148,13 @@ class WebsocketServer {
     ServerGame* GetGameFromUsername(std::string username);
 
     /**
-     * Gets all users playing same game a user.
+     * Gets all users playing same game a user. No mutex locked
+     * @param username
+     * @param check_connected if set, only returns users which are currently connected
+     * @return list of all users belonging to one game. Of `check_connected`
+     * set, returns only currently online users.
      */
-    std::vector<std::string> GetPlayingUsers(std::string username);
+    std::vector<std::string> GetPlayingUsers(std::string username, bool check_connected=false);
 
     // handlers:
     
@@ -183,6 +189,7 @@ class WebsocketServer {
      * @param[in, out] msg
      */
     void h_CloseGame(connection_id id, std::string username, const nlohmann::json&);
+
 };
 
 #endif 

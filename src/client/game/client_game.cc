@@ -19,6 +19,7 @@
 #include <cctype>
 #include <filesystem>
 #include <math.h>
+#include <mutex>
 #include <shared_mutex>
 #include <string>
 #include <unistd.h>
@@ -54,7 +55,8 @@ void ClientGame::init(){
         {'w', &ClientGame::h_SwarmAttack}, {'t', &ClientGame::h_ChangeViewPoint}, 
         {'q', &ClientGame::h_ResetOrQuitSynapseContext}
       }
-    }
+    },
+    { CONTEXT_POST_GAME, {{'h', &ClientGame::h_MoveSelectionUp}, {'l', &ClientGame::h_MoveSelectionDown}}}
   };
 }
 
@@ -126,8 +128,10 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   contexts_[CONTEXT_TECHNOLOGIES] = Context(CONTEXT_TECHNOLOGIES_MSG, handlers_[STD_HANDLERS], 
       handlers_[CONTEXT_TECHNOLOGIES], std_topline);
   contexts_[CONTEXT_SYNAPSE] = Context(CONTEXT_SYNAPSE_MSG, handlers_[CONTEXT_SYNAPSE], synapse_topline);
+  contexts_[CONTEXT_POST_GAME] = Context("", handlers_[CONTEXT_POST_GAME], std_topline);
 
   // Initialize eventmanager.
+  eventmanager_.AddHandler("kill", &ClientGame::h_Kill);
   eventmanager_.AddHandler("select_mode", &ClientGame::m_SelectMode);
   eventmanager_.AddHandler("select_audio", &ClientGame::m_SelectAudio);
   eventmanager_.AddHandler("print_msg", &ClientGame::m_PrintMsg);
@@ -165,12 +169,13 @@ void ClientGame::GetAction() {
   while(true) {
     // Get Input
     if (status_ == WAITING) continue; // Skip as long as not active.
-    if (status_ == CLOSING) break; // Leave thread.
     char choice = getch();
     history_.push_back(choice);
     spdlog::get(LOGGER)->info("ClientGame::GetAction action_ {}, in: {}", status_, choice);
     if (status_ == WAITING) continue; // Skip as long as not active. 
-    if (status_ == CLOSING) break; // Leave thread.
+
+    if (current_context_ == CONTEXT_POST_GAME && choice == 'q')
+      break;
 
     // Throw event
     std::shared_lock sl(mutex_context_);
@@ -190,13 +195,12 @@ void ClientGame::GetAction() {
     // Refresh field (only side-column)
     if (current_context_ == CONTEXT_FIELD)
       drawrer_.PrintGame(false, false, current_context_); 
+    // Postgame print statistics
+    else if (current_context_ == CONTEXT_POST_GAME)
+      drawrer_.PrintStatistics();
     else 
       drawrer_.PrintGame(false, true, current_context_); 
   }
-
-  // Send server message to close game.
-  nlohmann::json response = {{"command", "close"}, {"username", username_}, {"data", nlohmann::json()}};
-  ws_srv_->SendMessage(response.dump());
 
   // Wrap up.
   refresh();
@@ -204,7 +208,21 @@ void ClientGame::GetAction() {
   endwin();
 }
 
+void ClientGame::h_Kill(nlohmann::json& msg) {
+  drawrer_.set_stop_render(true);
+  drawrer_.ClearField();
+  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"].get<std::string>() + " [Press any key to leave game]");
+  refresh();
+  getch();
+  // Wrap up.
+  refresh();
+  clear();
+  endwin();
+  exit(0);
+}
+
 void ClientGame::h_Quit(nlohmann::json&) {
+  spdlog::get(LOGGER)->debug("ClientGame::h_Quit");
   drawrer_.ClearField();
   drawrer_.set_stop_render(true);
   drawrer_.PrintCenteredLine(LINES/2, "Are you sure you want to quit? (y/n)");
@@ -795,9 +813,14 @@ void ClientGame::m_SetMsg(nlohmann::json& msg) {
 void ClientGame::m_GameEnd(nlohmann::json& msg) {
   drawrer_.set_stop_render(true);
   drawrer_.ClearField();
-  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"].get<std::string>() + " [Press any key twice to end game]");
-  getch();
-  status_ = CLOSING;
+  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"].get<std::string>());
+  drawrer_.PrintCenteredLine(LINES/2+2, " [Press 'q' to leave game and 'h'/'l' to cycle statistics]");
+  drawrer_.set_statistics(msg["data"]["statistics"]);
+  refresh();
+  ws_srv_->Stop();
+  std::unique_lock ul(mutex_context_);
+  current_context_ = CONTEXT_POST_GAME;
+  drawrer_.set_viewpoint(VP_POST_GAME);
   msg = nlohmann::json();
 }
 

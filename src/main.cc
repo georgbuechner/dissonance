@@ -121,6 +121,10 @@ int main(int argc, const char** argv) {
       srv->Start(server_port);
     }
   });
+  std::thread thread_kill_games([srv, multiplayer]() {
+    if (!multiplayer)
+      srv->CloseGames();
+  });
 
   // client and client-game.
   ClientGame::init();
@@ -133,11 +137,12 @@ int main(int argc, const char** argv) {
     if (client) {
       client_game->GetAction(); 
       sleep(1);
-      client->Stop();
+      //client->Stop();
     }
   });
 
   thread_server.join();
+  thread_kill_games.join();
   thread_client.join();
   thread_client_input.join();
 }

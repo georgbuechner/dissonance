@@ -59,9 +59,11 @@ class Player {
 
     // setter
     void set_enemies(std::vector<Player*> enemies);
+    void set_lost(bool lost);
 
     // methods:
     
+    nlohmann::json GetFinalStatistics();
     std::map<position_t, int> GetEpspAtPosition();
     std::map<position_t, int> GetIpspAtPosition();
     std::vector<position_t> GetPotentialPositions();
@@ -278,6 +280,7 @@ class Player {
     std::vector<Player*> enemies_;
     int cur_range_;
     int color_;
+    bool lost_;
 
     std::map<int, Resource> resources_;
     double resource_slowdown_;

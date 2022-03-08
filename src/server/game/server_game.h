@@ -42,6 +42,10 @@ class ServerGame {
 
     // methods.
     
+    /**
+     *
+     */
+    void PlayerResigned(std::string username);
 
     /**
      *
@@ -152,7 +156,7 @@ class ServerGame {
      * @param[in] message
      * @param[in] ignore_username if set, this user is ignored (default: not set)
      */
-    void SendMessageToAllPlayers(std::string msg, std::string ignore_username="");
+    void SendMessageToAllPlayers(nlohmann::json msg, std::string ignore_username="");
 
     /**
      * Creates string of missing costs.

@@ -22,6 +22,11 @@ class Resource {
     unsigned int distributed_iron() const;
     bool blocked() const;
     position_t pos() const;
+    double total() const;
+    double spent() const;
+    double average_boost() const;
+    double average_bound() const;
+    double average_neg_factor() const;
 
     // setter 
     void set_cur(double value);
@@ -31,7 +36,7 @@ class Resource {
     void set_blocked(bool value);
 
     // functions
-   
+    
     /**
      * Checks if resource is active (at least 2 iron distributed).
      * @return whether resource is activated.
@@ -52,6 +57,7 @@ class Resource {
      * TODO (fux): what to do with slowdown?
      */
     void IncreaseResource(double gain, double slowdown);
+    void Decrease(double val, bool bind);
 
   private:
     // members
@@ -62,6 +68,13 @@ class Resource {
     bool blocked_;
     const bool to_int_;
     const position_t pos_;
+
+    // statistics
+    int total_;
+    int spent_;
+    std::vector<int> average_boost_;
+    std::vector<int> average_bound_;
+    std::vector<double> average_neg_factor_;
 };
 
 #endif

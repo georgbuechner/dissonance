@@ -1,4 +1,5 @@
 #include "share/objects/resource.h"
+#include <numeric>
 
 Resource::Resource(double init, unsigned int max, int distributed_iron, bool to_int, position_t pos) 
     : to_int_(to_int), pos_(pos) {
@@ -7,6 +8,8 @@ Resource::Resource(double init, unsigned int max, int distributed_iron, bool to_
   bound_ = 0;
   distributed_iron_ = distributed_iron;
   blocked_ = false;
+  total_ = 0;
+  spent_ = 0;
 }
 
 // getter
@@ -28,6 +31,28 @@ bool Resource::blocked() const {
 position_t Resource::pos() const {
   return pos_;
 }
+double Resource::total() const {
+  return total_;
+}
+double Resource::spent() const {
+  return spent_;
+}
+double Resource::average_boost() const {
+  if (average_boost_.size() == 0)
+    return 0;
+  return std::accumulate(average_boost_.begin(), average_boost_.end(), 0.0) / average_boost_.size();
+}
+double Resource::average_bound() const {
+  if (average_bound_.size() == 0)
+    return 0;
+  return std::accumulate(average_bound_.begin(), average_bound_.end(), 0.0) / average_bound_.size();
+}
+double Resource::average_neg_factor() const {
+  if (average_neg_factor_.size() == 0)
+    return 0;
+  return std::accumulate(average_neg_factor_.begin(), average_neg_factor_.end(), 0.0) / average_neg_factor_.size();
+
+}
 
 // setter 
 void Resource::set_cur(double value) {
@@ -48,6 +73,7 @@ void Resource::set_blocked(bool value) {
 
 // functions
 
+
 bool Resource::Active() const {
   return distributed_iron_ >= 2;
 }
@@ -57,11 +83,25 @@ std::string Resource::Print() const {
 }
 
 void Resource::IncreaseResource(double gain, double slowdown) {
-  auto calc_boast = [](int boast) -> double { return 1+static_cast<double>(boast)/10; };
-  auto calc_negative_factor = [](double cur, double max) -> double { return 1-cur/max; };
-  double val = (calc_boast(distributed_iron_) * ((false) ? 1 : gain) * calc_negative_factor(free_+bound_, limit_))/slowdown;
-  if (val < 0)
+  double calc_boast = 1 + static_cast<double>(distributed_iron_)/10;
+  double calc_negative_factor = 1-(free_+bound_)/limit_;
+  double val = (calc_boast * gain * calc_negative_factor)/slowdown;
+  if (val < 0) {
     spdlog::get(LOGGER)->error("Increasing by neg value!! boast: {} gain: {} neg: {}, others {}, {}, {}", 
-        calc_boast(distributed_iron_), gain, calc_negative_factor(free_+bound_, limit_), free_, bound_, limit_);
-  free_ += val;
+        calc_boast, gain, calc_negative_factor, free_, bound_, limit_);
+  }
+  else {
+    free_ += val;
+    total_ += val;
+    average_boost_.push_back(calc_boast);
+    average_bound_.push_back(bound_);
+    average_neg_factor_.push_back(calc_negative_factor);
+  }
+}
+
+void Resource::Decrease(double val, bool bind_resources) {
+  free_ -= val;
+  if (bind_resources)
+    bound_ += val;
+  spent_ += val;
 }

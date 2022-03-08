@@ -123,7 +123,7 @@ void ServerGame::m_AddIron(nlohmann::json& msg) {
     if (player->resources().at(resource).distributed_iron() == 2) {
       nlohmann::json req = {{"command", "set_unit"}, {"data", {{"unit", RESOURCENEURON}, 
         {"pos", player->resources().at(resource).pos()}, {"color", COLOR_RESOURCES}} }};
-      ws_server_->SendMessage(username, req.dump());
+      ws_server_->SendMessage(username, req);
     }
   }
   else 
@@ -139,7 +139,7 @@ void ServerGame::m_RemoveIron(nlohmann::json& msg) {
     if (player->resources().at(resource).bound() == 1) {
       nlohmann::json req = {{"command", "set_unit"}, {"data", {{"unit", RESOURCENEURON}, 
         {"pos", player->resources().at(resource).pos()}, {"color", COLOR_DEFAULT}} }};
-      ws_server_->SendMessage(msg["username"], req.dump());
+      ws_server_->SendMessage(msg["username"], req);
     }
   }
   else 
@@ -160,8 +160,12 @@ void ServerGame::m_Resign(nlohmann::json& msg) {
   status_ = CLOSING;
   ul.unlock();
   // If multi player, inform other player.
-  nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU WON - opponent resigned"}} }};
-  SendMessageToAllPlayers(resp.dump(), msg["username"]);
+  std::map<std::string, nlohmann::json> statistics;
+  for (const auto& it : players_) 
+    statistics[it.first] = it.second->GetFinalStatistics();
+  nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU WON - opponent resigned"}, 
+    {"statistics", statistics}} }};
+  SendMessageToAllPlayers(resp, msg["username"]);
   msg = nlohmann::json();
 }
 
@@ -344,7 +348,7 @@ void ServerGame::BuildPotentials(int unit, position_t pos, int num, std::string 
   }
   // Create and send message indicating success/ failiure.
   nlohmann::json msg = {{"command", "set_msg"}, {"data", {{"msg", (success) ? "Success!" : "Failed!"}} }};
-  ws_server_->SendMessage(username, msg.dump());
+  ws_server_->SendMessage(username, msg);
 }
 
 void ServerGame::m_InitializeGame(nlohmann::json& msg) {
@@ -399,6 +403,14 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
     status_ = WAITING_FOR_PLAYERS;
     msg["command"] = "print_msg";
     msg["data"] = {{"msg", "Wainting for players..."}};
+  }
+}
+
+void ServerGame::PlayerResigned(std::string username) {
+  if (players_.count(username) > 0 && dead_players_.count(username) == 0) {
+    players_.at(username)->set_lost(true);
+    spdlog::get(LOGGER)->info("sending 'set_msg'->player resigned...");
+    SendMessageToAllPlayers({{"command", "set_msg"}, {"data", {{"msg", username + " resigned"}}}}, username);
   }
 }
 
@@ -524,7 +536,7 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
   if (!field_) {
     nlohmann::json msg = {{"command", "print_msg"}, {"data", {{"msg", "Game cannot be played with this song, "
       "as map is unplayable. It might work with a higher resolution. (dissonance -r)"}} }};
-    SendMessageToAllPlayers(msg.dump());
+    SendMessageToAllPlayers(msg);
   }
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: successfully created map.");
   return nucleus_positions;
@@ -627,8 +639,13 @@ void ServerGame::Thread_RenderField() {
       data_per_beat.pop_front();
       // All players lost, because time is up:
       if (data_per_beat.size() == 0) {
-        nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST - times up"}} }};
-        SendMessageToAllPlayers(resp.dump());
+        // If multi player, inform other player.
+        std::map<std::string, nlohmann::json> statistics;
+        for (const auto& it : players_) 
+          statistics[it.first] = it.second->GetFinalStatistics();
+        nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST - times up"},
+          {"statistics", statistics}} }};
+        SendMessageToAllPlayers(resp);
       }
       else 
         data_at_beat = data_per_beat.front();
@@ -658,8 +675,8 @@ void ServerGame::Thread_RenderField() {
       last_update = cur_time;
     }
   } 
-  sleep(1);
   std::unique_lock ul(mutex_status_);
+  // Clean up
   delete field_;
   for (const auto& it : players_)
     delete players_[it.first];
@@ -782,12 +799,12 @@ void ServerGame::CreateAndSendTransferToAllPlayers(float audio_played, bool upda
     transfer.set_build_options(it.second->GetBuildingOptions());
     transfer.set_synapse_options(it.second->GetSynapseOptions());
     resp["data"] = transfer.json();
-    ws_server_->SendMessage(it.first, resp.dump());
+    ws_server_->SendMessage(it.first, resp);
   }
   // Send data to all observers.
   resp["data"] = transfer.json();
   for (const auto& it : observers_)
-    ws_server_->SendMessage(it, resp.dump());
+    ws_server_->SendMessage(it, resp);
   // Send all new neurons to obersers.
   SendNeuronsToObservers();
 }
@@ -795,31 +812,34 @@ void ServerGame::CreateAndSendTransferToAllPlayers(float audio_played, bool upda
 void ServerGame::HandlePlayersLost() {
   if (status_ == CLOSING)
     return;
+  std::map<std::string, nlohmann::json> statistics;
+  for (const auto& it : players_) 
+    statistics[it.first] = it.second->GetFinalStatistics();
   // Check if new players have lost.
   for (const auto& it : players_) {
     if (it.second->HasLost() && dead_players_.count(it.first) == 0) {
       dead_players_.insert(it.first);
       // Send message if not AI.
       if (!IsAi(it.first) && ws_server_) {
-        nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST"}} }};
-        ws_server_->SendMessage(it.first, resp.dump());
+        nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST"}, {"statistics", statistics}} }};
+        ws_server_->SendMessage(it.first, resp);
       }
     }
   }
   // If all but one players have one:
   if (dead_players_.size() == players_.size()-1) {
-    nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", ""}} }};
+    nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", ""}, {"statistics", statistics}} }};
     for (const auto& it : players_) {
       if (dead_players_.count(it.first) == 0) {
         resp["data"]["msg"] = it.first + " WON";
         // If not AI, send message.
         if (!IsAi(it.first) && ws_server_)
-          ws_server_->SendMessage(it.first, resp.dump());
+          ws_server_->SendMessage(it.first, resp);
       }
     }
     // Also inform all obersers.
     for (const auto& it : observers_) 
-      ws_server_->SendMessage(it, resp.dump());
+      ws_server_->SendMessage(it, resp);
     // Finally end game.
     std::unique_lock ul(mutex_status_);
     status_ = CLOSING;
@@ -834,7 +854,7 @@ void ServerGame::SendScoutedNeurons() {
           if (utils::Dist(potential, nucleus) < enemy->cur_range()) {
             nlohmann::json resp = {{"command", "set_units"}, {"data", {{"neurons", 
               enemy->GetAllNeuronsInRange(nucleus)}, {"color", enemy->color()}} }};
-            ws_server_->SendMessage(it.first, resp.dump());
+            ws_server_->SendMessage(it.first, resp);
           }
         }
       }
@@ -851,12 +871,12 @@ void ServerGame::SendNeuronsToObservers() {
       nlohmann::json resp = {{"command", "set_units"}, {"data", {{"neurons", 
         enemy->new_neurons()}, {"color", enemy->color()}} }};
       for (const auto& it : observers_)
-        ws_server_->SendMessage(it, resp.dump());
+        ws_server_->SendMessage(it, resp);
     }
   }
 }
 
-void ServerGame::SendMessageToAllPlayers(std::string msg, std::string ignore_username) {
+void ServerGame::SendMessageToAllPlayers(nlohmann::json msg, std::string ignore_username) {
   spdlog::get(LOGGER)->debug("ServerGame::SendMessageToAllPlayers: num human players: {}", human_players_.size());
   for (const auto& it : human_players_) {
     if (ignore_username == "" || it.first != ignore_username)

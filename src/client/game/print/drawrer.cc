@@ -1,11 +1,13 @@
 #include "client/game/print/drawrer.h"
 #include "curses.h"
+#include "server/game/player/statistics.h"
 #include "share/constants/codes.h"
 #include "share/defines.h"
 #include "share/objects/units.h"
 #include "share/tools/utils/utils.h"
 #include "spdlog/spdlog.h"
 #include <mutex>
+#include <string>
 #include <utility>
 
 #define SIDE_COLUMN_WIDTH 30
@@ -16,7 +18,9 @@ Drawrer::Drawrer() {
   cur_selection_ = {
     {VP_FIELD, {-1, -1, &ViewPoint::inc_field, &ViewPoint::to_string_field}},
     {VP_RESOURCE, {IRON, -1, &ViewPoint::inc_resource, &ViewPoint::to_string_resource}},
-    {VP_TECH, {WAY, -1, &ViewPoint::inc_tech, &ViewPoint::to_string_tech}}
+    {VP_TECH, {WAY, -1, &ViewPoint::inc_tech, &ViewPoint::to_string_tech}},
+    {VP_TECH, {WAY, -1, &ViewPoint::inc_tech, &ViewPoint::to_string_tech}},
+    {VP_POST_GAME, {WAY, -1, &ViewPoint::inc_resource, &ViewPoint::to_string_tech}},
   };
   stop_render_ = false;
 }
@@ -48,6 +52,11 @@ int Drawrer::GetTech() {
 void Drawrer::set_viewpoint(int viewpoint) {
   if (viewpoint <= 2)
     cur_view_point_ = viewpoint;
+  else if (viewpoint == VP_POST_GAME) {
+    cur_view_point_ = viewpoint;
+    cur_selection_[VP_POST_GAME] = ViewPoint(0, statistics_.size(), &ViewPoint::inc_stats, &ViewPoint::to_string_tech);
+  }
+  spdlog::get(LOGGER)->info("Set current viewpoint to {}", cur_view_point_);
 }
 
 void Drawrer::inc_cur_sidebar_elem(int value) {
@@ -74,6 +83,12 @@ void Drawrer::set_mode(int mode) {
     c_field_ += SIDE_COLUMN_WIDTH/3;
     c_resources_ += SIDE_COLUMN_WIDTH/3; 
   }
+}
+
+void Drawrer::set_statistics(nlohmann::json json) {
+  spdlog::get(LOGGER)->info("Stet statistics: {}", json.dump());
+  for (const auto& it : json.get<std::map<std::string, nlohmann::json>>())
+    statistics_[it.first] = Statictics(it.second);
 }
 
 bool Drawrer::InGraph(position_t pos) {
@@ -191,7 +206,7 @@ void Drawrer::ClearField() {
   refresh();
 }
 
-void Drawrer::PrintCenteredLine(int l, std::string line) {
+void Drawrer::PrintCenteredLine(int l, std::string line) const {
   std::string clear_string(COLS, ' ');
   mvaddstr(l, 0, clear_string.c_str());
   mvaddstr(l, COLS/2-line.length()/2, line.c_str());
@@ -262,6 +277,7 @@ void Drawrer::PrintGame(bool only_field, bool only_side_column, int context) {
 
 void Drawrer::PrintHeader(float audio_played, const t_topline& players) {
   PrintCenteredLine(l_headline_, "DISSONANCE");
+  ClearLine(l_headline_+1);
   PrintCenteredLineColored(l_headline_+1, players);
   // Print audio
   unsigned int length = (c_resources_ - c_field_ - 20) * audio_played;
@@ -374,6 +390,65 @@ void Drawrer::PrintFooter(std::string str) {
   for (unsigned int i=0; i<lines.size(); i++) {
     ClearLine(l_bottom_ + i);
     PrintCenteredLine(l_bottom_ + i, lines[i]);
+  }
+}
+
+void Drawrer::PrintStatistics() const {
+  spdlog::get(LOGGER)->info("Printing statistics: {} {}", statistics_.size(), cur_selection_.at(VP_POST_GAME).x_);
+  clear();
+  refresh();
+  int start_line = LINES/4;
+  int counter = 0;
+  for (const auto& it : statistics_) {
+    if (counter++ == cur_selection_.at(VP_POST_GAME).x_) {
+      // Print player name and "headings" bold. Print only player name in player-color.
+      attron(COLOR_PAIR(it.second.player_color()));
+      attron(WA_BOLD);
+      // Player name.
+      PrintCenteredLine(start_line, utils::ToUpper(it.first));
+      attroff(COLOR_PAIR(it.second.player_color()));
+      int i=2;
+      PrintCenteredLine(start_line+(++i), "Neurons Built");
+      attroff(WA_BOLD);
+      for (const auto& it : it.second.neurons_build()) 
+        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
+      i++;
+      attron(WA_BOLD);
+      PrintCenteredLine(start_line+(++i), "Potentials Built");
+      attroff(WA_BOLD);
+      for (const auto& it : it.second.potentials_build()) 
+        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
+      i++;
+      attron(WA_BOLD);
+      PrintCenteredLine(start_line+(++i), "Potentials Killed");
+      attroff(WA_BOLD);
+      for (const auto& it : it.second.potentials_killed()) 
+        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
+      i++;
+      attron(WA_BOLD);
+      PrintCenteredLine(start_line+(++i), "Potentials Lost");
+      attroff(WA_BOLD);
+      for (const auto& it : it.second.potentials_lost()) 
+        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
+      i++;
+      attron(WA_BOLD);
+      PrintCenteredLine(start_line+(++i), "Enemy Epsps Swallowed By Ipsp");
+      attroff(WA_BOLD);
+      PrintCenteredLine(start_line+(++i), std::to_string(it.second.epsp_swallowed()));
+      i++;
+      attron(WA_BOLD);
+      PrintCenteredLine(start_line+(++i), "Resources");
+      attroff(WA_BOLD);
+      for (const auto& it : it.second.resources()) {
+        PrintCenteredLine(start_line+(++i), resources_name_mapping.at(it.first));
+        std::string info = "";
+        for (const auto& jt : it.second)
+          info += jt.first + ": " + utils::Dtos(jt.second) + ", ";
+        info.substr(0, info.length()-2);
+        PrintCenteredLine(start_line+(++i), info);
+      }
+      PrintCenteredLine(start_line+2+(++i), "(press 'q' to quit.)");
+    }
   }
 }
 

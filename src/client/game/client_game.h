@@ -112,7 +112,8 @@ class ClientGame {
      */
     std::string InputString(std::string msg);
 
-    void h_Quit(nlohmann::json&);
+    void h_Quit(nlohmann::json&); // ingame: asks user whether to really quit.
+    void h_Kill(nlohmann::json&); // before game: kills game.
     void h_MoveSelectionUp(nlohmann::json&);
     void h_MoveSelectionDown(nlohmann::json&);
     void h_MoveSelectionLeft(nlohmann::json&);

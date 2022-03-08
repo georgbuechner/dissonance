@@ -55,12 +55,9 @@ void Client::Start(std::string address) {
 }
 
 void Client::Stop() {
-  std::cout << "closing connection..." << std::endl;
   c_.close(hdl_, websocketpp::close::status::normal, "");
-  std::cout << "stoping client..." << std::endl;
-  sleep(1);
+  // sleep(1);
   c_.stop();
-  std::cout << "done." << std::endl;
 }
 
 void Client::on_open(websocketpp::connection_hdl) {

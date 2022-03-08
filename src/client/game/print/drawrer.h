@@ -1,6 +1,7 @@
 #ifndef SRC_PRINT_DRAWER_H_
 #define SRC_PRINT_DRAWER_H_
 
+#include "server/game/player/statistics.h"
 #include "spdlog/spdlog.h"
 #include <set>
 #include <vector>
@@ -43,6 +44,7 @@ class Drawrer {
     void set_range(std::pair<position_t, int> range);
     void set_topline(t_topline topline);
     void set_mode(int mode);
+    void set_statistics(nlohmann::json json);
 
     bool InGraph(position_t);
     void AddMarker(int type, position_t pos, int color, std::string symbol = "");
@@ -78,7 +80,9 @@ class Drawrer {
      * @param[in] l (what line to print to)
      * @param[in] line (text to print
      */
-    void PrintCenteredLine(int l, std::string line);
+    void PrintCenteredLine(int l, std::string line) const;
+
+    void PrintStatistics() const;
 
     /**
      * Prints a single line centered, but here the line is splitted into parts,
@@ -116,12 +120,16 @@ class Drawrer {
     t_topline topline_;
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
     bool stop_render_;
+    std::map<std::string, Statictics> statistics_;
 
     // Selection
     struct ViewPoint {
       public: 
-        ViewPoint(int x, int y, void(ViewPoint::*f_inc)(int val), 
-            std::string(ViewPoint::*f_ts)(const Transfer&)) : x_(x), y_(y), inc_(f_inc), to_string_(f_ts) {}
+        ViewPoint() {};
+        ViewPoint(int x, int y, void(ViewPoint::*f_inc)(int val), std::string(ViewPoint::*f_ts)(const Transfer&)) 
+          : x_(x), y_(y), inc_(f_inc), to_string_(f_ts) {
+            spdlog::get(LOGGER)->info("Created new ViewPoint with x={} and y={}", x_, y_);
+          }
 
         // member
         int x_;
@@ -135,15 +143,16 @@ class Drawrer {
 
         void inc_resource(int val) { x_= utils::Mod(x_+val, SEROTONIN+1); }
         void inc_tech(int val) { x_= utils::Mod(x_+val, NUCLEUS_RANGE+1, WAY); }
+        void inc_stats(int val) { x_ = utils::Mod(x_+val, y_); }
         void inc_field(int val) { 
           spdlog::get(LOGGER)->debug("ViewPoint::inc_field: Changing field selection: {}|{}", y_, x_);
           int old_x = x_;
           int old_y = y_;
 
           if (val == 1) y_++;
-          if (val == -1) y_--;
-          if (val == 2) x_++;
-          if (val == -2) x_--;
+          else if (val == -1) y_--;
+          else if (val == 2) x_++;
+          else if (val == -2) x_--;
 
           position_t pos = {y_, x_};
           // If not full field range: check if next position is a) still in range and b) valid graph positions
@@ -152,7 +161,6 @@ class Drawrer {
             x_ = old_x;
             y_ = old_y;
           }
-          spdlog::get(LOGGER)->debug("ViewPoint::inc_field: Changing field selection done: {}|{}", y_, x_);
         }
 
         std::string to_string_resource(const Transfer& transfer) {   
