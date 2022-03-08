@@ -47,7 +47,6 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
   technologies_ = {
     {UnitsTech::WAY, {3,3}},
     {UnitsTech::SWARM, {0,3}},
-    {UnitsTech::TARGET, {2,2}},
     {UnitsTech::TOTAL_RESOURCE, {0,3}},
     {UnitsTech::CURVE, {0,3}},
     {UnitsTech::ATK_POTENIAL, {0,3}},
@@ -709,8 +708,8 @@ std::vector<bool> Player::GetBuildingOptions() {
 std::vector<bool> Player::GetSynapseOptions() {
   return {
     (technologies_.at(UnitsTech::WAY).first > 0),
-    (technologies_.at(UnitsTech::TARGET).first > 0),
-    (technologies_.at(UnitsTech::TARGET).first > 1),
+    true,  // as this option is always availible
+    true,  // as this option is always availible
     (technologies_.at(UnitsTech::SWARM).first > 0),
   };
 }

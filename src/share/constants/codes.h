@@ -69,7 +69,6 @@ enum UnitsTech {
 
   WAY,
   SWARM,
-  TARGET,
   TOTAL_RESOURCE, 
   CURVE,
   ATK_POTENIAL,
@@ -193,7 +192,6 @@ const std::map<int, std::string> units_tech_name_mapping = {
   {NUCLEUS, "nucleus"},
   {WAY,"choose way"},
   {SWARM,"swarm attack"},
-  {TARGET,"choose target"},
   {TOTAL_RESOURCE, "resource limits++"},
   {CURVE, "resource slowdown--"},
   {ATK_POTENIAL, "epsp/ ipsp potential++"},
@@ -213,7 +211,6 @@ const std::map<int, std::string> units_tech_description_mapping = {
   {NUCLEUS, "nucleus"},
   {WAY,"Increases maximum number of way-points you may set to specify way of potential (applicable per synapse)"},
   {SWARM,"Activates using swarm-attack/ increases maximum swarm-size possible (applicable per synapse)"},
-  {TARGET,"Allows selecting a target (1: ipsp, 2: ipsp+epsp). (applicable per synapse)"},
   {TOTAL_RESOURCE, "Increases resource limits by 10%"},
   {CURVE, "Lowers resource slowdown"},
   {ATK_POTENIAL, "Increases epsp/ ipsp potential"},

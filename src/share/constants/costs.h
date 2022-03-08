@@ -74,16 +74,6 @@ namespace costs {
         {Resources::SEROTONIN, 0}
       }
     },
-    {UnitsTech::TARGET, {
-        {Resources::IRON, 1}, 
-        {Resources::OXYGEN, 0}, 
-        {Resources::POTASSIUM, 0}, 
-        {Resources::CHLORIDE, 0}, 
-        {Resources::GLUTAMATE, 0}, 
-        {Resources::DOPAMINE, 16.5}, 
-        {Resources::SEROTONIN, 0}
-      }
-    },
     {UnitsTech::TOTAL_RESOURCE, {
         {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 

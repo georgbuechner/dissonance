@@ -162,7 +162,6 @@ void AudioKi::SetEconomyTactics() {
    
   // technologies
   technology_tactics[SWARM] = (attack_strategies_[AIM_NUCLEUS] > 2) ? 5 : 0;
-  technology_tactics[TARGET] = ((attack_strategies_[AIM_NUCLEUS] > 2) ? 0 : 5) + defence_strategies_[DEF_IPSP_BLOCK];
   if (cur_interval_.major_)
     for (const auto& it : {DEF_POTENTIAL, DEF_SPEED})
       technology_tactics[it] = 3*((cur_interval_.signature_ == SHARP) ? 2 : 1); // additional refinment boast.
@@ -279,9 +278,6 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
 
 std::vector<position_t> AudioKi::GetEpspTargets(position_t synapse_pos, std::list<position_t> way, 
     size_t ignore_strategy) {
-  if (technologies_.at(UnitsTech::TARGET).first < 2)  {
-    return {enemies_.front()->GetOneNucleus()};
-  }
   if (epsp_target_strategy_ == DESTROY_ACTIVATED_NEURONS && ignore_strategy != DESTROY_ACTIVATED_NEURONS) {
     auto activated_neurons_on_way = GetAllActivatedNeuronsOnWay(way);
     activated_neurons_on_way = SortPositionsByDistance(nucleus_pos_, activated_neurons_on_way, false);
@@ -301,8 +297,6 @@ std::vector<position_t> AudioKi::GetEpspTargets(position_t synapse_pos, std::lis
 }
 
 std::vector<position_t> AudioKi::GetIpspTargets(std::list<position_t> way, std::vector<position_t>& synapses, size_t ignore_strategy) {
-  if (technologies_.at(UnitsTech::TARGET).first == 0)
-    return {enemies_.front()->GetRandomNeuron()};
   std::vector<position_t> isps_targets;
   if (ipsp_target_strategy_ == BLOCK_ACTIVATED_NEURON && ignore_strategy != BLOCK_ACTIVATED_NEURON) {
     auto activated_neurons_on_way = GetAllActivatedNeuronsOnWay(way);
