@@ -325,8 +325,11 @@ void Player::IncreaseResources(bool inc_iron) {
   double gain = std::abs(log(resources_.at(Resources::OXYGEN).cur()+0.5));
   for (auto& it : resources_) {
     // Inc only if min 2 iron is distributed, inc iron only depending on audio.
-    if (it.second.Active() && !it.second.blocked() && (it.first != IRON || inc_iron))  
-      it.second.IncreaseResource(gain, resource_slowdown_);
+    if (it.second.Active() && !it.second.blocked() && (it.first != IRON || inc_iron)) {
+      it.second.Increase(gain, resource_slowdown_);
+      spdlog::get(LOGGER)->info("INC {} {} total|free: {}|{}, spend: {}", color_, resources_name_mapping.at(it.first), 
+        it.second.total(), it.second.cur(), it.second.spent());
+    }
   }
   spdlog::get(LOGGER)->debug("Player::IncreaseResources: done");
 }
@@ -374,12 +377,9 @@ bool Player::RemoveIron(int resource) {
 }
 
 Costs Player::GetMissingResources(int unit, int boast) {
-  // Get costs for desired unit
-  Costs needed = units_costs_.at(unit);
-
   // Check costs and add to missing.
   std::map<int, double> missing;
-  for (const auto& it : needed)
+  for (const auto& it : units_costs_.at(unit))
     if (resources_.at(it.first).cur() < it.second*boast) 
       missing[it.first] = it.second - resources_.at(it.first).cur();
   return missing;
@@ -405,7 +405,7 @@ bool Player::TakeResources(int type, bool bind_resources, int boast) {
 void Player::FreeBoundResources(int type) {
   spdlog::get(LOGGER)->debug("Player::FreeBoundResources: {}", type);
   if (units_costs_.count(type) == 0) {
-    spdlog::get(LOGGER)->warn("Player::FreeBoundResources: attempting to free, but no costs known");
+    spdlog::get(LOGGER)->warn("Player::FreeBoundResources: attempting to free, but no costs known. Type: {}", type);
     return;
   }
   // Get costs for this unit.
@@ -647,6 +647,11 @@ void Player::AddPotentialToNeuron(position_t pos, int potential) {
     spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: left potential: {}", neurons_[pos]->voltage());
     if (neurons_.at(pos)->IncreaseVoltage(potential)) {
       int type = neurons_.at(pos)->type_;
+      // If resource neuron was destroyed, remove all distributed iron.
+      if (type == UnitsTech::RESOURCENEURON) {
+        resources_.at(neurons_.at(pos)->resource()).set_distribited_iron(0);
+      }
+      // Remove and free resources.
       neurons_.erase(pos);
       FreeBoundResources(type);
       // Potentially deactivate all neurons formally in range of the destroyed nucleus.

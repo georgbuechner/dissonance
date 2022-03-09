@@ -206,6 +206,7 @@ void ClientGame::GetAction() {
   refresh();
   clear();
   endwin();
+  exit(0);
 }
 
 void ClientGame::h_Kill(nlohmann::json& msg) {

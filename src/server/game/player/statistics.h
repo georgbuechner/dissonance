@@ -9,7 +9,9 @@
 
 class Statictics {
   public:
-    Statictics() : epsp_swallowed_(0) {}
+    Statictics() : player_color_(0), epsp_swallowed_(0) {
+
+    }
     Statictics(nlohmann::json json) {
       player_color_ = json["player_color"].get<int>();
       neurons_build_ = json["neurons_build"].get<std::map<int, int>>();

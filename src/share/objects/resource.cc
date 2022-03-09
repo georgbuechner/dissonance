@@ -1,4 +1,5 @@
 #include "share/objects/resource.h"
+#include "spdlog/spdlog.h"
 #include <numeric>
 
 Resource::Resource(double init, unsigned int max, int distributed_iron, bool to_int, position_t pos) 
@@ -8,7 +9,7 @@ Resource::Resource(double init, unsigned int max, int distributed_iron, bool to_
   bound_ = 0;
   distributed_iron_ = distributed_iron;
   blocked_ = false;
-  total_ = 0;
+  total_ = init;
   spent_ = 0;
 }
 
@@ -82,7 +83,7 @@ std::string Resource::Print() const {
   return utils::Dtos(cur()) + "+" + utils::Dtos(bound_) + "/" + utils::Dtos(limit_);
 }
 
-void Resource::IncreaseResource(double gain, double slowdown) {
+void Resource::Increase(double gain, double slowdown) {
   double calc_boast = 1 + static_cast<double>(distributed_iron_)/10;
   double calc_negative_factor = 1-(free_+bound_)/limit_;
   double val = (calc_boast * gain * calc_negative_factor)/slowdown;
@@ -100,8 +101,10 @@ void Resource::IncreaseResource(double gain, double slowdown) {
 }
 
 void Resource::Decrease(double val, bool bind_resources) {
+  if (val < 0) 
+    spdlog::get(LOGGER)->error("Decreasing by negative value: {}", val);
   free_ -= val;
+  spent_ += val;
   if (bind_resources)
     bound_ += val;
-  spent_ += val;
 }

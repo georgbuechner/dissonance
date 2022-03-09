@@ -287,9 +287,11 @@ void WebsocketServer::CloseGames() {
       std::vector<std::string> all_users = GetPlayingUsers(it);
       for (const auto& it : all_users)
         username_game_id_mapping_.erase(it);
-      // Exit if standalone-server.
-      if (!standalone_)
-        exit(0);
+      // Exit if not standalone-server.
+      if (!standalone_) {
+        spdlog::get(LOGGER)->info("Shutting down server");
+        return;
+      }
     }
   }
 }

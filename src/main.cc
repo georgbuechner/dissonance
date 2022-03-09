@@ -137,7 +137,6 @@ int main(int argc, const char** argv) {
     if (client) {
       client_game->GetAction(); 
       sleep(1);
-      //client->Stop();
     }
   });
 

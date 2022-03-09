@@ -56,7 +56,7 @@ class Resource {
      * Negative-faktor is calculated as: `1 - (cur+bound)/max` -> in range: [0..1]
      * TODO (fux): what to do with slowdown?
      */
-    void IncreaseResource(double gain, double slowdown);
+    void Increase(double gain, double slowdown);
     void Decrease(double val, bool bind);
 
   private:
@@ -70,8 +70,8 @@ class Resource {
     const position_t pos_;
 
     // statistics
-    int total_;
-    int spent_;
+    double total_;
+    double spent_;
     std::vector<int> average_boost_;
     std::vector<int> average_bound_;
     std::vector<double> average_neg_factor_;
