@@ -120,6 +120,8 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
 
   float average_bpm = 0.0f;
   float average_level = 0.0f;
+  float min_level = 100.0f;
+  float max_level = 0.0f;
   std::vector<Note> last_notes;
   std::vector<int> last_levels;
   do {
@@ -140,6 +142,10 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
       int bpm = aubio_tempo_get_bpm(bpm_obj);
       average_bpm += bpm;
       average_level += level;
+      if (level > max_level)
+        max_level = level;
+      if (level < min_level)
+        min_level = level;
       // Add data-point and clear last notes.
       data_per_beat.push_back(AudioDataTimePoint({aubio_tempo_get_last_ms(bpm_obj), bpm, level, last_notes}));
       last_notes.clear();

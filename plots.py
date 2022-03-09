@@ -47,26 +47,19 @@ def run(boast, seconds, limit, curve, data):
         average_level = analysis["average_level"]
         levels = []
         bpms = []
-        peaks = []
-        above = 0
-        cur = []
         for tp in analysis['time_points']:
             bpms.append(tp['bpm'])
             l = tp['level']
             levels.append(l)
-            if above == 1 and l <= average_level:
-                peaks += [max(cur)]*len(cur)
-                cur = []
-            elif above == -1 and l >= average_level:
-                peaks += [min(cur)]*len(cur)
-                cur = []
-            if l != average_level:
-                above = 1 if l > average_level else -1
-                cur.append(l - average_level)
+        mid_average = (max(levels)+average_level)/2
+        mid_average_low = (mid_average+average_level)/2
+        mid_average_high = (max(levels)+mid_average)/2
 
         plt.plot(levels, label="level")
-        plt.plot(peaks, label="peaks")
         plt.plot([average_level]*len(levels), label="average level")
+        plt.plot([mid_average_low]*len(levels), label="mid average low")
+        plt.plot([mid_average]*len(levels), label="mid average")
+        plt.plot([mid_average_high]*len(levels), label="mid average high")
 
     plt.legend()
     plt.show()
