@@ -73,6 +73,8 @@ class ClientGame {
 
     // settings
     bool stay_in_synapse_menu_;
+    bool show_full_welcome_text_;
+    bool music_on_;
 
 
     // Selection methods
@@ -102,6 +104,10 @@ class ClientGame {
      * @return path to audio file.
      */
     std::string SelectAudio(std::string mdg);
+
+    void EditSettings();
+    nlohmann::json LoadSettingsJson();
+    void LoadSettings();
 
     // input methods
 

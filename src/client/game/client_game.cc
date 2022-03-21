@@ -80,7 +80,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   status_ = WAITING;
 
   // apply standard settings:
-  stay_in_synapse_menu_ = false;
+  LoadSettings();
 
   // Initialize curses
   setlocale(LC_ALL, "");
@@ -699,7 +699,10 @@ void ClientGame::RemovePickContext(int new_context) {
 void ClientGame::m_SelectMode(nlohmann::json& msg) {
   spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode: {}", msg.dump());
   // Print welcome text.
-  drawrer_.PrintCenteredParagraphs(texts::welcome);
+  if (show_full_welcome_text_)
+    drawrer_.PrintCenteredParagraphs(texts::welcome);
+  else 
+    drawrer_.PrintCenteredParagraphs(texts::welcome_reduced);
   
   // Update msg
   msg["command"] = "init_game";
@@ -710,9 +713,14 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
     {SINGLE_PLAYER, {"singe-player", COLOR_AVAILIBLE}}, 
     {MULTI_PLAYER, {"muli-player (host)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     {MULTI_PLAYER_CLIENT, {"muli-player (client)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
-    {OBSERVER, {"watch ki", COLOR_AVAILIBLE}}
+    {OBSERVER, {"watch ki", COLOR_AVAILIBLE}},
+    {SETTINGS, {"settings", COLOR_AVAILIBLE}}
   };
   mode_ = SelectInteger("Select mode", true, mapping, {mapping.size()+1}, "Mode not available");
+  if (mode_ == SETTINGS) {
+    EditSettings();
+    m_SelectMode(msg);
+  }
   drawrer_.set_mode(mode_);
   msg["data"]["mode"] = mode_;
   // If host, then also select number of players.
@@ -789,8 +797,8 @@ void ClientGame::m_InitGame(nlohmann::json& msg) {
   drawrer_.set_topline(contexts_.at(current_context_).topline());
   
   audio_.set_source_path(audio_file_path_);
-  audio_.play();
-
+  if (music_on_)
+    audio_.play();
   msg = nlohmann::json();
 }
 
@@ -1017,6 +1025,58 @@ std::string ClientGame::SelectAudio(std::string msg) {
 
   // Return selected path.
   return select_path.string(); 
+}
+
+void ClientGame::EditSettings() {
+  drawrer_.ClearField();
+  drawrer_.PrintCenteredLine(LINES/4, "SETTINGS");
+  drawrer_.PrintCenteredLine(LINES/4+1, "use 'j'/'k' to cycle selection. Hit '[enter]' to toggle setting");
+  auto settings = LoadSettingsJson();
+  int cur_selection = 0;
+  std::map<int, std::string> settings_mapping = {{0, "stay_in_synapse_menu"}, {1, "show_full_welcome"},
+    {2, "music_on"}};
+  while(true) {
+    if (cur_selection == 0) attron(COLOR_PAIR(COLOR_AVAILIBLE));
+    drawrer_.PrintCenteredLine(LINES/4+10, "Stay in synapse-menu when setting applied");
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+    drawrer_.PrintCenteredLine(LINES/4+11, (settings["stay_in_synapse_menu"]) ? "yes" : "no");
+
+    if (cur_selection == 1) attron(COLOR_PAIR(COLOR_AVAILIBLE));
+    drawrer_.PrintCenteredLine(LINES/4+13, "Show full welcome at game-start");
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+    drawrer_.PrintCenteredLine(LINES/4+14, (settings["show_full_welcome"]) ? "yes" : "no");
+
+    if (cur_selection == 2) attron(COLOR_PAIR(COLOR_AVAILIBLE));
+    drawrer_.PrintCenteredLine(LINES/4+16, "Music on");
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+    drawrer_.PrintCenteredLine(LINES/4+17, (settings["music_on"]) ? "yes" : "no");
+
+    char c = getch();
+    if (c == 'q')
+      break;
+    else if (c == 'j')
+      cur_selection = utils::Mod(cur_selection+1, settings_mapping.size());
+    else if (c == 'k')
+      cur_selection = utils::Mod(cur_selection-1, settings_mapping.size());
+    else if (c == '\n') {
+      if (settings_mapping.count(cur_selection) > 0) {
+        settings[settings_mapping.at(cur_selection)] = !settings[settings_mapping.at(cur_selection)];
+      }
+    }
+    refresh();
+  }
+  utils::WriteJsonFromDisc(base_path_ + "settings/settings.json", settings);
+  LoadSettings();
+}
+
+nlohmann::json ClientGame::LoadSettingsJson() {
+  return utils::LoadJsonFromDisc(base_path_ + "/settings/settings.json");
+}
+void ClientGame::LoadSettings() {
+  auto settings = LoadSettingsJson();
+  stay_in_synapse_menu_ = settings["stay_in_synapse_menu"];
+  show_full_welcome_text_ = settings["show_full_welcome"];
+  music_on_ = settings["music_on"];
 }
 
 ClientGame::AudioSelector ClientGame::SetupAudioSelector(std::string path, std::string title, 

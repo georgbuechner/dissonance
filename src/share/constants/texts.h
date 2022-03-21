@@ -8,6 +8,21 @@ namespace texts {
 
   typedef std::vector<std::string> paragraph_t;
   typedef std::vector<paragraph_t> paragraphs_t;
+  const paragraphs_t welcome_reduced = {
+    {
+      "Welcome to DISSONANCE",
+      "",
+      "This is a beta-version. Please report issues at:",
+      "https://github.com/georgbuechner/dissonance/issues"
+    },
+    {
+      "Welcome to DISSONANCE",
+      "",
+      "Several parts of the brain are in dissonance and started attacking each other",
+      "with strong potentials, aiming to destroy the others nucleus."
+    }
+  };
+
   const paragraphs_t welcome = {
     {
       "Welcome to DISSONANCE",

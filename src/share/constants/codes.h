@@ -50,6 +50,7 @@ enum Mode {
   MULTI_PLAYER,
   MULTI_PLAYER_CLIENT,
   OBSERVER,
+  SETTINGS,
   AI_GAME
 };
 
