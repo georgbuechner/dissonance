@@ -397,7 +397,7 @@ void Drawrer::PrintStatistics() const {
   spdlog::get(LOGGER)->info("Printing statistics: {} {}", statistics_.size(), cur_selection_.at(VP_POST_GAME).x_);
   clear();
   refresh();
-  int start_line = LINES/4;
+  int start_line = LINES/6;
   int counter = 0;
   for (const auto& it : statistics_) {
     if (counter++ == cur_selection_.at(VP_POST_GAME).x_) {
@@ -445,6 +445,15 @@ void Drawrer::PrintStatistics() const {
         for (const auto& jt : it.second)
           info += jt.first + ": " + utils::Dtos(jt.second) + ", ";
         info.substr(0, info.length()-2);
+        PrintCenteredLine(start_line+(++i), info);
+      }
+      i++;
+      attron(WA_BOLD);
+      PrintCenteredLine(start_line+(++i), "Technologies");
+      attroff(WA_BOLD);
+      for (const auto& it : it.second.technologies()) {
+        std::string info = units_tech_name_mapping.at(it.first) + ": " 
+          + utils::PositionToString(it.second);
         PrintCenteredLine(start_line+(++i), info);
       }
       PrintCenteredLine(start_line+2+(++i), "(press 'q' to quit.)");

@@ -109,9 +109,9 @@ void Client::SendMessage(std::string msg) {
 
 void Client::SendMessageBinary(std::string msg) {
   websocketpp::lib::error_code ec;
-  spdlog::get(LOGGER)->debug("Client::SendMessage: sinding binary message: size {}", msg.size());
+  spdlog::get(LOGGER)->debug("Client::SendMessage: sending binary message: size {}", msg.size());
   c_.send(hdl_, msg, websocketpp::frame::opcode::binary, ec);
-  spdlog::get(LOGGER)->debug("Client::SendMessage: sinding binary success", msg.size());
+  spdlog::get(LOGGER)->debug("Client::SendMessage: sending binary success", msg.size());
   if (ec)
     std::cout << "Client: sending failed because: " << ec.message() << std::endl;
 }

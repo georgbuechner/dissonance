@@ -3,6 +3,8 @@
 
 #include "nlohmann/json.hpp"
 #include "share/constants/codes.h"
+#include "share/defines.h"
+#include "share/tools/utils/utils.h"
 #include <iostream>
 #include <map>
 #include <string>
@@ -20,6 +22,8 @@ class Statictics {
       potentials_lost_ = json["potentials_lost"].get<std::map<int, int>>();
       epsp_swallowed_ = json["epsp_swallowed"].get<int>();
       resources_ = json["resources"].get<std::map<int, std::map<std::string, double>>>();
+      for (const auto& it : json["technologies"].get<std::map<int, std::vector<int>>>()) 
+        technologies_[it.first] = utils::PositionFromVector(it.second);
     }
 
     // getter
@@ -31,10 +35,12 @@ class Statictics {
     std::map<int, int> potentials_killed() const { return potentials_killed_; }
     std::map<int, int> potentials_lost() const { return potentials_lost_; }
     int epsp_swallowed() const { return epsp_swallowed_; }
+    std::map<int, tech_of_t> technologies() const { return technologies_; }
 
     
     // setter
     void set_color(int color) { player_color_ = color; }
+    void set_technologies(std::map<int, tech_of_t> technologies) { technologies_ = technologies; }
 
     // methods
     void AddNewNeuron(int unit) {
@@ -75,6 +81,7 @@ class Statictics {
       nlohmann::json json;
       json["player_color"] = player_color_;
       json["resources"] = resources_;
+      json["technologies"] = technologies_;
       json["neurons_build"] = neurons_build_;
       json["potentials_build"] = potentials_build_;
       json["potentials_killed"] = potentials_killed_;
@@ -91,6 +98,7 @@ class Statictics {
     std::map<int, int> potentials_lost_;
     int epsp_swallowed_;
     std::map<int, std::map<std::string, double>> resources_;
+    std::map<int, tech_of_t> technologies_;
 };
 
 #endif

@@ -158,6 +158,7 @@ nlohmann::json Player::GetFinalStatistics() {
       statistics_.get_resources()[it.first] = res_stats;
     }
   }
+  statistics_.set_technologies(technologies_);
   return statistics_.ToJson();  
 }
 
