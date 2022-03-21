@@ -165,10 +165,9 @@ void AudioKi::SetEconomyTactics() {
   if (cur_interval_.major_)
     for (const auto& it : {DEF_POTENTIAL, DEF_SPEED})
       technology_tactics[it] = 3*((cur_interval_.signature_ == SHARP) ? 2 : 1); // additional refinment boast.
-  else {
+  else
     for (const auto& it : {ATK_POTENIAL, ATK_SPEED, ATK_DURATION})
       technology_tactics[it] = 2*((cur_interval_.signature_ == SHARP) ? 2 : 1); // additional refinment boast.
-  }
   // resources-focues technologies.
   technology_tactics[CURVE] = (cur_interval_.signature_ == FLAT) ? 9 : 0;  
   technology_tactics[TOTAL_RESOURCE] = (cur_interval_.signature_ == FLAT) ? 9 : 0;  // resources
@@ -210,7 +209,16 @@ void AudioKi::DoAction(const AudioDataTimePoint& data_at_beat) {
   // Create activated neuron if level drops below average.
   if (last_data_point_.level_ >= average_level_ && data_at_beat.level_ < average_level_)
     CreateActivatedNeuron();
+  
+  // Check for destroyed resource-neurons:
+  for (const auto& it : resources_activated_) {
+    if (!resources_.at(it).Active()) {
+      DistributeIron(it);
+      DistributeIron(it);
+    }
+  }
 
+  // Technologies and iron distribution:
   if (audio_->MoreOffNotes(data_at_beat, false))
     NewTechnology(data_at_beat);
   else 
@@ -416,6 +424,8 @@ void AudioKi::HandleIron(const AudioDataTimePoint& data_at_beat) {
     spdlog::get(LOGGER)->debug("AudioKi::HandleIron: no iron or other error.");
     return;
   }
+  else 
+    resources_activated_.insert(resource);
   // If resource is now activated, procceed to next resource.
   if (resources_.at(resource).Active())
     resource_tactics_.erase(resource_tactics_.begin());

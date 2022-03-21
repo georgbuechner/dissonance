@@ -39,6 +39,7 @@ class AudioKi : public Player {
     std::map<size_t, size_t> attack_strategies_;
     std::map<size_t, size_t> defence_strategies_;
     std::vector<size_t> resource_tactics_;
+    std::set<size_t> resources_activated_;
     std::vector<size_t> technology_tactics_;
     std::map<size_t, size_t> building_tactics_;
     size_t epsp_target_strategy_;

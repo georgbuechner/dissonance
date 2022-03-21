@@ -166,6 +166,8 @@ void ServerGame::m_Resign(nlohmann::json& msg) {
   nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU WON - opponent resigned"}, 
     {"statistics", statistics}} }};
   SendMessageToAllPlayers(resp, msg["username"]);
+  resp = {{"command", "game_end"}, {"data", {{"msg", "YOU RESIGNED"}, {"statistics", statistics}} }};
+  ws_server_->SendMessage(msg["username"], resp);
   msg = nlohmann::json();
 }
 

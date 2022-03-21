@@ -202,24 +202,19 @@ void ClientGame::GetAction() {
       drawrer_.PrintGame(false, true, current_context_); 
   }
 
-  // Wrap up.
-  refresh();
-  clear();
-  endwin();
-  exit(0);
+  // Wrap up and exit.
+  WrapUp();
 }
 
 void ClientGame::h_Kill(nlohmann::json& msg) {
   drawrer_.set_stop_render(true);
   drawrer_.ClearField();
-  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"].get<std::string>() + " [Press any key to leave game]");
+  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"].get<std::string>() 
+      + " [Press any key to leave game]");
   refresh();
   getch();
-  // Wrap up.
-  refresh();
-  clear();
-  endwin();
-  exit(0);
+  // Wrap up and exit.
+  WrapUp();
 }
 
 void ClientGame::h_Quit(nlohmann::json&) {
@@ -229,9 +224,8 @@ void ClientGame::h_Quit(nlohmann::json&) {
   drawrer_.PrintCenteredLine(LINES/2, "Are you sure you want to quit? (y/n)");
   char choice = getch();
   if (choice == 'y') {
-    status_ = CLOSING;
-    nlohmann::json msg = {{"command", "resign"}, {"username", username_}, {"data", nlohmann::json()}};
-    ws_srv_->SendMessage(msg.dump());
+    // Wrap up and exit.
+    WrapUp();
   }
   else {
     drawrer_.set_stop_render(false);
@@ -1051,4 +1045,11 @@ std::string ClientGame::InputString(std::string instruction) {
   noecho();
   curs_set(0);
   return input;
+}
+
+void ClientGame::WrapUp() {
+  refresh();
+  clear();
+  endwin();
+  exit(0);
 }

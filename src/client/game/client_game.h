@@ -174,6 +174,8 @@ class ClientGame {
     void RemovePickContext(int new_context=-1);
 
     static std::map<int, std::map<char, void(ClientGame::*)(nlohmann::json&)>> handlers_;
+
+    void WrapUp();
 };
 
 #endif
