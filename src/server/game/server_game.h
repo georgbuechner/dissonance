@@ -36,6 +36,9 @@ class ServerGame {
     // getter 
     int status();
     int mode();
+    int max_players();
+    int cur_players();
+    std::string audio_map_name();
 
     // setter 
     void set_status(int status);
@@ -96,7 +99,8 @@ class ServerGame {
 
     std::vector<std::string> observers_;
     std::set<std::string> dead_players_;
-    const unsigned int num_players_;
+    const unsigned int max_players_;
+    unsigned int cur_players_;
     Audio audio_;
     WebsocketServer* ws_server_;
     EventManager<std::string, ServerGame, nlohmann::json&> eventmanager_;

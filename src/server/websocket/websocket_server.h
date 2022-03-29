@@ -156,6 +156,8 @@ class WebsocketServer {
      */
     std::vector<std::string> GetPlayingUsers(std::string username, bool check_connected=false);
 
+    nlohmann::json GetLobby();
+
     // handlers:
     
     /**
@@ -189,7 +191,6 @@ class WebsocketServer {
      * @param[in, out] msg
      */
     void h_CloseGame(connection_id id, std::string username, const nlohmann::json&);
-
 };
 
 #endif 

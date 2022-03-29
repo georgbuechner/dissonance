@@ -56,7 +56,13 @@ void ClientGame::init(){
         {'q', &ClientGame::h_ResetOrQuitSynapseContext}
       }
     },
-    { CONTEXT_POST_GAME, {{'h', &ClientGame::h_MoveSelectionUp}, {'l', &ClientGame::h_MoveSelectionDown}}}
+    { CONTEXT_POST_GAME, {{'h', &ClientGame::h_MoveSelectionUp}, {'l', &ClientGame::h_MoveSelectionDown}}},
+    { CONTEXT_LOBBY, 
+      {
+        {'k', &ClientGame::h_MoveSelectionUp}, {'j', &ClientGame::h_MoveSelectionDown},
+        {'\n', &ClientGame::h_SelectGame}
+      }
+    }
   };
 }
 
@@ -129,6 +135,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
       handlers_[CONTEXT_TECHNOLOGIES], std_topline);
   contexts_[CONTEXT_SYNAPSE] = Context(CONTEXT_SYNAPSE_MSG, handlers_[CONTEXT_SYNAPSE], synapse_topline);
   contexts_[CONTEXT_POST_GAME] = Context("", handlers_[CONTEXT_POST_GAME], std_topline);
+  contexts_[CONTEXT_LOBBY] = Context("", handlers_[CONTEXT_LOBBY], std_topline);
 
   // Initialize eventmanager.
   eventmanager_.AddHandler("kill", &ClientGame::h_Kill);
@@ -137,6 +144,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   eventmanager_.AddHandler("print_msg", &ClientGame::m_PrintMsg);
   eventmanager_.AddHandler("init_game", &ClientGame::m_InitGame);
   eventmanager_.AddHandler("update_game", &ClientGame::m_UpdateGame);
+  eventmanager_.AddHandler("update_lobby", &ClientGame::m_UpdateLobby);
   eventmanager_.AddHandler("set_msg", &ClientGame::m_SetMsg);
   eventmanager_.AddHandler("game_end", &ClientGame::m_GameEnd);
   eventmanager_.AddHandler("set_unit", &ClientGame::m_SetUnit);
@@ -195,9 +203,13 @@ void ClientGame::GetAction() {
     // Refresh field (only side-column)
     if (current_context_ == CONTEXT_FIELD)
       drawrer_.PrintGame(false, false, current_context_); 
+    // Lobby
+    else if (current_context_ == CONTEXT_LOBBY)
+      drawrer_.PrintLobby();
     // Postgame print statistics
     else if (current_context_ == CONTEXT_POST_GAME)
       drawrer_.PrintStatistics();
+    // Normal update
     else 
       drawrer_.PrintGame(false, true, current_context_); 
   }
@@ -246,6 +258,26 @@ void ClientGame::h_MoveSelectionLeft(nlohmann::json&) {
 
 void ClientGame::h_MoveSelectionRight(nlohmann::json&) {
   drawrer_.inc_cur_sidebar_elem(2);
+}
+
+void ClientGame::h_SelectGame(nlohmann::json&) {
+  spdlog::get(LOGGER)->info("ClientGame::h_SelectGame");
+  nlohmann::json msg;
+  msg["username"] = username_;
+  msg["command"] = "init_game";
+  msg["data"] = {{"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, 
+    {"base_path", base_path_}, {"mode", MULTI_PLAYER_CLIENT}};
+  std::string game_id = drawrer_.game_id_from_lobby();
+  if (game_id != "") {
+    msg["data"]["game_id"] = drawrer_.game_id_from_lobby();
+    spdlog::get(LOGGER)->info("ClientGame::h_SelectGame: {}", msg.dump());
+    ws_srv_->SendMessage(msg.dump());
+    current_context_ = CONTEXT_RESOURCES;
+    drawrer_.set_viewpoint(current_context_);
+  }
+  else {
+    drawrer_.set_msg("Game probably no longer availible");
+  }
 }
 
 void ClientGame::h_ChangeViewPoint(nlohmann::json&) {
@@ -793,6 +825,7 @@ void ClientGame::m_InitGame(nlohmann::json& msg) {
   drawrer_.set_transfer(msg["data"]);
   drawrer_.PrintGame(false, false, current_context_);
   status_ = RUNNING;
+  current_context_ = CONTEXT_RESOURCES;
   drawrer_.set_msg(contexts_.at(current_context_).msg());
   drawrer_.set_topline(contexts_.at(current_context_).topline());
   
@@ -805,6 +838,19 @@ void ClientGame::m_InitGame(nlohmann::json& msg) {
 void ClientGame::m_UpdateGame(nlohmann::json& msg) {
   drawrer_.UpdateTranser(msg["data"]);
   drawrer_.PrintGame(false, false, current_context_);
+  msg = nlohmann::json();
+}
+
+void ClientGame::m_UpdateLobby(nlohmann::json& msg) {
+  // Set
+  if (current_context_ != VP_LOBBY) {
+    status_ = RUNNING;
+    current_context_ = CONTEXT_LOBBY;
+    drawrer_.set_viewpoint(current_context_);
+  }
+  // Update Lobby
+  drawrer_.UpdateLobby(msg["data"]);
+  drawrer_.PrintLobby();
   msg = nlohmann::json();
 }
 
@@ -1089,7 +1135,6 @@ ClientGame::AudioSelector ClientGame::SetupAudioSelector(std::string path, std::
   }
   return AudioSelector({path, title, options});
 }
-
 
 std::string ClientGame::InputString(std::string instruction) {
   drawrer_.ClearField();

@@ -12,7 +12,6 @@ class Connection {
     Connection(websocketpp::connection_hdl connection, connection_id id, std::string username) 
         : connection_(connection), connection_id_(id) {
       waiting_ = false;
-      closed_ = false;
     }
 
 
@@ -33,18 +32,14 @@ class Connection {
       return waiting_;
     }
 
-    bool closed() {
-      return closed_;
-    }
-
     // setter
     
     void set_username(std::string username) {
       username_ = username;
     }
 
-    void set_closed(bool closed) {
-      closed_ = closed;
+    void set_waiting(bool waiting) {
+      waiting_ = waiting;
     }
 
   private:
@@ -52,7 +47,6 @@ class Connection {
     const connection_id connection_id_; ///< connection identifier.
     std::string username_;
     bool waiting_;
-    bool closed_;
 };
 
 #endif

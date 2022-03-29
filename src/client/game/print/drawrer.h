@@ -2,6 +2,7 @@
 #define SRC_PRINT_DRAWER_H_
 
 #include "server/game/player/statistics.h"
+#include "share/objects/lobby.h"
 #include "spdlog/spdlog.h"
 #include <set>
 #include <vector>
@@ -30,6 +31,7 @@ class Drawrer {
     int field_height();
     int field_width();
     position_t field_pos();
+    std::string game_id_from_lobby();
 
     int GetResource(); 
     int GetTech(); 
@@ -63,6 +65,12 @@ class Drawrer {
      * @param[in] transfer_json
      */
     void UpdateTranser(nlohmann::json& transfer_json);
+
+    /**
+     * Updates lobby (Locks mutex: unique)
+     * param[in] lobby_json
+     */
+    void UpdateLobby(nlohmann::json& lobby_json, bool init=false);
 
     /**
      * Move viewpoint to next viewpoint
@@ -108,11 +116,17 @@ class Drawrer {
 
     void PrintGame(bool only_field, bool only_side_column, int context);
 
+    /** 
+     * Prints lobby (Locks mutex: unique)
+     */
+    void PrintLobby();
+
   private:
     int lines_;
     int cols_;
     int mode_;
     Transfer transfer_;
+    Lobby lobby_;
     std::vector<std::vector<Transfer::Symbol>> field_;
     std::set<position_t> graph_positions_;
     std::map<position_t, Transfer::Symbol> temp_symbols_;

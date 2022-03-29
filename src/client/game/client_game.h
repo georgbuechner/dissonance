@@ -2,6 +2,7 @@
 #define SRC_CLIENT_CLIENT_GAME_H_
 
 #include "share/audio/audio.h"
+#include "share/objects/lobby.h"
 #define NCURSES_NOMACROS
 #include <cstddef>
 #include <curses.h>
@@ -62,6 +63,7 @@ class ClientGame {
     int status_;
     int mode_;
     Audio audio_;
+    Lobby lobby_;
 
     std::shared_mutex mutex_context_;  ///< mutex locked, when printing.
     std::map<int, Context> contexts_;
@@ -109,6 +111,8 @@ class ClientGame {
     nlohmann::json LoadSettingsJson();
     void LoadSettings();
 
+    void ShowLobby();
+
     // input methods
 
     /**
@@ -124,6 +128,7 @@ class ClientGame {
     void h_MoveSelectionDown(nlohmann::json&);
     void h_MoveSelectionLeft(nlohmann::json&);
     void h_MoveSelectionRight(nlohmann::json&);
+    void h_SelectGame(nlohmann::json&); 
     void h_ChangeViewPoint(nlohmann::json&);
     void h_AddIron(nlohmann::json&);
     void h_RemoveIron(nlohmann::json&);
@@ -151,6 +156,7 @@ class ClientGame {
     void m_PrintMsg(nlohmann::json&);
     void m_InitGame(nlohmann::json&);
     void m_UpdateGame(nlohmann::json&);
+    void m_UpdateLobby(nlohmann::json&);
     void m_SetMsg(nlohmann::json&);
     void m_GameEnd(nlohmann::json&);
     void m_SetUnit(nlohmann::json&);

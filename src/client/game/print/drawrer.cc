@@ -3,6 +3,7 @@
 #include "server/game/player/statistics.h"
 #include "share/constants/codes.h"
 #include "share/defines.h"
+#include "share/objects/transfer.h"
 #include "share/objects/units.h"
 #include "share/tools/utils/utils.h"
 #include "spdlog/spdlog.h"
@@ -37,6 +38,13 @@ position_t Drawrer::field_pos() {
   return {cur_selection_.at(VP_FIELD).y_, cur_selection_.at(VP_FIELD).x_};
 }
 
+std::string Drawrer::game_id_from_lobby() {
+  std::unique_lock ul(mutex_print_field_);
+  if (cur_view_point_ == VP_LOBBY && (unsigned int)cur_selection_.at(VP_LOBBY).x_ < lobby_.lobby().size())
+    return lobby_.lobby()[cur_selection_.at(VP_LOBBY).x_]._game_id;
+  return "";
+}
+
 int Drawrer::GetResource() {
   if (cur_view_point_ != VP_RESOURCE)
     return -1;
@@ -55,6 +63,10 @@ void Drawrer::set_viewpoint(int viewpoint) {
   else if (viewpoint == VP_POST_GAME) {
     cur_view_point_ = viewpoint;
     cur_selection_[VP_POST_GAME] = ViewPoint(0, statistics_.size(), &ViewPoint::inc_stats, &ViewPoint::to_string_tech);
+  }
+  else if (viewpoint == VP_LOBBY) {
+    cur_view_point_ = VP_LOBBY;
+    cur_selection_[VP_LOBBY] = ViewPoint(0, 0, &ViewPoint::inc_stats, &ViewPoint::to_string_tech);
   }
   spdlog::get(LOGGER)->info("Set current viewpoint to {}", cur_view_point_);
 }
@@ -182,6 +194,19 @@ void Drawrer::UpdateTranser(nlohmann::json &transfer_json) {
     // Add potential to field as temporary.
     temp_symbols_[it.first] = field_[it.first.first][it.first.second];
     field_[it.first.first][it.first.second] = {it.second.first, it.second.second};
+  }
+}
+
+void Drawrer::UpdateLobby(nlohmann::json& lobby_json, bool init) {
+  std::unique_lock ul(mutex_print_field_);
+  if (lobby_json.contains("lobby") && !lobby_json["lobby"].is_null()) {
+    lobby_ = Lobby(lobby_json["lobby"]);
+    cur_selection_.at(VP_LOBBY).y_ = lobby_.lobby().size();
+  }
+  else {
+    lobby_ = Lobby();
+    cur_selection_.at(VP_LOBBY).y_ = 0;
+    cur_selection_.at(VP_LOBBY).x_ = 0;
   }
 }
 
@@ -464,4 +489,30 @@ void Drawrer::PrintStatistics() const {
 void Drawrer::ClearLine(int line, int start_col) {
   std::string clear_string(COLS - start_col, ' ');
   mvaddstr(line, start_col, clear_string.c_str());
+}
+
+void Drawrer::PrintLobby() {
+  std::unique_lock ul(mutex_print_field_);
+  ClearField();
+  PrintCenteredLine(LINES/4, "LOBBY");
+  PrintCenteredLine(LINES/4+1, "use 'j'/'k' to cycle selection. Hit '[enter]' to join game.");
+  PrintCenteredLine(LINES/4+2, msg_);
+  // Check if lobby is empty
+  if (lobby_.lobby().size() == 0) {
+    PrintCenteredLine(LINES/4+5, "lobby is empty!");
+  }
+  // Otherwise print lobby
+  else {
+    unsigned int counter = 0;
+    for (const auto& it : lobby_.lobby()) {
+      std::string lobby_line = it._audio_map_name + ": " + std::to_string(it._cur_players) + "/" 
+        + std::to_string(it._max_players);
+      if ((unsigned int)cur_selection_.at(VP_LOBBY).x_ == counter/2)
+        attron(COLOR_PAIR(COLOR_AVAILIBLE));
+      PrintCenteredLine(LINES/4+5+counter, lobby_line);
+      attron(COLOR_PAIR(COLOR_DEFAULT));
+      counter += 2;
+    }
+  }
+  refresh();
 }

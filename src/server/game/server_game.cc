@@ -32,7 +32,7 @@ bool IsAi(std::string username) {
 }
 
 ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, 
-    WebsocketServer* srv) : num_players_(num_players), audio_(base_path), ws_server_(srv), 
+    WebsocketServer* srv) : max_players_(num_players), cur_players_(1), audio_(base_path), ws_server_(srv), 
     status_(WAITING), mode_(mode), lines_(lines), cols_(cols) {
   // Initialize eventmanager.
   eventmanager_.AddHandler("initialize_game", &ServerGame::m_InitializeGame);
@@ -50,6 +50,8 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   eventmanager_.AddHandler("set_epsp_target", &ServerGame::m_SetEpspTarget);
 }
 
+// getter
+
 int ServerGame::status() {
   return status_;
 }
@@ -57,7 +59,18 @@ int ServerGame::status() {
 int ServerGame::mode() {
   return mode_;
 }
+int ServerGame::max_players() {
+  return max_players_;
+}
+int ServerGame::cur_players() {
+  return cur_players_;
+}
+std::string ServerGame::audio_map_name() {
+  return audio_.filename(false);
+}
 
+
+// setter 
 void ServerGame::set_status(int status) {
   std::unique_lock ul(mutex_status_);
   status_ = status;
@@ -75,7 +88,7 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
   std::unique_lock ul(mutex_players_);
   spdlog::get(LOGGER)->info("ServerGame::AddPlayer: {}", username);
   // Check is free slots in lobby.
-  if (players_.size() < num_players_) {
+  if (players_.size() < max_players_) {
     players_[username] = nullptr;
     human_players_[username] = nullptr;
     // Adjust field size and width
@@ -85,13 +98,14 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
     std::string audio_path = audio_.source_path();
     std::filesystem::path p = audio_path;
     std::string content = host_ + "&" + p.filename().string() + "$" + utils::GetMedia(audio_path);
+    cur_players_++;
     ws_server_->SendMessageBinary(username, content);
   }
 }
 
 void ServerGame::PlayerReady(std::string username) {
   // Only start game if status is still waiting, to avoid starting game twice.
-  if (players_.size() >= num_players_ && status_ == WAITING_FOR_PLAYERS) {
+  if (players_.size() >= max_players_ && status_ == WAITING_FOR_PLAYERS) {
     spdlog::get(LOGGER)->info("ServerGame::AddPlayer: starting game as last player entered game.");
     StartGame({});
   }
@@ -409,9 +423,8 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
 }
 
 void ServerGame::PlayerResigned(std::string username) {
-  if (players_.count(username) > 0 && dead_players_.count(username) == 0) {
+  if (players_.count(username) > 0 && players_.at(username) != nullptr && dead_players_.count(username) == 0) {
     players_.at(username)->set_lost(true);
-    spdlog::get(LOGGER)->info("sending 'set_msg'->player resigned...");
     SendMessageToAllPlayers({{"command", "set_msg"}, {"data", {{"msg", username + " resigned"}}}}, username);
   }
 }
@@ -456,14 +469,14 @@ void ServerGame::StartGame(std::vector<Audio*> audios) {
   // Initialize field.
   RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
   auto nucleus_positions = SetUpField(ran_gen);
-  if (nucleus_positions.size() < num_players_)
+  if (nucleus_positions.size() < max_players_)
     return;
 
   // Setup players.
   std::string nucleus_positions_str = "nucleus': ";
   for (const auto& it : nucleus_positions)
     nucleus_positions_str += utils::PositionToString(it) + ", ";
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Creating {} players at {}", num_players_, nucleus_positions_str);
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Creating {} players at {}", max_players_, nucleus_positions_str);
   unsigned int counter = 0;
   unsigned int ai_counter = 0;
   for (const auto& it : players_) {
@@ -525,7 +538,7 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
     field_ = new Field(lines_, cols_, ran_gen);
     field_->AddHills(ran_gen_1, ran_gen_2, denseness++);
     field_->BuildGraph();
-    nucleus_positions = field_->AddNucleus(num_players_);
+    nucleus_positions = field_->AddNucleus(max_players_);
     if (nucleus_positions.size() == 0) {
       delete field_;
       field_ = nullptr;

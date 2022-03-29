@@ -4,11 +4,13 @@
 #include <exception>
 #include <filesystem>
 #include <ostream>
+#include <shared_mutex>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <system_error>
 #include <thread>
+#include <unistd.h>
 #include <utility>
 #include <vector>
 #include <websocketpp/common/connection_hdl.hpp>
@@ -16,6 +18,9 @@
 #include <websocketpp/frame.hpp>
 #include <spdlog/spdlog.h>
 #include "nlohmann/json_fwd.hpp"
+#include "server/game/server_game.h"
+#include "share/objects/lobby.h"
+#include "share/objects/transfer.h"
 #include "spdlog/common.h"
 #include "spdlog/logger.h"
 #include "websocketpp/close.hpp"
@@ -123,12 +128,20 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
       else 
         connections_.clear();
       ul.unlock();
-      spdlog::get(LOGGER)->info("WebsocketFrame::OnClose: Connection closed successfully.");
+      spdlog::get(LOGGER)->info("WebsocketFrame::OnClose: Connection closed successfully: {}", username);
       // Tell game that player has disconnected. 
       std::unique_lock ul_games(shared_mutex_games_);
       auto game = GetGameFromUsername(username);
       if (game)
         game->PlayerResigned(username);
+      // If player was host (game exists with this username): update lobby for waiting players
+      if (games_.count(username) > 0) {
+        spdlog::get(LOGGER)->debug("Game removed, informing waiting players");
+        for (const auto& it : connections_) {
+          if (it.second->waiting())
+            SendMessage(it.second->username(), nlohmann::json({{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}}));
+        }
+      }
     } catch (std::exception& e) {
       spdlog::get(LOGGER)->error("WebsocketFrame::OnClose: Failed to close connection: {}", e.what());
     }
@@ -175,8 +188,20 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
       games_.at(username_game_id_mapping_.at(username))->PlayerReady(username);
   }
   // In game action
-  else
+  else {
     h_InGameAction(hdl.lock().get(), username, json_opt.second);
+    // Update lobby for all waiting players.
+    if (command == "initialize_game") {
+      for (const auto& it : connections_) {
+        if (it.second->waiting()) {
+          sleep(1);
+          SendMessage(it.second->username(), nlohmann::json({{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}}));
+        }
+      }
+      spdlog::get(LOGGER)->debug("Done");
+    }
+  }
+
 }
 
 void WebsocketServer::h_InitializeUser(connection_id id, std::string username, const nlohmann::json& msg) {
@@ -221,22 +246,31 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, c
     games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], data["num_players"],
         data["base_path"], this);
     SendMessage(id, nlohmann::json({{"command", "select_audio"}, {"data", nlohmann::json()}}).dump());
+    spdlog::get(LOGGER)->debug("New game added, informing waiting players");
   }
   else if (data["mode"] == MULTI_PLAYER_CLIENT) {
+    spdlog::get(LOGGER)->debug("New client request: ", data.dump());
     std::unique_lock ul(shared_mutex_games_);
-    bool found_game = false;
-    for (const auto& it : games_) {
-      if (it.second->status() == WAITING_FOR_PLAYERS) {
-        username_game_id_mapping_[username] = it.first;  // Add username to mapping, to find matching game.
-        it.second->AddPlayer(username, data["lines"], data["cols"]); // Add user to game.
-        found_game = true;
-        SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", 
-              {{"msg", "Waiting for other players"}}}}).dump());
-        break;
+    // without game_id: enter lobby
+    if (!data.contains("game_id")) {
+      SendMessage(id, nlohmann::json({{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}}).dump());
+      connections_.at(id)->set_waiting(true); // indicate player is now waiting for game.
+    }
+    // with game_id: joint game
+    else if (games_.count(data["game_id"]) > 0){
+      spdlog::get(LOGGER)->debug("New client about to join!");
+      std::string game_id = data["game_id"];
+      ServerGame* game = games_.at(game_id);
+      if (game->status() == WAITING_FOR_PLAYERS) {
+        spdlog::get(LOGGER)->debug("New client about joined!");
+        connections_.at(id)->set_waiting(false);  // indicate player has stopped waiting for game.
+        username_game_id_mapping_[username] = game_id;  // Add username to mapping, to find matching game.
+        game->AddPlayer(username, data["lines"], data["cols"]); // Add user to game.
+        SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", {{"msg", "Waiting for players..."}}}}).dump());
       }
     }
-    if (!found_game) {
-      SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", {{"msg", "No Game Found"}} }}).dump());
+    else {
+      SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", {{"msg", "Game No Longer Exists"}} }}).dump());
     }
   }
   else if (data["mode"] == OBSERVER) {
@@ -279,7 +313,7 @@ void WebsocketServer::CloseGames() {
         it.second->set_status((it.second->status() < SETTING_UP) ? CLOSED : CLOSING);
     }
     // Detelte games to delete, remove from games and remove all player-game-mappings for this game.
-    for (const auto& it :games_to_delete) {
+    for (const auto& it : games_to_delete) {
       // Delete game and remove from list of games.
       delete games_[it];
       games_.erase(it);
@@ -291,6 +325,13 @@ void WebsocketServer::CloseGames() {
       if (!standalone_) {
         spdlog::get(LOGGER)->info("Shutting down server");
         return;
+      }
+    }
+    if (games_to_delete.size() > 0) {
+      spdlog::get(LOGGER)->debug("Game removed, informing waiting players");
+      for (const auto& it : connections_) {
+        if (it.second->waiting())
+          SendMessage(it.second->username(), nlohmann::json({{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}}));
       }
     }
   }
@@ -372,4 +413,15 @@ void WebsocketServer::SendMessageBinary(std::string username, std::string msg) {
   } catch (std::exception& e) {
     spdlog::get(LOGGER)->error("WebsocketFrame::SendMessage: failed sending message: {}", e.what());
   }
+}
+
+nlohmann::json WebsocketServer::GetLobby() {
+  Lobby lobby;
+  for (const auto& it : games_) {
+    if (it.second->status() == WAITING_FOR_PLAYERS) {
+      spdlog::get(LOGGER)->debug("Found game: {}", it.first);
+      lobby.AddEntry(it.first, it.second->max_players(), it.second->cur_players(), it.second->audio_map_name());
+    }
+  }
+  return lobby.ToJson();
 }
