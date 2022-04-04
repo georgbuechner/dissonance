@@ -39,30 +39,31 @@ namespace texts {
     {
       "Welcome to DISSONANCE",
       "",
-      "Each player starts with a nucleus with control over a few cells surrounding it.",
-      "By gathering different resources (iron, oxygen, potassium, ...) you can create synapses to",
+      "Each player starts with a NUCLEUS with control over a few cells surrounding it.",
+      "By gathering different resources (iron, oxygen, potassium, ...) you can create SYNAPSES to",
       "generate potential, advancing towards the enemies nucleus. By activating cells",
       "you control, these cells can neutralize incoming potential.",
       "",
       "You randomly gain iron every few seconds. Iron can be used to activate the process of",
-      "gathering new resources or to boost their production. But your resource production i",
-      "also dependent on your current oxygen level and on how close the resource is to its",
-      "limit. So be careful when building neurons: the more resources are bound i",
+      "gathering new resources or to boost their production. But your resource production is",
+      "also dependent on your current oxygen level and on how close the resource is to it's",
+      "limit. So be careful when building neurons: the more resources are bound in",
       "neurons, the less resources you gain",
       "",
-      "Once you started gaining dopamine and serotonin, you can develop advanced",
+      "Once you started gaining DOPAMINE and SEROTONIN, you can develop advanced",
       "technologies, allowing you to f.e. increase your resource limits or target specific enemy",
       "neurons and hence destroy enemy synapses or activated neurons or even block the",
       "enemies resource-production.",
       "",
       "Once you gained enough resources you can expand your control over the brain by",
-      "building more nucleus'. Use these, your build potential and the strategist",
+      "building more nucleus. Use these, your build potential and the strategist",
       "inside you to overcome dissonance in your favor!"
     },
     {
-      "When dissonance starts, remember you should boost oxygen and activate production of glutamate, to start defending yourself.",
+      "When dissonance starts, remember you should boost oxygen and activate production of glutamate, ",
+      "to start defending yourself.",
       "Also keep in mind, that there are two kinds of potential: ",
-      "EPSP (strong in attack) and IPSP (blocks buildings); you should start with EPSP."
+      "EPSP (strong in attack) and IPSP (blocks buildings and enemy potential); you should start with EPSP."
     },
   };
 
@@ -73,6 +74,7 @@ namespace texts {
       "--- COSTS (potentials/ neurons) ----", 
       "",
       "ACTIVATE NEURON: oxygen=8.9, glutamate=19.1",
+      "NUCLEUS: iron=1, oxygen=8.2, potassium=8.2, chloride=8.2, glutamate=8.2, dopamine=16.4, serotonin=16.4",
       "SYNAPSE: oxygen=13.4, potassium=6.6",
       "EPSP: potassium=4.4",
       "IPSP: potassium=3.4, chloride=6.8",
@@ -82,13 +84,16 @@ namespace texts {
       "",
       "--- COSTS (technologies) ----", 
       "", 
+      "Every technology consumes 1 iron. The resource cost are costs*(level+1).",
+      "(meaning: doubled for second level and tripled for last level)",
+      "", 
       "attack strategies (tactical):",
-      "CHOOSE WAY (select way/ way-points for neurons): iron=1, dopamine=17.7",
-      "SWARM ATTACK (launch swarm attacks +3): iron=1, dopamine=19.9",
+      "CHOOSE WAY (increase way-points for settings way): iron=1, dopamine=17.7",
+      "SWARM ATTACK (launch swarm attacks: +3): iron=1, dopamine=19.9",
       "",
       "resources:",
-      "RESOURCE LIMITS++ (max allowed resources: each): iron=1, dopamine=18.5, serotonin=17.9",
-      "RESOURCE SLOWDOWN-- (resource curve slowdown): iron=1, dopamine=21.0, serotonin=21.2",
+      "RESOURCE LIMITS++ (max allowed resources + 20%): iron=1, dopamine=18.5, serotonin=17.9",
+      "RESOURCE SLOWDOWN-- (resource curve slowdown - 1): iron=1, dopamine=21.0, serotonin=21.2",
       "",
       "potential-upgrade:",
       "EPSP/ IPSP POTENIAL++ (increases potential of ipsp/ epsp): iron=1, potassium=10.0, dopamine=16.0, serotonin=11.2",
@@ -108,17 +113,18 @@ namespace texts {
       "##### HELP #####",
       "",
       "--- TIPS ----", 
-      "Iron is used for (boosting) resource production. At least 2 iron must be distributed to a resource, in order for production of this resource to start.",
+      "Iron is used for (boosting) resource production. At least 2 iron must be distributed to a resource, in "
+        "order for production of this resource to start.",
       "",
-      "You should start investing into activated neurons to defend yourself: for this you need oxygen and glutamate.",
+      "You should start investing into ACTIVATED NEURONS to defend yourself: for this you need OXYGEN and GLUTAMATE.",
       "",
       "To start building units, you first need to build a synapse.",
-      "EPSP aims to destroy enemy buildings, while IPSP blocks buildings.",
+      "EPSP aims to destroy enemy neurons, while IPSP blocks buildings.",
       "",
-      "You can first enter a number x∈{1..9} and the select epsp/ ipsp. This will automatically try to create x epsp/ ipsp.",
+      "You can enter a number (1..9) followed by 'e' or 'i' to create multiple epsps/ ipsps at once.",
       "",
       "Also remember you gain less resources the more resources you have, so keep you resources low!",
-      "Finally: keep track of your bound resources, the more resources are bound, the less you gain!"
+      "Finally: keep track of your bound resources, the more resources are bound into neurons, the less you gain!"
     }
   };
 
@@ -396,7 +402,8 @@ namespace texts {
       "Then use 'j'/'k'-keys to select a technology and research it by pressing '[enter]'",
       "At the bottom screen a short description of each technology is given while selected.",
       "",
-      "Also you can always press 'h' to see the help screen, where you can view all costs (also for technologies).",
+      "Also you can always press '?' to see the help screen, where you can view all costs (also for technologies).",
+      "But be careful, only during the TUTORIAL the game is paused while viewing help!",
     }
   };
 

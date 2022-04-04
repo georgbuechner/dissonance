@@ -40,7 +40,7 @@ void ClientGame::init(){
         {'j', &ClientGame::h_MoveSelectionUp}, {'k', &ClientGame::h_MoveSelectionDown}, 
         {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit}, {'s', &ClientGame::h_SendSelectSynapse}, 
         {'A', &ClientGame::h_BuildNeuron}, {'S', &ClientGame::h_BuildNeuron}, {'N', &ClientGame::h_BuildNeuron}, 
-        {'e', &ClientGame::h_BuildPotential}, {'i', &ClientGame::h_BuildPotential}
+        {'e', &ClientGame::h_BuildPotential}, {'i', &ClientGame::h_BuildPotential}, {'?', &ClientGame::h_Help},
       }
     },
     { CONTEXT_FIELD, {
@@ -250,6 +250,16 @@ void ClientGame::h_Kill(nlohmann::json& msg) {
   getch();
   // Wrap up and exit.
   WrapUp();
+}
+
+void ClientGame::h_Help(nlohmann::json&) {
+  if (mode_ == TUTORIAL)
+    TutorialPause();
+  drawrer_.set_stop_render(true);
+  drawrer_.PrintCenteredParagraphs(texts::help);
+  drawrer_.set_stop_render(false);
+  if (mode_ == TUTORIAL)
+    TutorialUnPause();
 }
 
 void ClientGame::h_Quit(nlohmann::json&) {
