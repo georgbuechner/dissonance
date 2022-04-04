@@ -30,6 +30,10 @@ class EventManager {
     void AddHandler(T_event event, void(T_function::*handler)(T_param)) {
       handlers_[event] = handler;
     }
+    void RemoveHandler(T_event event) {
+      if (handlers_.count(event) > 0)
+        handlers_.erase(event);
+    }
 
   private:
     std::map<T_event, void(T_function::*)(T_param)> handlers_;

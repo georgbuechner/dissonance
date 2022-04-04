@@ -33,7 +33,10 @@ bool IsAi(std::string username) {
 
 ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, 
     WebsocketServer* srv) : max_players_(num_players), cur_players_(1), audio_(base_path), ws_server_(srv), 
-    status_(WAITING), mode_(mode), lines_(lines), cols_(cols) {
+    status_(WAITING), mode_((mode == TUTORIAL) ? SINGLE_PLAYER : mode), lines_(lines), cols_(cols) {
+  pause_ = false;
+  time_in_pause_ = 0;
+  tutorial_ = mode == TUTORIAL;
   // Initialize eventmanager.
   eventmanager_.AddHandler("initialize_game", &ServerGame::m_InitializeGame);
   eventmanager_.AddHandler("add_iron", &ServerGame::m_AddIron);
@@ -48,6 +51,8 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   eventmanager_.AddHandler("set_way_point", &ServerGame::m_SetWayPoint);
   eventmanager_.AddHandler("set_ipsp_target", &ServerGame::m_SetIpspTarget);
   eventmanager_.AddHandler("set_epsp_target", &ServerGame::m_SetEpspTarget);
+  eventmanager_.AddHandler("set_pause_on", &ServerGame::m_SetPauseOn);
+  eventmanager_.AddHandler("set_pause_off", &ServerGame::m_SetPauseOff);
 }
 
 // getter
@@ -136,7 +141,7 @@ void ServerGame::m_AddIron(nlohmann::json& msg) {
     // If resource is newly created, send client resource-neuron as new unit.
     if (player->resources().at(resource).distributed_iron() == 2) {
       nlohmann::json req = {{"command", "set_unit"}, {"data", {{"unit", RESOURCENEURON}, 
-        {"pos", player->resources().at(resource).pos()}, {"color", COLOR_RESOURCES}} }};
+        {"pos", player->resources().at(resource).pos()}, {"color", COLOR_RESOURCES}, {"resource", resource}} }};
       ws_server_->SendMessage(username, req);
     }
   }
@@ -207,6 +212,9 @@ void ServerGame::m_CheckBuildNeuron(nlohmann::json& msg) {
     else 
       msg = {{"command", "set_msg"}, {"data", {{"msg", "Not enough resource! missing: " + missing}}}};
   }
+  else {
+    msg = nlohmann::json();
+  }
 }
 
 void ServerGame::m_CheckBuildPotential(nlohmann::json& msg) {
@@ -230,12 +238,16 @@ void ServerGame::m_CheckBuildPotential(nlohmann::json& msg) {
     else if (synapses.size() == 1 || msg["data"].contains("start_pos")) {
       position_t pos = (synapses.size() == 1) ? synapses.front() : utils::PositionFromVector(msg["data"]["start_pos"]);
       BuildPotentials(unit, pos, num, msg["username"], player);
+      msg = nlohmann::json();
     }
     // More than one synapse and position not given => tell user to select position.
     else  {
       msg = {{"command", "build_potential"}, {"data", {{"unit", unit}, {"positions", 
         player->GetAllPositionsOfNeurons(SYNAPSE)}, {"num", num}} }}; 
     }
+  }
+  else {
+    msg = nlohmann::json();
   }
 }
 
@@ -260,6 +272,9 @@ void ServerGame::m_BuildNeurons(nlohmann::json& msg) {
     }
     else
       msg = {{"command", "set_msg"}, {"data", {{"msg", "Failed!"}} }};
+  }
+  else {
+    msg = nlohmann::json();
   }
 }
 
@@ -305,6 +320,9 @@ void ServerGame::m_GetPositions(nlohmann::json& msg) {
     }
     msg = {{"command", msg["data"]["return_cmd"]}, {"data", {{"positions", all_positions}} }};
   }
+  else {
+    msg = nlohmann::json();
+  }
 }
 
 void ServerGame::m_ToggleSwarmAttack(nlohmann::json& msg) {
@@ -313,6 +331,9 @@ void ServerGame::m_ToggleSwarmAttack(nlohmann::json& msg) {
     // Toggle swarm attack and get wether now active/ inactive.
     std::string on_off = (player->SwitchSwarmAttack(utils::PositionFromVector(msg["data"]["pos"]))) ? "on" : "off";
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Toggle swarm-attack successfull. Swarm attack " + on_off}} }};
+  }
+  else {
+    msg = nlohmann::json();
   }
 }
 
@@ -334,6 +355,9 @@ void ServerGame::m_SetWayPoint(nlohmann::json& msg) {
     // If there are waypoints left to set, send next way-point-number (-1 otherwise)
     msg["data"]["num"] = (num < tech) ? num+1 : -1;
   }
+  else {
+    msg = nlohmann::json();
+  }
 }
 
 void ServerGame::m_SetIpspTarget(nlohmann::json& msg) {
@@ -342,6 +366,9 @@ void ServerGame::m_SetIpspTarget(nlohmann::json& msg) {
     // Change ipsp target and response with message
     player->ChangeIpspTargetForSynapse(msg["data"]["synapse_pos"], msg["data"]["pos"]);
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Ipsp target for this synapse set"}} }};
+  }
+  else {
+    msg = nlohmann::json();
   }
 }
 
@@ -352,6 +379,24 @@ void ServerGame::m_SetEpspTarget(nlohmann::json& msg) {
     player->ChangeEpspTargetForSynapse(msg["data"]["synapse_pos"], msg["data"]["pos"]);
     msg = {{"command", "set_msg"}, {"data", {{"msg", "Epsp target for this synapse set"}} }};
   }
+  else {
+    msg = nlohmann::json();
+  }
+}
+
+void ServerGame::m_SetPauseOn(nlohmann::json& msg) {
+  spdlog::get(LOGGER)->info("Set pause on");
+  pause_ = true; 
+  pause_start_ = std::chrono::steady_clock::now();
+  msg = nlohmann::json();
+}
+
+void ServerGame::m_SetPauseOff(nlohmann::json& msg) {
+  pause_ = false;
+  std::unique_lock ul(mutex_pause_);
+  time_in_pause_ += utils::GetElapsed(pause_start_, std::chrono::steady_clock::now());
+  spdlog::get(LOGGER)->info("Set pause off {}", time_in_pause_);
+  msg = nlohmann::json();
 }
 
 void ServerGame::BuildPotentials(int unit, position_t pos, int num, std::string username, Player* player) {
@@ -419,7 +464,9 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
     status_ = WAITING_FOR_PLAYERS;
     msg["command"] = "print_msg";
     msg["data"] = {{"msg", "Wainting for players..."}};
+    ws_server_->SendMessage(host_, msg);
   }
+  msg = nlohmann::json();
 }
 
 void ServerGame::PlayerResigned(std::string username) {
@@ -646,9 +693,12 @@ void ServerGame::Thread_RenderField() {
   // Main loop.
   int counter=0;
   while (status_ < CLOSING) {
+    if (pause_) continue;
     auto cur_time = std::chrono::steady_clock::now();
     // Analyze audio data.
-    if (utils::GetElapsed(audio_start_time, cur_time)>= data_at_beat.time_) {
+    std::shared_lock sl(mutex_pause_);
+    if (utils::GetElapsed(audio_start_time, cur_time)-time_in_pause_ >= data_at_beat.time_) {
+      sl.unlock();
       // Update render-frequency.
       render_frequency = 60000.0/(data_at_beat.bpm_*8);
       data_per_beat.pop_front();
@@ -708,15 +758,19 @@ void ServerGame::Thread_Ai(std::string username) {
   // Handle building neurons and potentials.
   auto data_at_beat = data_per_beat.front();
   while(ai && !ai->HasLost() && status_ < CLOSING) {
+    if (pause_) continue;
     auto cur_time = std::chrono::steady_clock::now();
     // Analyze audio data.
-    if (utils::GetElapsed(audio_start_time, cur_time) >= data_at_beat.time_) {
+    std::shared_lock sl(mutex_pause_);
+    if (utils::GetElapsed(audio_start_time, cur_time)-time_in_pause_ >= data_at_beat.time_) {
+      sl.unlock();
       // Do action.
       std::unique_lock ul(mutex_players_);
       ai->DoAction(data_at_beat);
       ai->set_last_time_point(data_at_beat);
       // Increase reasources twice every beat.
       ai->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      // if (!tutorial_) 
       ai->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
       // Update render-frequency.
       data_per_beat.pop_front();

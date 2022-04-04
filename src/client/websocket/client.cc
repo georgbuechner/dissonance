@@ -88,21 +88,16 @@ void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr 
   }
   // Handle json-formatted data:
   spdlog::get(LOGGER)->debug("Client got message: {}", msg->get_payload());
-  websocketpp::lib::error_code ec;
-  nlohmann::json resp = game_->HandleAction(nlohmann::json::parse(msg->get_payload()));
-  // If data is contained in response, add username and send.
-  if (resp.contains("data")) {
-    resp["username"] = username_;
-    spdlog::get(LOGGER)->debug("About to send message:");
-    spdlog::get(LOGGER)->debug("{}", resp.dump());
-    SendMessage(resp.dump());
-  }
+  std::thread handler([this, msg]() { game_->HandleAction(nlohmann::json::parse(msg->get_payload())); });
+  handler.detach();
+  spdlog::get(LOGGER)->info("Client::on_message: existed");
 }
 
 void Client::SendMessage(std::string msg) {
   websocketpp::lib::error_code ec;
   spdlog::get(LOGGER)->debug("Client::SendMessage: {}", msg);
   c_.send(hdl_, msg, websocketpp::frame::opcode::text, ec);
+  spdlog::get(LOGGER)->info("Client::SendMessage: successfully sent message.");
   if (ec)
     std::cout << "Client: sending failed because: " << ec.message() << std::endl;
 }

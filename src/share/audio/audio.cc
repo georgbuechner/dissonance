@@ -346,6 +346,7 @@ void Audio::CalcLevel(size_t interval, std::map<std::string, int> notes_by_frequ
       notes_in_key++;
 
   // Add new interval information.
+  spdlog::get(LOGGER)->info("AUDI KEY: {}, Major? {}", key, key.find("Major") != std::string::npos);
   analysed_data_.intervals_[interval] = Interval({interval, key, key_note, 
       Signitue::UNSIGNED, key.find("Major") != std::string::npos, notes_in_key, 
       sorted_notes_by_frequency.size()-notes_in_key, darkness}
@@ -381,7 +382,7 @@ bool Audio::MoreOffNotes(const AudioDataTimePoint &data_at_beat, bool off) const
         off_notes_counter++;
     }
   }
-  spdlog::get(LOGGER)->info("Audio::MoreOffNotes: done");
+  spdlog::get(LOGGER)->debug("Audio::MoreOffNotes: done");
   return off_notes_counter == data_at_beat.notes_.size() && off_notes_counter > 0;
 }
 

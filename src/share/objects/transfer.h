@@ -40,12 +40,12 @@ class Transfer {
 
     Transfer() {initialized_ = false;};
     Transfer(nlohmann::json json) {
-      spdlog::get(LOGGER)->info("from json: players {}", json["players"].dump());
+      spdlog::get(LOGGER)->debug("from json: players {}", json["players"].dump());
       // build players from json.
       players_ = json["players"].get<std::map<std::string, std::pair<std::string, int>>>();
 
       // build field from json
-      spdlog::get(LOGGER)->info("from json: field {}", json["f"].dump());
+      spdlog::get(LOGGER)->debug("from json: field {}", json["f"].dump());
       for (const auto& it : json["f"].get<std::vector<nlohmann::json>>()) {
         std::vector<Symbol> vec;
         for (const auto& jt : it.get<std::vector<nlohmann::json>>())
@@ -58,28 +58,28 @@ class Transfer {
         graph_positions_ = json["g"].get<std::vector<position_t>>();
 
       // build resources from json.
-      spdlog::get(LOGGER)->info("from json: resources {}", json["r"].dump());
+      spdlog::get(LOGGER)->debug("from json: resources {}", json["r"].dump());
       if (json.contains("r")) {
         for (const auto& it : json["r"].get<std::map<std::string, nlohmann::json>>())
           resources_[stoi(it.first)] = {it.second["v"], it.second["b"], it.second["l"], it.second["i"], it.second["a"]};
       }
 
       // build technologies from json.
-      spdlog::get(LOGGER)->info("from json: technologies {}", json["t"].dump());
+      spdlog::get(LOGGER)->debug("from json: technologies {}", json["t"].dump());
       if (json.contains("t")) {
         for (const auto& it : json["t"].get<std::map<std::string, nlohmann::json>>())
           technologies_[stoi(it.first)] = {it.second["c"], it.second["m"], it.second["a"]};
       }
 
       // build potentials from string 
-      spdlog::get(LOGGER)->info("from json: potentials {}", json["p"].dump());
+      spdlog::get(LOGGER)->debug("from json: potentials {}", json["p"].dump());
       if (json.contains("p")) {
         for (const auto& it : json["p"].get<std::map<std::string, nlohmann::json>>())
           potentials_[utils::PositionFromString(it.first)] = {it.second["s"].get<std::string>(), it.second["c"]};
       }
       
       // build new-dead-neurons from string 
-      spdlog::get(LOGGER)->info("from json: new dead neurons {}", json["d"].dump());
+      spdlog::get(LOGGER)->debug("from json: new dead neurons {}", json["d"].dump());
       if (json.contains("d")) {
         for (const auto& it : json["d"].get<std::map<std::string, int>>())
           new_dead_neurons_[utils::PositionFromString(it.first)] = it.second;
@@ -98,7 +98,7 @@ class Transfer {
         audio_played_ = json["a"];
 
       initialized_ = true;
-      spdlog::get(LOGGER)->info("DONE");
+      spdlog::get(LOGGER)->debug("DONE");
     }
 
     // getter

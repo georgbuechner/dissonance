@@ -43,7 +43,7 @@ class ClientGame {
       ws_srv_ = ws_srv;
     }
 
-    nlohmann::json HandleAction(nlohmann::json);
+    void HandleAction(nlohmann::json);
 
     void GetAction();
 
@@ -55,6 +55,25 @@ class ClientGame {
     const bool muliplayer_availible_;
     Client* ws_srv_;
     EventManager<std::string, ClientGame, nlohmann::json&> eventmanager_;
+    EventManager<std::string, ClientGame, nlohmann::json&> eventmanager_tutorial_;
+    EventManager<char, ClientGame, nlohmann::json&> eventmanager_tutorial_action_;
+
+    struct Tutorial {
+      int activated_neurons_;
+      int synapses_;
+      int action_;
+      bool action_active_;
+      bool discovered_;
+      bool epsp_target_set_;
+      bool oxygen_;
+      bool potassium_;
+      bool chloride_;
+      bool glutamate_;
+      bool dopamine_;
+      bool serotonin_;
+    };
+    Tutorial tutorial_;
+
     int lines_;
     int cols_;
     const std::string base_path_;
@@ -144,6 +163,19 @@ class ClientGame {
     void h_IpspTarget(nlohmann::json&);
     void h_SwarmAttack(nlohmann::json&);
     void h_ResetOrQuitSynapseContext(nlohmann::json&);
+
+    // tutorial
+    void h_TutorialGetOxygen(nlohmann::json&);
+    /**
+     * Reacts after setting a unit. (Also resource activated/ inactivated)
+     */
+    void h_TutorialSetUnit(nlohmann::json&);
+    void h_TutorialBuildNeuron(nlohmann::json&);
+    void h_TutorialScouted(nlohmann::json&);
+    void h_TutorialSetMessage(nlohmann::json&);
+    void h_TutorialAction(nlohmann::json&);
+    void TutorialPause();
+    void TutorialUnPause();
 
     // command methods
 

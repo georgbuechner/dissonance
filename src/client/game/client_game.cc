@@ -62,7 +62,7 @@ void ClientGame::init(){
         {'k', &ClientGame::h_MoveSelectionUp}, {'j', &ClientGame::h_MoveSelectionDown},
         {'\n', &ClientGame::h_SelectGame}
       }
-    }
+    },
   };
 }
 
@@ -155,20 +155,36 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   eventmanager_.AddHandler("set_wps", &ClientGame::h_SetWPs);
   eventmanager_.AddHandler("ipsp_target", &ClientGame::h_IpspTarget);
   eventmanager_.AddHandler("epsp_target", &ClientGame::h_EpspTarget);
+
+  eventmanager_tutorial_.AddHandler("init_game", &ClientGame::h_TutorialGetOxygen);
+  eventmanager_tutorial_.AddHandler("set_unit", &ClientGame::h_TutorialSetUnit);
+  eventmanager_tutorial_.AddHandler("set_units", &ClientGame::h_TutorialScouted);
+  eventmanager_tutorial_.AddHandler("build_neuron", &ClientGame::h_TutorialBuildNeuron);
+  eventmanager_tutorial_.AddHandler("set_msg", &ClientGame::h_TutorialSetMessage);
+
+  tutorial_ = Tutorial({0, 0, 0, false, false, false, false, false, false, false, false, false});
 }
 
-nlohmann::json ClientGame::HandleAction(nlohmann::json msg) {
+void ClientGame::HandleAction(nlohmann::json msg) {
   std::string command = msg["command"];
   spdlog::get(LOGGER)->debug("ClientGame::HandleAction: {}", command);
+
+  nlohmann::json original_message = msg;
 
   // Get event from event-manager
   if (eventmanager_.handlers().count(command))
     (this->*eventmanager_.handlers().at(command))(msg);
   else 
     msg = nlohmann::json(); // if no matching event set return-message to empty.
+  if (mode_ == TUTORIAL && eventmanager_tutorial_.handlers().count(command) > 0) {
+    (this->*eventmanager_tutorial_.handlers().at(command))(original_message);
+  }
   
   spdlog::get(LOGGER)->debug("ClientGame::HandleAction: response {}", msg.dump());
-  return msg;
+  if (!msg.contains("username"))
+    msg["username"] = username_;
+  if (msg.contains("command"))
+    ws_srv_->SendMessage(msg.dump());
 }
 
 void ClientGame::GetAction() {
@@ -180,7 +196,10 @@ void ClientGame::GetAction() {
     char choice = getch();
     history_.push_back(choice);
     spdlog::get(LOGGER)->info("ClientGame::GetAction action_ {}, in: {}", status_, choice);
-    if (status_ == WAITING) continue; // Skip as long as not active. 
+    if (status_ == WAITING) {
+      // ungetch(choice);
+      continue; // Skip as long as not active. 
+    }
 
     if (current_context_ == CONTEXT_POST_GAME && choice == 'q')
       break;
@@ -193,6 +212,10 @@ void ClientGame::GetAction() {
       contexts_.at(current_context_).set_cmd(choice);
       sl.unlock();
       (this->*contexts_.at(current_context_).eventmanager().handlers().at(choice))(data);
+    }
+    else if (mode_ == TUTORIAL && tutorial_.action_active_ && choice == 'y') {
+      nlohmann::json data;
+      h_TutorialAction(data);
     }
     // If event not in context-event-manager print availible options.
     else {
@@ -745,6 +768,7 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
     {SINGLE_PLAYER, {"singe-player", COLOR_AVAILIBLE}}, 
     {MULTI_PLAYER, {"muli-player (host)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     {MULTI_PLAYER_CLIENT, {"muli-player (client)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
+    {TUTORIAL, {"tutorial", COLOR_AVAILIBLE}},
     {OBSERVER, {"watch ki", COLOR_AVAILIBLE}},
     {SETTINGS, {"settings", COLOR_AVAILIBLE}}
   };
@@ -755,8 +779,12 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
   }
   drawrer_.set_mode(mode_);
   msg["data"]["mode"] = mode_;
+  // Tutorial: show first tutorial message, then change mode (in request) to normal singe-player.
+  if (mode_ == TUTORIAL) {
+    drawrer_.PrintCenteredParagraphs(texts::tutorial_start);
+  }
   // If host, then also select number of players.
-  if (mode_ == MULTI_PLAYER) {
+  else if (mode_ == MULTI_PLAYER) {
     mapping = {
       {0, {"2 players", COLOR_AVAILIBLE}}, 
       {1, {"3 players", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
@@ -890,6 +918,180 @@ void ClientGame::m_SetUnits(nlohmann::json& msg) {
   drawrer_.PrintGame(false, false, current_context_);
   spdlog::get(LOGGER)->debug("ClientGame::m_SetUnits. Done.");
   msg = nlohmann::json();
+}
+
+// tutorial 
+
+void ClientGame::h_TutorialGetOxygen(nlohmann::json&) {
+  TutorialPause();
+  drawrer_.PrintCenteredParagraphs(texts::tutorial_get_oxygen, true);
+  eventmanager_tutorial_.RemoveHandler("init_game");
+  TutorialUnPause();
+}
+
+void ClientGame::h_TutorialSetUnit(nlohmann::json& original_message) {
+  nlohmann::json data = original_message["data"];
+  std::vector<texts::paragraphs_t> texts;
+  // Get text ad do potential other actions
+  if (data["unit"] == RESOURCENEURON && data["resource"] == OXYGEN && !tutorial_.oxygen_) {
+    texts.push_back(texts::tutorial_get_glutamat);
+    tutorial_.oxygen_ = true;
+  }
+  else if (data["unit"] == RESOURCENEURON && data["resource"] == GLUTAMATE && !tutorial_.glutamate_) {
+    texts.push_back(texts::tutorial_build_activated_neurons);
+    tutorial_.glutamate_ = true;
+  }
+  else if (data["unit"] == RESOURCENEURON && data["resource"] == POTASSIUM && !tutorial_.potassium_) {
+    texts.push_back(texts::tutorial_build_synapse);
+    tutorial_.potassium_ = true;
+  }
+  else if (data["unit"] == RESOURCENEURON && data["resource"] == CHLORIDE && !tutorial_.chloride_) {
+    texts.push_back(texts::tutorial_build_ipsp);
+    tutorial_.chloride_ = true;
+  }
+  else if (data["unit"] == RESOURCENEURON && data["resource"] == DOPAMINE && !tutorial_.dopamine_) {
+    texts.push_back(texts::tutorial_technologies_dopamine);
+    tutorial_.dopamine_ = true;
+    if (tutorial_.serotonin_)
+      texts.push_back(texts::tutorial_technologies_all);
+    // Always add how-to
+    texts.push_back(texts::tutorial_technologies_how_to);
+  }
+  else if (data["unit"] == RESOURCENEURON && data["resource"] == SEROTONIN && !tutorial_.serotonin_) {
+    texts.push_back(texts::tutorial_technologies_seretonin);
+    tutorial_.serotonin_ = true;
+    if (tutorial_.dopamine_) {
+      texts.push_back(texts::tutorial_technologies_all);
+      texts.push_back(texts::tutorial_technologies_how_to);
+    }
+  }
+  else if (data["unit"] == ACTIVATEDNEURON && tutorial_.activated_neurons_ == 3) {
+    texts.push_back(texts::tutorial_get_potassium);
+  }
+  else if (data["unit"] == ACTIVATEDNEURON && tutorial_.activated_neurons_ == 4) {
+    texts.push_back(texts::tutorial_bound_resources);
+  }
+  else if (data["unit"] == SYNAPSE && tutorial_.synapses_ == 0) {
+    texts.push_back(texts::tutorial_build_potential);
+    tutorial_.synapses_++;
+  }
+  // If text was set, print text:
+  if (texts.size() > 0) {
+    TutorialPause();
+    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    for (const auto& text : texts)
+      drawrer_.PrintCenteredParagraphs(text, true);
+    TutorialUnPause();
+  }
+}
+
+void ClientGame::h_TutorialScouted(nlohmann::json& original_message) {
+  texts::paragraphs_t text;
+  // On first discoring enemy terretoris: tutorial for selecting targets.
+  if (!tutorial_.discovered_) {
+    text = texts::tutorial_select_target;
+    tutorial_.discovered_ = true;
+  }
+  // When more than 2 enemy activated_neurons are discovered: tutorial for final, large attack.
+  else {
+    // Check number 
+    int counter = 0;
+    for (const auto& it : original_message["data"]["neurons"].get<std::map<position_t, int>>()) 
+      if (it.second == ACTIVATEDNEURON) counter++;
+    if (counter >= 2 && tutorial_.chloride_ && tutorial_.dopamine_)  {
+      text = texts::tutorial_final_attack;
+      tutorial_.action_active_ = true;
+      tutorial_.action_ = 0;
+      eventmanager_tutorial_.RemoveHandler("set_units");
+    }
+  }
+  // If text was set, print text:
+  if (text.size() > 0) {
+    TutorialPause();
+    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    drawrer_.PrintCenteredParagraphs(text);
+    TutorialUnPause();
+  }
+}
+
+void ClientGame::h_TutorialBuildNeuron(nlohmann::json& original_message) {
+  texts::paragraphs_t text;
+  // Get text ad do potential other actions
+  if (original_message["data"]["unit"] == ACTIVATEDNEURON && tutorial_.activated_neurons_ == 0) {
+    text = texts::tutorial_first_build;
+    tutorial_.activated_neurons_++;
+  }
+  else if (original_message["data"]["unit"] == ACTIVATEDNEURON)
+    tutorial_.activated_neurons_++;
+ 
+  // If text was set, print text:
+  if (text.size() > 0) {
+    TutorialPause();
+    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    drawrer_.PrintCenteredParagraphs(text);
+    TutorialUnPause();
+  }
+}
+
+void ClientGame::h_TutorialAction(nlohmann::json&) {
+  texts::paragraphs_t text;
+  // set ways
+  if (tutorial_.action_ == 0) {
+    text = texts::tutorial_final_attack_set_way;
+  }
+  // set targets
+  else if (tutorial_.action_ == 1) {
+    text = texts::tutorial_final_attack_set_targets;
+  }
+  // launch attack
+  else if (tutorial_.action_ == 2) {
+    text = texts::tutorial_final_attack_launch_attack;
+    // reset action
+    tutorial_.action_active_ = false;
+    tutorial_.action_ = 0;
+  }
+
+  // If text was set, print text:
+  if (text.size() > 0) {
+    tutorial_.action_++;
+    TutorialPause();
+    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    drawrer_.PrintCenteredParagraphs(text);
+    TutorialUnPause();
+  }
+}
+
+void ClientGame::h_TutorialSetMessage(nlohmann::json& original_message) {
+  texts::paragraphs_t text;
+  // Get text ad do potential other actions
+  if (original_message["data"]["msg"] == "Epsp target for this synapse set" && !tutorial_.epsp_target_set_) {
+    text = texts::tutorial_strong_attack;
+    tutorial_.epsp_target_set_ = true;
+  }
+  
+  // If text was set, print text:
+  if (text.size() > 0) {
+    TutorialPause();
+    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    drawrer_.PrintCenteredParagraphs(text);
+    TutorialUnPause();
+  }
+}
+
+void ClientGame::TutorialPause() {
+  drawrer_.set_stop_render(true);
+  nlohmann::json msg = {{"command", "set_pause_on"}, {"username", username_}, {"data", nlohmann::json()}};
+  ws_srv_->SendMessage(msg.dump());
+  status_ = WAITING;
+  audio_.Pause();
+}
+
+void ClientGame::TutorialUnPause() {
+  nlohmann::json msg = {{"command", "set_pause_off"}, {"username", username_}, {"data", nlohmann::json()}};
+  ws_srv_->SendMessage(msg.dump());
+  status_ = RUNNING;
+  audio_.Unpause();
+  drawrer_.set_stop_render(false);
 }
 
 // Selection methods

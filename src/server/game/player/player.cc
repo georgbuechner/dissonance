@@ -35,7 +35,7 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
   // Max only 20 as iron should be rare.
   resources_.insert(std::pair<int, Resource>(IRON, Resource(3, 22, 2, true, {-1, -1})));  
   resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(15.5, 100, 0, false, r_pos[OXYGEN]))); 
-  resources_.insert(std::pair<int, Resource>(Resources::POTASSIUM, Resource(10, 100, 0, false, r_pos[POTASSIUM]))); 
+  resources_.insert(std::pair<int, Resource>(Resources::POTASSIUM, Resource(0, 100, 0, false, r_pos[POTASSIUM]))); 
   resources_.insert(std::pair<int, Resource>(Resources::CHLORIDE, Resource(0, 100, 0, false, r_pos[CHLORIDE]))); 
   // Max 150: allows 7 activated neurons withput updates.
   resources_.insert(std::pair<int, Resource>(Resources::GLUTAMATE, Resource(0, 150, 0, false, r_pos[GLUTAMATE]))); 
@@ -45,7 +45,7 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
   resources_.insert(std::pair<int, Resource>(Resources::SEROTONIN, Resource(0, 70, 0, false, r_pos[SEROTONIN]))); 
   
   technologies_ = {
-    {UnitsTech::WAY, {3,3}},
+    {UnitsTech::WAY, {0,3}},
     {UnitsTech::SWARM, {0,3}},
     {UnitsTech::TOTAL_RESOURCE, {0,3}},
     {UnitsTech::CURVE, {0,3}},
@@ -328,8 +328,6 @@ void Player::IncreaseResources(bool inc_iron) {
     // Inc only if min 2 iron is distributed, inc iron only depending on audio.
     if (it.second.Active() && !it.second.blocked() && (it.first != IRON || inc_iron)) {
       it.second.Increase(gain, resource_slowdown_);
-      spdlog::get(LOGGER)->info("INC {} {} total|free: {}|{}, spend: {}", color_, resources_name_mapping.at(it.first), 
-        it.second.total(), it.second.cur(), it.second.spent());
     }
   }
   spdlog::get(LOGGER)->debug("Player::IncreaseResources: done");

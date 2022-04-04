@@ -156,7 +156,7 @@ void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned sh
 }
 
 std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<position_t> way_points) {
-  spdlog::get(LOGGER)->info("Field::GetWayForSoldier: pos={}", utils::PositionToString(start_pos));
+  spdlog::get(LOGGER)->debug("Field::GetWayForSoldier: pos={}", utils::PositionToString(start_pos));
   if (way_points.size() < 1)
     return {};
   position_t target_pos = way_points.back();

@@ -112,7 +112,7 @@ class Drawrer {
      * before every new paragraph and locking mutex.
      * @param[in] paragraphs
      */
-    void PrintCenteredParagraphs(texts::paragraphs_t paragraph);
+    void PrintCenteredParagraphs(texts::paragraphs_t paragraph, bool skip_first_wait=false);
 
     void PrintGame(bool only_field, bool only_side_column, int context);
 

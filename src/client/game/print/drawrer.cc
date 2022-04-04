@@ -260,7 +260,8 @@ void Drawrer::PrintCenteredParagraph(texts::paragraph_t paragraph) {
       PrintCenteredLine(LINES/2-size+(counter++), line);
 }
 
-void Drawrer::PrintCenteredParagraphs(texts::paragraphs_t paragraphs) {
+void Drawrer::PrintCenteredParagraphs(texts::paragraphs_t paragraphs, bool skip_first_wait) {
+  // int counter = 0;
   for (auto& paragraph : paragraphs) {
     ClearField();
     paragraph.push_back({});
@@ -422,7 +423,7 @@ void Drawrer::PrintStatistics() const {
   spdlog::get(LOGGER)->info("Printing statistics: {} {}", statistics_.size(), cur_selection_.at(VP_POST_GAME).x_);
   clear();
   refresh();
-  int start_line = LINES/6;
+  int start_line = LINES/8;
   int counter = 0;
   for (const auto& it : statistics_) {
     if (counter++ == cur_selection_.at(VP_POST_GAME).x_) {

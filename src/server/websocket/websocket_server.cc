@@ -151,7 +151,7 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
 }
 
 void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, message_ptr msg) {
-  spdlog::get(LOGGER)->debug("Websocket::on_message: new message");
+  spdlog::get(LOGGER)->info("Websocket::on_message: new message");
   // Handle binary data (audio-files) in otherwise.
   if (msg->get_opcode() == websocketpp::frame::opcode::binary && connections_.count(hdl.lock().get())) {
     spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data");
@@ -201,7 +201,7 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
       spdlog::get(LOGGER)->debug("Done");
     }
   }
-
+  spdlog::get(LOGGER)->info("Websocket::on_message: existed");
 }
 
 void WebsocketServer::h_InitializeUser(connection_id id, std::string username, const nlohmann::json& msg) {
@@ -230,7 +230,7 @@ void WebsocketServer::h_InitializeUser(connection_id id, std::string username, c
 
 void WebsocketServer::h_InitializeGame(connection_id id, std::string username, const nlohmann::json& msg) {
   nlohmann::json data = msg["data"];
-  if (data["mode"] == SINGLE_PLAYER) {
+  if (data["mode"] == SINGLE_PLAYER || data["mode"] == TUTORIAL) {
     spdlog::get(LOGGER)->info("Server: initializing new single-player game.");
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);

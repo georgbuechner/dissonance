@@ -1,6 +1,7 @@
 #ifndef SRC_SERVER_GAME_H_
 #define SRC_SERVER_GAME_H_
 
+#include "nlohmann/json_fwd.hpp"
 #include "share/defines.h"
 #define NCURSES_NOMACROS
 #include <cstddef>
@@ -107,10 +108,15 @@ class ServerGame {
 
     std::shared_mutex mutex_status_;  ///< mutex locked, when printing field.
     int status_;
+    std::shared_mutex mutex_pause_;
+    int pause_;
+    std::chrono::time_point<std::chrono::steady_clock> pause_start_;
+    double time_in_pause_;
 
     const int mode_; ///< SINGLE_PLAYER | MULTI_PLAYER | OBSERVER
     int lines_; 
     int cols_;
+    bool tutorial_;
 
     std::string host_;
 
@@ -258,6 +264,9 @@ class ServerGame {
      * @param[in, out] msg
      */
     void m_SetEpspTarget(nlohmann::json& msg);
+
+    void m_SetPauseOn(nlohmann::json& msg);
+    void m_SetPauseOff(nlohmann::json& msg);
 
     /**
      * Build potential.

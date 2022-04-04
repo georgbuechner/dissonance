@@ -10,10 +10,10 @@ namespace costs {
   const std::map<int, Costs> units_costs_ = {
     {UnitsTech::NUCLEUS, {
         {Resources::IRON, 1},
-        {Resources::OXYGEN, 30},
-        {Resources::POTASSIUM, 30}, 
-        {Resources::CHLORIDE, 30}, 
-        {Resources::GLUTAMATE, 30}, 
+        {Resources::OXYGEN, 10},
+        {Resources::POTASSIUM, 10}, 
+        {Resources::CHLORIDE, 10}, 
+        {Resources::GLUTAMATE, 10}, 
         {Resources::DOPAMINE, 30}, 
         {Resources::SEROTONIN, 30}
       }
