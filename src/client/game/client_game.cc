@@ -778,7 +778,7 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
  
   // Select single-player, mulit-player (host/ client), observer.
   choice_mapping_t mapping = {
-    {SINGLE_PLAYER, {"singe-player", COLOR_AVAILIBLE}}, 
+    {SINGLE_PLAYER, {"singe-player", (!muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     {MULTI_PLAYER, {"muli-player (host)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     {MULTI_PLAYER_CLIENT, {"muli-player (client)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     {TUTORIAL, {"tutorial", COLOR_AVAILIBLE}},
