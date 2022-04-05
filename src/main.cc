@@ -36,7 +36,7 @@ void SetupLogger(bool clear_log, std::string base_path, std::string log_level);
 int main(int argc, const char** argv) {
   // Command line arguments 
   bool show_help = false;
-  bool clear_log = false;
+  bool keep_log = false;
   std::string log_level = "warn";
   std::string base_path = getenv("HOME");
   base_path += "/.dissonance/";
@@ -45,14 +45,14 @@ int main(int argc, const char** argv) {
   std::string server_address = "ws://localhost:4444";
   bool standalone = false;
   bool only_ai = false;
-  std::string path_sound_map = "dissonance//data/examples/Hear_My_Call-coffeeshoppers.mp3";
+  std::string path_sound_map = "dissonance/data/examples/Hear_My_Call-coffeeshoppers.mp3";
   std::string path_sound_ai_1 = "dissonance/data/examples/airtone_-_blackSnow_1.mp3";
   std::string path_sound_ai_2 = "dissonance/data/examples/Karstenholymoly_-_The_night_is_calling.mp3";
 
   // Setup command-line-arguments-parser
   auto cli = lyra::cli() 
     // Standard settings (clear-log, log-level and base-path)
-    | lyra::opt(clear_log) ["-c"]["--clear-log"]("If set, removes all log-files before starting the game.")
+    | lyra::opt(keep_log) ["-k"]["--keep-log"]("If set, does not remove all log-files before starting the game.")
     | lyra::opt(log_level, "options: [warn, info, debug], default: \"warn\"") ["-l"]["--log_level"]("set log-level")
     | lyra::opt(base_path, "path to dissonance files") 
         ["-p"]["--base-path"]("Set path to dissonance files (logs, settings, data)")
@@ -78,7 +78,7 @@ int main(int argc, const char** argv) {
   }
 
   // Setup logger.
-  SetupLogger(clear_log, base_path, log_level);
+  SetupLogger(keep_log, base_path, log_level);
   
   // Initialize random numbers and audio.
   srand (time(NULL));
@@ -146,9 +146,9 @@ int main(int argc, const char** argv) {
   thread_client_input.join();
 }
 
-void SetupLogger(bool clear_log, std::string base_path, std::string log_level) {
+void SetupLogger(bool keep_log, std::string base_path, std::string log_level) {
   // clear log
-  if (clear_log)
+  if (!keep_log)
     std::filesystem::remove_all(base_path + "logs/");
 
   // Logger 

@@ -1,5 +1,29 @@
 ![Title Image](images/title_image.png)
 
+### tl;dr
+Installing:
+```
+git clone https://github.com/georgbuechner/dissonance
+cd dissonance
+
+# ubuntu:
+sudo apt-get install aubio-tools libaubio-dev libaubio-doc
+
+# MacOs and other linux-distros:
+make aubio  
+make install
+```
+
+single player
+```
+dissonance
+```
+
+multiplayer:
+```
+dissonance -m -z "ws://kava-i.de:4444" 
+```
+
 # Table of contents
 1. [Dissonance](#dissonance)
 2. [Premise](#premise)
@@ -122,33 +146,27 @@ These steps install `dissonance` system-wide and create `.dissonance` in the hom
 store settings and analysed musical data.
 
 ### Usage
+To play, simply run `dissonance` in your command line for singe-player and
+`dissonance -m -z ""ws://{server-name}:{port}"` to play online (muliplayer). 
 
-To play, simply run `dissonance` in your command line. 
+Currently there should be a server running at "ws://kava-i.de:4444".
 
-You can run `dissonance -r`, to create the map based on your
-current terminal size. Doing this will however change the game experience and
-two identical songs will no longer produce an identical map and experience. 
-
-| command | player options | description |
-| ------- | -------------- | ----------- |
-| `dissonance` | singe-player/ observer (AI) | starts client and localhost-server |
-| `dissonance -m ` | muli-player | starts only client connecting to default adress (kava-i.de) |
-| `dissonance -c <url>` | multi-player | starts only client connecting to specific adress |
-| `dissonance --standalone -p <port>` | --- | opens standalone server on port <port> |
+You can run your own server by adding `-s` flag (standalone).
+`4444` is the standard port.
 
 ### Logfiles
 
 If not changed manually, logfiles will be stored at `~/.dissonance/logs/` in the
 format `[timestamp]_logfile.txt` f.e. `2021-10-13-01-44-47_logfile.txt`.
 
-You can delete these manually f.e. (`rm ~/.dissonance/logs/2021-10*` will delete all
-logs created in October 2021), or you can start the game with `dissonance -c`
-respectively `dissonance --clear-log` which will delete all logfiles.
+By default all previous logs are deleted. This behavior can be changed, adding
+`-k` or `--keep_log` flag.
 
 By default logging is set to `warn`, leading to very small log-files containing only
 the most relevant information. Consider including these files if you are filing
 an issue. You may also increase the log-level with `dissonance -l` respectively
 `dissonance --log-level` (f.e. `dissonance -l "debug"`). 
+
 
 ### Tests
 

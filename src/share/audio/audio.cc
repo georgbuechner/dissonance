@@ -207,6 +207,7 @@ void Audio::play() {
   ma_result result;
   ma_device_config deviceConfig;
 
+  spdlog::get(LOGGER)->debug("Audio::play: loading audio at {}", source_path_);
   result = ma_decoder_init_file(source_path_.c_str(), NULL, &decoder_);
   if (result != MA_SUCCESS) {
     spdlog::get(LOGGER)->debug("Audio::play: Failed to load audio");
