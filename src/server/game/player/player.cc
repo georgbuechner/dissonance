@@ -492,13 +492,22 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
 bool Player::AddTechnology(int technology) {
   spdlog::get(LOGGER)->debug("Player::AddTechnology.");
   // Check if technology exists, resources are missing and whether already fully researched.
-  if (technologies_.count(technology) == 0)
+  if (technologies_.count(technology) == 0) {
+    spdlog::get(LOGGER)->warn("Player::AddTechnology: technology does not exist");
     return false;
-  if (GetMissingResources(technology, technologies_[technology].first+1).size() > 0 
-      || technologies_[technology].first == technologies_[technology].second)
+  }
+  auto missing = GetMissingResources(technology, technologies_[technology].first+1);
+  if (missing.size() > 0 || technologies_[technology].first == technologies_[technology].second) {
+    spdlog::get(LOGGER)->debug("Player::AddTechnology: Not enough resources:");
+    for (const auto& r : missing) {
+      spdlog::get(LOGGER)->debug("Player::AddTechnology: {}: {}", resources_name_mapping.at(r.first), r.second);
+    }
     return false;
-  if (!TakeResources(technology, false, technologies_[technology].first+1))
+  }
+  if (!TakeResources(technology, false, technologies_[technology].first+1)) {
+    spdlog::get(LOGGER)->warn("Player::AddTechnology: taking resources failed.");
     return false;
+  }
   // Handle technology.
   spdlog::get(LOGGER)->debug("Player::AddTechnology: Adding new technology");
   technologies_[technology].first++;

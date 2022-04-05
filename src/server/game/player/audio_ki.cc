@@ -146,6 +146,7 @@ void AudioKi::SetEconomyTactics() {
   resource_tactics[GLUTAMATE] = 4 + def_boast + (defence_strategies_[DEF_FRONT_FOCUS] 
       + defence_strategies_[DEF_SURROUNG_FOCUS])/2;
   resource_tactics[DOPAMINE] = atk_boast + defence_strategies_[DEF_IPSP_BLOCK];
+    resource_tactics[SEROTONIN] = 1;
   if (def_boast > atk_boast) {
     resource_tactics[DOPAMINE] = resource_tactics[GLUTAMATE]-1;
     resource_tactics[SEROTONIN] = resource_tactics[GLUTAMATE]-2;
@@ -179,8 +180,8 @@ void AudioKi::SetEconomyTactics() {
     for (const auto& it : SortStrategy(technology_tactics)) 
       technology_tactics_.push_back(it.second);
   // log final technology tactics
-  for (const auto& it : resource_tactics_)
-    spdlog::get(LOGGER)->debug("resource: {}", resources_name_mapping.at(it));
+  for (const auto& it : technology_tactics_)
+    spdlog::get(LOGGER)->debug("technology: {}", units_tech_name_mapping.at(it));
 
   // building tactics.
   if (cur_interval_.major_)
@@ -445,6 +446,14 @@ void AudioKi::NewTechnology(const AudioDataTimePoint& data_at_beat) {
   if (!AddTechnology(technology))
     return;
   technology_tactics_.erase(technology_tactics_.begin());
+  if (technology == SWARM) {
+    for (auto& it : neurons_) {
+      if (it.second->type_ == SYNAPSE) {
+        it.second->set_swarm(true);
+        spdlog::get(LOGGER)->info("AUDIO KI: set swarm attack for synapse @ {}", utils::PositionToString(it.first));
+      }
+    }
+  }
   // If technology was already fully researched, research next technology right away.
   if (technologies_.at(technology).first == technologies_.at(technology).second)
     NewTechnology(data_at_beat);

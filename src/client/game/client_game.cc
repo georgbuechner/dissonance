@@ -45,7 +45,7 @@ void ClientGame::init(){
     },
     { CONTEXT_FIELD, {
         {'h', &ClientGame::h_MoveSelectionLeft}, {'l', &ClientGame::h_MoveSelectionRight}, 
-        {'\n', &ClientGame::h_AddPosition}
+        {'\n', &ClientGame::h_AddPosition}, {'q', &ClientGame::h_ToResourceContext},
       }
     },
     { CONTEXT_RESOURCES, {{'+', &ClientGame::h_AddIron}, {'-', &ClientGame::h_RemoveIron}} },
@@ -364,6 +364,9 @@ void ClientGame::h_BuildPotential(nlohmann::json& msg) {
     SwitchToPickContext(msg["data"]["positions"], "Select synapse", "build_potential", msg);
   }
   msg = nlohmann::json();
+}
+void ClientGame::h_ToResourceContext(nlohmann::json&) {
+  SwitchToResourceContext("Aborted adding neuron/ potential");
 }
 
 void ClientGame::h_BuildNeuron(nlohmann::json& msg) {

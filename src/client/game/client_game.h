@@ -156,6 +156,7 @@ class ClientGame {
 
     void h_BuildNeuron(nlohmann::json&);
     void h_BuildPotential(nlohmann::json&);
+    void h_ToResourceContext(nlohmann::json&);
 
     void h_SendSelectSynapse(nlohmann::json&);
 
