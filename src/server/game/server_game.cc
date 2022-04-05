@@ -698,12 +698,14 @@ void ServerGame::Thread_RenderField() {
     // Analyze audio data.
     std::shared_lock sl(mutex_pause_);
     if (utils::GetElapsed(audio_start_time, cur_time)-time_in_pause_ >= data_at_beat.time_) {
+      spdlog::get(LOGGER)->debug("Thread_RenderField: Next timepoint {} {}", data_per_beat.size(), data_at_beat.time_);
       sl.unlock();
       // Update render-frequency.
       render_frequency = 60000.0/(data_at_beat.bpm_*8);
       data_per_beat.pop_front();
       // All players lost, because time is up:
       if (data_per_beat.size() == 0) {
+        status_ = CLOSING;
         // If multi player, inform other player.
         std::map<std::string, nlohmann::json> statistics;
         for (const auto& it : players_) 
@@ -711,6 +713,7 @@ void ServerGame::Thread_RenderField() {
         nlohmann::json resp = {{"command", "game_end"}, {"data", {{"msg", "YOU LOST - times up"},
           {"statistics", statistics}} }};
         SendMessageToAllPlayers(resp);
+        break; 
       }
       else 
         data_at_beat = data_per_beat.front();
@@ -718,9 +721,11 @@ void ServerGame::Thread_RenderField() {
       std::unique_lock ul(mutex_players_);
       for (const auto& it : human_players_)
         it.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      spdlog::get(LOGGER)->debug("Thread_RenderField: Next timepoint done");
     }
     // Move potential
     if (utils::GetElapsed(last_update, cur_time) > render_frequency) {
+      spdlog::get(LOGGER)->debug("Thread_RenderField: Next refresh");
       // Move potentials of all players.
       std::unique_lock ul(mutex_players_);
       for (const auto& it : players_)
@@ -738,6 +743,7 @@ void ServerGame::Thread_RenderField() {
             /audio_.analysed_data().data_per_beat_.size()));
       // Refresh page
       last_update = cur_time;
+      spdlog::get(LOGGER)->debug("Thread_RenderField: Next refresh done");
     }
   } 
   std::unique_lock ul(mutex_status_);
@@ -755,6 +761,8 @@ void ServerGame::Thread_Ai(std::string username) {
   std::list<AudioDataTimePoint> data_per_beat = players_.at(username)->data_per_beat();
   Player* ai = players_.at(username);
 
+  bool was_reset = false;
+
   // Handle building neurons and potentials.
   auto data_at_beat = data_per_beat.front();
   while(ai && !ai->HasLost() && status_ < CLOSING) {
@@ -762,7 +770,11 @@ void ServerGame::Thread_Ai(std::string username) {
     auto cur_time = std::chrono::steady_clock::now();
     // Analyze audio data.
     std::shared_lock sl(mutex_pause_);
+    if (was_reset)
+      spdlog::get(LOGGER)->debug("Thread_Ai: checking next timepoint reached");
     if (utils::GetElapsed(audio_start_time, cur_time)-time_in_pause_ >= data_at_beat.time_) {
+      spdlog::get(LOGGER)->debug("Thread_Ai: next timepoint reached");
+      spdlog::get(LOGGER)->flush();
       sl.unlock();
       // Do action.
       std::unique_lock ul(mutex_players_);
@@ -779,6 +791,7 @@ void ServerGame::Thread_Ai(std::string username) {
         spdlog::get(LOGGER)->debug("AI audio-data done. Resetting... {}", players_.at(username)->data_per_beat().size());
         data_per_beat = players_.at(username)->data_per_beat();
         audio_start_time = std::chrono::steady_clock::now();
+        was_reset = true;
       }
       else 
         data_at_beat = data_per_beat.front();
@@ -826,6 +839,10 @@ std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotent
       // Only overwride entry of other player, if this players units are more
       else if (potential_per_pos[jt.first].first < symbol)
         potential_per_pos[jt.first] = {symbol, it.second->color()};
+    }
+    // MACRO is always shown on top of epsp and ipsp
+    for (const auto& jt : it.second->GetMacroAtPosition()) {
+      potential_per_pos[jt.first] = {"0", it.second->color()};
     }
   }
   // Build full map:

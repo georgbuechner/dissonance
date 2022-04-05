@@ -14,6 +14,7 @@
 
 #define EPSP_SPEED 6 
 #define IPSP_SPEED 8 
+#define MACRO_SPEED 10
 #define ACTIVATEDNEURON_SPEED 6
 #define IPSP_DURATION 24
 
@@ -235,10 +236,16 @@ struct Epsp : Potential {
  * - last_action (derived from Potential)
  * - way (derived from Potential)
  */
-struct Ipsp: Potential {
+struct Ipsp : Potential {
   Ipsp() : Potential() {}
   Ipsp(position_t pos, std::list<position_t> way, int potential_boast, int speed_boast, int duration_boast) 
     : Potential(pos, 3+potential_boast, way, IPSP_SPEED-speed_boast, UnitsTech::IPSP, IPSP_DURATION+duration_boast) {}
+};
+
+struct Makro : Potential {
+  Makro() : Potential() {}
+  Makro(position_t pos, std::list<position_t> way, int potential_boast, int speed_boast)  
+    : Potential(pos, 50+10*potential_boast, way, MACRO_SPEED-speed_boast, UnitsTech::MACRO, 0) {}
 };
 
 #endif

@@ -1,4 +1,5 @@
 #include "share/objects/units.h"
+#include "share/constants/codes.h"
 #include "share/tools/utils/utils.h"
 #include <cstddef>
 
@@ -86,7 +87,7 @@ void Synapse::set_max_stored(unsigned int max_stored) {
 std::vector<position_t> Synapse::GetWayPoints(int unit) const { 
   spdlog::get(LOGGER)->debug("SYNAPSE::GetWayPoints");
   auto way = way_points_;
-  if (unit == UnitsTech::EPSP)
+  if (unit == UnitsTech::EPSP || unit == UnitsTech::MACRO)
     way.push_back(epsp_target_);
   else if (unit == UnitsTech::IPSP)
     way.push_back(ipsp_target_);
