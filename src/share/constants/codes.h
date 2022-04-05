@@ -68,6 +68,7 @@ enum UnitsTech {
   RESOURCENEURON,
   EPSP,
   IPSP,
+  MACRO,
 
   WAY,
   SWARM,

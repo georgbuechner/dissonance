@@ -66,6 +66,7 @@ class Player {
     nlohmann::json GetFinalStatistics();
     std::map<position_t, int> GetEpspAtPosition();
     std::map<position_t, int> GetIpspAtPosition();
+    std::map<position_t, int> GetMacroAtPosition();
     std::vector<position_t> GetPotentialPositions();
     std::map<position_t, int> GetAllNeuronsInRange(position_t pos);
 

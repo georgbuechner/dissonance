@@ -54,6 +54,15 @@ namespace costs {
         {Resources::SEROTONIN, 0}
       }
     },
+    {UnitsTech::MACRO, {
+        {Resources::OXYGEN, 0}, 
+        {Resources::POTASSIUM, 54}, 
+        {Resources::CHLORIDE, 54}, 
+        {Resources::GLUTAMATE, 0}, 
+        {Resources::DOPAMINE, 0}, 
+        {Resources::SEROTONIN, 0}
+      }
+    },
     {UnitsTech::WAY, {
         {Resources::IRON, 1}, 
         {Resources::OXYGEN, 0}, 

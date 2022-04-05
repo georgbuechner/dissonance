@@ -170,6 +170,7 @@ std::map<position_t, int> Player::GetEpspAtPosition() {
   }
   return epsps;
 }
+
 std::map<position_t, int> Player::GetIpspAtPosition() {
   std::map<position_t, int> ipsps;
   for (const auto& it : potential_) {
@@ -178,6 +179,15 @@ std::map<position_t, int> Player::GetIpspAtPosition() {
   }
   return ipsps;
 }
+std::map<position_t, int> Player::GetMacroAtPosition() {
+  std::map<position_t, int> macros;
+  for (const auto& it : potential_) {
+    if (it.second.type_ == MACRO) 
+      macros[it.second.pos_]++;
+  }
+  return macros;
+}
+
 
 std::vector<position_t> Player::GetPotentialPositions() {
   std::map<position_t, int> potentials;
@@ -197,7 +207,6 @@ std::map<position_t, int> Player::GetAllNeuronsInRange(position_t pos) {
   }
   return neurons_in_range;
 }
-
 
 position_t Player::GetPositionOfClosestNeuron(position_t pos, int unit) {
   spdlog::get(LOGGER)->debug("Player::GetPositionOfClosestNeuron");
@@ -343,10 +352,9 @@ bool Player::DistributeIron(int resource) {
     spdlog::get(LOGGER)->debug("Player::DistributeIron: not enough iron!");
     return false;
   }
-  int active_before = resources_.at(resource).Active();
   resources_.at(resource).set_distribited_iron(resources_.at(resource).distributed_iron()+1);
-  int active_after = resources_.at(resource).Active();
-  if (active_after && !active_before)
+  // if it is now two, then resource is now active and we need to create a new resource-neuron.
+  if (resources_.at(resource).distributed_iron() == 2)
     AddNeuron(resources_.at(resource).pos(), RESOURCENEURON);  // Add resource neuron.
   resources_.at(IRON).set_cur(resources_.at(IRON).cur() - 1);
   resources_.at(IRON).set_bound(resources_.at(IRON).bound() + 1);
@@ -364,11 +372,14 @@ bool Player::RemoveIron(int resource) {
     spdlog::get(LOGGER)->error("Player::RemoveIron: no iron distributed to this resource!");
     return false;
   }
-  int active_before = resources_.at(resource).Active();
+  //int active_before = resources_.at(resource).Active();
   resources_.at(resource).set_distribited_iron(resources_.at(resource).distributed_iron()-1);
-  int active_after = resources_.at(resource).Active();
-  if (!active_after && active_before)
+  //int active_after = resources_.at(resource).Active();
+  if (resources_.at(resource).distributed_iron() == 1) {
     AddPotentialToNeuron(resources_.at(resource).pos(), 100);  // Remove resource neuron.
+    // Add the second iron too.
+    resources_.at(IRON).set_cur(resources_.at(IRON).cur() + 1);
+  }
   resources_.at(IRON).set_cur(resources_.at(IRON).cur() + 1);
   resources_.at(IRON).set_bound(resources_.at(IRON).bound() -1);
   spdlog::get(LOGGER)->debug("Player::RemoveIron: success!");
@@ -482,6 +493,11 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
     id = utils::CreateId("ipsp");
     potential_[id] = Ipsp(synapes_pos, way, potential_boast, speed_boast, duration_boast);
   }
+  else if (unit == UnitsTech::MACRO) {
+    spdlog::get(LOGGER)->debug("Player::AddPotential: ipsp - creating 1 ipsp.");
+    id = utils::CreateId("macro");
+    potential_[id] = Makro(synapes_pos, way, potential_boast, speed_boast);
+  }
   // Decrease speed if given.
   potential_[id].movement_.first += inital_speed_decrease;
   spdlog::get(LOGGER)->debug("Player::AddPotential: done.");
@@ -551,14 +567,40 @@ void Player::MovePotential() {
     }
     // If target is reached, handle epsp and ipsp seperatly.
     // Epsp: add potential to target and add epsp to list of potentials to remove.
-    if (it.second.type_ == UnitsTech::EPSP) {
+    if (it.second.type_ == UnitsTech::EPSP || it.second.type_ == UnitsTech::MACRO) {
+      spdlog::get(LOGGER)->debug("Handling potential arrived EPSP/ MACRO.", it.second.type_);
       if (it.second.way_.size() == 0) {
-        for (const auto& enemy : enemies_) {
-          if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1)
-            enemy->AddPotentialToNeuron(it.second.pos_, it.second.potential_);
+        spdlog::get(LOGGER)->debug("Handling potential arrived EPSP");
+        // Epsp
+        if (it.second.type_ == UnitsTech::EPSP) {
+          for (const auto& enemy : enemies_) {
+            if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1)
+              enemy->AddPotentialToNeuron(it.second.pos_, it.second.potential_);
+          }
+          // Friendly fire
+          AddPotentialToNeuron(it.second.pos_, it.second.potential_);
         }
-        // Friendly fire
-        AddPotentialToNeuron(it.second.pos_, it.second.potential_);
+        // Makro
+        else if (it.second.type_ == UnitsTech::MACRO) {
+          spdlog::get(LOGGER)->debug("Handling potential arrived MACRO");
+          for (const auto& enemy : enemies_) {
+            if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1) {
+              auto neurons = enemy->GetAllNeuronsInRange(it.second.pos_);
+              spdlog::get(LOGGER)->debug("MACRO: got {} neurons in range.", neurons.size());
+              int macro_lp = it.second.potential_;
+              for (const auto& pos : neurons) {
+                int lp = (pos.second == SYNAPSE) ? 5 : (pos.second == ACTIVATEDNEURON) ? 17 : 0;
+                macro_lp-= lp;
+                if (macro_lp < 0) 
+                  lp = macro_lp+lp;
+                spdlog::get(LOGGER)->debug("MACRO: making {} damage.", lp);
+                enemy->AddPotentialToNeuron(pos.first, lp);
+                if (macro_lp < 0) 
+                  break;
+              }
+            }
+          }
+        }
         potential_to_remove.push_back(it.first); // remove 
       }
     }
@@ -711,6 +753,7 @@ std::vector<bool> Player::GetBuildingOptions() {
   return {
     (GetAllPositionsOfNeurons(SYNAPSE).size() > 0 && GetMissingResources(IPSP).size() == 0),
     (GetAllPositionsOfNeurons(SYNAPSE).size() > 0 && GetMissingResources(EPSP).size() == 0),
+    (GetAllPositionsOfNeurons(SYNAPSE).size() > 0 && GetMissingResources(MACRO).size() == 0),
     (GetMissingResources(ACTIVATEDNEURON).size() == 0),
     (GetMissingResources(SYNAPSE).size() == 0),
     (GetMissingResources(NUCLEUS).size() == 0),

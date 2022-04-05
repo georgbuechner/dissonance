@@ -71,6 +71,23 @@ namespace texts {
     {
       "##### HELP #####",
       "",
+      " --- POTENTIALS --- ",
+      "EPSP: used to destroy enemy neurons. Adds small amount of potential.",
+      "IPSP: used to a) block enemy neurons or b) 'swallow' potential of enemy epsp",
+      "MACRO: used to destroy enemy neurons. Adds a total of 50 damage to all nearby neurons",
+      "as long as potential is still availible. Is destroyed by first hit of activated neuron",
+      "",
+      " --- NEURONS --- ",
+      "ACTIVATED NEURON: block enemy potential. Desceases potential of incoming potentials. range ~5.",
+      "SYNAPSE: used to create potentials (epsp/ ipsp/ macro)",
+      "NUCLEUS: increase resource-limits (10%), you can build neurons inside of the nucleus' range. ",
+      "Nucleus can be built anywhere on the map.",
+      "RESOURCE NEURON: cannot be built. Are automatically created when more than 2 iron is distributed to a resource",
+      "Can be destroyed. If it is destroyed, all iron distributed to this resource is lost."
+    },
+    {
+      "##### HELP #####",
+      "",
       "--- COSTS (potentials/ neurons) ----", 
       "",
       "ACTIVATE NEURON: oxygen=8.9, glutamate=19.1",

@@ -40,7 +40,8 @@ void ClientGame::init(){
         {'j', &ClientGame::h_MoveSelectionUp}, {'k', &ClientGame::h_MoveSelectionDown}, 
         {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit}, {'s', &ClientGame::h_SendSelectSynapse}, 
         {'A', &ClientGame::h_BuildNeuron}, {'S', &ClientGame::h_BuildNeuron}, {'N', &ClientGame::h_BuildNeuron}, 
-        {'e', &ClientGame::h_BuildPotential}, {'i', &ClientGame::h_BuildPotential}, {'?', &ClientGame::h_Help},
+        {'e', &ClientGame::h_BuildPotential}, {'i', &ClientGame::h_BuildPotential}, 
+        {'m', &ClientGame::h_BuildPotential}, {'?', &ClientGame::h_Help},
       }
     },
     { CONTEXT_FIELD, {
@@ -68,9 +69,9 @@ void ClientGame::init(){
 
 // std-topline
 t_topline std_topline = {{"[i]psp (a..z)  ", COLOR_DEFAULT}, {"[e]psp (1..9)  ", COLOR_DEFAULT}, 
-  {"[A]ctivated Neuron (" SYMBOL_DEF ")  ", COLOR_DEFAULT}, {"[S]ynape (" SYMBOL_BARACK ")  ", 
-  COLOR_DEFAULT}, {"[N]ucleus (" SYMBOL_DEN ")  ", COLOR_DEFAULT}, {" [s]elect-synapse ", 
-  COLOR_DEFAULT}, {" [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, 
+  {"[m]akro (0)  ", COLOR_DEFAULT}, {"[A]ctivated Neuron (" SYMBOL_DEF ")  ", COLOR_DEFAULT}, 
+  {"[S]ynape (" SYMBOL_BARACK ")  ", COLOR_DEFAULT}, {"[N]ucleus (" SYMBOL_DEN ")  ", COLOR_DEFAULT}, 
+  {" [s]elect-synapse ", COLOR_DEFAULT}, {" [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, 
   {" [q]uit ", COLOR_DEFAULT}};
 
 t_topline field_topline = {{" [h, j, k, l] to navigate field " " [t]oggle-navigation ", 
@@ -348,8 +349,9 @@ void ClientGame::h_BuildPotential(nlohmann::json& msg) {
     spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 1");
     char cmd = contexts_.at(current_context_).cmd();
     int num = (history_.size() > 1 && std::isdigit(history_[history_.size()-2])) ? history_[history_.size()-2] - '0' : 1;
+    int unit = (cmd == 'e') ? EPSP : (cmd == 'i') ? IPSP : MACRO;
     nlohmann::json response = {{"command", "check_build_potential"}, {"username", username_}, {"data",
-      {{"unit", (cmd == 'e') ? EPSP : IPSP}, {"num", num}} }};
+      {{"unit", unit}, {"num", num}} }};
     ws_srv_->SendMessage(response.dump());
   }
   else if (msg["data"].contains("start_pos")) {
