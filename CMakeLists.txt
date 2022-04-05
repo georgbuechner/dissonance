@@ -17,22 +17,22 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)
 
 # Add source files needed for tests and game
 set(SRC_FILES
-  src/game/field.cc
-  src/player/player.cc
-  src/player/audio_ki.cc
-  src/utils/utils.cc
-  src/objects/units.cc
-  src/objects/resource.cc
-  src/audio/audio.cc
-  src/audio/miniaudio.cc
-  src/random/random.cc
+  src/client/game/client_game.cc
+  src/client/game/print/drawrer.cc
+  src/client/websocket/client.cc
 
-  src/print/drawrer.cc
+  src/share/audio/audio.cc
+  src/share/audio/miniaudio.cc
+  src/share/objects/units.cc
+  src/share/objects/resource.cc
+  src/share/tools/utils/utils.cc
+  src/share/tools/random/random.cc
 
-  src/server/websocket_server.cc
-  src/server/server_game.cc
-  src/client/client.cc
-  src/client/client_game.cc
+  src/server/game/server_game.cc
+  src/server/game/field/field.cc
+  src/server/game/player/audio_ki.cc
+  src/server/game/player/player.cc
+  src/server/websocket/websocket_server.cc
 )
 
 # Add soruce files needed for game only
