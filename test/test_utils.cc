@@ -4,7 +4,7 @@
 #include <map>
 #include <list>
 #include <vector>
-#include "utils/utils.h"
+#include "share/tools/utils/utils.h"
 
 TEST_CASE ("test_dist", "[utils]") {
   REQUIRE(utils::Dist({1,1}, {5,5}) == utils::Dist({5,5}, {1,1}));
@@ -20,6 +20,7 @@ TEST_CASE("loops", "[utils]") {
     c++;
   REQUIRE(c==0);
 }
+
 TEST_CASE("bitwise", "[utils]") {
   int num = 0;
   num |= 1UL << 0;

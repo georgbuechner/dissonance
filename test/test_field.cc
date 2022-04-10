@@ -2,36 +2,39 @@
 #include <cstddef>
 #include <iterator>
 #include <algorithm>
-#include "constants/codes.h"
-#include "game/field.h"
-#include "objects/units.h"
-#include "player/player.h"
+#include "share/constants/codes.h"
+#include "server/game/field/field.h"
+#include "share/objects/units.h"
+#include "server/game/player/player.h"
 #include "testing_utils.h"
-#include "utils/utils.h"
-#include "random/random.h"
+#include "share/tools/utils/utils.h"
+#include "share/tools/random/random.h"
 
 TEST_CASE("test_field", "[main]") {
   RandomGenerator* ran_gen = new RandomGenerator();
   Field* field = new Field(100, 100, ran_gen);
 
   SECTION("tests based on graph", "[main, graph]") {
-    position_t start_pos = field->AddNucleus(8);
-    position_t target_pos = field->AddNucleus(1);
-    field->BuildGraph(start_pos, target_pos);
+    field->BuildGraph();
+    // auto nucleus_positions = field->AddNucleus(2); // create two nucleus.
+    //position_t start_pos = nucleus_positions[0];
+    //position_t target_pos = nucleus_positions[1];
 
     SECTION("test GetWayForSoldier") {
       SECTION("test way-points are sorted") {
         // Create two way-points, where wp_1 should be following wp_2, so we expect
         // way_point_2 to be passed before wp_1, altough adding wp_1 first.
+        position_t start_pos = {99, 99};
+        position_t target_pos = {1, 1};
+
         position_t way_point_1 = {10, 20};
         position_t way_point_2 = {90, 80};
         // Make sure that we selected wp_1 and wp_2 correctly (wp1 is acctually nearer
-        // to target postion.
+        // to target postion).
         REQUIRE(utils::Dist(way_point_1, target_pos) < utils::Dist(way_point_2, target_pos));
-        std::vector<position_t> way_points = {way_point_1, way_point_2};
+        std::vector<position_t> way_points = {way_point_1, way_point_2, target_pos};
 
         // Create way
-        way_points.push_back(target_pos);
         auto way = field->GetWayForSoldier(start_pos, way_points);
 
         // Way was created with length of min number of way-points and make sure order is correct.
@@ -42,26 +45,6 @@ TEST_CASE("test_field", "[main]") {
         REQUIRE(utils::Index(way, start_pos) < utils::Index(way, target_pos));
       }
     }
-  }
-
-  SECTION("Test BuildGraph with all positions free.") {
-    Graph graph;
-    // Add all nodes.
-    for (int l=0; l<field->lines(); l++)
-      for (int c=0; c<field->cols(); c++)
-        graph.AddNode(l, c);
-    // For each node, add edges.
-    for (auto node : graph.nodes()) {
-      auto neighbors = field->GetAllInRange({node.second->line_, node.second->col_}, 1.5, 1);
-      if (node.second->line_ > 0 && node.second->line_ < field->lines() && node.second->col_ > 0 
-          && node.second->col_ < field->cols())
-        REQUIRE(neighbors.size() == 8);
-      for (const auto& pos : neighbors) {
-        if (graph.InGraph(pos))
-          graph.AddEdge(node.second, graph.nodes().at(pos));
-      }
-    }
-    REQUIRE(graph.RemoveInvalid({50, 50}) == 0);
   }
 
   SECTION("test GetAllInRange") {
@@ -84,8 +67,8 @@ TEST_CASE("test_field", "[main]") {
     }
 
     SECTION("Test for each position.") {
-      for (int l=1; l<field->lines(); l++) {
-        for (int c=1; c<field->cols(); c++) {
+      for (unsigned int l=1; l<field->lines(); l++) {
+        for (unsigned int c=1; c<field->cols(); c++) {
           auto positions = field->GetAllInRange({l, c}, 1.5, 1);
           if (l == 0 && c == 0)
             REQUIRE(positions.size() == 3);
@@ -103,7 +86,7 @@ TEST_CASE("test_field", "[main]") {
     }
 
     SECTION("Check free, range=3") {
-      field->BuildGraph({0, 0}, {field->lines()-1, field->cols()-1}); // Check free also checks in graph.
+      field->BuildGraph(); // Check free also checks in graph.
       auto positions_to_block = field->GetAllInRange({50, 50}, 2, 0, true);
       for (const auto& it : positions_to_block) 
         field->AddNewUnitToPos(it, UnitsTech::ACTIVATEDNEURON);
@@ -134,32 +117,15 @@ TEST_CASE("test_field", "[main]") {
   }
 
   SECTION("test AddResources") {
-    field->BuildGraph({0, 0}, {field->lines()-1, field->cols()-1}); // Check free also checks in graph.
+    field->BuildGraph(); // Check free also checks in graph.
     auto resource_positions = field->AddResources(t_utils::GetRandomPositionInField(field, ran_gen));
     // One resource was create for each existing resource in resource-mapping (all resources expect iron)
-    REQUIRE(resource_positions.size() == resources_symbol_mapping.size());
+    REQUIRE(resource_positions.size() == resource_symbol_mapping.size()-1); 
     // no two resources have an idenical position:
     std::set<position_t> positions;
     for (const auto& it : resource_positions) 
       positions.insert(it.second);
     REQUIRE(positions.size() == resource_positions.size());
-  }
-
-  SECTION("test AddNucleus") {
-    // Set up graph. 
-    field->BuildGraph({0, 0}, {field->lines()-1, field->cols()-1}); // Check free also checks in graph.
-    auto section_one = field->GetAllPositionsOfSection(1);
-    // Mark all positions in given section as free, to check make-free functionality:
-    for (const auto& it : section_one) 
-      field->AddNewUnitToPos(it, UnitsTech::ACTIVATEDNEURON);
-
-    // Create nucleus
-    position_t nucleus_pos = field->AddNucleus(1);
-
-    // Check that all positions directly surrounding nucleus are now free.
-    REQUIRE(field->GetAllInRange(nucleus_pos, 1.5, 1, true).size() == 8);
-    // Check that nucleus was created in given section.
-    REQUIRE(std::find(section_one.begin(), section_one.end(), nucleus_pos) != section_one.end());
   }
 
   SECTION ("test AddNewUnitToPos") {
@@ -180,7 +146,7 @@ TEST_CASE("test_field", "[main]") {
 
   SECTION ("test FindFree") {
     // Set up graph. 
-    field->BuildGraph({0, 0}, {field->lines()-1, field->cols()-1}); // Check free also checks in graph.
+    field->BuildGraph(); // Check free also checks in graph.
 
     SECTION("valid position") {
       position_t start_pos = t_utils::GetRandomPositionInField(field, ran_gen);

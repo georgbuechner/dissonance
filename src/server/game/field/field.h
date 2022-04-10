@@ -28,6 +28,10 @@ class Field {
      */
     Field(int lines, int cols, RandomGenerator* ran_gen);
 
+    // getter 
+    unsigned int lines();
+    unsigned int cols();
+
     // methods:
     
     /**
@@ -113,6 +117,13 @@ class Field {
     std::vector<position_t> GetAllCenterPositionsOfSections();
 
     /**
+     * Gets all positions of a given section.
+     * @param[in] section]
+     * @return all positions of a given section.
+     */
+    std::vector<position_t> GetAllPositionsOfSection(unsigned short section, bool in_graph = false);
+
+    /**
      * Converts current field to transfer-object.
      * @param[in] players
      * @return two-dimensional array with Symbol (string, color) as value.
@@ -130,13 +141,6 @@ class Field {
 
     // functions
     
-    /**
-     * Gets all positions of a given section.
-     * @param[in] section]
-     * @return all positions of a given section.
-     */
-    std::vector<position_t> GetAllPositionsOfSection(unsigned short section, bool in_graph = false);
-
     /**
      * Checks whether given position is inside of field.
      * @param pos

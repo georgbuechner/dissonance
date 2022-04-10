@@ -42,7 +42,6 @@ set(SRC_FILES_GAME
 )
 
 # Add source files for testing only
-#[[
 set(SRC_FILES_TEST
   test/main.cc
   test/test_audio.cc
@@ -53,22 +52,15 @@ set(SRC_FILES_TEST
   test/testing_utils.cc
   ${SRC_FILES}
 )
-]]
 
 include_directories(/usr/local/lib/)
 link_directories(/usr/local/lib/)
 
 add_executable(dissonance ${SRC_FILES_GAME})
-#[[
-  add_executable(tests ${SRC_FILES_TEST})
-]]
+add_executable(tests ${SRC_FILES_TEST})
 
 target_link_libraries(dissonance PUBLIC aubio ${CONAN_LIBS})
-#[[
 target_link_libraries(tests PUBLIC aubio ${CONAN_LIBS})
-]] 
 
 target_include_directories(dissonance PUBLIC "src")
-#[[ 
-  target_include_directories(tests PUBLIC "src" "test")
-]]
+target_include_directories(tests PUBLIC "src" "test")

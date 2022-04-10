@@ -38,6 +38,10 @@ Field::Field(int lines, int cols, RandomGenerator* ran_gen) {
   }
 }
 
+// getter 
+unsigned int Field::lines() { return lines_; }
+unsigned int Field::cols() { return cols_; }
+
 std::vector<position_t> Field::GraphPositions() {
   std::vector<position_t> graph_positions;
   for (const auto& it : graph_.nodes())

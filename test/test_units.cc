@@ -1,8 +1,8 @@
 #include <iostream>
 #include <catch2/catch.hpp>
 #include <memory>
-#include "objects/units.h"
-#include "constants/codes.h"
+#include "share/objects/units.h"
+#include "share/constants/codes.h"
 
 TEST_CASE("calling getting way has target included", "[units]") {
   std::map<position_t, std::shared_ptr<Neuron>> neurons;
