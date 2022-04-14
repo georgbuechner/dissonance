@@ -444,6 +444,9 @@ awesome libraries makeing `dissonance` possible:
   json-library (which probably everyone is using?)
 - [spdlog](https://github.com/catchorg/Catch2), a great logging library.
 - and finally [ncurses](https://github.com/mirror/ncurses)! 
+- [fiboheap](git push --set-upstream origin dijkstras_shortes_path) for
+  providing a easy to use impementation of the fibonacci heap. I modified the
+  fibonacci-queue to meet my needs.
 
 Also I want to clarify, that not all dependencies use the same license as I:
 
