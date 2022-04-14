@@ -259,7 +259,7 @@ namespace texts {
     {
       "TUTORIAL",
       "",
-      "Great, you gathered all necessary resources now you can activated a neuron",
+      "Great, you gathered all necessary resources. Now you can activated a neuron",
       "to build your defensive layer.",
       "",
       "Once again you must use the 'h'/'j'/'k'/'l'-keys, this time to select a position on the map",
@@ -327,7 +327,7 @@ namespace texts {
     {
       "TUTORIAL",
       "",
-      "Now that you can see which neurons your enemy has created you can specifically target",
+      "Now that you can see which neurons your enemy has created, you can specifically target",
       "these neurons.",
       "",
       "Press 's' to select the synapse menu, then press 'e' to select [e]psp target.",
@@ -455,7 +455,7 @@ namespace texts {
       "(all your synapses should be marked on the map with a, b, ...)",
       "",
       "Select 's' for '[s]elect way points'. You can now set as many way points as your research-level allows (1-3).",
-      "Try to select the way-point so that your potentials pass the least amount of enemy activated neurons.",
+      "Try to select the way-points so that your potentials pass the least amount of enemy activated neurons.",
       "After each way-point is selected you can see the current way of your epsp marked in purple.",
       "Applied ways are used for epsp AND ipsp (of course their targets might be different).",
     },

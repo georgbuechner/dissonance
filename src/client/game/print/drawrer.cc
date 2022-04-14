@@ -1,5 +1,6 @@
 #include "client/game/print/drawrer.h"
 #include "curses.h"
+#include "drawrer.h"
 #include "server/game/player/statistics.h"
 #include "share/constants/codes.h"
 #include "share/defines.h"
@@ -236,6 +237,13 @@ void Drawrer::PrintCenteredLine(int l, std::string line) const {
   mvaddstr(l, 0, clear_string.c_str());
   mvaddstr(l, COLS/2-line.length()/2, line.c_str());
 }
+void Drawrer::PrintCenteredLineBold(int l, std::string line) const {
+  std::string clear_string(COLS, ' ');
+  attron(WA_BOLD);
+  mvaddstr(l, 0, clear_string.c_str());
+  mvaddstr(l, COLS/2-line.length()/2, line.c_str());
+  attroff(WA_BOLD);
+}
 
 void Drawrer::PrintCenteredLineColored(int l, std::vector<std::pair<std::string, int>> txt_with_color) {
   // Get total length.
@@ -256,11 +264,15 @@ void Drawrer::PrintCenteredLineColored(int l, std::vector<std::pair<std::string,
   }
 }
 
-void Drawrer::PrintCenteredParagraph(texts::paragraph_t paragraph) {
-    int size = paragraph.size()/2;
-    int counter = 0;
-    for (const auto& line : paragraph)
-      PrintCenteredLine(LINES/2-size+(counter++), line);
+void Drawrer::PrintCenteredParagraph(texts::paragraph_t paragraph, bool nextmsg) {
+  if (nextmsg) {
+    paragraph.push_back("");
+    paragraph.push_back("[press 'h' for previous and 'l' for next text. 'q' to quit.]");
+  }
+  int size = paragraph.size()/2;
+  int counter = 0;
+  for (const auto& line : paragraph)
+    PrintCenteredLine(LINES/2-size+(counter++), line);
 }
 
 void Drawrer::PrintCenteredParagraphs(texts::paragraphs_t paragraphs, bool skip_first_wait) {
@@ -305,7 +317,7 @@ void Drawrer::PrintGame(bool only_field, bool only_side_column, int context) {
 }
 
 void Drawrer::PrintHeader(float audio_played, const t_topline& players) {
-  PrintCenteredLine(l_headline_, "DISSONANCE");
+  PrintCenteredLineBold(l_headline_, "DISSONANCE");
   ClearLine(l_headline_+1);
   PrintCenteredLineColored(l_headline_+1, players);
   // Print audio
@@ -445,42 +457,30 @@ void Drawrer::PrintStatistics() const {
     if (counter++ == cur_selection_.at(VP_POST_GAME).x_) {
       // Print player name and "headings" bold. Print only player name in player-color.
       attron(COLOR_PAIR(it.second.player_color()));
-      attron(WA_BOLD);
       // Player name.
-      PrintCenteredLine(start_line, utils::ToUpper(it.first));
+      PrintCenteredLineBold(start_line, utils::ToUpper(it.first));
       attroff(COLOR_PAIR(it.second.player_color()));
       int i=2;
-      PrintCenteredLine(start_line+(++i), "Neurons Built");
-      attroff(WA_BOLD);
+      PrintCenteredLineBold(start_line+(++i), "Neurons Built");
       for (const auto& it : it.second.neurons_build()) 
         PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
       i++;
-      attron(WA_BOLD);
-      PrintCenteredLine(start_line+(++i), "Potentials Built");
-      attroff(WA_BOLD);
+      PrintCenteredLineBold(start_line+(++i), "Potentials Built");
       for (const auto& it : it.second.potentials_build()) 
         PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
       i++;
-      attron(WA_BOLD);
-      PrintCenteredLine(start_line+(++i), "Potentials Killed");
-      attroff(WA_BOLD);
+      PrintCenteredLineBold(start_line+(++i), "Potentials Killed");
       for (const auto& it : it.second.potentials_killed()) 
         PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
       i++;
-      attron(WA_BOLD);
-      PrintCenteredLine(start_line+(++i), "Potentials Lost");
-      attroff(WA_BOLD);
+      PrintCenteredLineBold(start_line+(++i), "Potentials Lost");
       for (const auto& it : it.second.potentials_lost()) 
         PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
       i++;
-      attron(WA_BOLD);
-      PrintCenteredLine(start_line+(++i), "Enemy Epsps Swallowed By Ipsp");
-      attroff(WA_BOLD);
+      PrintCenteredLineBold(start_line+(++i), "Enemy Epsps Swallowed By Ipsp");
       PrintCenteredLine(start_line+(++i), std::to_string(it.second.epsp_swallowed()));
       i++;
-      attron(WA_BOLD);
-      PrintCenteredLine(start_line+(++i), "Resources");
-      attroff(WA_BOLD);
+      PrintCenteredLineBold(start_line+(++i), "Resources");
       for (const auto& it : it.second.resources()) {
         PrintCenteredLine(start_line+(++i), resources_name_mapping.at(it.first));
         std::string info = "";
@@ -490,9 +490,7 @@ void Drawrer::PrintStatistics() const {
         PrintCenteredLine(start_line+(++i), info);
       }
       i++;
-      attron(WA_BOLD);
-      PrintCenteredLine(start_line+(++i), "Technologies");
-      attroff(WA_BOLD);
+      PrintCenteredLineBold(start_line+(++i), "Technologies");
       for (const auto& it : it.second.technologies()) {
         std::string info = units_tech_name_mapping.at(it.first) + ": " 
           + utils::PositionToString(it.second);

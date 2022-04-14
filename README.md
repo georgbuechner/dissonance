@@ -11,6 +11,7 @@ sudo apt-get install aubio-tools libaubio-dev libaubio-doc
 
 # MacOs and other linux-distros:
 make aubio  
+
 make install
 ```
 

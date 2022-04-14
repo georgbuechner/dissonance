@@ -89,6 +89,7 @@ class Drawrer {
      * @param[in] line (text to print
      */
     void PrintCenteredLine(int l, std::string line) const;
+    void PrintCenteredLineBold(int l, std::string line) const;
 
     void PrintStatistics() const;
 
@@ -104,8 +105,9 @@ class Drawrer {
      * Prints a paragraph (mulitple lines of text) to the center of the screen.
      * (Does not clear screen, does not lock mutex)
      * @param[in] paragraph
+     * @param[in] nextmsg adds a message with instructions for prev/next/quit (default=false)
      */
-    void PrintCenteredParagraph(texts::paragraph_t paragraph);
+    void PrintCenteredParagraph(texts::paragraph_t paragraph, bool nextmsg=false);
 
     /**
      * Prints mulitple paragraphs to the center of the screen, clearing screen

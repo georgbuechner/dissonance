@@ -179,6 +179,35 @@ class ClientGame {
     void TutorialPause();
     void TutorialUnPause();
 
+    // text
+    /**
+     * Increases current text and call h_TextPrint
+     * @param[in, out] msg (unchanged)
+     */
+    void h_TextNext(nlohmann::json&);
+
+    /**
+     * Decreases current text and call h_TextPrint
+     * @param[in, out] msg (unchanged)
+     */
+    void h_TextPrev(nlohmann::json&);
+
+    /**
+     * Simply calls h_TextQuit()
+     * @param[in, out] msg (unchanged)
+     */
+    void h_TextQuit(nlohmann::json&);
+
+    /**
+     * Changes back to last context.
+     */
+    void h_TextQuit();
+
+    /**
+     * Prints current text of text-context.
+     */
+    void h_TextPrint();
+
     // command methods
 
     /**

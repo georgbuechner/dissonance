@@ -1,6 +1,7 @@
 #include "client/game/client_game.h"
 #include "client/game/print/drawrer.h"
 #include "client/websocket/client.h"
+#include "client_game.h"
 #include "curses.h"
 #include "nlohmann/json_fwd.hpp"
 #include "share/audio/audio.h"
@@ -18,6 +19,7 @@
 
 #include <cctype>
 #include <filesystem>
+#include <iterator>
 #include <math.h>
 #include <mutex>
 #include <shared_mutex>
@@ -64,6 +66,12 @@ void ClientGame::init(){
         {'\n', &ClientGame::h_SelectGame}
       }
     },
+    { CONTEXT_TEXT,
+      {
+        {'h', &ClientGame::h_TextPrev}, {'l', &ClientGame::h_TextNext},
+        {'q', &ClientGame::h_TextQuit}, 
+      }
+    }
   };
 }
 
@@ -138,6 +146,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   contexts_[CONTEXT_SYNAPSE] = Context(CONTEXT_SYNAPSE_MSG, handlers_[CONTEXT_SYNAPSE], synapse_topline);
   contexts_[CONTEXT_POST_GAME] = Context("", handlers_[CONTEXT_POST_GAME], std_topline);
   contexts_[CONTEXT_LOBBY] = Context("", handlers_[CONTEXT_LOBBY], std_topline);
+  contexts_[CONTEXT_TEXT] = Context("", handlers_[CONTEXT_TEXT], std_topline);
 
   // Initialize eventmanager.
   eventmanager_.AddHandler("kill", &ClientGame::h_Kill);
@@ -198,10 +207,8 @@ void ClientGame::GetAction() {
     char choice = getch();
     history_.push_back(choice);
     spdlog::get(LOGGER)->info("ClientGame::GetAction action_ {}, in: {}", status_, choice);
-    if (status_ == WAITING) {
-      // ungetch(choice);
+    if (status_ == WAITING)
       continue; // Skip as long as not active. 
-    }
 
     if (current_context_ == CONTEXT_POST_GAME && choice == 'q')
       break;
@@ -940,11 +947,13 @@ void ClientGame::m_SetUnits(nlohmann::json& msg) {
 
 // tutorial 
 
-void ClientGame::h_TutorialGetOxygen(nlohmann::json&) {
+void ClientGame::h_TutorialGetOxygen(nlohmann::json& msg) {
+  spdlog::get(LOGGER)->info("h_TutorialGetOxygen");
   TutorialPause();
-  drawrer_.PrintCenteredParagraphs(texts::tutorial_get_oxygen, true);
+  contexts_.at(CONTEXT_TEXT).init_text(texts::tutorial_get_oxygen, current_context_);
+  current_context_ = CONTEXT_TEXT;
+  h_TextPrint();
   eventmanager_tutorial_.RemoveHandler("init_game");
-  TutorialUnPause();
 }
 
 void ClientGame::h_TutorialSetUnit(nlohmann::json& original_message) {
@@ -996,10 +1005,16 @@ void ClientGame::h_TutorialSetUnit(nlohmann::json& original_message) {
   // If text was set, print text:
   if (texts.size() > 0) {
     TutorialPause();
+    // Add all texts.
+    auto final_text = texts[0];
+    for (unsigned int i=1; i<texts.size(); i++) {
+      final_text.insert(final_text.end(), std::make_move_iterator(texts[i].begin()), 
+        std::make_move_iterator(texts[i].end()));
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
-    for (const auto& text : texts)
-      drawrer_.PrintCenteredParagraphs(text, true);
-    TutorialUnPause();
+    contexts_.at(CONTEXT_TEXT).init_text(final_text, current_context_);
+    current_context_ = CONTEXT_TEXT;
+    h_TextPrint();
   }
 }
 
@@ -1027,8 +1042,9 @@ void ClientGame::h_TutorialScouted(nlohmann::json& original_message) {
   if (text.size() > 0) {
     TutorialPause();
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
-    drawrer_.PrintCenteredParagraphs(text);
-    TutorialUnPause();
+    contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
+    current_context_ = CONTEXT_TEXT;
+    h_TextPrint();
   }
 }
 
@@ -1046,8 +1062,9 @@ void ClientGame::h_TutorialBuildNeuron(nlohmann::json& original_message) {
   if (text.size() > 0) {
     TutorialPause();
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
-    drawrer_.PrintCenteredParagraphs(text);
-    TutorialUnPause();
+    contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
+    current_context_ = CONTEXT_TEXT;
+    h_TextPrint();
   }
 }
 
@@ -1074,8 +1091,9 @@ void ClientGame::h_TutorialAction(nlohmann::json&) {
     tutorial_.action_++;
     TutorialPause();
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
-    drawrer_.PrintCenteredParagraphs(text);
-    TutorialUnPause();
+    contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
+    current_context_ = CONTEXT_TEXT;
+    h_TextPrint();
   }
 }
 
@@ -1091,8 +1109,9 @@ void ClientGame::h_TutorialSetMessage(nlohmann::json& original_message) {
   if (text.size() > 0) {
     TutorialPause();
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
-    drawrer_.PrintCenteredParagraphs(text);
-    TutorialUnPause();
+    contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
+    current_context_ = CONTEXT_TEXT;
+    h_TextPrint();
   }
 }
 
@@ -1100,16 +1119,52 @@ void ClientGame::TutorialPause() {
   drawrer_.set_stop_render(true);
   nlohmann::json msg = {{"command", "set_pause_on"}, {"username", username_}, {"data", nlohmann::json()}};
   ws_srv_->SendMessage(msg.dump());
-  status_ = WAITING;
   audio_.Pause();
 }
 
 void ClientGame::TutorialUnPause() {
   nlohmann::json msg = {{"command", "set_pause_off"}, {"username", username_}, {"data", nlohmann::json()}};
   ws_srv_->SendMessage(msg.dump());
-  status_ = RUNNING;
   audio_.Unpause();
   drawrer_.set_stop_render(false);
+}
+
+// text
+void ClientGame::h_TextNext(nlohmann::json& msg) {
+  // Check if last text was reached.
+  if (contexts_.at(current_context_).last_text())
+    h_TextQuit();
+  // Otherwise increase num and then print text.
+  else {
+    unsigned int num = contexts_.at(CONTEXT_TEXT).num();
+    contexts_.at(CONTEXT_TEXT).set_num(num+1);
+    h_TextPrint();
+  }
+}
+
+void ClientGame::h_TextPrev(nlohmann::json&) {
+  unsigned int num = contexts_.at(CONTEXT_TEXT).num();
+  if (num == 0) 
+    return;
+  contexts_.at(CONTEXT_TEXT).set_num(num-1);
+  h_TextPrint();
+}
+
+void ClientGame::h_TextQuit(nlohmann::json&) {
+  h_TextQuit();
+}
+void ClientGame::h_TextQuit() {
+  std::shared_lock sl(mutex_context_);
+  current_context_ = contexts_.at(CONTEXT_TEXT).last_context();
+  drawrer_.set_topline(contexts_.at(current_context_).topline());
+  drawrer_.set_viewpoint(current_context_);
+  TutorialUnPause();
+}
+
+void ClientGame::h_TextPrint() {
+  drawrer_.ClearField();
+  drawrer_.PrintCenteredParagraph(contexts_.at(current_context_).get_paragraph(), true);
+  refresh();
 }
 
 // Selection methods
