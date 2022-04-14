@@ -79,8 +79,8 @@ void ClientGame::init(){
 t_topline std_topline = {{"[i]psp (a..z)  ", COLOR_DEFAULT}, {"[e]psp (1..9)  ", COLOR_DEFAULT}, 
   {"[m]akro (0)  ", COLOR_DEFAULT}, {"[A]ctivated Neuron (" SYMBOL_DEF ")  ", COLOR_DEFAULT}, 
   {"[S]ynape (" SYMBOL_BARACK ")  ", COLOR_DEFAULT}, {"[N]ucleus (" SYMBOL_DEN ")  ", COLOR_DEFAULT}, 
-  {" [s]elect-synapse ", COLOR_DEFAULT}, {" [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, 
-  {" [q]uit ", COLOR_DEFAULT}};
+  {" [s]elect-synapse ", COLOR_DEFAULT}, {" [t]oggle-navigation  ", COLOR_DEFAULT}, {" [h]elp  ", COLOR_DEFAULT}, 
+  {" [q]uit  ", COLOR_DEFAULT}};
 
 t_topline field_topline = {{" [h, j, k, l] to navigate field " " [t]oggle-navigation ", 
   COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}};
@@ -137,6 +137,11 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   }
 
   // Initialize contexts
+  if (!muliplayer_availible_) {
+    handlers_[STD_HANDLERS][' '] = &ClientGame::h_PauseAndUnPause;
+    std_topline.push_back({"[space] pause", COLOR_AVAILIBLE});
+  }
+
   current_context_ = CONTEXT_RESOURCES;
   contexts_[CONTEXT_FIELD] = Context("", handlers_[STD_HANDLERS], handlers_[CONTEXT_FIELD], field_topline);
   contexts_[CONTEXT_RESOURCES] = Context(CONTEXT_RESOURCES_MSG, handlers_[STD_HANDLERS], handlers_[CONTEXT_RESOURCES], 
@@ -172,8 +177,9 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   eventmanager_tutorial_.AddHandler("set_units", &ClientGame::h_TutorialScouted);
   eventmanager_tutorial_.AddHandler("build_neuron", &ClientGame::h_TutorialBuildNeuron);
   eventmanager_tutorial_.AddHandler("set_msg", &ClientGame::h_TutorialSetMessage);
+  eventmanager_tutorial_.AddHandler("update_game", &ClientGame::h_TutorialUpdateGame);
 
-  tutorial_ = Tutorial({0, 0, 0, false, false, false, false, false, false, false, false, false});
+  tutorial_ = Tutorial({0, 0, 0, true, true, false, false, false, false, false, false, false, false, false});
 }
 
 void ClientGame::HandleAction(nlohmann::json msg) {
@@ -263,12 +269,12 @@ void ClientGame::h_Kill(nlohmann::json& msg) {
 
 void ClientGame::h_Help(nlohmann::json&) {
   if (mode_ == TUTORIAL)
-    TutorialPause();
+    Pause();
   drawrer_.set_stop_render(true);
   drawrer_.PrintCenteredParagraphs(texts::help);
   drawrer_.set_stop_render(false);
   if (mode_ == TUTORIAL)
-    TutorialUnPause();
+    UnPause();
 }
 
 void ClientGame::h_Quit(nlohmann::json&) {
@@ -284,6 +290,13 @@ void ClientGame::h_Quit(nlohmann::json&) {
   else {
     drawrer_.set_stop_render(false);
   }
+}
+
+void ClientGame::h_PauseAndUnPause(nlohmann::json&) {
+  if (pause_)
+    UnPause();
+  else 
+    Pause();
 }
 
 void ClientGame::h_MoveSelectionUp(nlohmann::json&) {
@@ -949,7 +962,7 @@ void ClientGame::m_SetUnits(nlohmann::json& msg) {
 
 void ClientGame::h_TutorialGetOxygen(nlohmann::json& msg) {
   spdlog::get(LOGGER)->info("h_TutorialGetOxygen");
-  TutorialPause();
+  Pause();
   contexts_.at(CONTEXT_TEXT).init_text(texts::tutorial_get_oxygen, current_context_);
   current_context_ = CONTEXT_TEXT;
   h_TextPrint();
@@ -1004,7 +1017,7 @@ void ClientGame::h_TutorialSetUnit(nlohmann::json& original_message) {
   }
   // If text was set, print text:
   if (texts.size() > 0) {
-    TutorialPause();
+    Pause();
     // Add all texts.
     auto final_text = texts[0];
     for (unsigned int i=1; i<texts.size(); i++) {
@@ -1040,7 +1053,7 @@ void ClientGame::h_TutorialScouted(nlohmann::json& original_message) {
   }
   // If text was set, print text:
   if (text.size() > 0) {
-    TutorialPause();
+    Pause();
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
     contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
     current_context_ = CONTEXT_TEXT;
@@ -1060,7 +1073,7 @@ void ClientGame::h_TutorialBuildNeuron(nlohmann::json& original_message) {
  
   // If text was set, print text:
   if (text.size() > 0) {
-    TutorialPause();
+    Pause();
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
     contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
     current_context_ = CONTEXT_TEXT;
@@ -1089,7 +1102,7 @@ void ClientGame::h_TutorialAction(nlohmann::json&) {
   // If text was set, print text:
   if (text.size() > 0) {
     tutorial_.action_++;
-    TutorialPause();
+    Pause();
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
     contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
     current_context_ = CONTEXT_TEXT;
@@ -1107,7 +1120,7 @@ void ClientGame::h_TutorialSetMessage(nlohmann::json& original_message) {
   
   // If text was set, print text:
   if (text.size() > 0) {
-    TutorialPause();
+    Pause();
     std::this_thread::sleep_for(std::chrono::milliseconds(800));
     contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
     current_context_ = CONTEXT_TEXT;
@@ -1115,14 +1128,41 @@ void ClientGame::h_TutorialSetMessage(nlohmann::json& original_message) {
   }
 }
 
-void ClientGame::TutorialPause() {
+void ClientGame::h_TutorialUpdateGame(nlohmann::json& original_message) {
+  texts::paragraphs_t text;
+  Transfer t(original_message["data"]);
+  
+  // first enemy attack-launch
+  if (t.potentials().size() > 0 && tutorial_.first_attack_) {
+    text = texts::tutorial_first_attack;
+    tutorial_.first_attack_ = false;
+  }
+
+  if (t.players().at(username_).first.front() != '0' && tutorial_.first_damage_) {
+    text = texts::tutorial_first_damage;
+    tutorial_.first_damage_ = false;
+  }
+ 
+  // If text was set, print text:
+  if (text.size() > 0) {
+    Pause();
+    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
+    current_context_ = CONTEXT_TEXT;
+    h_TextPrint();
+  }
+}
+
+void ClientGame::Pause() {
+  pause_ = true;
   drawrer_.set_stop_render(true);
   nlohmann::json msg = {{"command", "set_pause_on"}, {"username", username_}, {"data", nlohmann::json()}};
   ws_srv_->SendMessage(msg.dump());
   audio_.Pause();
 }
 
-void ClientGame::TutorialUnPause() {
+void ClientGame::UnPause() {
+  pause_ = false;
   nlohmann::json msg = {{"command", "set_pause_off"}, {"username", username_}, {"data", nlohmann::json()}};
   ws_srv_->SendMessage(msg.dump());
   audio_.Unpause();
@@ -1158,7 +1198,7 @@ void ClientGame::h_TextQuit() {
   current_context_ = contexts_.at(CONTEXT_TEXT).last_context();
   drawrer_.set_topline(contexts_.at(current_context_).topline());
   drawrer_.set_viewpoint(current_context_);
-  TutorialUnPause();
+  UnPause();
 }
 
 void ClientGame::h_TextPrint() {

@@ -62,6 +62,8 @@ class ClientGame {
       int activated_neurons_;
       int synapses_;
       int action_;
+      bool first_attack_;
+      bool first_damage_;
       bool action_active_;
       bool discovered_;
       bool epsp_target_set_;
@@ -78,6 +80,7 @@ class ClientGame {
     int cols_;
     const std::string base_path_;
     bool render_pause_;
+    bool pause_;
     Drawrer drawrer_;
     int status_;
     int mode_;
@@ -144,6 +147,7 @@ class ClientGame {
     void h_Help(nlohmann::json&); ///< show help
     void h_Quit(nlohmann::json&); ///< ingame: asks user whether to really quit.
     void h_Kill(nlohmann::json&); ///< before game: kills game.
+    void h_PauseAndUnPause(nlohmann::json&);
     void h_MoveSelectionUp(nlohmann::json&);
     void h_MoveSelectionDown(nlohmann::json&);
     void h_MoveSelectionLeft(nlohmann::json&);
@@ -175,9 +179,11 @@ class ClientGame {
     void h_TutorialBuildNeuron(nlohmann::json&);
     void h_TutorialScouted(nlohmann::json&);
     void h_TutorialSetMessage(nlohmann::json&);
+    void h_TutorialUpdateGame(nlohmann::json&);
     void h_TutorialAction(nlohmann::json&);
-    void TutorialPause();
-    void TutorialUnPause();
+
+    void Pause();
+    void UnPause();
 
     // text
     /**

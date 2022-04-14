@@ -543,13 +543,41 @@ namespace texts {
       "c) destroy own neurons (friendly fire)"
     },
     {
-       "TUTORIAL",
+      "TUTORIAL",
       "",
       "Maybe you already noticed but to see not only the 'free' amount of a resource but also the bound and boost part,",
       "you can select a resource with 'j'/'k'-keys and a more detailed description of the resource will be shown",
       "at the bottom of the screen (just as with technologies).",
     }
   };
+
+  const paragraphs_t tutorial_first_attack = {
+    {
+      "TUTORIAL",
+      "",
+      "Your enemy has launched an attack!",
+      "Units (potentials) are symbolized either by letters: a, b, ..., z (epsp) or numbers: 1,2,..., 9 (ipsp).",
+      "The enemies epsp add potential to your neurons. If a certain potential is reached this neuron is destroyed.",
+      "If your nucleus is destroyed, you have lost.",
+      "You can see the current potential of your nucleus at the top of the screen.",
+    },
+    {
+      "TUTORIAL",
+      "",
+      "During the tutorial and single-player you may always hit [space] to examine the situation.",
+    }
+  };
+
+  const paragraphs_t tutorial_first_damage = {
+    {
+      "TUTORIAL",
+      "",
+      "Your enemies epsp have reached your nucleus!",
+      "Potential is now added to you nucleus. If your nucleus potential reaches '9/9' you have lost!",
+      "Concider building more ACTIVATED NEURONS."
+    }
+  };
+
 }
 
 #endif
