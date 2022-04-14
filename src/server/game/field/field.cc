@@ -125,7 +125,7 @@ void Field::BuildGraph() {
   // For each node, add edges.
   spdlog::get(LOGGER)->debug("Field::BuildGraph: Adding edged...");
   for (auto node : graph_.nodes()) {
-    for (const auto& pos : GetAllInRange({node.second->line_, node.second->col_}, 1.5, 1)) {
+    for (const auto& pos : GetAllInRange(node.second->pos_, 1.5, 1)) {
       if (InField(pos) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
         graph_.AddEdge(node.second, graph_.nodes().at(pos));
     }
@@ -173,8 +173,9 @@ std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<
       sorted_way[lines_+cols_-utils::Dist(it, target_pos)] = it;
     for (const auto& it : sorted_way) {
       try {
-        auto new_part = graph_.FindWay(way.back(), it.second);
-        way.pop_back();
+        // auto new_part = graph_.FindWay(way.back(), it.second);
+        auto new_part = graph_.DijkstrasWay(way.back(), it.second);
+        if (way.size() > 0) way.pop_back();
         way.insert(way.end(), new_part.begin(), new_part.end());
       }
       catch (std::exception& e) {
@@ -184,8 +185,9 @@ std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<
   }
   // Create way from last position to target.
   try {
-    auto new_part = graph_.FindWay(way.back(), target_pos);
-    way.pop_back();
+    auto new_part = graph_.DijkstrasWay(way.back(), target_pos);
+    //auto new_part = graph_.FindWay(way.back(), target_pos);
+    if (way.size() > 0) way.pop_back();
     way.insert(way.end(), new_part.begin(), new_part.end());
   }
   catch (std::exception& e) {

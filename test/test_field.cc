@@ -4,11 +4,15 @@
 #include <algorithm>
 #include "share/constants/codes.h"
 #include "server/game/field/field.h"
+#include "share/defines.h"
 #include "share/objects/units.h"
 #include "server/game/player/player.h"
+#include "share/tools/graph.h"
 #include "testing_utils.h"
 #include "share/tools/utils/utils.h"
 #include "share/tools/random/random.h"
+#include "share/tools/fiboheap.h"
+#include "share/tools/fiboqueue.h"
 
 TEST_CASE("test_field", "[main]") {
   RandomGenerator* ran_gen = new RandomGenerator();
@@ -16,9 +20,6 @@ TEST_CASE("test_field", "[main]") {
 
   SECTION("tests based on graph", "[main, graph]") {
     field->BuildGraph();
-    // auto nucleus_positions = field->AddNucleus(2); // create two nucleus.
-    //position_t start_pos = nucleus_positions[0];
-    //position_t target_pos = nucleus_positions[1];
 
     SECTION("test GetWayForSoldier") {
       SECTION("test way-points are sorted") {
@@ -162,4 +163,97 @@ TEST_CASE("test_field", "[main]") {
       REQUIRE(field->FindFree({field->lines()+1, field->cols()}, 1, 2) == expected_pos);
     }
   }
+}
+
+TEST_CASE("test graph", "[graph]") {
+  RandomGenerator* ran_gen = new RandomGenerator();
+  Field* field = new Field(3, 4, ran_gen);
+  field->BuildGraph();
+
+  SECTION("fasted way direction forward") {
+    position_t start = {2, 0};
+    position_t target = {1, 3};
+    auto new_way = field->graph().DijkstrasWay(start, target);
+    REQUIRE(new_way.front() == start);
+    REQUIRE(new_way.back() == target);
+    std::cout << std::endl;
+    for (const auto& it : new_way)
+      std::cout << utils::PositionToString(it) << std::endl;
+    std::cout << std::endl;
+  }
+
+  SECTION("fasted way direction backward") {
+    position_t start = {1, 3};
+    position_t target = {2, 0};
+    auto new_way = field->graph().DijkstrasWay(start, target);
+    REQUIRE(new_way.front() == start);
+    REQUIRE(new_way.back() == target);
+  }
+
+  SECTION("test speed") {
+    Field* field = new Field(100, 100, ran_gen);
+    field->BuildGraph();
+    position_t target = {2, 0};
+    position_t start = {99, 99};
+
+    auto start_time = std::chrono::steady_clock::now();
+    auto way = field->graph().FindWay(start, target);
+    std::cout << "1. Time: " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
+    double length = 0;
+    for (unsigned int i=0; i<way.size()-1; i++)
+      length += utils::Dist(*(std::next(way.begin(), i)), *(std::next(way.begin(), i+1)));
+    std::cout << "Length: " << length << std::endl;
+    start_time = std::chrono::steady_clock::now();
+    auto new_way = field->graph().DijkstrasWay(start, target);
+    std::cout << "2. Time: " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
+    double length_new = 0;
+    for (unsigned int i=0; i<new_way.size()-1; i++)
+      length_new += utils::Dist(*(std::next(new_way.begin(), i)), *(std::next(new_way.begin(), i+1)));
+    std::cout << "Length: " << length_new << std::endl;
+    REQUIRE(length > length_new);
+    REQUIRE(way.front() == new_way.front());
+    REQUIRE(way.back() == new_way.back());
+  }
+}
+
+TEST_CASE("test fiboqueue", "[graph]") {
+  position_t pos = {5,5};
+  FibHeap<double>::FibNode* x = new FibHeap<double>::FibNode(99999, utils::PositionToString(pos));
+  REQUIRE(utils::PositionFromString(x->payload) == pos);
+}
+
+TEST_CASE("test priority queue", "[graph]") {
+  Queue queue;
+  FibQueue<double> fq;
+  for (int i=0; i<10; i++) {
+    position_t pos = {i,i};
+    queue.insert(pos, 99999);
+    fq.push(99999, utils::PositionToString(pos));
+  }
+  position_t first_pos = {5,5};
+  queue.descrease_key(first_pos, 99999, 1);
+  fq.decrease_key(utils::PositionToString(first_pos), 99999, 1.0);
+
+  REQUIRE(queue.pop_front() == first_pos);
+  REQUIRE(utils::PositionFromString(fq.pop()) == first_pos);
+  // Search again should fail.
+  REQUIRE(queue.pop_front() != first_pos);
+  REQUIRE(utils::PositionFromString(fq.pop()) != first_pos);
+}
+
+TEST_CASE("test graph-cache", "[grapj]") {
+  RandomGenerator* ran_gen = new RandomGenerator();
+  Field* field = new Field(100, 100, ran_gen);
+  field->BuildGraph();
+  position_t target = {2, 0};
+  position_t start = {99, 99};
+
+  auto start_time = std::chrono::steady_clock::now();
+  auto way_1 = field->graph().DijkstrasWay(start, target);
+  auto time_1 = utils::GetElapsed(start_time, std::chrono::steady_clock::now());
+  start_time = std::chrono::steady_clock::now();
+  auto way_2 = field->graph().DijkstrasWay(start, target);
+  auto time_2 = utils::GetElapsed(start_time, std::chrono::steady_clock::now());
+  REQUIRE(way_1 == way_2);
+  REQUIRE(time_1 > time_2*1000);
 }

@@ -31,6 +31,7 @@ class Field {
     // getter 
     unsigned int lines();
     unsigned int cols();
+    Graph& graph() { return graph_; }
 
     // methods:
     
