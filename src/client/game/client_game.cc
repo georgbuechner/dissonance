@@ -101,6 +101,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   // Initialize colors.
   use_default_colors();
   start_color();
+  // init_pair(COLOR_AVAILIBLE, COLOR_BLUE, -1);
   init_pair(COLOR_AVAILIBLE, COLOR_BLUE, -1);
   init_pair(COLOR_ERROR, COLOR_RED, -1);
   init_pair(COLOR_DEFAULT, -1, -1);
@@ -108,10 +109,10 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   init_pair(COLOR_SUCCESS, COLOR_GREEN, -1);
   init_pair(COLOR_MARKED, COLOR_MAGENTA, -1);
 
-  init_pair(COLOR_P2, 10, -1);
-  init_pair(COLOR_P3, 11, -1);
-  init_pair(COLOR_P4, 12, -1);
-  init_pair(COLOR_P5, 13, -1);
+  init_pair(COLOR_P2, 10, -1); // player 
+  init_pair(COLOR_P3, 11, -1); // player 
+  init_pair(COLOR_P4, 12, -1); // player 
+  init_pair(COLOR_P5, 13, -1); // player
 
   // Setup map-size
   drawrer_.SetUpBorders(LINES, COLS);

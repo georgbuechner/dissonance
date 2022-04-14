@@ -246,10 +246,13 @@ void Drawrer::PrintCenteredLineColored(int l, std::vector<std::pair<std::string,
   // Print parts one by one and update color for each part.
   unsigned int position = COLS/2-total_length/2;
   for (const auto& it : txt_with_color) {
+    if (it.second == COLOR_AVAILIBLE)
+      attron(WA_BOLD);
     attron(COLOR_PAIR(it.second));
     mvaddstr(l, position, it.first.c_str());
     position += it.first.length();
     attron(COLOR_PAIR(COLOR_DEFAULT));
+    attroff(WA_BOLD);
   }
 }
 
@@ -332,8 +335,10 @@ void Drawrer::PrintField() {
     for (unsigned int c=0; c<field_[l].size(); c++) {
       position_t cur = {l, c};
       // If field-view, mark when selected.
-      if (cur_view_point_ == VP_FIELD && cur == sel)
+      if (cur_view_point_ == VP_FIELD && cur == sel) {
+        attron(WA_BOLD);
         attron(COLOR_PAIR(COLOR_AVAILIBLE));
+      }
       // If field-view, mark when availible.
       else if (cur_view_point_ == VP_FIELD && utils::Dist(cur, range.first) <= range.second && 
           graph_positions_.count(cur) > 0)
@@ -357,6 +362,7 @@ void Drawrer::PrintField() {
       // Add extra with space for map shape and change color back to default.
       mvaddch(l_main_+extra_height_+l, c_field_+extra_width_+ 2*c+1, ' ' );
       attron(COLOR_PAIR(COLOR_DEFAULT));
+      attroff(WA_BOLD);
     }
   }
 }
@@ -372,13 +378,17 @@ std::pair<std::string, int> Drawrer::GetReplaceMentFromMarker(position_t pos) {
 
 void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources,
     const std::map<int, Transfer::Technology>& technologies) {
+  attron(WA_BOLD);
   mvaddstr(l_main_, c_resources_, "RESOURCES");
+  attroff(WA_BOLD);
   int inc = (static_cast<int>(resources.size()*2 + technologies.size()*2+4) > field_height()) ? 1 : 2;
   unsigned int counter = 2;
   for (const auto& it : resources) {
     // Mark selected resource/ technology
-    if (cur_selection_.at(VP_RESOURCE).x_ == it.first)
+    if (cur_selection_.at(VP_RESOURCE).x_ == it.first) {
+      attron(WA_BOLD);
       attron(COLOR_PAIR(COLOR_AVAILIBLE));
+    }
     // Mark active resouce/ technology
     else if (it.second.active_)
       attron(COLOR_PAIR(COLOR_SUCCESS));
@@ -389,19 +399,25 @@ void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources
     ClearLine(l_main_ + counter, c_resources_);
     mvaddstr(l_main_ + counter, c_resources_, str.c_str());
     attron(COLOR_PAIR(COLOR_DEFAULT));
+    attroff(WA_BOLD);
     counter += inc;
   }
   counter += 2;
+  attron(WA_BOLD);
   mvaddstr(l_main_ + counter, c_resources_, "TECHNOLOGIES");
+  attroff(WA_BOLD);
   counter += 2;
   for (const auto& it : technologies) {
-    if (cur_selection_.at(VP_TECH).x_ == it.first)
+    if (cur_selection_.at(VP_TECH).x_ == it.first) {
+      attron(WA_BOLD);
       attron(COLOR_PAIR(COLOR_AVAILIBLE));
+    }
     else if (it.second.active_)
       attron(COLOR_PAIR(COLOR_SUCCESS));
     std::string str = units_tech_name_mapping.at(it.first) + " (" + it.second.cur_ + "/" + it.second.max_ + ")";
     mvaddstr(l_main_ + counter, c_resources_, str.c_str());
     attron(COLOR_PAIR(COLOR_DEFAULT));
+    attroff(WA_BOLD);
     counter += inc;
   }
 }
