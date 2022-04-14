@@ -865,6 +865,8 @@ void ClientGame::m_PrintMsg(nlohmann::json& msg) {
 }
 
 void ClientGame::m_InitGame(nlohmann::json& msg) {
+  clear();
+  refresh();
   drawrer_.set_transfer(msg["data"]);
   drawrer_.PrintGame(false, false, current_context_);
   status_ = RUNNING;
