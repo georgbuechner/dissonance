@@ -1186,10 +1186,13 @@ std::string ClientGame::SelectAudio(std::string msg) {
     attron(COLOR_PAIR(COLOR_DEFAULT));
 
     for (unsigned int i=0; i<visible_options.size(); i++) {
-      if (i == selected)
-        attron(COLOR_PAIR(COLOR_MARKED));
+      if (i == selected) {
+        attron(COLOR_PAIR(COLOR_AVAILIBLE));
+        attron(WA_BOLD);
+      }
       drawrer_.PrintCenteredLine(15 + i, visible_options[i].second);
       attron(COLOR_PAIR(COLOR_DEFAULT));
+      attroff(WA_BOLD);
     }
 
     // Get players choice.
