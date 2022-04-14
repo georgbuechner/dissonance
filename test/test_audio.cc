@@ -1,6 +1,6 @@
 #include "catch2/catch.hpp"
-#include "audio/audio.h"
-#include "constants/codes.h"
+#include "share/audio/audio.h"
+#include "share/constants/codes.h"
 #include <algorithm>
 #include <vector>
 

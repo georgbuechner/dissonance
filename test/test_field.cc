@@ -2,36 +2,40 @@
 #include <cstddef>
 #include <iterator>
 #include <algorithm>
-#include "constants/codes.h"
-#include "game/field.h"
-#include "objects/units.h"
-#include "player/player.h"
+#include "share/constants/codes.h"
+#include "server/game/field/field.h"
+#include "share/defines.h"
+#include "share/objects/units.h"
+#include "server/game/player/player.h"
+#include "share/tools/graph.h"
 #include "testing_utils.h"
-#include "utils/utils.h"
-#include "random/random.h"
+#include "share/tools/utils/utils.h"
+#include "share/tools/random/random.h"
+#include "share/tools/fiboheap.h"
+#include "share/tools/fiboqueue.h"
 
 TEST_CASE("test_field", "[main]") {
   RandomGenerator* ran_gen = new RandomGenerator();
   Field* field = new Field(100, 100, ran_gen);
 
   SECTION("tests based on graph", "[main, graph]") {
-    position_t start_pos = field->AddNucleus(8);
-    position_t target_pos = field->AddNucleus(1);
-    field->BuildGraph(start_pos, target_pos);
+    field->BuildGraph();
 
     SECTION("test GetWayForSoldier") {
       SECTION("test way-points are sorted") {
         // Create two way-points, where wp_1 should be following wp_2, so we expect
         // way_point_2 to be passed before wp_1, altough adding wp_1 first.
+        position_t start_pos = {99, 99};
+        position_t target_pos = {1, 1};
+
         position_t way_point_1 = {10, 20};
         position_t way_point_2 = {90, 80};
         // Make sure that we selected wp_1 and wp_2 correctly (wp1 is acctually nearer
-        // to target postion.
+        // to target postion).
         REQUIRE(utils::Dist(way_point_1, target_pos) < utils::Dist(way_point_2, target_pos));
-        std::vector<position_t> way_points = {way_point_1, way_point_2};
+        std::vector<position_t> way_points = {way_point_1, way_point_2, target_pos};
 
         // Create way
-        way_points.push_back(target_pos);
         auto way = field->GetWayForSoldier(start_pos, way_points);
 
         // Way was created with length of min number of way-points and make sure order is correct.
@@ -42,26 +46,6 @@ TEST_CASE("test_field", "[main]") {
         REQUIRE(utils::Index(way, start_pos) < utils::Index(way, target_pos));
       }
     }
-  }
-
-  SECTION("Test BuildGraph with all positions free.") {
-    Graph graph;
-    // Add all nodes.
-    for (int l=0; l<field->lines(); l++)
-      for (int c=0; c<field->cols(); c++)
-        graph.AddNode(l, c);
-    // For each node, add edges.
-    for (auto node : graph.nodes()) {
-      auto neighbors = field->GetAllInRange({node.second->line_, node.second->col_}, 1.5, 1);
-      if (node.second->line_ > 0 && node.second->line_ < field->lines() && node.second->col_ > 0 
-          && node.second->col_ < field->cols())
-        REQUIRE(neighbors.size() == 8);
-      for (const auto& pos : neighbors) {
-        if (graph.InGraph(pos))
-          graph.AddEdge(node.second, graph.nodes().at(pos));
-      }
-    }
-    REQUIRE(graph.RemoveInvalid({50, 50}) == 0);
   }
 
   SECTION("test GetAllInRange") {
@@ -84,8 +68,8 @@ TEST_CASE("test_field", "[main]") {
     }
 
     SECTION("Test for each position.") {
-      for (int l=1; l<field->lines(); l++) {
-        for (int c=1; c<field->cols(); c++) {
+      for (unsigned int l=1; l<field->lines(); l++) {
+        for (unsigned int c=1; c<field->cols(); c++) {
           auto positions = field->GetAllInRange({l, c}, 1.5, 1);
           if (l == 0 && c == 0)
             REQUIRE(positions.size() == 3);
@@ -103,7 +87,7 @@ TEST_CASE("test_field", "[main]") {
     }
 
     SECTION("Check free, range=3") {
-      field->BuildGraph({0, 0}, {field->lines()-1, field->cols()-1}); // Check free also checks in graph.
+      field->BuildGraph(); // Check free also checks in graph.
       auto positions_to_block = field->GetAllInRange({50, 50}, 2, 0, true);
       for (const auto& it : positions_to_block) 
         field->AddNewUnitToPos(it, UnitsTech::ACTIVATEDNEURON);
@@ -134,32 +118,15 @@ TEST_CASE("test_field", "[main]") {
   }
 
   SECTION("test AddResources") {
-    field->BuildGraph({0, 0}, {field->lines()-1, field->cols()-1}); // Check free also checks in graph.
+    field->BuildGraph(); // Check free also checks in graph.
     auto resource_positions = field->AddResources(t_utils::GetRandomPositionInField(field, ran_gen));
     // One resource was create for each existing resource in resource-mapping (all resources expect iron)
-    REQUIRE(resource_positions.size() == resources_symbol_mapping.size());
+    REQUIRE(resource_positions.size() == resource_symbol_mapping.size()-1); 
     // no two resources have an idenical position:
     std::set<position_t> positions;
     for (const auto& it : resource_positions) 
       positions.insert(it.second);
     REQUIRE(positions.size() == resource_positions.size());
-  }
-
-  SECTION("test AddNucleus") {
-    // Set up graph. 
-    field->BuildGraph({0, 0}, {field->lines()-1, field->cols()-1}); // Check free also checks in graph.
-    auto section_one = field->GetAllPositionsOfSection(1);
-    // Mark all positions in given section as free, to check make-free functionality:
-    for (const auto& it : section_one) 
-      field->AddNewUnitToPos(it, UnitsTech::ACTIVATEDNEURON);
-
-    // Create nucleus
-    position_t nucleus_pos = field->AddNucleus(1);
-
-    // Check that all positions directly surrounding nucleus are now free.
-    REQUIRE(field->GetAllInRange(nucleus_pos, 1.5, 1, true).size() == 8);
-    // Check that nucleus was created in given section.
-    REQUIRE(std::find(section_one.begin(), section_one.end(), nucleus_pos) != section_one.end());
   }
 
   SECTION ("test AddNewUnitToPos") {
@@ -180,7 +147,7 @@ TEST_CASE("test_field", "[main]") {
 
   SECTION ("test FindFree") {
     // Set up graph. 
-    field->BuildGraph({0, 0}, {field->lines()-1, field->cols()-1}); // Check free also checks in graph.
+    field->BuildGraph(); // Check free also checks in graph.
 
     SECTION("valid position") {
       position_t start_pos = t_utils::GetRandomPositionInField(field, ran_gen);
@@ -196,4 +163,97 @@ TEST_CASE("test_field", "[main]") {
       REQUIRE(field->FindFree({field->lines()+1, field->cols()}, 1, 2) == expected_pos);
     }
   }
+}
+
+TEST_CASE("test graph", "[graph]") {
+  RandomGenerator* ran_gen = new RandomGenerator();
+  Field* field = new Field(3, 4, ran_gen);
+  field->BuildGraph();
+
+  SECTION("fasted way direction forward") {
+    position_t start = {2, 0};
+    position_t target = {1, 3};
+    auto new_way = field->graph().DijkstrasWay(start, target);
+    REQUIRE(new_way.front() == start);
+    REQUIRE(new_way.back() == target);
+    std::cout << std::endl;
+    for (const auto& it : new_way)
+      std::cout << utils::PositionToString(it) << std::endl;
+    std::cout << std::endl;
+  }
+
+  SECTION("fasted way direction backward") {
+    position_t start = {1, 3};
+    position_t target = {2, 0};
+    auto new_way = field->graph().DijkstrasWay(start, target);
+    REQUIRE(new_way.front() == start);
+    REQUIRE(new_way.back() == target);
+  }
+
+  SECTION("test speed") {
+    Field* field = new Field(100, 100, ran_gen);
+    field->BuildGraph();
+    position_t target = {2, 0};
+    position_t start = {99, 99};
+
+    auto start_time = std::chrono::steady_clock::now();
+    auto way = field->graph().FindWay(start, target);
+    std::cout << "1. Time: " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
+    double length = 0;
+    for (unsigned int i=0; i<way.size()-1; i++)
+      length += utils::Dist(*(std::next(way.begin(), i)), *(std::next(way.begin(), i+1)));
+    std::cout << "Length: " << length << std::endl;
+    start_time = std::chrono::steady_clock::now();
+    auto new_way = field->graph().DijkstrasWay(start, target);
+    std::cout << "2. Time: " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
+    double length_new = 0;
+    for (unsigned int i=0; i<new_way.size()-1; i++)
+      length_new += utils::Dist(*(std::next(new_way.begin(), i)), *(std::next(new_way.begin(), i+1)));
+    std::cout << "Length: " << length_new << std::endl;
+    REQUIRE(length > length_new);
+    REQUIRE(way.front() == new_way.front());
+    REQUIRE(way.back() == new_way.back());
+  }
+}
+
+TEST_CASE("test fiboqueue", "[graph]") {
+  position_t pos = {5,5};
+  FibHeap<double>::FibNode* x = new FibHeap<double>::FibNode(99999, utils::PositionToString(pos));
+  REQUIRE(utils::PositionFromString(x->payload) == pos);
+}
+
+TEST_CASE("test priority queue", "[graph]") {
+  Queue queue;
+  FibQueue<double> fq;
+  for (int i=0; i<10; i++) {
+    position_t pos = {i,i};
+    queue.insert(pos, 99999);
+    fq.push(99999, utils::PositionToString(pos));
+  }
+  position_t first_pos = {5,5};
+  queue.descrease_key(first_pos, 99999, 1);
+  fq.decrease_key(utils::PositionToString(first_pos), 99999, 1.0);
+
+  REQUIRE(queue.pop_front() == first_pos);
+  REQUIRE(utils::PositionFromString(fq.pop()) == first_pos);
+  // Search again should fail.
+  REQUIRE(queue.pop_front() != first_pos);
+  REQUIRE(utils::PositionFromString(fq.pop()) != first_pos);
+}
+
+TEST_CASE("test graph-cache", "[grapj]") {
+  RandomGenerator* ran_gen = new RandomGenerator();
+  Field* field = new Field(100, 100, ran_gen);
+  field->BuildGraph();
+  position_t target = {2, 0};
+  position_t start = {99, 99};
+
+  auto start_time = std::chrono::steady_clock::now();
+  auto way_1 = field->graph().DijkstrasWay(start, target);
+  auto time_1 = utils::GetElapsed(start_time, std::chrono::steady_clock::now());
+  start_time = std::chrono::steady_clock::now();
+  auto way_2 = field->graph().DijkstrasWay(start, target);
+  auto time_2 = utils::GetElapsed(start_time, std::chrono::steady_clock::now());
+  REQUIRE(way_1 == way_2);
+  REQUIRE(time_1 > time_2*1000);
 }

@@ -1,24 +1,21 @@
 #include <catch2/catch.hpp>
-#include "game/field.h"
-#include "objects/units.h"
-#include "player/audio_ki.h"
-#include "player/player.h"
-#include "random/random.h"
+#include "server/game/field/field.h"
+#include "share/objects/units.h"
+#include "server/game/player/audio_ki.h"
+#include "server/game/player/player.h"
+#include "share/tools/random/random.h"
 #include "testing_utils.h"
-#include "utils/utils.h"
+#include "share/tools/utils/utils.h"
 
 std::pair<Player*, Field*> SetUpPlayer(bool resources) {
   RandomGenerator* ran_gen = new RandomGenerator();
   Field* field = new Field(ran_gen->RandomInt(50, 150), ran_gen->RandomInt(50, 150), ran_gen);
-  position_t nucleus_pos_1 = field->AddNucleus(8);
-  position_t nucleus_pos_2 = field->AddNucleus(1);
-  field->BuildGraph(nucleus_pos_1, nucleus_pos_2);
-  auto resource_positions_1 = field->AddResources(nucleus_pos_1);
-  auto resource_positions_2 = field->AddResources(nucleus_pos_2);
-  Player* player_one_ = new Player(nucleus_pos_1, field, ran_gen, resource_positions_1);
-  Player* player_two_ = new Player(nucleus_pos_2, field, ran_gen, resource_positions_2);
-  player_one_->set_enemy(player_two_);
-  player_two_->set_enemy(player_one_);
+  field->BuildGraph();
+  auto nucleus_positions = field->AddNucleus(2);
+  Player* player_one_ = new Player(nucleus_positions[0], field, ran_gen, 0);
+  Player* player_two_ = new Player(nucleus_positions[1], field, ran_gen, 1);
+  player_one_->set_enemies({player_two_});
+  player_two_->set_enemies({player_one_});
 
   if (resources) {
     // Increase resources 20 times for iron gain.
