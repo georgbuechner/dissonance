@@ -272,7 +272,6 @@ class Graph {
     std::unordered_map<int, Node*> nodes_;
     std::shared_mutex mutex_cache_;  ///< mutex locked, when accessing cache.
     std::map<t_s_e_tuple, std::list<position_t>> chache_;
-
 };
 
 #endif

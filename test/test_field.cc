@@ -248,11 +248,35 @@ TEST_CASE("test graph-cache", "[grapj]") {
 }
 
 TEST_CASE("test hashing and unhashing positions" "[graph]") {
-  for (unsigned short i=0;i<100; i++) {
-    for (unsigned short j=0;j<100; j++) {
+  for (unsigned short i=0;i<1000; i++) {
+    for (unsigned short j=0;j<1000; j++) {
       position_t pos = {i, j};
       int i_pos = Graph::to_int(pos);
       REQUIRE(Graph::get_pos(i_pos) == pos);
     }
   }
+}
+
+void PrintMiniField(std::vector<std::vector<Transfer::Symbol>> field) {
+  for (const auto& i : field) {
+    for (const auto& j : i) {
+      int color = 30 + j.color_;
+      std::cout << "\033[1;" + std::to_string(color) + "m";
+      std::cout << j.symbol_ << " ";
+      std::cout << "\033[0m";
+    }
+    std::cout << std::endl;
+  }
+}
+
+
+TEST_CASE("create mini field", "[field]") {
+  RandomGenerator* ran_gen = new RandomGenerator();
+  Field* field = new Field(10, 10, ran_gen);
+  field->BuildGraph();
+  auto nucleus = field->AddNucleus(1);
+  Player* p = new Player(nucleus.front(), field, ran_gen, COLOR_AVAILIBLE);
+
+  auto exported_field = field->Export({p});
+  PrintMiniField(exported_field);
 }
