@@ -84,6 +84,11 @@ int main(int argc, const char** argv) {
   srand (time(NULL));
   Audio::Initialize();
 
+  // Audio* test_audio= new Audio(base_path);
+  // test_audio->set_source_path(path_sound_ai_2);
+  // test_audio->Analyze();
+  // return 0;
+
   // Enter-username (omitted for standalone server or only-ai)
   std::string username = "";
   if (!standalone && !only_ai) {

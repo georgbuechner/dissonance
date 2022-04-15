@@ -102,7 +102,9 @@ std::map<int, position_t> Field::AddResources(position_t start_pos) {
   for (const auto& it : symbol_resource_mapping) {
     if (it.second == IRON)
       continue;
-    int ran = ran_gen_->RandomInt(0, positions.size());
+    spdlog::get(LOGGER)->info("Field::AddResources: resource {}", it.second);
+    int ran = ran_gen_->RandomInt(0, positions.size()-1);
+    spdlog::get(LOGGER)->info("Field::AddResources: ran {}", ran);
     auto pos = positions[ran];
     positions.erase(positions.begin()+ran);
     field_[pos.first][pos.second] = it.first;
@@ -138,27 +140,59 @@ void Field::BuildGraph() {
       num_positions_before);
 }
 
+// void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned short denceness) {
+//   spdlog::get(LOGGER)->info("Field::AddHills: denceness={}", denceness);
+//   for (int l=0; l<lines_; l++) {
+//     for (int c=0; c<cols_; c++) {
+//       // Check random 50% chance for building a mountain.
+//       if (gen_1->RandomInt(0, 1) == 1) {
+//         spdlog::get(LOGGER)->debug("Creating muntain: {}|{}", l, c);
+//         field_[l][c] = SYMBOL_HILL;
+//         // Get size of mountain (0-5)
+//         int level = gen_2->RandomInt(0, 5)-999;
+//         if (level < 1)
+//           continue;
+//         spdlog::get(LOGGER)->debug("Creating {} hills", level);
+//         auto positions = GetAllInRange({l, c}, level - denceness, 1);
+//         for (const auto& pos : positions)
+//           field_[pos.first][pos.second] = SYMBOL_HILL;
+//       }
+//     }
+//   }
+//   spdlog::get(LOGGER)->debug("Field::AddHills: done");
+// }
+
 void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned short denceness) {
-  spdlog::get(LOGGER)->info("Field::AddHills: denceness={}", denceness);
+  auto pitches = gen_1->analysed_data().EveryXPitch(lines_*cols_);
+  std::reverse(pitches.begin(), pitches.end());
+  double avrg = gen_1->analysed_data().average_pitch_;
+  spdlog::get(LOGGER)->info("Field::AddHills: num pitches={}, avrg={}, pitch={}", pitches.size(), avrg, pitches.front());
+  spdlog::get(LOGGER)->info("Field::AddHills: denceness={} -> avrg/{}", denceness, 1.8+denceness*0.1);
+  int mountains = 0;
+  int big_mountains = 0;
+  
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
       // Check random 50% chance for building a mountain.
-      if (gen_1->RandomInt(0, 1) == 1) {
-        spdlog::get(LOGGER)->debug("Creating muntain: {}|{}", l, c);
+      if (pitches.back() < (avrg/(1.8+denceness*0.1)))
         field_[l][c] = SYMBOL_HILL;
-        // Get size of mountain (0-5)
-        int level = gen_2->RandomInt(0, 5)-999;
-        if (level < 1)
-          continue;
-        spdlog::get(LOGGER)->debug("Creating {} hills", level);
-        auto positions = GetAllInRange({l, c}, level - denceness, 1);
-        for (const auto& pos : positions)
-          field_[pos.first][pos.second] = SYMBOL_HILL;
+      if (pitches.back() < avrg/(3.5+denceness*0.8)) {
+        mountains++;
+        for (const auto& it : GetAllInRange({l, c}, 1.5, 0))
+          field_[it.first][it.second] = SYMBOL_HILL;
       }
+      if (pitches.back() < avrg/(4.1+denceness*2)) {
+        big_mountains++;
+        for (const auto& it : GetAllInRange({l, c}, 2, 1))
+          field_[it.first][it.second] = SYMBOL_HILL;
+      }
+
+      pitches.pop_back();
     }
   }
-  spdlog::get(LOGGER)->debug("Field::AddHills: done");
+  spdlog::get(LOGGER)->debug("Field::AddHills: done, build {} mountains and {} bug mountains", mountains, big_mountains);
 }
+
 
 std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<position_t> way_points) {
   spdlog::get(LOGGER)->debug("Field::GetWayForSoldier: pos={}", utils::PositionToString(start_pos));

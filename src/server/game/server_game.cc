@@ -581,7 +581,7 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: creating map. field initialized? {}", field_ != nullptr);
   std::vector<position_t> nucleus_positions;
   int denseness = 0;
-  while (!field_ && denseness < 3) {
+  while (!field_ && denseness < 4) {
     field_ = new Field(lines_, cols_, ran_gen);
     field_->AddHills(ran_gen_1, ran_gen_2, denseness++);
     field_->BuildGraph();

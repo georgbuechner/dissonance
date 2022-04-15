@@ -48,11 +48,22 @@ struct AudioData {
   std::list<AudioDataTimePoint> data_per_beat_;
   float average_bpm_;
   float average_level_;
+  std::vector<double> pitches_;
+  double average_pitch_;
+
   float min_level_;
   float max_level_;
   std::string key_;
   std::map<int, Interval> intervals_;
   int max_peak_;
+
+  std::vector<double> EveryXPitch(int num_pitches) {
+    std::vector<double> pitches;
+    int every_x = pitches_.size()/num_pitches;
+    for (unsigned int i=0; i<pitches_.size(); i+=every_x)
+      pitches.push_back(pitches_[i]);
+    return pitches;
+  }
 };
 
 class Audio {
@@ -72,6 +83,7 @@ class Audio {
     void Analyze();
     void Analyze(nlohmann::json data);
     nlohmann::json GetAnalyzedData();
+    std::vector<double> EveryXPitch(int num_pitches);
 
     void play();
     

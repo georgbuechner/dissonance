@@ -1,15 +1,18 @@
 #include "share/audio/audio.h"
+#include "nlohmann/json_fwd.hpp"
 #include "share/defines.h"
 #include "share/constants/codes.h"
 #include "share/tools/utils/utils.h"
 
 #include <atomic>
 #include <algorithm>
+#include <aubio/pitch/pitch.h>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iterator>
 #include <nlohmann/json.hpp>
+#include <numeric>
 #include <string>
 #include "spdlog/spdlog.h"
 
@@ -107,10 +110,12 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
   fvec_t * in = new_fvec (hop_size); // input audio buffer
   fvec_t * out = new_fvec (1); // output position
   fvec_t * out_notes = new_fvec (1); // output position
+  fvec_t * out_pitch = new_fvec (1); // output position
   
   // create tempo- and notes-object
   aubio_tempo_t * bpm_obj = new_aubio_tempo("default", win_size, hop_size, samplerate);
   aubio_notes_t * notes_obj = new_aubio_notes ("default", win_size, hop_size, samplerate);
+  aubio_pitch_t * pitch_obj = new_aubio_pitch("default", win_size, hop_size, samplerate);
   if (!bpm_obj && !notes_obj) { 
     del_fvec(in);
     del_fvec(out);
@@ -124,15 +129,19 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
   float max_level = 0.0f;
   std::vector<Note> last_notes;
   std::vector<int> last_levels;
+  std::vector<double> pitches;
   do {
     // Put some fresh data in input vector
     aubio_source_do(source, in, &read);
     // execute tempo and notes, add notes to last notes.
     aubio_tempo_do(bpm_obj,in,out);
     aubio_notes_do(notes_obj, in, out_notes);
+    aubio_pitch_do(pitch_obj, in, out_pitch);
     if (out_notes->data[0] != 0)
       last_notes.push_back(ConvertMidiToNote(out_notes->data[0]));
     last_levels.push_back(100-(-1*aubio_level_detection(in, -90.)));
+    if (out_pitch->data[0] != 0)
+      pitches.push_back(out_pitch->data[0]);
 
     // do something with the beats
     if (out->data[0] != 0) {
@@ -153,6 +162,9 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
     n_frames += read;
   } while ( read == hop_size );
 
+  auto const count = static_cast<double>(pitches.size());
+  double average_pitch = std::reduce(pitches.begin(), pitches.end())/count;
+    
   // clean up memory
   del_aubio_tempo(bpm_obj);
   del_fvec(in);
@@ -164,7 +176,7 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
 
   average_bpm /= data_per_beat.size();
   average_level /= data_per_beat.size();
-  auto analysed_data = AudioData({data_per_beat, average_bpm, average_level});
+  auto analysed_data = AudioData({data_per_beat, average_bpm, average_level, pitches, average_pitch});
   Safe(analysed_data, source_path);
   return analysed_data;
 }
@@ -178,6 +190,8 @@ void Audio::Safe(AudioData analysed_data, std::string source_path) {
       midis.push_back(note.midi_note_);
     data["time_points"].push_back({{"time", it.time_}, {"bpm", it.bpm_}, {"level", it.level_}, {"notes", midis}});
   }
+  data["pitches"] = analysed_data.pitches_;
+  data["average_pitch"] = analysed_data.average_pitch_;
   utils::WriteJsonFromDisc(GetOutPath(source_path), data);
 }
 
@@ -190,6 +204,8 @@ AudioData Audio::Load(nlohmann::json data) {
   AudioData audio_data;
   audio_data.average_bpm_ = data["average_bpm"];
   audio_data.average_level_ = data["average_level"];
+  audio_data.pitches_ = data["pitches"].get<std::vector<double>>();
+  audio_data.average_pitch_ = data["average_pitch"];
   std::list<AudioDataTimePoint> data_per_beat;
   for (const auto& it : data["time_points"]) {
     std::vector<int> midis = it["notes"];

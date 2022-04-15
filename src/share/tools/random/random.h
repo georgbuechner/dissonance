@@ -13,6 +13,8 @@ class RandomGenerator {
      */
     RandomGenerator();
 
+    AudioData& analysed_data() { return analysed_data_; }
+
     /**
      * Constructor with audio data and custom random function.
      * @param[in] analysed_data used for generating random numbers.
