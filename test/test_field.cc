@@ -176,10 +176,6 @@ TEST_CASE("test graph", "[graph]") {
     auto new_way = field->graph().DijkstrasWay(start, target);
     REQUIRE(new_way.front() == start);
     REQUIRE(new_way.back() == target);
-    std::cout << std::endl;
-    for (const auto& it : new_way)
-      std::cout << utils::PositionToString(it) << std::endl;
-    std::cout << std::endl;
   }
 
   SECTION("fasted way direction backward") {
@@ -191,26 +187,19 @@ TEST_CASE("test graph", "[graph]") {
   }
 
   SECTION("test speed") {
+    auto start_time = std::chrono::steady_clock::now();
     Field* field = new Field(100, 100, ran_gen);
     field->BuildGraph();
+    std::cout << "Time (build field): " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
     position_t target = {2, 0};
     position_t start = {99, 99};
 
-    auto start_time = std::chrono::steady_clock::now();
+    start_time = std::chrono::steady_clock::now();
     auto way = field->graph().FindWay(start, target);
-    std::cout << "1. Time: " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
-    double length = 0;
-    for (unsigned int i=0; i<way.size()-1; i++)
-      length += utils::Dist(*(std::next(way.begin(), i)), *(std::next(way.begin(), i+1)));
-    std::cout << "Length: " << length << std::endl;
+    std::cout << "Time (tiefensuche): " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
     start_time = std::chrono::steady_clock::now();
     auto new_way = field->graph().DijkstrasWay(start, target);
-    std::cout << "2. Time: " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
-    double length_new = 0;
-    for (unsigned int i=0; i<new_way.size()-1; i++)
-      length_new += utils::Dist(*(std::next(new_way.begin(), i)), *(std::next(new_way.begin(), i+1)));
-    std::cout << "Length: " << length_new << std::endl;
-    REQUIRE(length > length_new);
+    std::cout << "Time (DijkstrasWay): " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
     REQUIRE(way.front() == new_way.front());
     REQUIRE(way.back() == new_way.back());
   }

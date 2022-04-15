@@ -45,7 +45,7 @@ unsigned int Field::cols() { return cols_; }
 std::vector<position_t> Field::GraphPositions() {
   std::vector<position_t> graph_positions;
   for (const auto& it : graph_.nodes())
-    graph_positions.push_back(it.first);
+    graph_positions.push_back(it.second->pos_);
   return graph_positions;
 }
 
@@ -127,14 +127,15 @@ void Field::BuildGraph() {
   for (auto node : graph_.nodes()) {
     for (const auto& pos : GetAllInRange(node.second->pos_, 1.5, 1)) {
       if (InField(pos) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
-        graph_.AddEdge(node.second, graph_.nodes().at(pos));
+        graph_.AddEdge(node.second, graph_.GetNode(pos));
     }
   }
   // Remove all nodes not in main circle
   spdlog::get(LOGGER)->debug("Field::BuildGraph: reducing to greates component...");
   int num_positions_before = graph_.nodes().size();
   graph_.ReduceToGreatestComponent();
-  spdlog::get(LOGGER)->info("Field::BuildGraph: Done. {}/{} positions left!", graph_.nodes().size(), num_positions_before);
+  spdlog::get(LOGGER)->info("Field::BuildGraph: Done. {}/{} positions left!", graph_.nodes().size(), 
+      num_positions_before);
 }
 
 void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned short denceness) {
