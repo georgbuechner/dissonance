@@ -18,8 +18,6 @@
 #define ACTIVATEDNEURON_SPEED 6
 #define IPSP_DURATION 24
 
-typedef std::pair<int, int> position_t;
-
 
 /**
  * Abstrackt class for all neurons or potentials.

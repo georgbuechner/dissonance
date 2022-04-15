@@ -207,8 +207,8 @@ TEST_CASE("test graph", "[graph]") {
 
 TEST_CASE("test fiboqueue", "[graph]") {
   position_t pos = {5,5};
-  FibHeap<double>::FibNode* x = new FibHeap<double>::FibNode(99999, utils::PositionToString(pos));
-  REQUIRE(utils::PositionFromString(x->payload) == pos);
+  FibHeap<double>::FibNode* x = new FibHeap<double>::FibNode(99999, Graph::to_int(pos));
+  REQUIRE(Graph::get_pos(x->payload) == pos);
 }
 
 TEST_CASE("test priority queue", "[graph]") {
@@ -217,17 +217,17 @@ TEST_CASE("test priority queue", "[graph]") {
   for (int i=0; i<10; i++) {
     position_t pos = {i,i};
     queue.insert(pos, 99999);
-    fq.push(99999, utils::PositionToString(pos));
+    fq.push(99999, Graph::to_int(pos));
   }
   position_t first_pos = {5,5};
   queue.descrease_key(first_pos, 99999, 1);
-  fq.decrease_key(utils::PositionToString(first_pos), 99999, 1.0);
+  fq.decrease_key(Graph::to_int(first_pos), 99999, 1.0);
 
   REQUIRE(queue.pop_front() == first_pos);
-  REQUIRE(utils::PositionFromString(fq.pop()) == first_pos);
+  REQUIRE(Graph::get_pos(fq.pop()) == first_pos);
   // Search again should fail.
   REQUIRE(queue.pop_front() != first_pos);
-  REQUIRE(utils::PositionFromString(fq.pop()) != first_pos);
+  REQUIRE(Graph::get_pos(fq.pop()) != first_pos);
 }
 
 TEST_CASE("test graph-cache", "[grapj]") {
@@ -245,4 +245,14 @@ TEST_CASE("test graph-cache", "[grapj]") {
   auto time_2 = utils::GetElapsed(start_time, std::chrono::steady_clock::now());
   REQUIRE(way_1 == way_2);
   REQUIRE(time_1 > time_2*1000);
+}
+
+TEST_CASE("test hashing and unhashing positions" "[graph]") {
+  for (unsigned short i=0;i<100; i++) {
+    for (unsigned short j=0;j<100; j++) {
+      position_t pos = {i, j};
+      int i_pos = Graph::to_int(pos);
+      REQUIRE(Graph::get_pos(i_pos) == pos);
+    }
+  }
 }

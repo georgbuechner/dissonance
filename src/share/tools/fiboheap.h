@@ -33,7 +33,7 @@ class FibHeap
   class FibNode
   {
   public:
-    FibNode(T k, std::string pl)
+    FibNode(T k, int pl)
       :key(std::move(k)),mark(false),p(nullptr),left(nullptr),right(nullptr),child(nullptr),degree(-1),payload(pl)
     {
     }
@@ -49,7 +49,7 @@ class FibHeap
     FibNode *right;
     FibNode *child;
     int degree;
-    std::string payload;
+    int payload;
   }; // end FibNode
 
   FibHeap() : FibHeap(std::less<T>())
@@ -570,7 +570,7 @@ class FibHeap
       delete x;
   }
 
-  FibNode* push(T k, std::string pl)
+  FibNode* push(T k, int pl)
   {
     FibNode *x = new FibNode(std::move(k),pl);
     insert(x);

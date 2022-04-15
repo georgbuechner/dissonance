@@ -13,7 +13,7 @@
 
 namespace utils {
 
-  typedef std::pair<int, int> position_t;
+  typedef std::pair<short, short> position_t;
 
   /**
    * Is up

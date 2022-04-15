@@ -11,6 +11,7 @@
 #include <mutex>
 #include <queue>
 #include <shared_mutex>
+#include <sys/types.h>
 #include <unordered_map>
 #include <utility>
 #include <list>
@@ -54,21 +55,21 @@ struct QueueF {
     return fq.empty();
   }
 
-  void insert(std::string pos, float priority) {
+  void insert(int pos, float priority) {
     fq.push(priority, pos);
   }
 
-  std::string pop_front() {
+  int pop_front() {
     return fq.pop();
   }
 
-  void descrease_key(std::string pos, float old_p, float new_p) {
+  void descrease_key(int pos, float old_p, float new_p) {
     fq.decrease_key(pos, old_p, new_p);
   }
 };
 
 struct Node {
-  std::string string_pos_;
+  int i_pos_;
   position_t pos_;
   std::list<std::pair<Node*, double>> nodes_; // TODO (fux): concider implementing map[dist] -> Node*. Also do we need Node*?
 };
@@ -79,18 +80,18 @@ class Graph {
     Graph() { }
 
     // getter:
-    const std::unordered_map<std::string, Node*>& nodes() const {
+    const std::unordered_map<int, Node*>& nodes() const {
       return nodes_; 
     }
 
     Node* GetNode(position_t pos) const {
-      return nodes_.at(utils::PositionToString(pos));
+      return nodes_.at(to_int(pos));
     }
 
     void AddNode(int line, int col) {
       position_t pos = {line, col};
-      std::string string_pos = utils::PositionToString(pos);
-      nodes_[string_pos] = new Node({string_pos, pos, {}});
+      int i_pos = to_int(pos);
+      nodes_[i_pos] = new Node({i_pos, pos, {}});
     };
 
     void AddEdge(Node* a, Node* b) {
@@ -98,15 +99,15 @@ class Graph {
     }
 
     bool InGraph(position_t pos) const {
-      return nodes_.count(utils::PositionToString(pos)) > 0;
+      return nodes_.count(to_int(pos)) > 0;
     }
 
-    std::string GetPosNotInComponent(std::set<std::string> component) {
+    int GetPosNotInComponent(std::set<int> component) {
       for (const auto& it : nodes_) {
         if (component.count(it.first) == 0)
-          return it.second->string_pos_;
+          return it.second->i_pos_;
       }
-      return "";
+      return -1;
     }
 
     /**
@@ -114,12 +115,12 @@ class Graph {
      * @return array of all positions remaining in graph.
      */
     void ReduceToGreatestComponent() {
-      std::set<std::string> cur = GetAllVisited(nodes_.begin()->first);
-      std::set<std::string> next;
+      std::set<int> cur = GetAllVisited(nodes_.begin()->first);
+      std::set<int> next;
       while(true) { 
         // Get new component
-        std::string new_pos = GetPosNotInComponent(cur);
-        if (new_pos == "")
+        int new_pos = GetPosNotInComponent(cur);
+        if (new_pos == -1) 
           break;
         next = GetAllVisited(new_pos);
         // Determine greater component: swap next and cur if next is greater than cur.
@@ -136,9 +137,9 @@ class Graph {
       }
     }
 
-    std::set<std::string> GetAllVisited(std::string pos) {
+    std::set<int> GetAllVisited(int pos) {
       // Initialize all nodes as not-vistited.
-      std::unordered_map<std::string, bool> visited; 
+      std::unordered_map<int, bool> visited; 
       for (auto node : nodes_)
         visited[node.first] = node.first == pos;  // initialize all with false expecpt given position.
       // Get all nodes which can be visited from player-den.
@@ -148,13 +149,13 @@ class Graph {
         auto cur = queue.front();
         queue.pop();
         for (auto node : cur->nodes_) {
-          if (!visited[node.first->string_pos_]) {
-            visited[node.first->string_pos_] = true;
+          if (!visited[node.first->i_pos_]) {
+            visited[node.first->i_pos_] = true;
             queue.push(node.first);
           }
         }
       }
-      std::set<std::string> vistited_positions;
+      std::set<int> vistited_positions;
       for (auto it : visited) {
         if (it.second)
           vistited_positions.insert(it.first);
@@ -163,16 +164,16 @@ class Graph {
     }
 
     std::list<position_t> FindWay(position_t pos_a, position_t pos_b) const {
-      std::string string_pos_a = utils::PositionToString(pos_a);
-      std::string string_pos_b = utils::PositionToString(pos_b);
-      // Initialize all nodes as not-visited.
-      std::map<std::string, std::string> visited; 
+      int i_pos_a = to_int(pos_a);
+      int i_pos_b = to_int(pos_b);
+      // Iialize all nodes as not-visited.
+      std::map<int, int> visited; 
       for (auto node : nodes_)
-        visited[node.second->string_pos_] = "";
+        visited[node.second->i_pos_] = -1;
       // Get all nodes which can be visited from player-den.
       std::list<Node*> queue;
-      visited[string_pos_a] = string_pos_a; 
-      queue.push_back(nodes_.at(string_pos_a));
+      visited[i_pos_a] = i_pos_a; 
+      queue.push_back(nodes_.at(i_pos_a));
       while(!queue.empty()) {
         auto cur = queue.front();
         queue.pop_front();
@@ -181,31 +182,31 @@ class Graph {
           break;
         // iterate over children.
         for (auto node : cur->nodes_) {
-          if (visited[node.first->string_pos_] == "") {
-            visited[node.first->string_pos_] = cur->string_pos_;
+          if (visited[node.first->i_pos_] == -1) {
+            visited[node.first->i_pos_] = cur->i_pos_;
             queue.push_back(node.first);
           }
         }
       }
-      if (visited[string_pos_b] == "")
+      if (visited[i_pos_b] == -1)
         throw "Could not find way!.";
       
-      std::list<std::string> s_way = { string_pos_b };
-      while (s_way.back() != string_pos_a)
-        s_way.push_back(visited[s_way.back()]);
+      std::list<int> i_way = { i_pos_b };
+      while (i_way.back() != i_pos_a)
+        i_way.push_back(visited[i_way.back()]);
       //Reverse path and return.
-      std::reverse(std::begin(s_way), std::end(s_way));
+      std::reverse(std::begin(i_way), std::end(i_way));
       std::list<position_t> way;
-      for (const auto& it : s_way) 
-        way.push_back(utils::PositionFromString(it));
+      for (const auto& it : i_way) 
+        way.push_back(get_pos(it));
       return way;
     }
 
     std::list<position_t> DijkstrasWay(position_t s, position_t t) {
       if (s == t)
         return {s};
-      std::string string_pos_a = utils::PositionToString(s);
-      std::string string_pos_b = utils::PositionToString(t);
+       int i_pos_a = to_int(s);
+       int i_pos_b = to_int(t);
 
       // Check cache
       t_s_e_tuple start_end_tuple = {s, t};
@@ -216,7 +217,7 @@ class Graph {
       sl.unlock();
 
       // Initialize search
-      std::unordered_map<std::string, float> distance;
+      std::unordered_map<int, float> distance;
       std::map<position_t, position_t> prev;
       QueueF q;
       // Set distance from each node (v) to start node (s) to (v in s(neighbors)) ? dist(v,s) : 999999
@@ -224,23 +225,23 @@ class Graph {
         distance[it.first] = 9999999;
         q.insert(it.first, 9999999);
       }
-      for (const auto& it : nodes_.at(string_pos_a)->nodes_) {
-        distance[it.first->string_pos_] = it.second;
-        q.descrease_key(it.first->string_pos_, 9999999, it.second);
+      for (const auto& it : nodes_.at(i_pos_a)->nodes_) {
+        distance[it.first->i_pos_] = it.second;
+        q.descrease_key(it.first->i_pos_, 9999999, it.second);
       }
 
       // Do search
       while (!q.empty()) {
         auto w = q.pop_front();
-        if (w == string_pos_b)
+        if (w == i_pos_b)
           break;
         for (const auto& it : nodes_.at(w)->nodes_) {
           double c = distance[w] + it.second;
-          double old = distance[it.first->string_pos_];
+          double old = distance[it.first->i_pos_];
           if (old > c) {
-            q.descrease_key(it.first->string_pos_, old, c);
-            distance[it.first->string_pos_] = c;
-            prev[it.first->pos_] = utils::PositionFromString(w);
+            q.descrease_key(it.first->i_pos_, old, c);
+            distance[it.first->i_pos_] = c;
+            prev[it.first->pos_] = get_pos(w);
           }
         }
       }
@@ -260,10 +261,18 @@ class Graph {
       throw "Could not find way: " + utils::PositionToString(s) + " to " + utils::PositionToString(t);
     }
 
+    static int to_int(position_t pos) {
+      return pos.first<<16 | pos.second;
+    }
+    static position_t get_pos(int c) {
+      return {c>>16, c & 0xFFFF};
+    }
+
   private:
-    std::unordered_map<std::string, Node*> nodes_;
+    std::unordered_map<int, Node*> nodes_;
     std::shared_mutex mutex_cache_;  ///< mutex locked, when accessing cache.
     std::map<t_s_e_tuple, std::list<position_t>> chache_;
+
 };
 
 #endif

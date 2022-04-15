@@ -51,31 +51,31 @@ class FibQueue : public FibHeap<T, Comp>
     {
     }
 
-  void decrease_key(std::string string_pos, T old, T k)
+  void decrease_key(int i_pos, T old, T k)
   {
-    if (fstore.count(string_pos) == 0) {
-      std::cout << "node " << string_pos << " not found!" << std::endl;
+    if (fstore.count(i_pos) == 0) {
+      std::cout << "node " << i_pos << " not found!" << std::endl;
       return;
     }
-    auto node = fstore.at(string_pos);
+    auto node = fstore.at(i_pos);
     Heap::decrease_key(node, std::move(k));
   }
 
-  Node* push(T k, std::string string_pos)
+  Node* push(T k, int string_pos)
   {
     Node *x = Heap::push(std::move(k),string_pos);
     fstore[string_pos] = x;
     return x;
   }
 
-  std::string pop()
+  int pop()
   {
     if (Heap::empty())
-      return "";
+      return -1;
     Node *x = Heap::extract_min();
     if (!x)
-      return ""; // should not happen.
-    std::string string_pos = x->payload;
+      return -1; // should not happen.
+    int string_pos = x->payload;
     fstore.erase(string_pos);
     delete x;
     return string_pos;
@@ -86,7 +86,7 @@ class FibQueue : public FibHeap<T, Comp>
     fstore.clear();
   }
 
-  std::unordered_map<std::string, Node*> fstore;
+  std::unordered_map<int, Node*> fstore;
 };
 
 #endif
