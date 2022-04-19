@@ -69,6 +69,7 @@ class Player {
     std::map<position_t, int> GetMacroAtPosition();
     std::vector<position_t> GetPotentialPositions();
     std::map<position_t, int> GetAllNeuronsInRange(position_t pos);
+    int GetColorForPos(position_t pos);
 
     /** 
      * Gets the position of the closet neuron of a specific type to a given position.

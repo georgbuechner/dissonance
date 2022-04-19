@@ -180,6 +180,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   eventmanager_tutorial_.AddHandler("update_game", &ClientGame::h_TutorialUpdateGame);
 
   tutorial_ = Tutorial({0, 0, 0, true, true, false, false, false, false, false, false, false, false, false});
+  drawrer_.CreateMiniFields((username_.front() > 'A') ? COLOR_P3 : COLOR_P2);
 }
 
 void ClientGame::HandleAction(nlohmann::json msg) {
@@ -971,7 +972,7 @@ void ClientGame::h_TutorialGetOxygen(nlohmann::json& msg) {
 
 void ClientGame::h_TutorialSetUnit(nlohmann::json& original_message) {
   nlohmann::json data = original_message["data"];
-  std::vector<texts::paragraphs_t> texts;
+  std::vector<texts::paragraphs_field_t> texts;
   // Get text ad do potential other actions
   if (data["unit"] == RESOURCENEURON && data["resource"] == OXYGEN && !tutorial_.oxygen_) {
     texts.push_back(texts::tutorial_get_glutamat);
@@ -1032,7 +1033,7 @@ void ClientGame::h_TutorialSetUnit(nlohmann::json& original_message) {
 }
 
 void ClientGame::h_TutorialScouted(nlohmann::json& original_message) {
-  texts::paragraphs_t text;
+  texts::paragraphs_field_t text;
   // On first discoring enemy terretoris: tutorial for selecting targets.
   if (!tutorial_.discovered_) {
     text = texts::tutorial_select_target;
@@ -1062,7 +1063,7 @@ void ClientGame::h_TutorialScouted(nlohmann::json& original_message) {
 }
 
 void ClientGame::h_TutorialBuildNeuron(nlohmann::json& original_message) {
-  texts::paragraphs_t text;
+  texts::paragraphs_field_t text;
   // Get text ad do potential other actions
   if (original_message["data"]["unit"] == ACTIVATEDNEURON && tutorial_.activated_neurons_ == 0) {
     text = texts::tutorial_first_build;
@@ -1082,7 +1083,7 @@ void ClientGame::h_TutorialBuildNeuron(nlohmann::json& original_message) {
 }
 
 void ClientGame::h_TutorialAction(nlohmann::json&) {
-  texts::paragraphs_t text;
+  texts::paragraphs_field_t text;
   // set ways
   if (tutorial_.action_ == 0) {
     text = texts::tutorial_final_attack_set_way;
@@ -1111,7 +1112,7 @@ void ClientGame::h_TutorialAction(nlohmann::json&) {
 }
 
 void ClientGame::h_TutorialSetMessage(nlohmann::json& original_message) {
-  texts::paragraphs_t text;
+  texts::paragraphs_field_t text;
   // Get text ad do potential other actions
   if (original_message["data"]["msg"] == "Epsp target for this synapse set" && !tutorial_.epsp_target_set_) {
     text = texts::tutorial_strong_attack;
@@ -1129,7 +1130,7 @@ void ClientGame::h_TutorialSetMessage(nlohmann::json& original_message) {
 }
 
 void ClientGame::h_TutorialUpdateGame(nlohmann::json& original_message) {
-  texts::paragraphs_t text;
+  texts::paragraphs_field_t text;
   Transfer t(original_message["data"]);
   
   // first enemy attack-launch
@@ -1203,7 +1204,8 @@ void ClientGame::h_TextQuit() {
 
 void ClientGame::h_TextPrint() {
   drawrer_.ClearField();
-  drawrer_.PrintCenteredParagraph(contexts_.at(current_context_).get_paragraph(), true);
+  auto paragraph = contexts_.at(current_context_).get_paragraph();
+  drawrer_.PrintCenteredParagraphAndMiniFields(paragraph.first, paragraph.second, true);
   refresh();
 }
 

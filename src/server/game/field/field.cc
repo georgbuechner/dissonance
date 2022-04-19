@@ -311,10 +311,9 @@ std::vector<std::vector<Transfer::Symbol>> Field::Export(std::vector<Player*> pl
       int color = COLOR_DEFAULT;
       // Check if belongs to either player, is blocked or is resource-neuron
       for (unsigned int i=0; i<players.size(); i++) {
-        if (players[i]->GetNeuronTypeAtPosition(cur) == RESOURCENEURON)
-          continue;
-        else if (players[i]->GetNeuronTypeAtPosition(cur) != -1)
-          color = players[i]->color();
+        auto new_color = players[i]->GetColorForPos(cur);
+        if (new_color != COLOR_DEFAULT)
+          color = new_color;
       }
       // Add to json field.
       t_field[l].push_back({field_[l][c], color});

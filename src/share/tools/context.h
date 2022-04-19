@@ -52,7 +52,7 @@ class Context {
     char cmd() const { return cmd_; }
     nlohmann::json data() const { return data_; }
     std::string action() const { return action_; }
-    texts::paragraphs_t text() const { return text_; }
+    texts::paragraphs_field_t text() const { return text_; }
     unsigned int num() const { return num_; }
     int last_context() const { return last_context_; }
 
@@ -63,17 +63,17 @@ class Context {
     void set_data(nlohmann::json data) { data_ = data; }
     void set_cmd(char cmd) { cmd_ = cmd; }
     void set_action(std::string action) { action_ = action; }
-    void set_text(texts::paragraphs_t text) { text_ = text; }
+    void set_text(texts::paragraphs_field_t text) { text_ = text; }
     void set_num(unsigned int num) { num_ = num; }
     void set_last_context(int context) { last_context_ = context; }
 
     // methods 
-    void init_text(texts::paragraphs_t text, int context) {
+    void init_text(texts::paragraphs_field_t text, int context) {
       text_ = text;
       last_context_ = context;
       num_ = 0;
     }
-    texts::paragraph_t get_paragraph() { return text_[num_]; }
+    texts::paragraph_field_t get_paragraph() { return text_[num_]; }
     bool last_text() { return text_.size()-1 == num_; }
     
   private:
@@ -87,7 +87,7 @@ class Context {
     char cmd_;
     nlohmann::json data_;
 
-    texts::paragraphs_t text_;
+    texts::paragraphs_field_t text_;
     unsigned int num_;
     int last_context_;
 

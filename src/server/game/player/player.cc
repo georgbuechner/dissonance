@@ -199,6 +199,19 @@ std::vector<position_t> Player::GetPotentialPositions() {
   return potentials_vec;
 }
 
+
+int Player::GetColorForPos(position_t pos) {
+  if (GetNeuronTypeAtPosition(pos) == RESOURCENEURON) {
+    if (resources_.at(neurons_.at(pos)->resource()).Active()) {
+      spdlog::get(LOGGER)->debug("Resource {} activated", resources_name_mapping.at(neurons_.at(pos)->resource()));
+      return COLOR_RESOURCES;
+    }
+  }
+  else if (GetNeuronTypeAtPosition(pos) != -1)
+    return color();
+  return COLOR_DEFAULT;
+}
+
 std::map<position_t, int> Player::GetAllNeuronsInRange(position_t pos) {
   std::map<position_t, int> neurons_in_range;
   for (const auto& it : neurons_) {

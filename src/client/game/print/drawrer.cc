@@ -1,11 +1,13 @@
 #include "client/game/print/drawrer.h"
 #include "curses.h"
 #include "drawrer.h"
+#include "server/game/field/field.h"
 #include "server/game/player/statistics.h"
 #include "share/constants/codes.h"
 #include "share/defines.h"
 #include "share/objects/transfer.h"
 #include "share/objects/units.h"
+#include "share/tools/random/random.h"
 #include "share/tools/utils/utils.h"
 #include "spdlog/spdlog.h"
 #include <mutex>
@@ -165,7 +167,7 @@ void Drawrer::ClearMarkers(int type) {
 void Drawrer::AddNewUnitToPos(position_t pos, int unit, int color) {
   std::unique_lock ul(mutex_print_field_);
   if (unit == UnitsTech::RESOURCENEURON)
-    field_[pos.first][pos.second] = {field_[pos.first][pos.second].symbol_, color};
+    field_[pos.first][pos.second] = {field_[pos.first][pos.second].symbol_, COLOR_RESOURCES};
   else if (unit_symbol_mapping.count(unit) > 0)
     field_[pos.first][pos.second] = {unit_symbol_mapping.at(unit), color};
 }
@@ -269,10 +271,39 @@ void Drawrer::PrintCenteredParagraph(texts::paragraph_t paragraph, bool nextmsg)
     paragraph.push_back("");
     paragraph.push_back("[press 'h' for previous and 'l' for next text. 'q' to quit.]");
   }
-  int size = paragraph.size()/2;
+  PrintCenteredParagraph(paragraph, (unsigned int)0);
+}
+void Drawrer::PrintCenteredParagraph(texts::paragraph_t paragraph, unsigned int additional_height) {
   int counter = 0;
+  unsigned int start_height = LINES/2 - paragraph.size()/2 - additional_height;
   for (const auto& line : paragraph)
-    PrintCenteredLine(LINES/2-size+(counter++), line);
+    PrintCenteredLine(start_height+counter++, line);
+}
+
+void Drawrer::PrintCenteredParagraphAndMiniFields(texts::paragraph_t paragraph, std::vector<std::string> fields, 
+    bool nextmsg) {
+  std::string fields_str = "";
+  for (const auto& field : fields) 
+    fields_str += field + ", ";
+  spdlog::get(LOGGER)->debug("Printing paragraph with fields: {}", fields_str);
+  PrintCenteredParagraph(paragraph, (unsigned int)5);
+
+  unsigned int start_height = LINES/2 + paragraph.size()/2 + 2;
+
+  for (unsigned int r=0; r<10; r++) {
+    unsigned int start_col = COLS/2-10*fields.size() - 5*(fields.size()/2);
+    for (unsigned int field=0; field<fields.size(); field++) {
+      for (unsigned int c=0; c<10; c++) {
+        auto sym = mini_fields_.at(fields[field])[r][c];
+        attron(COLOR_PAIR(sym.color_));
+        mvaddstr(start_height+r, start_col++, sym.symbol_.c_str());
+        mvaddch(start_height+r, start_col++, ' ');
+        attron(COLOR_PAIR(COLOR_DEFAULT));
+      }
+      start_col += 5;
+    }
+  }
+  spdlog::get(LOGGER)->debug("done");
 }
 
 void Drawrer::PrintCenteredParagraphs(texts::paragraphs_t paragraphs, bool skip_first_wait) {
@@ -530,4 +561,161 @@ void Drawrer::PrintLobby() {
     }
   }
   refresh();
+}
+
+void Drawrer::CreateMiniFields(int player_color) {
+  int enemy_color = (player_color == COLOR_P2) ? COLOR_P3 : COLOR_P2;
+
+  spdlog::get(LOGGER)->info("Creating mini-fields");
+  // Field test
+  RandomGenerator* ran_gen = new RandomGenerator();
+  Field* field = new Field(10, 10, ran_gen);
+  field->BuildGraph();
+  auto nucleus_test = field->AddNucleus(1);
+  Player* p = new Player(nucleus_test.front(), field, ran_gen, player_color);
+  mini_fields_["test"] = field->Export({p});
+  delete field;
+
+  // Simple map with nothing but one player-nucleus
+  spdlog::get(LOGGER)->info("Simple map with nothing but one player-nucleus");
+  field = new Field(10, 10, ran_gen);
+  field->BuildGraph();
+  auto nucleus = field->AddNucleus(1);
+  auto exported_field = field->Export({p});
+  exported_field[nucleus.front().first][nucleus.front().second].color_ = player_color;
+  exported_field[nucleus_test.front().first][nucleus_test.front().second].color_ = COLOR_DEFAULT;
+  mini_fields_["field_only_den"] = exported_field;
+  delete field;
+  delete p;
+
+  // Simple map with player nucleus and resources (not activated)
+  spdlog::get(LOGGER)->info("Simple map with player nucleus and resources (not activated)");
+  field = new Field(10, 10, ran_gen);
+  field->BuildGraph();
+  nucleus = field->AddNucleus(1);
+  spdlog::get(LOGGER)->debug("Creating new player");
+  p = new Player(nucleus.front(), field, ran_gen, player_color);
+  // Give player plenty resources (iron):
+  for (unsigned int i=0; i<10; i++) 
+    p->IncreaseResources(true);
+  spdlog::get(LOGGER)->info("done");
+  mini_fields_["field_player"] = field->Export({p});
+
+  // Simple map with player nucleus and resources (oxygen activated)
+  spdlog::get(LOGGER)->debug("Simple map with player nucleus and resources (oxygen activated)");
+  p->DistributeIron(OXYGEN);
+  p->DistributeIron(OXYGEN);
+  mini_fields_["field_player_oxygen_activated"] = field->Export({p});
+
+  // Simple map with player nucleus and resources (oxygen, potassium and glutamate activated)
+  spdlog::get(LOGGER)->debug("Simple map with player nucleus and resources (oxygen, potassium and glutamate activated)");
+  p->DistributeIron(POTASSIUM);
+  p->DistributeIron(POTASSIUM);
+  p->DistributeIron(GLUTAMATE);
+  p->DistributeIron(GLUTAMATE);
+  // Give player plenty resources (iron):
+  for (unsigned int i=0; i<100; i++) 
+    p->IncreaseResources(true);
+  exported_field = field->Export({p});
+  mini_fields_["field_player_oxygen_potassium_glutamat_activated"] = exported_field;
+
+  // Simple map showing how to select position on map.
+  spdlog::get(LOGGER)->debug("Simple map with showing highlighted range.");
+  auto positions = field->GetAllInRange(nucleus.front(), 4, 0);
+  for (const auto& pos : positions) {
+    spdlog::get(LOGGER)->debug("pos: {}", utils::PositionToString(pos));
+    // make sure it's in range
+    if ((unsigned int)pos.first < exported_field.size() && (unsigned int)pos.second < exported_field[pos.first].size())
+      exported_field[pos.first][pos.second].color_ = COLOR_SUCCESS;
+  }
+  spdlog::get(LOGGER)->debug("done");
+  exported_field[nucleus.front().first][nucleus.front().second].color_ = COLOR_AVAILIBLE;
+  exported_field[nucleus.front().first][nucleus.front().second].symbol_ = "x";
+  mini_fields_["field_select_neuron_position_1"] = exported_field;
+
+  // Move selection on map.
+  exported_field[nucleus.front().first][nucleus.front().second].color_ = player_color;
+  exported_field[nucleus.front().first][nucleus.front().second].symbol_ = SYMBOL_DEN;
+  auto pos = field->GetAllInRange(nucleus.front(), 2, 1.5, true).front();
+  exported_field[pos.first][pos.second].color_ = COLOR_AVAILIBLE;
+  exported_field[pos.first][pos.second].symbol_ = "x";
+  mini_fields_["field_select_neuron_position_2"] = exported_field;
+
+  // Add activated neuron.
+  positions = field->GetAllInRange(nucleus.front(), 3, 2, true);
+  exported_field[pos.first][pos.second].color_ = COLOR_SUCCESS; // mark position as free
+  exported_field[pos.first][pos.second].symbol_ = SYMBOL_FREE; // mark position as free
+  exported_field[positions.front().first][positions.front().second].color_ = COLOR_AVAILIBLE;
+  exported_field[positions.front().first][positions.front().second].symbol_ = SYMBOL_DEF;
+  mini_fields_["field_select_neuron_position_3"] = exported_field;
+  
+  // Simple map with player nucleus and resources (not activated)
+  spdlog::get(LOGGER)->info("Enemy map with advancing potentials");
+  Field* field_enemy = new Field(10, 10, ran_gen);
+  field_enemy->BuildGraph();
+  auto nucleus_enemy = field_enemy->AddNucleus(1);
+  auto nucleus_pos_enemy = nucleus_enemy.front();
+  spdlog::get(LOGGER)->debug("Creating new player");
+  Player* p_enemy = new Player(nucleus_pos_enemy, field_enemy, ran_gen, enemy_color);
+  // Give enemy plenty resources.
+  for (unsigned int i=0; i<10; i++) 
+    p_enemy->IncreaseResources(true);
+  p_enemy->DistributeIron(OXYGEN);
+  p_enemy->DistributeIron(OXYGEN);
+  p_enemy->DistributeIron(POTASSIUM);
+  p_enemy->DistributeIron(POTASSIUM);
+  for (unsigned int i=0; i<100; i++) 
+    p_enemy->IncreaseResources(true);
+  auto exported_field_enemy = field->Export({p_enemy});
+  // Add synape
+  pos = field_enemy->GetAllInRange(nucleus_pos_enemy, 2, 1, true).front();
+  exported_field_enemy[pos.first][pos.second].color_ = enemy_color;
+  exported_field_enemy[pos.first][pos.second].symbol_ = SYMBOL_BARACK;
+  // Add some epsp on enemy's way.
+  auto way = field_enemy->GetWayForSoldier(nucleus_pos_enemy, {{9, 9}});
+  std::vector<position_t> way_vec(way.begin(), way.end());
+  for (unsigned int i=0; i<way_vec.size(); i+=3) {
+    exported_field_enemy[way_vec[i].first][way_vec[i].second].color_ = enemy_color;
+    exported_field_enemy[way_vec[i].first][way_vec[i].second].symbol_ = utils::CharToString('a', 
+        ran_gen->RandomInt(1, 3));
+  }
+  mini_fields_["field_attack"] = exported_field_enemy;
+
+  // Simple map showing enemy's epsp reaching your nucleus.
+  way = field_enemy->GetWayForSoldier(nucleus.front(), {{9, 9}});
+  std::vector<position_t> way_vec_2(way.begin(), way.end());
+  for (unsigned int i=1; i<way_vec_2.size(); i+=2) {
+    exported_field[way_vec_2[i].first][way_vec_2[i].second].color_ = enemy_color;
+    exported_field[way_vec_2[i].first][way_vec_2[i].second].symbol_ = utils::CharToString('a', 
+        ran_gen->RandomInt(1, 3));
+  }
+  mini_fields_["field_attack_2"] = exported_field;
+  
+  // Map showing how to select between multiple synapses.
+  exported_field = mini_fields_["field_player_oxygen_potassium_glutamat_activated"];
+  auto synapse_a = field->GetAllInRange(nucleus.front(), 2, 1.5, true).front();
+  auto synapse_b = field->GetAllInRange(nucleus.front(), 3, 2, true).front();
+  exported_field[synapse_a.first][synapse_a.second].color_ = player_color;
+  exported_field[synapse_a.first][synapse_a.second].symbol_ = SYMBOL_BARACK;
+  exported_field[synapse_b.first][synapse_b.second].color_ = player_color;
+  exported_field[synapse_b.first][synapse_b.second].symbol_ = SYMBOL_BARACK;
+  mini_fields_["multi_synapse_selection_1"] = exported_field;
+
+  exported_field[synapse_a.first][synapse_a.second].color_ = COLOR_AVAILIBLE;
+  exported_field[synapse_a.first][synapse_a.second].symbol_ = "a";
+  exported_field[synapse_b.first][synapse_b.second].color_ = COLOR_AVAILIBLE;
+  exported_field[synapse_b.first][synapse_b.second].symbol_ = "b";
+  mini_fields_["multi_synapse_selection_2"] = exported_field;
+
+  exported_field[synapse_a.first][synapse_a.second].color_ = COLOR_MARKED;
+  exported_field[synapse_a.first][synapse_a.second].symbol_ = SYMBOL_BARACK;
+  exported_field[synapse_b.first][synapse_b.second].color_ = player_color;
+  exported_field[synapse_b.first][synapse_b.second].symbol_ = SYMBOL_BARACK;
+  mini_fields_["multi_synapse_selection_3"] = exported_field;
+
+  delete field;
+  delete p;
+  delete field_enemy;
+  delete p_enemy;
+  delete ran_gen;
 }

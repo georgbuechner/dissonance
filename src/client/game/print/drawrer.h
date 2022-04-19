@@ -108,6 +108,9 @@ class Drawrer {
      * @param[in] nextmsg adds a message with instructions for prev/next/quit (default=false)
      */
     void PrintCenteredParagraph(texts::paragraph_t paragraph, bool nextmsg=false);
+    void PrintCenteredParagraph(texts::paragraph_t paragraph, unsigned int start_height);
+    void PrintCenteredParagraphAndMiniFields(texts::paragraph_t paragraph, std::vector<std::string> field, 
+        bool nextmsg=false);
 
     /**
      * Prints mulitple paragraphs to the center of the screen, clearing screen
@@ -123,6 +126,8 @@ class Drawrer {
      */
     void PrintLobby();
 
+    void CreateMiniFields(int player_color);
+
   private:
     int lines_;
     int cols_;
@@ -137,6 +142,7 @@ class Drawrer {
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
     bool stop_render_;
     std::map<std::string, Statictics> statistics_;
+    std::map<std::string, std::vector<std::vector<Transfer::Symbol>>> mini_fields_;
 
     // Selection
     struct ViewPoint {
