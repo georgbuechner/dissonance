@@ -49,6 +49,7 @@ class Drawrer {
     void set_statistics(nlohmann::json json);
 
     bool InGraph(position_t);
+    bool Free(position_t);
     void AddMarker(int type, position_t pos, int color, std::string symbol = "");
     position_t GetMarkerPos(int type, std::string symbol);
     void ClearMarkers(int type = -1);
@@ -171,17 +172,38 @@ class Drawrer {
           int old_x = x_;
           int old_y = y_;
 
-          if (val == 1) y_++;
-          else if (val == -1) y_--;
-          else if (val == 2) x_++;
-          else if (val == -2) x_--;
+          position_t next_diag;
+          if (val == 1) {
+            y_++;
+            next_diag = {y_, x_+1};
+          }
+          else if (val == -1) {
+            y_--;
+            next_diag = {y_, x_-1};
+          }
+          else if (val == 2) {
+            x_++;
+            next_diag = {y_-1, x_};
+          }
+          else if (val == -2) {
+            x_--;
+            next_diag = {y_+1, x_};
+          }
 
           position_t pos = {y_, x_};
           // If not full field range: check if next position is a) still in range and b) valid graph positions
           if (range_.second < 999 && 
               (utils::Dist(range_.first, pos) > range_.second || graph_positions_.count(pos) == 0)) {
-            x_ = old_x;
-            y_ = old_y;
+            // If diagonal position possible, do that.
+            if (graph_positions_.count(next_diag) > 0 && utils::Dist(range_.first, next_diag) <= range_.second) {
+              y_ = next_diag.first;
+              x_ = next_diag.second;
+            }
+            // Otherwise, revert changes.
+            else {
+              x_ = old_x;
+              y_ = old_y;
+            }
           }
         }
 

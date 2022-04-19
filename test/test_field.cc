@@ -5,6 +5,7 @@
 #include "share/constants/codes.h"
 #include "server/game/field/field.h"
 #include "share/defines.h"
+#include "share/objects/transfer.h"
 #include "share/objects/units.h"
 #include "server/game/player/player.h"
 #include "share/tools/graph.h"
@@ -278,5 +279,15 @@ TEST_CASE("create mini field", "[field]") {
   Player* p = new Player(nucleus.front(), field, ran_gen, COLOR_AVAILIBLE);
 
   auto exported_field = field->Export({p});
-  PrintMiniField(exported_field);
+  Transfer t_original;
+  t_original.set_field(exported_field);
+  nlohmann::json j = t_original.json();
+  Transfer t_from_json (j);
+  for (unsigned int i=0; i<t_original.field().size(); i++) {
+    for (unsigned int j=0; j<t_original.field()[i].size(); j++) {
+      REQUIRE(t_original.field()[i][j].symbol_ == t_from_json.field()[i][j].symbol_);
+      REQUIRE(t_original.field()[i][j].color_ == t_from_json.field()[i][j].color_);
+    }
+  }
+  PrintMiniField(t_from_json.field());
 }

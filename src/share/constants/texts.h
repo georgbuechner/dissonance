@@ -606,6 +606,7 @@ namespace texts {
       "Your enemy has launched an attack!",
       "Units (potentials) are symbolized either by letters: a, b, ..., z (epsp) or numbers: 1,2,..., 9 (ipsp).",
       "The enemy's epsps add potential to your neurons. If a certain potential is reached this neuron is destroyed.",
+      "Also: you cannot place new neurons ontop of a destroyed neuron!",
       "If your nucleus is destroyed, you have lost.",
       "You can see the current potential of your nucleus at the top of the screen.",
       "",

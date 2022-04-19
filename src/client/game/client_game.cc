@@ -645,16 +645,20 @@ void ClientGame::h_ResetOrQuitSynapseContext(nlohmann::json& msg) {
 void ClientGame::h_AddPosition(nlohmann::json&) {
   spdlog::get(LOGGER)->debug("ClientGame::AddPosition: action: {}", contexts_.at(current_context_).action());
   position_t pos = drawrer_.field_pos();
+  std::string action = contexts_.at(current_context_).action();
   if (!drawrer_.InGraph(pos)) {
     drawrer_.set_msg("Position not reachable!");
+    return;
+  }
+  if (action == "build_neuron" && !drawrer_.Free(pos)) {
+    drawrer_.set_msg("Position not free!");
     return;
   }
 
   nlohmann::json msg = contexts_.at(current_context_).data();
   msg["data"]["pos"] = pos;
-  std::string action = contexts_.at(current_context_).action();
   if (action == "build_neuron")
-    h_BuildNeuron(msg);
+      h_BuildNeuron(msg);
   else if (action == "set_wps") 
     h_SetWPs(msg);
   else if (action == "ipsp_target") 

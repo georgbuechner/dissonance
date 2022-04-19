@@ -109,6 +109,9 @@ void Drawrer::set_statistics(nlohmann::json json) {
 bool Drawrer::InGraph(position_t pos) {
   return graph_positions_.count(pos) > 0;
 }
+bool Drawrer::Free(position_t pos) {
+  return field_[pos.first][pos.second].symbol_ == SYMBOL_FREE;
+}
 
 int Drawrer::next_viewpoint() {
   cur_view_point_ = (1+cur_view_point_+1)%2 + 1;
