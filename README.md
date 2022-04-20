@@ -22,7 +22,7 @@ dissonance
 
 multiplayer:
 ```
-dissonance -m -z "ws://kava-i.de:4444" 
+dissonance -m -z "ws://kava-i.de:4444"  # or adress of a private server.
 ```
 
 # Table of contents
@@ -54,11 +54,11 @@ AI-strategy and lays the seed for the map-generation.
 
 ## Premise 
 Several parts of the brain are in dissonance and started attacking each other
-with strong potentials, aiming to destroy the others nucleus. 
+with strong potentials, aiming to destroy the other's nucleus. 
 
 Each player starts with a nucleus with control over a few cells surrounding it.
 By gathering different resources (iron, oxygen, potassium, ...) you can create synapses to 
-generate potential, advancing towards the enemies nucleus. By activating cells 
+generate potential, advancing towards the enemy's nucleus. By activating cells 
 you control, these cells can neutralize incoming potential.
 
 You randomly gain iron every few seconds. Iron can be used to activate the process of 
@@ -73,7 +73,7 @@ neurons and hence destroy enemy synapses or activated neurons or even block the
 enemies resource-production.
 
 Once you gained enough resources you can expand your control over the brain by
-building more nucleus'. Use these, your build potential and the strategist
+building more nuclei. Use these, your built potentials and the strategist
 inside you to overcome dissonance in your favor!
 
 ## Installation 
@@ -85,7 +85,7 @@ inside you to overcome dissonance in your favor!
 - also essential c++ tools like `make` and `cmake`.
 - [python](https://www.python.org/) 
 - [conan](https://conan.io/) (available in most package managers, but also: `pip install conan`)
-- [aubio](https://github.com/aubio/aubio)
+- [aubio](https://github.com/aubio/aubio) (installation instructions below)
 
 Aubio installation: 
 - Ubuntu: `sudo apt-get install aubio-tools libaubio-dev libaubio-doc`  
@@ -148,20 +148,23 @@ store settings and analysed musical data.
 
 ### Usage
 To play, simply run `dissonance` in your command line for singe-player and
-`dissonance -m -z ""ws://{server-name}:{port}"` to play online (muliplayer). 
+`dissonance -m -z ""ws://{server-name}:{port}"` to play online (multiplayer). 
 
 Currently there should be a server running at "ws://kava-i.de:4444".
 
 You can run your own server by adding `-s` flag (standalone).
 `4444` is the standard port.
 
+You should open your terminal in full screen mode. Technically any terminal-size
+is possible, but the game is only really tested for *1900x1020* and *3440x1440*.
+
 ### Logfiles
 
 If not changed manually, logfiles will be stored at `~/.dissonance/logs/` in the
 format `[timestamp]_logfile.txt` f.e. `2021-10-13-01-44-47_logfile.txt`.
 
-By default all previous logs are deleted. This behavior can be changed, adding
-`-k` or `--keep_log` flag.
+By default all previous logs are deleted whenever starting a new game. This behavior 
+can be changed, adding `-k` or `--keep_log` flag.
 
 By default logging is set to `warn`, leading to very small log-files containing only
 the most relevant information. Consider including these files if you are filing
@@ -182,7 +185,7 @@ To uninstall `dissonance`, run:
 make uninstall
 ```
 
-If you installed *aubio* with make, you can uninstall, using:
+If you installed *aubio* with make, you can uninstall using:
 ```
 make uninstall_aubio
 ```
@@ -282,8 +285,8 @@ cd build
 
 ### Installing software via CLI
 Installing new software via CLI is one of the things that will give you the "oh, that's
-nice" experiences. Most operating systems (we'll concentrate on linux and MacOs
-here) will have their own package-manager to not only install but also updated
+nice" experience. Most operating systems (we'll concentrate on linux and MacOs
+here) will have their own package-manager to not only install but also update
 your software. Ubuntu uses `apt`, arch-bases distro use `pacman` and on MacOs
 you can use `homebrew`. Installing howebrew can be a bit tricky, here's a link
 on how to do this: https://brew.sh/
@@ -296,13 +299,13 @@ As already mention, ubuntu uses `apt`.
 For dissonance you need to install a few programs, like `gcc`, `cmake`, `python` and
 `conan` and maybe (depending on what is already installed on you system, more
 basic tools, like `make`, `wget` and other programs. This may seem like a lot,
-but installing via CLI really makes thing easy: 
+but installing via CLI really makes things easy: 
 ```
 sudo apt install build-essential cmake python
 ```
 Will install most programs you need to install and run dissonance.
 
-`build-essential` contains stand software to for coding, like `gcc` (c++
+`build-essential` contains standard software for coding, like `gcc` (c++
 compiler), `make` and a few other libraries.
 
 On Ubuntu `conan` can not be install via apt, however you can use the
@@ -334,9 +337,16 @@ issues.
 ### Resources 
 Resources all follow a certain structure: 
 - `free`: currently available units of resource.
-- `bound`: units bound in certain neurons (in case of iron: iron distribute to resources).
+- `bound`: units bound in certain neurons (in case of iron: all iron distributed to resources).
 - `limit`: max resource limit. 
 - `boost`: distributed iron to this resource.
+
+In game, when a resource is selected you should see something like this:
+<p align="center"> potassium: 50.99+13.20/100 ++2 </p>
+
+This means you have `50.99` potassium free to spend, `13.20` bound in neurons,
+the current limit for potassium is `100` and boost is `2` (e.i. two iron
+distributed to potassium).
 
 The gain of resources is determined by the amount of iron distributed to a
 resource, the current oxygen and how close the resource is to it's limit. Iron
@@ -346,7 +356,7 @@ certain frame only notes outside of the key where played - *high dissonance*).
 In addition, the slowdown factor reduces the current gain, this provides the
 option to reduce the slowdown curve with technologies.
 
-Formula: `(boost * gain * negative-faktor)/slowdown` where...
+Formula: `(boost * gain * negative-faktor) / slowdown` where...
 - ...boost is calculated with `1 + boost/10`
 - ...gain is calculated with `|log(current-oxygen+0.5)|`
 - ...negative-factor is calculated with `1 - (free+bound)/limit`
@@ -370,23 +380,24 @@ Formula: `(boost * gain * negative-faktor)/slowdown` where...
 | nucleus (Χ)     | expansion | nucleus from which everything is controlled. | ζ, ο, κ, γ, η, δ, σ |
 | activated neuron (Φ) | defence/ neuron | activates a cell, thus reducing the potential of incoming EPSP or IPSP. | ο, η | 
 | Synapse (Ξ)  | attack/ neuron  | creates potential (epsp, ipsp). | ο, κ | 
-| [1..9] epsp            | attack/ potential | potential traveling to enemy neurons, aiming to *destroy* these. | κ | 
-| [a..z] ipsp            | attack/ potential | potential traveling to enemy neurons, aiming to *block* these or enemy epsp. | κ, γ | 
+| [a..z] epsp            | attack/ potential | potential traveling to enemy neurons, aiming to *destroy* these. | κ | 
+| [1..9] ipsp            | attack/ potential | potential traveling to enemy neurons, aiming to *block* these or enemy epsp. | κ, γ | 
+| 0 macro | attack/ potential | a "special" unit which can either inflict range-damage or create "tunnels" for faster movement of potentials (function randomly assigned when game starts) | κ, γ | 
 
 
 ### Technologies
 Most technologies are automatically applied. In the case of the technologies
 belonging to the group *attack*, new technologies allow you to change the
-configuration of you synapses. These configuration can be different for each
-synapses, potential launched from different synapses can go different ways and have
-different target (targets for epsp and ipsp can also be selected independent
+configuration of you synapses. These configurations can be different for each
+synapse (e.i. potentials launched from different synapses can go different ways and have
+different targets -- targets for epsp and ipsp can also be selected independent
 from each other).
+Each technology has three steps. The second step doubles, the third triples the cost for the technology.
 
 | name            | group | description   | steps |
 |:---------------:|------|--------| ------ |
 | choose way | attack | specify way-points to plan your attacks more accurately | 3 (1, 2, 3 way-points) |
 | swarm attack | attack | synapse release a "swarm" of epsps | 3 (4, 7, 10) |
-| chose target | attack | allows a synapse to specify a target | 2  (1: ipsp, 2:ipsp+epsp) |
 | total resources | resources | increases maximum of each resource by 20% | 3 |
 | slowdown curve | resources | lowers resource-slowdown | 3 |
 | epsp/ipsp potential | potential-upgrade | increases potential of ipsp and epsp |  3|
@@ -411,7 +422,7 @@ For the following technologies/ neurons the costs are increased:
 
 | name    | iron | oxygen | potassium | chloride | glutamate | dopamine | serotonin |
 |:--------|------|--------|-----------|----------|-----------|----------|-----------|
-| Neuron: nucleus | 1 |30 | 30        | 30       | 30        | 30       | 30        |
+| Neuron: nucleus | 1 |8.2| 8.2       | 8.2      | 8.2       | 16.2     | 16.2      |
 | Neuron: activated neuron | - | 8.9 | - | -     | 19.1      | -        | -         |
 | Neuron: synapse | - | 13.4 | 6.6    | -        | -         | -        | -         | 
 | Potential: epsp | - | - | 4.4       | -        | -         | -        | -         |
@@ -444,10 +455,11 @@ awesome libraries makeing `dissonance` possible:
 - [nlohmann/json](https://github.com/catchorg/Catch2), the insanely good
   json-library (which probably everyone is using?)
 - [spdlog](https://github.com/catchorg/Catch2), a great logging library.
+- [fiboheap](https://github.com/beniz/fiboheap) for providing an easy to use impementation 
+  of the fibonacci heap (I modified the fibonacci-queue-implementation to meet my needs).
+- [websocketpp](https://github.com/zaphoyd/websocketpp/blob/master/COPYING) for
+  providing the socket communication for multiplayer-mode.
 - and finally [ncurses](https://github.com/mirror/ncurses)! 
-- [fiboheap](git push --set-upstream origin dijkstras_shortes_path) for
-  providing a easy to use impementation of the fibonacci heap. I modified the
-  fibonacci-queue to meet my needs.
 
 Also I want to clarify, that not all dependencies use the same license as I:
 
@@ -460,6 +472,8 @@ Also I want to clarify, that not all dependencies use the same license as I:
 | nlohmann | BSL |
 | spdlog | BSL |
 | ncurses | X11 |
+| fiboheap | LGPL-3.0 License |
+| websocketpp | custom |
 
 
 ### Music
@@ -470,6 +484,8 @@ Also I want to clarify, that not all dependencies use the same license as I:
 
 ### Friends and influces
 
-Finally I want to thank Alex for discussing I ideas and conspets with me, as
-well as coming up with the audio-base AI and Anna, who help me develop the
-resource-and unit-system and especially get the biology right :)
+Finally I want to thank Alex for discussing ideas and conspets with me, as
+well as coming up with the audio-base AI, Anna who help me develop the
+resource-and unit-system and especially get the biology right ;), Dennis who
+helped with testing and gave a lot of ideas for the tutorial, and Simon who is
+currently helping me to develope a more advanced AI.
