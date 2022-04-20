@@ -934,7 +934,13 @@ void ClientGame::m_GameEnd(nlohmann::json& msg) {
   drawrer_.set_stop_render(true);
   drawrer_.ClearField();
   drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"].get<std::string>());
-  drawrer_.PrintCenteredLine(LINES/2+2, " [Press 'q' to leave game and 'h'/'l' to cycle statistics]");
+  int counter = 2;
+  if (mode_ == TUTORIAL) {
+    drawrer_.PrintCenteredLine(LINES/2+counter, "You finished the tutorial! You may want to replay to "
+        "explore all hints, we provide.");
+    counter +=2;
+  }
+  drawrer_.PrintCenteredLine(LINES/2+counter, " [Press 'q' to leave game and 'h'/'l' to cycle statistics]");
   drawrer_.set_statistics(msg["data"]["statistics"]);
   refresh();
   ws_srv_->Stop();

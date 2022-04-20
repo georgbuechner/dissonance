@@ -285,14 +285,16 @@ void Drawrer::PrintCenteredParagraph(texts::paragraph_t paragraph, unsigned int 
 
 void Drawrer::PrintCenteredParagraphAndMiniFields(texts::paragraph_t paragraph, std::vector<std::string> fields, 
     bool nextmsg) {
-  std::string fields_str = "";
-  for (const auto& field : fields) 
-    fields_str += field + ", ";
-  spdlog::get(LOGGER)->debug("Printing paragraph with fields: {}", fields_str);
+  // Add message with availibe commands.
+  if (nextmsg) {
+    paragraph.push_back("");
+    paragraph.push_back("[press 'h' for previous and 'l' for next text. 'q' to quit.]");
+  }
+  // Print paragraph
   PrintCenteredParagraph(paragraph, (unsigned int)5);
 
+  // Print mini-field(s).
   unsigned int start_height = LINES/2 + paragraph.size()/2 + 2;
-
   for (unsigned int r=0; r<10; r++) {
     unsigned int start_col = COLS/2-10*fields.size() - 5*(fields.size()/2);
     for (unsigned int field=0; field<fields.size(); field++) {

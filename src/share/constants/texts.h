@@ -167,7 +167,7 @@ namespace texts {
       "",
       "The first you'll have to do is to select a song to play along to.",
       "Your choice of music will influence the map and the style of the AI.",
-      "We added a song which should be fairly easier, while you're still learning.",
+      "We added a song which should be fairly easy, while you're still learning.",
       "",
       "However also the size of your terminal and the selected font will affect the map",
       "and as a direct effect the game's difficulty. You should generally consider playing on full screen.",
@@ -309,7 +309,7 @@ namespace texts {
       "TUTORIAL",
       "",
       "You can build/ activate neurons only in the range of your nucleus.",
-      "The range is highlighted in green and the blue 'x' shows the currently selected position..",
+      "The range is highlighted in green and the blue 'x' shows the currently selected position.",
       "(you can later expand your range of influence in the brain by researching technologies",
       "or building new nucleus across the map)",
     }, {"field_select_neuron_position_1", "field_select_neuron_position_2", "field_select_neuron_position_3"}},
@@ -372,6 +372,7 @@ namespace texts {
     {{
       "TUTORIAL",
       "",
+      "Your epsps have arrived at the enemy's location!",
       "Now that you can see which neurons your enemy has created, you can specifically target",
       "these neurons.",
       "",
@@ -387,7 +388,7 @@ namespace texts {
       "letter to select the synapse. You can choose different targets for each synapse",
       "and different targets for epsp and ipsp (we will come to ipsp later).",
       "",
-      "The map show's how the first of two SYNAPSES is selected by first pressing 's' (select synapse(s)",
+      "The map shows how the first of two SYNAPSES is selected by first pressing 's' (select synapse(s))",
       "and then 'a' (select first synapse)."
     }, {"multi_synapse_selection_1", "multi_synapse_selection_2", "multi_synapse_selection_3"}}
   };
@@ -415,7 +416,11 @@ namespace texts {
       "",
       "Most of the time ipsps are used to block the enemy's ACTIVATED NEURONs just before your epsp arrives.",
       "Blocked activated neurons cannot neutralize epsp.",
-      "This way you can overcome even large defensive layers."
+      "This way you can overcome even large defensive layers.",
+      "If you use ipsp to block enemy-neurons you will most certainly select the ipsp's target. ",
+      "Press 's' to select the synapse menu, then press 'i' to select [i]psp target.",
+      "Also it might be useful to create multiple synapses each with a different target for ipsps.",
+      "(ipsp and epsp targets are different, while way-points (discussed later) are shared)",
     }, {}},
     {{
       "TUTORIAL",
@@ -624,11 +629,10 @@ namespace texts {
       "TUTORIAL",
       "",
       "Your enemy's epsp have reached your nucleus!",
-      "Potential is now added to you nucleus. If your nucleus potential reaches '9/9' you have lost!",
-      "Concider building more ACTIVATED NEURONS."
+      "Potential is now added to your nucleus. If your nucleus' potential reaches '9/9' you have lost!",
+      "Consider building more ACTIVATED NEURONS."
     }, {"field_attack_2"}}
   };
-
 }
 
 #endif
