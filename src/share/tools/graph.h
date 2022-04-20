@@ -226,6 +226,11 @@ class Graph {
         q.insert(it.first, 9999999);
       }
       for (const auto& it : nodes_.at(i_pos_a)->nodes_) {
+        // If direct child is target, return {[s]tart, [t]arget} and add to cache.
+        if (it.first->pos_ == t) {
+          chache_[start_end_tuple] = {s, t};
+          return {s, t};
+        }
         distance[it.first->i_pos_] = it.second;
         q.descrease_key(it.first->i_pos_, 9999999, it.second);
       }
@@ -245,6 +250,7 @@ class Graph {
           }
         }
       }
+
       // Get way
       std::list<position_t> way = {t};
       if (prev.count(t) > 0) {

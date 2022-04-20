@@ -232,7 +232,7 @@ TEST_CASE("test priority queue", "[graph]") {
   REQUIRE(Graph::get_pos(fq.pop()) != first_pos);
 }
 
-TEST_CASE("test graph-cache", "[grapj]") {
+TEST_CASE("test graph-cache", "[graph]") {
   RandomGenerator* ran_gen = new RandomGenerator();
   Field* field = new Field(100, 100, ran_gen);
   field->BuildGraph();
@@ -249,6 +249,41 @@ TEST_CASE("test graph-cache", "[grapj]") {
   REQUIRE(time_1 > time_2*1000);
 }
 
+TEST_CASE("test graph: find way with special conditions", "[graph]") {
+  RandomGenerator* ran_gen = new RandomGenerator();
+  Field* field = new Field(100, 100, ran_gen);
+  field->BuildGraph();
+
+  SECTION("Expecting specific length") {
+    position_t target = {2, 0};
+    position_t start = {2, 2};
+    auto way = field->graph().DijkstrasWay(start, target);
+    REQUIRE(way.size() == 3);
+  }
+
+  SECTION("Target one field away vertically") {
+    position_t target = {2, 0};
+    position_t start = {2, 1};
+    auto way = field->graph().DijkstrasWay(start, target);
+    REQUIRE(way.size() == 2); // start and target only
+  }
+
+  SECTION("Target one field away horizontally") {
+    position_t target = {2, 0};
+    position_t start = {3, 0};
+    auto way = field->graph().DijkstrasWay(start, target);
+    REQUIRE(way.size() == 2); // start and target only
+  }
+
+  SECTION("Target one field away diagonally") {
+    position_t target = {2, 0};
+    position_t start = {3, 1};
+    auto way = field->graph().DijkstrasWay(start, target);
+    REQUIRE(way.size() == 2); // start and target only
+  }
+}
+
+
 TEST_CASE("test hashing and unhashing positions" "[graph]") {
   for (unsigned short i=0;i<1000; i++) {
     for (unsigned short j=0;j<1000; j++) {
@@ -256,18 +291,6 @@ TEST_CASE("test hashing and unhashing positions" "[graph]") {
       int i_pos = Graph::to_int(pos);
       REQUIRE(Graph::get_pos(i_pos) == pos);
     }
-  }
-}
-
-void PrintMiniField(std::vector<std::vector<Transfer::Symbol>> field) {
-  for (const auto& i : field) {
-    for (const auto& j : i) {
-      int color = 30 + j.color_;
-      std::cout << "\033[1;" + std::to_string(color) + "m";
-      std::cout << j.symbol_ << " ";
-      std::cout << "\033[0m";
-    }
-    std::cout << std::endl;
   }
 }
 
