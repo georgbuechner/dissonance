@@ -377,14 +377,14 @@ void ClientGame::h_BuildPotential(nlohmann::json& msg) {
     ws_srv_->SendMessage(response.dump());
   }
   else if (msg["data"].contains("start_pos")) {
-    spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 2");
+    spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 3");
     RemovePickContext(CONTEXT_RESOURCES);
     nlohmann::json response = {{"command", "check_build_potential"}, {"username", username_}, {"data",
       {{"unit", msg["data"]["unit"]}, {"num", msg["data"]["num"]}, {"start_pos", msg["data"]["start_pos"]}} }};
     ws_srv_->SendMessage(response.dump());
   }
   else if (msg["data"].contains("positions")) {
-    spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 3");
+    spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 2");
     SwitchToPickContext(msg["data"]["positions"], "Select synapse", "build_potential", msg);
   }
   msg = nlohmann::json();
