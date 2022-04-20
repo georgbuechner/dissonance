@@ -596,6 +596,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   field = new Field(10, 10, ran_gen);
   field->BuildGraph();
   nucleus = field->AddNucleus(1);
+
   spdlog::get(LOGGER)->debug("Creating new player");
   p = new Player(nucleus.front(), field, ran_gen, player_color);
   // Give player plenty resources (iron):
@@ -631,10 +632,11 @@ void Drawrer::CreateMiniFields(int player_color) {
     if ((unsigned int)pos.first < exported_field.size() && (unsigned int)pos.second < exported_field[pos.first].size())
       exported_field[pos.first][pos.second].color_ = COLOR_SUCCESS;
   }
-  spdlog::get(LOGGER)->debug("done");
+  spdlog::get(LOGGER)->debug("done highliting positions");
   exported_field[nucleus.front().first][nucleus.front().second].color_ = COLOR_AVAILIBLE;
   exported_field[nucleus.front().first][nucleus.front().second].symbol_ = "x";
   mini_fields_["field_select_neuron_position_1"] = exported_field;
+  spdlog::get(LOGGER)->debug("done creating highliting-map");
 
   // Move selection on map.
   exported_field[nucleus.front().first][nucleus.front().second].color_ = player_color;
@@ -657,6 +659,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   Field* field_enemy = new Field(10, 10, ran_gen);
   field_enemy->BuildGraph();
   auto nucleus_enemy = field_enemy->AddNucleus(1);
+
   auto nucleus_pos_enemy = nucleus_enemy.front();
   spdlog::get(LOGGER)->debug("Creating new player");
   Player* p_enemy = new Player(nucleus_pos_enemy, field_enemy, ran_gen, enemy_color);

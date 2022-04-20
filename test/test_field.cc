@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <iterator>
 #include <algorithm>
+#include <set>
 #include "share/constants/codes.h"
 #include "server/game/field/field.h"
 #include "share/defines.h"
@@ -270,24 +271,18 @@ void PrintMiniField(std::vector<std::vector<Transfer::Symbol>> field) {
   }
 }
 
-
-TEST_CASE("create mini field", "[field]") {
+TEST_CASE("Test ran gen", "random-generator]") {
   RandomGenerator* ran_gen = new RandomGenerator();
-  Field* field = new Field(10, 10, ran_gen);
-  field->BuildGraph();
-  auto nucleus = field->AddNucleus(1);
-  Player* p = new Player(nucleus.front(), field, ran_gen, COLOR_AVAILIBLE);
-
-  auto exported_field = field->Export({p});
-  Transfer t_original;
-  t_original.set_field(exported_field);
-  nlohmann::json j = t_original.json();
-  Transfer t_from_json (j);
-  for (unsigned int i=0; i<t_original.field().size(); i++) {
-    for (unsigned int j=0; j<t_original.field()[i].size(); j++) {
-      REQUIRE(t_original.field()[i][j].symbol_ == t_from_json.field()[i][j].symbol_);
-      REQUIRE(t_original.field()[i][j].color_ == t_from_json.field()[i][j].color_);
-    }
+  int min = 0;
+  int max = 10;
+  std::set<int> nums;
+  for (int i=0; i<10000; i++) {
+    auto ran = ran_gen->RandomInt(min, max);
+    nums.insert(ran);
+    REQUIRE(ran >= min);
+    REQUIRE(ran <= max);
   }
-  PrintMiniField(t_from_json.field());
+  for (int i=min; i<=max; i++) {
+    REQUIRE(nums.count(i));
+  }
 }
