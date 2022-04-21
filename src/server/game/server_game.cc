@@ -720,8 +720,21 @@ void ServerGame::Thread_RenderField() {
     if (utils::GetElapsed(last_update, cur_time) > render_frequency) {
       // Move potentials of all players.
       std::unique_lock ul(mutex_players_);
-      for (const auto& it : players_)
+      for (const auto& it : players_) {
         it.second->MovePotential();
+        // Send newly created loophols to player.
+        if (!IsAi(it.first)) {
+          auto positions = it.second->GetAllPositionsOfNeurons(LOOPHOLE);
+          if (positions.size() > 0) {
+            std::map<position_t, int> loophols;
+            for (const auto& it : positions) 
+              loophols[it] = LOOPHOLE;
+            nlohmann::json msg = {{"command", "set_units"}, {"data", {{"neurons", loophols}, 
+              {"color", it.second->color()}} }};
+            ws_server_->SendMessage(it.first, msg);
+          }
+        }
+      }
       // After potentials where move check if a new player has lost and whether a player has scouted new enemy neuerons
       HandlePlayersLost();
       SendScoutedNeurons();
@@ -869,6 +882,8 @@ void ServerGame::CreateAndSendTransferToAllPlayers(float audio_played, bool upda
     transfer.set_technologies(it.second->t_technologies());
     transfer.set_build_options(it.second->GetBuildingOptions());
     transfer.set_synapse_options(it.second->GetSynapseOptions());
+    if (!update)
+      transfer.set_macro(it.second->macro());
     resp["data"] = transfer.json();
     ws_server_->SendMessage(it.first, resp);
   }
@@ -940,7 +955,7 @@ void ServerGame::SendNeuronsToObservers() {
   for (const auto& it : players_) {
     for (const auto& enemy : it.second->enemies()) {
       nlohmann::json resp = {{"command", "set_units"}, {"data", {{"neurons", 
-        enemy->new_neurons()}, {"color", enemy->color()}} }};
+        enemy->new_neurons()}, {"color", enemy->color()}} }}; // TODO (fux): only works for 1 player (new-neurons cleared)
       for (const auto& it : observers_)
         ws_server_->SendMessage(it, resp);
     }
@@ -959,10 +974,10 @@ void ServerGame::IpspSwallow(position_t ipsp_pos, Player* player, std::vector<Pl
   std::string ipsp_id = player->GetPotentialIdIfPotential(ipsp_pos, IPSP);
   for (const auto& enemy : enemies) {
     std::string id = enemy->GetPotentialIdIfPotential(ipsp_pos);
-    if (id.find("epsp") != std::string::npos) {
+    if (id.find("epsp") != std::string::npos || id.find("macro_1") != std::string::npos) {
       player->NeutralizePotential(ipsp_id, -1); // increase potential by one
-      enemy->NeutralizePotential(id, 1); // decrease potential by one
-      player->statistics().AddEpspSwallowed();
+      if (enemy->NeutralizePotential(id, 1)) // decrease potential by one
+        player->statistics().AddEpspSwallowed();
     }
   }
 }

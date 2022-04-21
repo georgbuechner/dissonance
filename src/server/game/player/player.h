@@ -56,6 +56,7 @@ class Player {
 
     position_t GetSynapesTarget(position_t synapse_pos, int unit);
     std::vector<position_t> GetSynapesWayPoints(position_t synapse_pos, int unit=-1);
+    int macro() { return macro_; }
 
     // setter
     void set_enemies(std::vector<Player*> enemies);
@@ -69,6 +70,7 @@ class Player {
     std::map<position_t, int> GetMacroAtPosition();
     std::vector<position_t> GetPotentialPositions();
     std::map<position_t, int> GetAllNeuronsInRange(position_t pos);
+    position_t GetLoopholeTargetIfExists(position_t pos, bool only_active=false);
     int GetColorForPos(position_t pos);
 
     /** 
@@ -290,6 +292,7 @@ class Player {
     int cur_range_;
     int color_;
     bool lost_;
+    int macro_;
 
     std::map<int, Resource> resources_;
     double resource_slowdown_;

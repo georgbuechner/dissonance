@@ -503,6 +503,10 @@ void ClientGame::h_SetWPs(nlohmann::json& msg) {
     SwitchToPickContext(center_positions, "select start position", "set_wps", msg, {'q'});
   }
   // First call (request positions)
+  else if (!drawrer_.synapse_options().at(0)) {
+    FinalSynapseContextAction(msg["data"]["synapse_pos"]);
+    drawrer_.set_msg("Technology \"choose way\" not researched");
+  }
   else {
     // If "msg" is contained, print message
     if (msg["data"].contains("msg"))

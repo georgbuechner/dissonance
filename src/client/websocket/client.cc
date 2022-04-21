@@ -90,7 +90,7 @@ void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr 
   spdlog::get(LOGGER)->debug("Client got message: {}", msg->get_payload());
   std::thread handler([this, msg]() { game_->HandleAction(nlohmann::json::parse(msg->get_payload())); });
   handler.detach();
-  spdlog::get(LOGGER)->info("Client::on_message: existed");
+  spdlog::get(LOGGER)->info("Client::on_message: exited");
 }
 
 void Client::SendMessage(std::string msg) {

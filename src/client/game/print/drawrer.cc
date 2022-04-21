@@ -12,6 +12,7 @@
 #include "spdlog/spdlog.h"
 #include <mutex>
 #include <string>
+#include <unistd.h>
 #include <utility>
 
 #define SIDE_COLUMN_WIDTH 30
@@ -46,6 +47,10 @@ std::string Drawrer::game_id_from_lobby() {
   if (cur_view_point_ == VP_LOBBY && (unsigned int)cur_selection_.at(VP_LOBBY).x_ < lobby_.lobby().size())
     return lobby_.lobby()[cur_selection_.at(VP_LOBBY).x_]._game_id;
   return "";
+}
+
+std::vector<bool> Drawrer::synapse_options() {
+  return transfer_.synapse_options();
 }
 
 int Drawrer::GetResource() {
@@ -125,6 +130,15 @@ void Drawrer::set_msg(std::string msg) {
 void Drawrer::set_transfer(nlohmann::json& data) {
   transfer_ = Transfer(data);
   field_ = transfer_.field();
+
+  set_stop_render(true);
+  std::string macro = (transfer_.macro() == 0) ? "chained-potential" : "loophols";
+  std::string msg = "You are playing with \"" + macro + "\" as your macro!";
+  ClearField();
+  PrintCenteredLine(LINES/2, msg);
+  PrintCenteredLine(LINES/2+2, "[Press any key to continue]");
+  getch();
+  set_stop_render(false);
 
   // Adjust start-point of field if game size is smaller than resolution suggests.
   unsigned int cur_height = field_height();
@@ -487,7 +501,7 @@ void Drawrer::PrintStatistics() const {
   spdlog::get(LOGGER)->info("Printing statistics: {} {}", statistics_.size(), cur_selection_.at(VP_POST_GAME).x_);
   clear();
   refresh();
-  int start_line = LINES/8;
+  int start_line = LINES/15;
   int counter = 0;
   for (const auto& it : statistics_) {
     if (counter++ == cur_selection_.at(VP_POST_GAME).x_) {
@@ -497,10 +511,12 @@ void Drawrer::PrintStatistics() const {
       PrintCenteredLineBold(start_line, utils::ToUpper(it.first));
       attroff(COLOR_PAIR(it.second.player_color()));
       int i=2;
+      spdlog::get(LOGGER)->info("Printing statistics: neurons");
       PrintCenteredLineBold(start_line+(++i), "Neurons Built");
       for (const auto& it : it.second.neurons_build()) 
         PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
       i++;
+      spdlog::get(LOGGER)->info("Printing statistics: potentials");
       PrintCenteredLineBold(start_line+(++i), "Potentials Built");
       for (const auto& it : it.second.potentials_build()) 
         PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));

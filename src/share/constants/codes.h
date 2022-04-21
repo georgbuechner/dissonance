@@ -9,6 +9,7 @@
 #define SYMBOL_DEN "\u03A7" // greek uppercase 'chi'
 #define SYMBOL_DEF "\u03A6"  // greek uppercase 'phi'
 #define SYMBOL_BARACK "\u039E" // greek uppercase 'xi'
+#define SYMBOL_LOOPHOLE "\u221E" // infinity
 
 #define SYMBOL_IRON "\u03B6" // greek lowercase 'zeta' (from chemical symbol [F]e)
 #define SYMBOL_OXYGEN "\u03BF" // greek lowercase 'omicron'
@@ -18,7 +19,6 @@
 #define SYMBOL_DOPAMINE "\u03B4" // greek lowercase 'delta'
 #define SYMBOL_SEROTONIN "\u03C3" // greek lowercase 'sigma
 #define SYMBOL_FREE "\u2219" // simple dot.
-#define SYMBOL_INFINITY "\u221E"
 
 enum Markers {
   SYNAPSE_MARKER,
@@ -66,6 +66,7 @@ enum UnitsTech {
   SYNAPSE,
   NUCLEUS, 
   RESOURCENEURON,
+  LOOPHOLE,
   EPSP,
   IPSP,
   MACRO,
@@ -174,6 +175,7 @@ const std::map<int, std::string> unit_symbol_mapping = {
   {ACTIVATEDNEURON, SYMBOL_DEF},
   {SYNAPSE, SYMBOL_BARACK},
   {NUCLEUS, SYMBOL_DEN},
+  {LOOPHOLE, SYMBOL_LOOPHOLE},
 };
 
 const std::map<int, std::string> resource_description_mapping = {
@@ -189,9 +191,11 @@ const std::map<int, std::string> resource_description_mapping = {
 const std::map<int, std::string> units_tech_name_mapping = {
   {ACTIVATEDNEURON, "activated-neuron"},
   {RESOURCENEURON, "resource-neuron"},
+  {LOOPHOLE, "loophole"},
   {SYNAPSE, "synapse"},
   {EPSP, "epsp"},
   {IPSP, "ipsp"},
+  {MACRO, "macro"},
   {NUCLEUS, "nucleus"},
   {WAY,"choose way"},
   {SWARM,"swarm attack"},
@@ -207,10 +211,12 @@ const std::map<int, std::string> units_tech_name_mapping = {
 
 const std::map<int, std::string> units_tech_description_mapping = {
   {ACTIVATEDNEURON, "activated-neuron"},
+  {LOOPHOLE, "loophole"},
   {RESOURCENEURON, "resource-neuron"},
   {SYNAPSE, "synapse"},
   {EPSP, "epsp"},
   {IPSP, "ipsp"},
+  {MACRO, "macro"},
   {NUCLEUS, "nucleus"},
   {WAY,"Increases maximum number of way-points you may set to specify way of potential (applicable per synapse)"},
   {SWARM,"Activates using swarm-attack/ increases maximum swarm-size possible (applicable per synapse)"},

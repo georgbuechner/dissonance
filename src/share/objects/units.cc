@@ -46,6 +46,7 @@ Synapse::Synapse(position_t pos, int max_stored, int num_availible_ways, positio
   stored_ = 0;
   epsp_target_ = epsp_target;
   ipsp_target_ = ipsp_target;
+  macro_target_ = epsp_target;
   num_availible_way_points_ = num_availible_ways;
 }
 
@@ -90,10 +91,12 @@ void Synapse::set_max_stored(unsigned int max_stored) {
 std::vector<position_t> Synapse::GetWayPoints(int unit) const { 
   spdlog::get(LOGGER)->debug("SYNAPSE::GetWayPoints");
   auto way = way_points_;
-  if (unit == UnitsTech::EPSP || unit == UnitsTech::MACRO)
+  if (unit == UnitsTech::EPSP)
     way.push_back(epsp_target_);
   else if (unit == UnitsTech::IPSP)
     way.push_back(ipsp_target_);
+  else if (unit == UnitsTech::MACRO) 
+    way.push_back(macro_target_);
   else
    throw std::invalid_argument("Target neither epsp or ipsp:");
   return way;

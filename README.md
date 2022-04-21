@@ -223,6 +223,12 @@ As the documentation of [miniaudio](https://miniaud.io/docs/manual/index.html)
 correctly points out, these issues might be fixed by applying the fix mentioned
 in the arch-linux wiki: https://wiki.archlinux.org/title/PulseAudio/Troubleshooting#Glitches,_skips_or_crackling.
 
+#### Loading audio
+What you see in the image below is not an error! It's indicating that audio is
+being analysed. Once you analysed the song once, the data is stored and the
+message should not aprear again.
+![Load audio](images/load_audio.png)
+
 ## Help Me I have no idea what a command-line is.<a name="help-me"></a>
 Okay I think it's worth writing a few lines about the command-line and giving a
 few instructions in case you never used a *terminal* or a *command-line* and
@@ -382,7 +388,7 @@ Formula: `(boost * gain * negative-faktor) / slowdown` where...
 | Synapse (Ξ)  | attack/ neuron  | creates potential (epsp, ipsp). | ο, κ | 
 | [a..z] epsp            | attack/ potential | potential traveling to enemy neurons, aiming to *destroy* these. | κ | 
 | [1..9] ipsp            | attack/ potential | potential traveling to enemy neurons, aiming to *block* these or enemy epsp. | κ, γ | 
-| 0 macro | attack/ potential | a "special" unit which can either inflict range-damage or create "tunnels" for faster movement of potentials (function randomly assigned when game starts) | κ, γ | 
+| 0 macro | attack/ potential | a "special" unit which can either inflict range-damage or create "loophols" for faster movement of potentials (function randomly assigned when game starts) | κ, γ | 
 
 
 ### Technologies
