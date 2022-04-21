@@ -15,6 +15,7 @@
 #include "share/constants/codes.h"
 #include "share/constants/costs.h"
 #include "share/defines.h"
+#include "share/objects/units.h"
 #include "spdlog/logger.h"
 
 #include "server/game/field/field.h"
@@ -26,6 +27,7 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
   field_ = field;
   ran_gen_ = ran_gen;
   lost_ = false;
+  macro_ = ran_gen->RandomInt(0, 1);
 
   // Set player-color in statistics.
   statistics_.set_color(color);
@@ -220,6 +222,14 @@ std::map<position_t, int> Player::GetAllNeuronsInRange(position_t pos) {
       neurons_in_range[it.first] = it.second->type_;
   }
   return neurons_in_range;
+}
+
+position_t Player::GetLoopholeTargetIfExists(position_t pos, bool only_active) {
+  if (only_active && GetMacroAtPosition().size() == 0)
+    return {-1, -1};
+  if (neurons_.count(pos) && neurons_.at(pos)->type_ == LOOPHOLE) 
+    return neurons_.at(pos)->target();
+  return {-1, -1};
 }
 
 position_t Player::GetPositionOfClosestNeuron(position_t pos, int unit) {
@@ -419,7 +429,7 @@ Costs Player::GetMissingResources(int unit, int boast) {
 bool Player::TakeResources(int type, bool bind_resources, int boast) {
   spdlog::get(LOGGER)->debug("Player::TakeResources");
   if (units_costs_.count(type) == 0) {
-    spdlog::get(LOGGER)->debug("Player::TakeResources: done as free resource-neuron");
+    spdlog::get(LOGGER)->debug("Player::TakeResources: done as free resource-neuron or loophole");
     return true;
   }
   if (GetMissingResources(type, boast).size() > 0) {
@@ -472,6 +482,32 @@ bool Player::AddNeuron(position_t pos, int neuron_type, position_t epsp_target, 
     int resource_type = symbol_resource_mapping.at(symbol);
     neurons_[pos] = std::make_unique<ResourceNeuron>(pos, resource_type);
   }
+  else if (neuron_type == UnitsTech::LOOPHOLE) {
+    spdlog::get(LOGGER)->debug("Player::AddNeuron: Loophole");
+    position_t target = {-1, -1};
+    // Get all loopholes.
+    auto loopholes = GetAllPositionsOfNeurons(LOOPHOLE);
+    // If one exists, this is the target.
+    if (loopholes.size() == 1)
+      target = loopholes.front();
+    // If to exists, delete oldest, the other loophole is the new target.
+    else if (loopholes.size() == 2) {
+      if (utils::GetElapsedNano(neurons_.at(loopholes[0])->created_at(), neurons_.at(loopholes[1])->created_at()) > 0) {
+        neurons_.erase(loopholes[0]);
+        new_dead_neurons_[loopholes[0]] = LOOPHOLE;
+        target = loopholes[1];
+      }
+      else {
+        neurons_.erase(loopholes[1]);
+        new_dead_neurons_[loopholes[1]] = LOOPHOLE;
+        target = loopholes[0];
+      }
+    }
+    // Create new loophole and make it the target of old loophole.
+    neurons_[pos] = std::make_unique<Loophole>(pos, target);
+    if (target.first != -1 && target.second != -1)
+      neurons_[target]->set_target(pos);
+  }
   spdlog::get(LOGGER)->debug("Player::AddNeuron: done");
   new_neurons_[pos] = neuron_type;
   statistics_.AddNewNeuron(neuron_type);
@@ -516,8 +552,8 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
   }
   else if (unit == UnitsTech::MACRO) {
     spdlog::get(LOGGER)->debug("Player::AddPotential: ipsp - creating 1 ipsp.");
-    id = utils::CreateId("macro");
-    potential_[id] = Makro(synapes_pos, way, potential_boast, speed_boast);
+    id = utils::CreateId("macro_" + std::to_string(macro_));
+    potential_[id] = Makro(synapes_pos, way, potential_boast, 5*macro_+speed_boast);
   }
   // Decrease speed if given.
   potential_[id].movement_.first += inital_speed_decrease;
@@ -585,6 +621,25 @@ void Player::MovePotential() {
       it.second.pos_ = it.second.way_.front(); 
       it.second.way_.pop_front();
       it.second.movement_.first = it.second.movement_.second;  // potential did action, so reset speed.
+      // loopholes only for ipsp and epsp
+      if (!(it.second.type_ == MACRO && macro_ == 1)) {
+        // Check if entered own loophole:
+        position_t loophole_target = GetLoopholeTargetIfExists(it.second.pos_);
+        // Check if entered enemy's loophole (if loophole is active):
+        for (const auto& enemy : enemies_) {
+          auto new_loophole_target = enemy->GetLoopholeTargetIfExists(it.second.pos_, true);
+          if (new_loophole_target.first != -1 && new_loophole_target.second != -1) {
+            loophole_target = new_loophole_target;
+            break;
+          }
+        }
+        // If loophole-target exists, enter loophole.
+        if (loophole_target.first != -1 && loophole_target.second != -1) {
+          it.second.pos_ = loophole_target;
+          it.second.way_ = field_->GetWayForSoldier(it.second.pos_, {it.second.way_.back()});
+          it.second.way_.pop_front(); // remove first position, which is the loophole.
+        }
+      }
     }
     // If target is reached, handle epsp and ipsp seperatly.
     // Epsp: add potential to target and add epsp to list of potentials to remove.
@@ -602,8 +657,8 @@ void Player::MovePotential() {
           AddPotentialToNeuron(it.second.pos_, it.second.potential_);
         }
         // Makro
-        else if (it.second.type_ == UnitsTech::MACRO) {
-          spdlog::get(LOGGER)->debug("Handling potential arrived MACRO");
+        else if (it.second.type_ == UnitsTech::MACRO && macro_ == 0) {
+          spdlog::get(LOGGER)->debug("Handling potential arrived MACRO A");
           for (const auto& enemy : enemies_) {
             if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1) {
               auto neurons = enemy->GetAllNeuronsInRange(it.second.pos_);
@@ -621,6 +676,10 @@ void Player::MovePotential() {
               }
             }
           }
+        }
+        else if (it.second.type_ == UnitsTech::MACRO && macro_ == 1) {
+          spdlog::get(LOGGER)->debug("Handling potential arrived MACRO B");
+          AddNeuron(it.second.pos_, LOOPHOLE);
         }
         potential_to_remove.push_back(it.first); // remove 
       }

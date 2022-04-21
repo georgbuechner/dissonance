@@ -3,6 +3,7 @@
 #include <iterator>
 #include <algorithm>
 #include <set>
+#include <vector>
 #include "share/constants/codes.h"
 #include "server/game/field/field.h"
 #include "share/defines.h"
@@ -24,7 +25,7 @@ TEST_CASE("test_field", "[main]") {
     field->BuildGraph();
 
     SECTION("test GetWayForSoldier") {
-      SECTION("test way-points are sorted") {
+      SECTION("test way-points keep original order") {
         // Create two way-points, where wp_1 should be following wp_2, so we expect
         // way_point_2 to be passed before wp_1, altough adding wp_1 first.
         position_t start_pos = {99, 99};
@@ -43,9 +44,15 @@ TEST_CASE("test_field", "[main]") {
         // Way was created with length of min number of way-points and make sure order is correct.
         REQUIRE(way.size() > 4);
         REQUIRE(utils::Index(way, start_pos) == 0);
-        REQUIRE(utils::Index(way, start_pos) < utils::Index(way, way_points[1]));
-        REQUIRE(utils::Index(way, way_points[1]) < utils::Index(way, way_points[0]));
-        REQUIRE(utils::Index(way, start_pos) < utils::Index(way, target_pos));
+        REQUIRE(utils::Index(way, start_pos) < utils::Index(way, way_points[0]));
+        REQUIRE(utils::Index(way, way_points[0]) < utils::Index(way, way_points[1]));
+        REQUIRE(utils::Index(way, way_points[1]) < utils::Index(way, target_pos));
+        std::vector<position_t> vec(way.begin(), way.end());
+        REQUIRE(vec.size() == way.size());
+        for (unsigned int i=0; i<vec.size()-1; i++) {
+          REQUIRE(utils::Dist(vec[i], vec[i+1]) < 1.5); // no "jumps" in way.
+          REQUIRE(utils::Dist(vec[i], vec[i+1]) >= 1); // no "doubled" elements in way.
+        }
       }
     }
   }

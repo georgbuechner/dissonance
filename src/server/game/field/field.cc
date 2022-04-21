@@ -198,35 +198,20 @@ std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<
   spdlog::get(LOGGER)->debug("Field::GetWayForSoldier: pos={}", utils::PositionToString(start_pos));
   if (way_points.size() < 1)
     return {};
-  position_t target_pos = way_points.back();
-  way_points.pop_back();
+
   std::list<position_t> way = {start_pos};
-  // If there are way_points left, sort way-points by distance, then create way.
-  if (way_points.size() > 0) {
-    std::map<int, position_t> sorted_way;
-    for (const auto& it : way_points) 
-      sorted_way[lines_+cols_-utils::Dist(it, target_pos)] = it;
-    for (const auto& it : sorted_way) {
-      try {
-        // auto new_part = graph_.FindWay(way.back(), it.second);
-        auto new_part = graph_.DijkstrasWay(way.back(), it.second);
-        if (way.size() > 0) way.pop_back();
-        way.insert(way.end(), new_part.begin(), new_part.end());
-      }
-      catch (std::exception& e) {
-        spdlog::get(LOGGER)->error("Field::GetWayForSoldier: Serious error: no way found: {}", e.what());
-      }
+  for (unsigned int i=0; i<way_points.size(); i++) {
+    try {
+      // Get new way-part
+      auto new_part = graph_.DijkstrasWay(way.back(), way_points[i]);
+      new_part.pop_front(); // Remove first element (start-position).
+      way.insert(way.end(), new_part.begin(), new_part.end());
+      // set start-pos as current way-point
+      start_pos = way_points[0];
     }
-  }
-  // Create way from last position to target.
-  try {
-    auto new_part = graph_.DijkstrasWay(way.back(), target_pos);
-    //auto new_part = graph_.FindWay(way.back(), target_pos);
-    if (way.size() > 0) way.pop_back();
-    way.insert(way.end(), new_part.begin(), new_part.end());
-  }
-  catch (std::exception& e) {
-    spdlog::get(LOGGER)->error("Field::GetWayForSoldier: Serious error: no way found: {}", e.what());
+    catch (std::exception& e) {
+      spdlog::get(LOGGER)->error("Field::GetWayForSoldier: Serious error: no way found: {}", e.what());
+    }
   }
   return way;
 }

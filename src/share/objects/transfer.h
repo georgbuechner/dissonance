@@ -38,7 +38,7 @@ class Transfer {
       bool active_;
     };
 
-    Transfer() {initialized_ = false;};
+    Transfer() {initialized_ = false; macro_ = -1;};
     Transfer(nlohmann::json json) {
       spdlog::get(LOGGER)->debug("from json: players {}", json["players"].dump());
       // build players from json.
@@ -52,6 +52,8 @@ class Transfer {
           vec.push_back({jt["s"].get<std::string>(), jt["c"].get<int>()});
         field_.push_back(vec);
       }
+
+      macro_ = json.value("m", -1);
 
       // build graph_positions
       if (json.contains("g"))
@@ -135,6 +137,9 @@ class Transfer {
     float audio_played() const {
       return audio_played_;
     }
+    int macro() const {
+      return macro_;
+    }
 
     // setter
     void set_field(std::vector<std::vector<Symbol>> field) {
@@ -166,6 +171,9 @@ class Transfer {
     }
     void set_audio_played(float audio_played) {
       audio_played_ = (audio_played < 0) ? 0 : audio_played;
+    }
+    void set_macro(int macro) { 
+      macro_ = macro; 
     }
 
     // methods: 
@@ -211,6 +219,7 @@ class Transfer {
       }
       data["b"] = build_options_;
       data["s"] = synapse_options_;
+      data["m"] = macro_;
       return data;
     }
 
@@ -225,6 +234,7 @@ class Transfer {
     std::vector<bool> build_options_;
     std::vector<bool> synapse_options_;
     float audio_played_;
+    int macro_;
     bool initialized_;
 };
 

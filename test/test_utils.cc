@@ -3,6 +3,7 @@
 #include <catch2/catch.hpp>
 #include <map>
 #include <list>
+#include <unistd.h>
 #include <vector>
 #include "share/tools/utils/utils.h"
 
@@ -79,4 +80,12 @@ TEST_CASE("erase from vector", "") {
   vec.erase(vec.begin());
   REQUIRE(vec.size() == size-1);
   REQUIRE(vec.front() == 2);
+}
+
+TEST_CASE("duration") {
+  auto start = std::chrono::steady_clock::now();
+  sleep(1);
+  auto end = std::chrono::steady_clock::now();
+  REQUIRE(utils::GetElapsedNano(start, end) > 0);
+  REQUIRE(utils::GetElapsedNano(end, start) < 0);
 }

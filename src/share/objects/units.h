@@ -52,17 +52,17 @@ struct Neuron : Unit {
     bool blocked();
     virtual int movement() { return 999; };
     virtual int potential_slowdown() { return -1; };
-    virtual std::chrono::time_point<std::chrono::steady_clock> last_action() {return std::chrono::steady_clock::now(); }
     virtual std::vector<position_t> ways_points() {return {}; }
     virtual bool swarm() { return false; }
     virtual unsigned int num_availible_ways() { return 0; }
     virtual unsigned int max_stored() { return 0; }
     virtual size_t resource() { return 9999; }
     virtual position_t target(int unit) { return {-1, -1}; }
+    virtual position_t target() { return {-1, -1}; }
+    virtual std::chrono::time_point<std::chrono::steady_clock> created_at() { return std::chrono::steady_clock::now(); }
 
     // setter
     void set_blocked(bool blocked);
-    virtual void set_last_action(std::chrono::time_point<std::chrono::steady_clock> time) {};
     virtual void set_way_points(std::vector<position_t> pos) {};
     virtual void set_swarm(bool swarm) {};
     virtual void set_epsp_target_pos(position_t pos) {};
@@ -70,6 +70,7 @@ struct Neuron : Unit {
     virtual void set_macro_target_pos(position_t pos) {};
     virtual void set_availible_ways(unsigned int num_ways) {};
     virtual void set_max_stored(unsigned int max_stored) {};
+    virtual void set_target(position_t) {};
 
     // methods
     virtual void decrease_cooldown() {}
@@ -139,7 +140,6 @@ struct Synapse : Neuron {
     position_t epsp_target_;
     position_t ipsp_target_;
     position_t macro_target_;
-    position_t macro_target_2_;
 
     unsigned int num_availible_way_points_;
     std::vector<position_t> way_points_;
@@ -196,6 +196,23 @@ struct Nucleus : Neuron {
   Nucleus(position_t pos) : Neuron(pos, 9, UnitsTech::NUCLEUS) {}
 };
 
+struct Loophole : Neuron {
+  public: 
+    Loophole() : Neuron(), target_({-1, -1}), created_at_(std::chrono::steady_clock::now()) {}
+    Loophole(position_t pos, position_t target) : Neuron(pos, 9, UnitsTech::LOOPHOLE), target_(target) {}
+
+    // getter
+    position_t target() { return target_; }
+    std::chrono::time_point<std::chrono::steady_clock> created_at() { return created_at_; }
+
+    // setter
+    void set_target(position_t pos) { target_ = pos; }
+
+  private:
+    position_t target_;
+    const std::chrono::time_point<std::chrono::steady_clock> created_at_;
+};
+
 /**
  * Abstrackt class for all potentials.
  * Attributes:
@@ -221,7 +238,6 @@ struct Potential : Unit {
  * - pos (derived from Unit)
  * - attack (derived from Potential)
  * - speed (derived from Potential)
- * - last_action (derived from Potential)
  * - way (derived from Potential)
  */
 struct Epsp : Potential {
@@ -236,7 +252,6 @@ struct Epsp : Potential {
  * - pos (derived from Unit)
  * - attack (derived from Potential)
  * - speed (derived from Potential)
- * - last_action (derived from Potential)
  * - way (derived from Potential)
  */
 struct Ipsp : Potential {

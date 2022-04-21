@@ -32,6 +32,7 @@ class Drawrer {
     int field_width();
     position_t field_pos();
     std::string game_id_from_lobby();
+    std::vector<bool> synapse_options();
 
     int GetResource(); 
     int GetTech(); 
