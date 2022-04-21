@@ -257,13 +257,7 @@ class ServerGame {
      * Set Ipsp target.
      * @param[in, out] msg
      */
-    void m_SetIpspTarget(nlohmann::json& msg);
-
-    /**
-     * Set Epsp target.
-     * @param[in, out] msg
-     */
-    void m_SetEpspTarget(nlohmann::json& msg);
+    void m_SetTarget(nlohmann::json& msg);
 
     void m_SetPauseOn(nlohmann::json& msg);
     void m_SetPauseOff(nlohmann::json& msg);

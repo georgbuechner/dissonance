@@ -473,7 +473,7 @@ namespace texts {
       "At the bottom screen a short description of each technology is given while selected.",
       "",
       "Also you can always press '?' to see the help screen, where you can view all costs (also for technologies).",
-      "But be careful, only during the TUTORIAL the game is paused while viewing help!",
+      "But be careful, only during the TUTORIAL and SINGLE_PLAYER the game is paused while viewing help!",
     }, {}}
   };
 

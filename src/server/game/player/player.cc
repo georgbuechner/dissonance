@@ -125,6 +125,7 @@ position_t Player::GetSynapesTarget(position_t synape_pos, int unit) {
     return neurons_.at(synape_pos)->target(unit);
   return {-1, -1};
 }
+
 std::vector<position_t> Player::GetSynapesWayPoints(position_t synapse_pos, int unit) {
   if (neurons_.count(synapse_pos) > 0) {
     if (unit == -1)
@@ -341,6 +342,13 @@ void Player::ChangeEpspTargetForSynapse(position_t pos, position_t target_pos) {
   if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE)
     neurons_.at(pos)->set_epsp_target_pos(target_pos);
   spdlog::get(LOGGER)->debug("Player::ChangeEpspTargetForSynapse: done");
+}
+
+void Player::ChangeMacroTargetForSynapse(position_t pos, position_t target_pos) {
+  spdlog::get(LOGGER)->debug("Player::ChangeMacroTargetForSynapse");
+  if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE)
+    neurons_.at(pos)->set_macro_target_pos(target_pos);
+  spdlog::get(LOGGER)->debug("Player::ChangeMacroTargetForSynapse: done");
 }
 
 void Player::IncreaseResources(bool inc_iron) {
@@ -777,8 +785,9 @@ std::vector<bool> Player::GetBuildingOptions() {
 std::vector<bool> Player::GetSynapseOptions() {
   return {
     (technologies_.at(UnitsTech::WAY).first > 0),
-    true,  // as this option is always availible
-    true,  // as this option is always availible
+    true,  // as this option is always availible (epsp-target)
+    true,  // as this option is always availible (ipsp-target)
+    true,  // as this option is always availible (macro-target)
     (technologies_.at(UnitsTech::SWARM).first > 0),
   };
 }

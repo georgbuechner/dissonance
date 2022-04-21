@@ -49,8 +49,7 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   eventmanager_.AddHandler("get_positions", &ServerGame::m_GetPositions);
   eventmanager_.AddHandler("toggle_swarm_attack", &ServerGame::m_ToggleSwarmAttack);
   eventmanager_.AddHandler("set_way_point", &ServerGame::m_SetWayPoint);
-  eventmanager_.AddHandler("set_ipsp_target", &ServerGame::m_SetIpspTarget);
-  eventmanager_.AddHandler("set_epsp_target", &ServerGame::m_SetEpspTarget);
+  eventmanager_.AddHandler("set_target", &ServerGame::m_SetTarget);
   eventmanager_.AddHandler("set_pause_on", &ServerGame::m_SetPauseOn);
   eventmanager_.AddHandler("set_pause_off", &ServerGame::m_SetPauseOff);
 }
@@ -282,6 +281,7 @@ void ServerGame::m_GetPositions(nlohmann::json& msg) {
   Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
   GetPosition req = GetPosition(msg);
   if (player) {
+    msg = {{"command", msg["data"]["return_cmd"]}, {"data", nlohmann::json() }};
     std::vector<std::vector<position_t>> all_positions;
     for (const auto& it : req.position_requests()) {
       std::vector<position_t> positions;
@@ -302,6 +302,7 @@ void ServerGame::m_GetPositions(nlohmann::json& msg) {
         position_t ipsp_target_pos = player->GetSynapesTarget(it.second.pos(), it.second.unit());
         if (ipsp_target_pos.first != -1)
           positions.push_back(ipsp_target_pos);
+        msg["data"]["unit"] = it.second.unit();
       }
       else if (it.first == Positions::CURRENT_WAY) {
         // Get way to ipsp-target
@@ -318,7 +319,7 @@ void ServerGame::m_GetPositions(nlohmann::json& msg) {
       }
       all_positions.push_back(positions);
     }
-    msg = {{"command", msg["data"]["return_cmd"]}, {"data", {{"positions", all_positions}} }};
+    msg["data"]["positions"] = all_positions;
   }
   else {
     msg = nlohmann::json();
@@ -360,24 +361,18 @@ void ServerGame::m_SetWayPoint(nlohmann::json& msg) {
   }
 }
 
-void ServerGame::m_SetIpspTarget(nlohmann::json& msg) {
+void ServerGame::m_SetTarget(nlohmann::json& msg) {
   Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
   if (player) {
     // Change ipsp target and response with message
-    player->ChangeIpspTargetForSynapse(msg["data"]["synapse_pos"], msg["data"]["pos"]);
-    msg = {{"command", "set_msg"}, {"data", {{"msg", "Ipsp target for this synapse set"}} }};
-  }
-  else {
-    msg = nlohmann::json();
-  }
-}
-
-void ServerGame::m_SetEpspTarget(nlohmann::json& msg) {
-  Player* player = (players_.count(msg["username"]) > 0) ? players_.at(msg["username"]) : NULL;
-  if (player) {
-    // Change epsp target and response with message
-    player->ChangeEpspTargetForSynapse(msg["data"]["synapse_pos"], msg["data"]["pos"]);
-    msg = {{"command", "set_msg"}, {"data", {{"msg", "Epsp target for this synapse set"}} }};
+    int unit = msg["data"]["unit"];
+    if (unit == IPSP)
+      player->ChangeIpspTargetForSynapse(msg["data"]["synapse_pos"], msg["data"]["pos"]);
+    else if (unit == EPSP)
+      player->ChangeEpspTargetForSynapse(msg["data"]["synapse_pos"], msg["data"]["pos"]);
+    else if (unit == MACRO)
+      player->ChangeMacroTargetForSynapse(msg["data"]["synapse_pos"], msg["data"]["pos"]);
+    msg = {{"command", "set_msg"}, {"data", {{"msg", "Target for this synapse set"}} }};
   }
   else {
     msg = nlohmann::json();

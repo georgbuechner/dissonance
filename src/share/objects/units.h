@@ -67,6 +67,7 @@ struct Neuron : Unit {
     virtual void set_swarm(bool swarm) {};
     virtual void set_epsp_target_pos(position_t pos) {};
     virtual void set_ipsp_target_pos(position_t pos) {};
+    virtual void set_macro_target_pos(position_t pos) {};
     virtual void set_availible_ways(unsigned int num_ways) {};
     virtual void set_max_stored(unsigned int max_stored) {};
 
@@ -112,6 +113,7 @@ struct Synapse : Neuron {
     position_t target(int unit) { 
       if (unit == IPSP) return ipsp_target_;
       if (unit == EPSP) return epsp_target_;
+      if (unit == MACRO) return macro_target_;
       return {-1, -1};
     }
    
@@ -120,6 +122,7 @@ struct Synapse : Neuron {
     void set_swarm(bool swarm);
     void set_epsp_target_pos(position_t pos);
     void set_ipsp_target_pos(position_t pos);
+    void set_macro_target_pos(position_t pos);
     void set_availible_ways(unsigned int num_availible_way_points);
     void set_max_stored(unsigned int max_stored);
 
@@ -135,6 +138,8 @@ struct Synapse : Neuron {
     
     position_t epsp_target_;
     position_t ipsp_target_;
+    position_t macro_target_;
+    position_t macro_target_2_;
 
     unsigned int num_availible_way_points_;
     std::vector<position_t> way_points_;
