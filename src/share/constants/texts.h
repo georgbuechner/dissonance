@@ -434,7 +434,7 @@ namespace texts {
     {{
       "TUTORIAL",
       "",
-      "Now that you started gathering DOPAMINE you can research first technologies.",
+      "Now that you have started gathering DOPAMINE you can research first technologies.",
       "",
       "Dopamine is most important for battle-related technologies. There are two technologies which can be",
       "researched with only dopamine (meaning: without serotonin): tactical technologies",
@@ -448,7 +448,7 @@ namespace texts {
     {{
       "TUTORIAL",
       "",
-      "Now that you started gathering SEROTONIN you are one step closer to researching ALL technologies.",
+      "Now that you have started gathering SEROTONIN you are one step closer to researching ALL technologies.",
       "Technologies can help you to increase your influence, boost resource-production, strengthen your potentials",
       "or add battle-tactics.",
     }, {}},
@@ -473,7 +473,7 @@ namespace texts {
       "At the bottom screen a short description of each technology is given while selected.",
       "",
       "Also you can always press '?' to see the help screen, where you can view all costs (also for technologies).",
-      "But be careful, only during the TUTORIAL the game is paused while viewing help!",
+      "But be careful, only during the TUTORIAL and SINGLE_PLAYER the game is paused while viewing help!",
     }, {}}
   };
 
@@ -590,7 +590,7 @@ namespace texts {
     {{
       "TUTORIAL",
       "",
-      "If you have come to a point where you seem to be getting no more resources at all, you have two options:",
+      "If you have come to a point where you seem to be getting no more resources at all, you have three options:",
       "a) research the 'resource limits++'-technology, which increases the limits for each resource (20%).",
       "b) by building new nucleus you also get increased resource limits (10%)",
       "c) destroy own neurons (friendly fire)"

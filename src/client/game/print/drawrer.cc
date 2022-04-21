@@ -655,6 +655,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   exported_field[positions.front().first][positions.front().second].color_ = COLOR_AVAILIBLE;
   exported_field[positions.front().first][positions.front().second].symbol_ = SYMBOL_DEF;
   mini_fields_["field_select_neuron_position_3"] = exported_field;
+  exported_field = mini_fields_["field_player_oxygen_potassium_glutamat_activated"];
   
   // Simple map with player nucleus and resources (not activated)
   spdlog::get(LOGGER)->info("Enemy map with advancing potentials");
@@ -674,7 +675,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   p_enemy->DistributeIron(POTASSIUM);
   for (unsigned int i=0; i<100; i++) 
     p_enemy->IncreaseResources(true);
-  auto exported_field_enemy = field->Export({p_enemy});
+  auto exported_field_enemy = field_enemy->Export({p_enemy});
   // Add synape
   pos = field_enemy->GetAllInRange(nucleus_pos_enemy, 2, 1, true).front();
   exported_field_enemy[pos.first][pos.second].color_ = enemy_color;
@@ -682,7 +683,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   // Add some epsp on enemy's way.
   auto way = field_enemy->GetWayForSoldier(nucleus_pos_enemy, {{9, 9}});
   std::vector<position_t> way_vec(way.begin(), way.end());
-  for (unsigned int i=0; i<way_vec.size(); i+=3) {
+  for (unsigned int i=1; i<way_vec.size(); i+=3) {
     exported_field_enemy[way_vec[i].first][way_vec[i].second].color_ = enemy_color;
     exported_field_enemy[way_vec[i].first][way_vec[i].second].symbol_ = utils::CharToString('a', 
         ran_gen->RandomInt(1, 3));

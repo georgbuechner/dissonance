@@ -162,6 +162,13 @@ class Player {
      */
     void ChangeEpspTargetForSynapse(position_t pos, position_t target_pos);
 
+    /**
+     * Sets target position for macro.
+     * @param[in] position of synapse
+     * @param[in] target position 
+     */
+    void ChangeMacroTargetForSynapse(position_t pos, position_t target_pos);
+
     std::vector<bool> GetBuildingOptions();
     std::vector<bool> GetSynapseOptions();
    

@@ -76,6 +76,9 @@ void Synapse::set_epsp_target_pos(position_t pos) {
 void Synapse::set_ipsp_target_pos(position_t pos) {
   ipsp_target_ = pos;
 }
+void Synapse::set_macro_target_pos(position_t pos) {
+  macro_target_ = pos;
+}
 void Synapse::set_availible_ways(unsigned int num_availible_way_points) {
   num_availible_way_points_ = num_availible_way_points;
 }

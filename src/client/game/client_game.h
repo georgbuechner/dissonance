@@ -165,10 +165,11 @@ class ClientGame {
     void h_SendSelectSynapse(nlohmann::json&);
 
     void h_SetWPs(nlohmann::json&);
-    void h_EpspTarget(nlohmann::json&);
-    void h_IpspTarget(nlohmann::json&);
+    void h_SetTarget(nlohmann::json&);
     void h_SwarmAttack(nlohmann::json&);
     void h_ResetOrQuitSynapseContext(nlohmann::json&);
+
+    void SetTarget(nlohmann::json& msg, int unit);
 
     // tutorial
     void h_TutorialGetOxygen(nlohmann::json&);

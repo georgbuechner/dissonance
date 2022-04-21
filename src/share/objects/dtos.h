@@ -86,5 +86,3 @@ class GetPosition : Dto {
 };
 
 #endif
-
-

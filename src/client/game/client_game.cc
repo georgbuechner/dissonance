@@ -47,15 +47,17 @@ void ClientGame::init(){
       }
     },
     { CONTEXT_FIELD, {
+        {'j', &ClientGame::h_MoveSelectionUp}, {'k', &ClientGame::h_MoveSelectionDown}, 
         {'h', &ClientGame::h_MoveSelectionLeft}, {'l', &ClientGame::h_MoveSelectionRight}, 
         {'\n', &ClientGame::h_AddPosition}, {'q', &ClientGame::h_ToResourceContext},
+        {'?', &ClientGame::h_Help}
       }
     },
     { CONTEXT_RESOURCES, {{'+', &ClientGame::h_AddIron}, {'-', &ClientGame::h_RemoveIron}} },
     { CONTEXT_TECHNOLOGIES, {{'\n', &ClientGame::h_AddTech}} },
     { CONTEXT_SYNAPSE, {
-        {'s', &ClientGame::h_SetWPs}, {'i', &ClientGame::h_IpspTarget}, {'e', &ClientGame::h_EpspTarget}, 
-        {'w', &ClientGame::h_SwarmAttack}, {'t', &ClientGame::h_ChangeViewPoint}, 
+        {'s', &ClientGame::h_SetWPs}, {'i', &ClientGame::h_SetTarget}, {'e', &ClientGame::h_SetTarget}, 
+        {'m', &ClientGame::h_SetTarget}, {'w', &ClientGame::h_SwarmAttack}, {'t', &ClientGame::h_ChangeViewPoint}, 
         {'q', &ClientGame::h_ResetOrQuitSynapseContext}
       }
     },
@@ -86,8 +88,9 @@ t_topline field_topline = {{" [h, j, k, l] to navigate field " " [t]oggle-naviga
   COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}};
 
 t_topline synapse_topline = {{" [s]et way-points ", COLOR_DEFAULT}, {" [i]psp-target ", 
-  COLOR_DEFAULT}, { " [e]psp-target ", COLOR_DEFAULT}, { " toggle s[w]arm-attack ", COLOR_DEFAULT},
-  {" [t]oggle-navigation ", COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}
+  COLOR_DEFAULT}, { " [e]psp-target ", COLOR_DEFAULT}, { " [m]acro-target ", COLOR_DEFAULT}, 
+  { " toggle s[w]arm-attack ", COLOR_DEFAULT}, {" [t]oggle-navigation ", COLOR_DEFAULT}, 
+  {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}
 };
 
 ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : username_(username), 
@@ -139,11 +142,12 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   // Initialize contexts
   if (!muliplayer_availible_) {
     handlers_[STD_HANDLERS][' '] = &ClientGame::h_PauseAndUnPause;
+    handlers_[CONTEXT_FIELD][' '] = &ClientGame::h_PauseAndUnPause;
     std_topline.push_back({"[space] pause", COLOR_AVAILIBLE});
   }
 
   current_context_ = CONTEXT_RESOURCES;
-  contexts_[CONTEXT_FIELD] = Context("", handlers_[STD_HANDLERS], handlers_[CONTEXT_FIELD], field_topline);
+  contexts_[CONTEXT_FIELD] = Context("", handlers_[CONTEXT_FIELD], field_topline);
   contexts_[CONTEXT_RESOURCES] = Context(CONTEXT_RESOURCES_MSG, handlers_[STD_HANDLERS], handlers_[CONTEXT_RESOURCES], 
       std_topline);
   contexts_[CONTEXT_TECHNOLOGIES] = Context(CONTEXT_TECHNOLOGIES_MSG, handlers_[STD_HANDLERS], 
@@ -169,8 +173,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   eventmanager_.AddHandler("build_potential", &ClientGame::h_BuildPotential);
   eventmanager_.AddHandler("select_synapse", &ClientGame::h_SendSelectSynapse);
   eventmanager_.AddHandler("set_wps", &ClientGame::h_SetWPs);
-  eventmanager_.AddHandler("ipsp_target", &ClientGame::h_IpspTarget);
-  eventmanager_.AddHandler("epsp_target", &ClientGame::h_EpspTarget);
+  eventmanager_.AddHandler("target", &ClientGame::h_SetTarget);
 
   eventmanager_tutorial_.AddHandler("init_game", &ClientGame::h_TutorialGetOxygen);
   eventmanager_tutorial_.AddHandler("set_unit", &ClientGame::h_TutorialSetUnit);
@@ -269,7 +272,7 @@ void ClientGame::h_Kill(nlohmann::json& msg) {
 }
 
 void ClientGame::h_Help(nlohmann::json&) {
-  if (mode_ == TUTORIAL)
+  if (mode_ == TUTORIAL || mode_ == SINGLE_PLAYER)
     Pause();
   drawrer_.set_stop_render(true);
   drawrer_.PrintCenteredParagraphs(texts::help);
@@ -527,66 +530,21 @@ void ClientGame::h_SetWPs(nlohmann::json& msg) {
   msg = nlohmann::json();
 }
 
-void ClientGame::h_EpspTarget(nlohmann::json& msg) {
-  spdlog::get(LOGGER)->debug("Calling epsp-target with data: {}", msg.dump());
-  // final call (set epsp target and reset to synapse-context)
+void ClientGame::h_SetTarget(nlohmann::json& msg) {
+  spdlog::get(LOGGER)->debug("Calling target with data: {}", msg.dump());
+  // final call (set target and reset to synapse-context)
   if (msg["data"].contains("pos")) {
     // Reset synapse-context or go back to resource (standard)-context.
     FinalSynapseContextAction(msg["data"]["synapse_pos"]);
     // Send request to server.
-    nlohmann::json response = {{"command", "set_epsp_target"}, {"username", username_}, {"data",
-      {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}} }};
-    ws_srv_->SendMessage(response.dump());
-  }
-  // third call (select field position)
-  else if (msg["data"].contains("start_pos")) {
-    RemovePickContext();
-    SwitchToFieldContext(msg["data"]["start_pos"], 1000, "epsp_target", msg, "Select epsp-target position.", {'q'});
-  }
-  // Second call (select start position)
-  else if (msg["data"].contains("positions")) {
-    // Set synapse-position.
-    msg["data"]["synapse_pos"] = contexts_.at(current_context_).data()["data"]["synapse_pos"];
-    std::vector<position_t> enemy_nucleus_positions = msg["data"]["positions"][0];
-    // If only one enemy nucleus, set-up field-select and add start-pos to message-json.
-    if (enemy_nucleus_positions.size() == 1) {
-      msg["data"]["start_pos"] = enemy_nucleus_positions.front();
-      SwitchToFieldContext(enemy_nucleus_positions.front(), 1000, "epsp_target", msg, "Select epsp-target position.", 
-          {'q'});
-    }
-    // Create pick-context to select synapse (add quit-handler to return to normal context).
-    else {
-      SwitchToPickContext(msg["data"]["positions"][0], "Select select enemy base", "epsp_target", msg, {'q'});
-    }
-    // Display current target on field.
-    std::vector<std::vector<int>> target_positions = msg["data"]["positions"][1];
-    if (target_positions.size() > 0)
-      drawrer_.AddMarker(TARGETS_MARKER, utils::PositionFromVector(target_positions.front()), COLOR_MARKED, "T");
-  }
-  // First call (request positions)
-  else {
-    GetPosition req(username_, "epsp_target", {{ENEMY, GetPositionInfo(NUCLEUS)}, 
-        {TARGETS, GetPositionInfo(EPSP, msg["data"]["synapse_pos"].get<position_t>())}});
-    ws_srv_->SendMessage(req.json().dump());
-  }
-  msg = nlohmann::json();
-}
-
-void ClientGame::h_IpspTarget(nlohmann::json& msg) {
-  spdlog::get(LOGGER)->debug("Calling ipsp-target with data: {}", msg.dump());
-  // final call (set ipsp target and reset to synapse-context)
-  if (msg["data"].contains("pos")) {
-    // Reset synapse-context or go back to resource (standard)-context.
-    FinalSynapseContextAction(msg["data"]["synapse_pos"]);
-    // Send request to server.
-    nlohmann::json response = {{"command", "set_ipsp_target"}, {"username", username_}, {"data",
-      {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}} }};
+    nlohmann::json response = {{"command", "set_target"}, {"username", username_}, {"data",
+      {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}, {"unit", msg["data"]["unit"]}} }};
     ws_srv_->SendMessage(response.dump());
   }
   // third call (select field position)
   else if (msg["data"].contains("start_pos")) {
     RemovePickContext(CONTEXT_SYNAPSE);
-    SwitchToFieldContext(msg["data"]["start_pos"], 1000, "ipsp_target", msg, "Select ipsp-target position.", {'q'});
+    SwitchToFieldContext(msg["data"]["start_pos"], 1000, "target", msg, "Select target position.", {'q'});
   }
   // Second call (select start position)
   else if (msg["data"].contains("positions")) {
@@ -596,12 +554,12 @@ void ClientGame::h_IpspTarget(nlohmann::json& msg) {
     // If only one enemy nucleus, set-up field-select and add start-pos to message-json.
     if (enemy_nucleus_positions.size() == 1) {
       msg["data"]["start_pos"] = enemy_nucleus_positions.front();
-      SwitchToFieldContext(enemy_nucleus_positions.front(), 1000, "ipsp_target", msg, "Select ipsp-target position.", 
+      SwitchToFieldContext(enemy_nucleus_positions.front(), 1000, "target", msg, "Select target position.", 
           {'q'});
     }
     // Create pick-context to select synapse (add quit-handler to return to normal context).
     else {
-      SwitchToPickContext(msg["data"]["positions"][0], "Select select enemy base", "ipsp_target", msg, {'q'});
+      SwitchToPickContext(msg["data"]["positions"][0], "Select select enemy base", "target", msg, {'q'});
     }
     // Display current target on field.
     std::vector<std::vector<int>> target_positions = msg["data"]["positions"][1];
@@ -610,8 +568,10 @@ void ClientGame::h_IpspTarget(nlohmann::json& msg) {
   }
   // First call (request positions)
   else {
-    GetPosition req(username_, "ipsp_target", {{ENEMY, GetPositionInfo(NUCLEUS)}, 
-        {TARGETS, GetPositionInfo(IPSP, msg["data"]["synapse_pos"].get<position_t>())}});
+    auto cmd = contexts_.at(current_context_).cmd();
+    int unit = (cmd == 'e') ? EPSP : (cmd == 'i') ? IPSP : MACRO;
+    GetPosition req(username_, "target", {{ENEMY, GetPositionInfo(NUCLEUS)}, 
+        {TARGETS, GetPositionInfo(unit, msg["data"]["synapse_pos"].get<position_t>())}});
     ws_srv_->SendMessage(req.json().dump());
   }
   msg = nlohmann::json();
@@ -661,10 +621,8 @@ void ClientGame::h_AddPosition(nlohmann::json&) {
       h_BuildNeuron(msg);
   else if (action == "set_wps") 
     h_SetWPs(msg);
-  else if (action == "ipsp_target") 
-    h_IpspTarget(msg);
-  else if (action == "epsp_target") 
-    h_EpspTarget(msg);
+  else if (action == "target") 
+    h_SetTarget(msg);
 }
 
 void ClientGame::h_AddStartPosition(nlohmann::json&) {
@@ -680,10 +638,8 @@ void ClientGame::h_AddStartPosition(nlohmann::json&) {
     h_SendSelectSynapse(msg);
   else if (action == "set_wps") 
     h_SetWPs(msg);
-  else if (action == "ipsp_target") 
-    h_IpspTarget(msg);
-  else if (action == "epsp_target") 
-    h_EpspTarget(msg);
+  else if (action == "target") 
+    h_SetTarget(msg);
 }
 
 void ClientGame::SwitchToResourceContext(std::string msg) {
@@ -759,7 +715,7 @@ void ClientGame::SwitchToFieldContext(position_t pos, int range, std::string act
     if (handlers_[CONTEXT_FIELD].count(it.first) == 0)
       handlers_to_remove.push_back(it.first);
   }
-  for (const auto& it : slip_handlers) 
+  for (const auto& it : handlers_to_remove) 
     contexts_.at(CONTEXT_FIELD).eventmanager().handlers().erase(it);
   // Let handlers slip through.
   for (const auto& it : slip_handlers) {
