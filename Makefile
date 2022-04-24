@@ -33,10 +33,10 @@ build:
 	# Create build folder and install conan-dependencies.
 	rm -rf build; mkdir build
 ifeq ($(UNAME_S),Linux)
-	cd build && conan install .. --build=missing -s compiler.libcxx=libstdc++11
-else
-	cd build && conan install .. --build=missing
+	conan profile new default --detect  || true 
+	conan profile update settings.compiler.libcxx=libstdc++11 default
 endif
+	cd build && conan install .. --build=missing
 	# Build projekt
 	cd build && cmake ..
 	cd build && make -j
@@ -55,7 +55,7 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 install:
-	make build -B
+	make build
 	make setup
 
 uninstall_aubio:
