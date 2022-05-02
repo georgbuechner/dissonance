@@ -80,7 +80,7 @@ void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr 
       std::filesystem::create_directory(path);
     path += "/"+data.songname();
     audio_data_+=data.content();
-    game_->drawrer().PrintCenteredLineBold(LINES/2, "Sending audio part " + std::to_string(data.part()) + " of " 
+    game_->drawrer().PrintOnlyCenteredLine(LINES/2, "Receiving audio part " + std::to_string(data.part()) + " of " 
           + std::to_string(data.parts()));
     if (data.part() == data.parts()) {
       spdlog::get(LOGGER)->debug("Websocket::on_message: storing binary data to: {}", path);

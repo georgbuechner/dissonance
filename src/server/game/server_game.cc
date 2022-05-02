@@ -43,6 +43,7 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   base_path_ = base_path;
   // Initialize eventmanager.
   eventmanager_.AddHandler("audio_map", &ServerGame::m_SendAudioMap);
+  eventmanager_.AddHandler("send_audio", &ServerGame::m_SendSong);
   eventmanager_.AddHandler("initialize_game", &ServerGame::m_InitializeGame);
   eventmanager_.AddHandler("add_iron", &ServerGame::m_AddIron);
   eventmanager_.AddHandler("remove_iron", &ServerGame::m_RemoveIron);
@@ -104,27 +105,9 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
     lines_ = (lines < lines_) ? lines : lines_;
     cols_ = (cols < cols_) ? cols : cols_;
     // Send audio-data to new player.
-    SendSong(username);
+    std::string map_path = host_ + "/" + audio_file_name_;
+    ws_server_->SendMessage(username, {{"command", "audio_exists"}, {"data", {{"map_path", map_path}}}});
   }
-}
-
-void ServerGame::SendSong(std::string username) {
-  // Create initial data
-  AudioTransferData data(host_, audio_file_name_);
-  std::map<int, std::string> contents;
-  utils::SplitLargeData(contents, audio_data_, pow(2, 12));
-  spdlog::get(LOGGER)->info("Made {} parts of {} bits data", contents.size(), audio_data_.size());
-  data.set_parts(contents.size()-1);
-  for (const auto& it : contents) {
-    data.set_part(it.first);
-    data.set_content(it.second);
-    try {
-      ws_server_->SendMessageBinary(username, data.string());
-    } catch(...) {
-      return;
-    }
-  }
-  return;
 }
 
 void ServerGame::AddAudioPart(AudioTransferData& data) {
@@ -462,6 +445,23 @@ void ServerGame::m_SendAudioMap(nlohmann::json& msg) {
   }
   msg["command"] = "send_audio_info";
   msg["data"] = {{"send_song", send_song}};
+}
+
+void ServerGame::m_SendSong(nlohmann::json& msg) {
+  // Create initial data
+  AudioTransferData data(host_, audio_file_name_);
+  std::map<int, std::string> contents;
+  utils::SplitLargeData(contents, audio_data_, pow(2, 12));
+  spdlog::get(LOGGER)->info("Made {} parts of {} bits data", contents.size(), audio_data_.size());
+  data.set_parts(contents.size()-1);
+  for (const auto& it : contents) {
+    data.set_part(it.first);
+    data.set_content(it.second);
+    try {
+      ws_server_->SendMessageBinary(msg["username"], data.string());
+    } catch(...) { return; }
+  }
+  return;
 }
 
 void ServerGame::m_InitializeGame(nlohmann::json& msg) {

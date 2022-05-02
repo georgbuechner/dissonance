@@ -161,6 +161,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   eventmanager_.AddHandler("kill", &ClientGame::h_Kill);
   eventmanager_.AddHandler("select_mode", &ClientGame::m_SelectMode);
   eventmanager_.AddHandler("select_audio", &ClientGame::m_SelectAudio);
+  eventmanager_.AddHandler("audio_exists", &ClientGame::m_SongExists);
   eventmanager_.AddHandler("send_audio_info", &ClientGame::m_SendAudioInfo);
   eventmanager_.AddHandler("print_msg", &ClientGame::m_PrintMsg);
   eventmanager_.AddHandler("init_game", &ClientGame::m_InitGame);
@@ -325,8 +326,7 @@ void ClientGame::h_SelectGame(nlohmann::json&) {
   nlohmann::json msg;
   msg["username"] = username_;
   msg["command"] = "init_game";
-  msg["data"] = {{"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, 
-    {"base_path", base_path_}, {"mode", MULTI_PLAYER_CLIENT}};
+  msg["data"] = {{"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, {"mode", MULTI_PLAYER_CLIENT}};
   std::string game_id = drawrer_.game_id_from_lobby();
   if (game_id != "") {
     msg["data"]["game_id"] = drawrer_.game_id_from_lobby();
@@ -813,12 +813,23 @@ void ClientGame::m_SelectAudio(nlohmann::json& msg) {
   }
 }
 
+void ClientGame::m_SongExists(nlohmann::json& msg) {
+  std::string path = base_path_ + "data/user-files/"+msg["data"]["map_path"].get<std::string>();
+  spdlog::get(LOGGER)->info("{} checking if file at path {} exists: {}: ", username_, path, 
+      std::filesystem::exists(path));
+  if (!std::filesystem::exists(path))
+     ws_srv_->SendMessage(nlohmann::json({{"command", "send_audio"}, {"username", username_}, {"data", {}}}).dump());
+  else
+    ws_srv_->SendMessage(nlohmann::json({{"command", "ready"}, {"username", username_}, {"data", {}}}).dump());
+  msg = nlohmann::json();
+}
+
 void ClientGame::m_SendAudioInfo(nlohmann::json& msg) {
   bool send_audio = msg["data"]["send_song"];
   msg["command"] = "initialize_game";
   msg["data"] = nlohmann::json::object();
 
-  // If server does not have sond, then send song.
+  // If server does not have song, then send song.
   if (send_audio) {
     SendSong();
   }

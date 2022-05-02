@@ -67,8 +67,6 @@ class ServerGame {
      */
     void AddPlayer(std::string username, int lines, int cols);
 
-    void SendSong(std::string username);
-
     void PlayerReady(std::string username);
 
     /**
@@ -194,6 +192,7 @@ class ServerGame {
     // command methods
 
     void m_SendAudioMap(nlohmann::json& data);
+    void m_SendSong(nlohmann::json& msg);
 
     /**
      * Analyzes audio and initialize game.

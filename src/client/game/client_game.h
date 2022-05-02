@@ -236,6 +236,8 @@ class ClientGame {
     void m_SetUnit(nlohmann::json&);
     void m_SetUnits(nlohmann::json&);
 
+    void m_SongExists(nlohmann::json&);
+
     /**
      * Add `pos`-field to current data, by taking pos from current field-position.
      */
