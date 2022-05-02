@@ -5,7 +5,6 @@
 #include "share/tools/fiboqueue.h"
 #include "share/tools/utils/utils.h"
 #include <algorithm>
-#include <curses.h>
 #include <iostream>
 #include <iterator>
 #include <mutex>

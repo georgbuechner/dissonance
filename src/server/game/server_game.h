@@ -3,9 +3,7 @@
 
 #include "nlohmann/json_fwd.hpp"
 #include "share/defines.h"
-#define NCURSES_NOMACROS
 #include <cstddef>
-#include <curses.h>
 #include <mutex>
 #include <string>
 #include <stdio.h>
@@ -23,6 +21,7 @@
 #include "share/tools/eventmanager.h"
 
 class WebsocketServer;
+class AudioTransferData;
 
 class ServerGame {
   public:
@@ -68,6 +67,8 @@ class ServerGame {
      */
     void AddPlayer(std::string username, int lines, int cols);
 
+    void SendSong(std::string username);
+
     void PlayerReady(std::string username);
 
     /**
@@ -92,6 +93,8 @@ class ServerGame {
 
     bool RunAiGame();
 
+    void AddAudioPart(AudioTransferData& data);
+
   private: 
     Field* field_;  ///< field 
     std::shared_mutex mutex_players_;
@@ -103,6 +106,10 @@ class ServerGame {
     const unsigned int max_players_;
     unsigned int cur_players_;
     Audio audio_;
+    std::string audio_data_;
+    std::string audio_file_name_;
+    std::string base_path_;
+
     WebsocketServer* ws_server_;
     EventManager<std::string, ServerGame, nlohmann::json&> eventmanager_;
 

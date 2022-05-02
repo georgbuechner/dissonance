@@ -2,6 +2,7 @@
 #define SRC_CLIENT_CLIENT_GAME_H_
 
 #include "share/audio/audio.h"
+// #include "share/objects/dtos.h"
 #include "share/objects/lobby.h"
 #define NCURSES_NOMACROS
 #include <cstddef>
@@ -42,6 +43,8 @@ class ClientGame {
     void set_client(Client* ws_srv) {
       ws_srv_ = ws_srv;
     }
+
+    Drawrer& drawrer() { return drawrer_; }
 
     void HandleAction(nlohmann::json);
 
@@ -258,6 +261,7 @@ class ClientGame {
     static std::map<int, std::map<char, void(ClientGame::*)(nlohmann::json&)>> handlers_;
 
     void WrapUp();
+    bool SendSong();
 };
 
 #endif

@@ -256,12 +256,19 @@ void Drawrer::PrintCenteredLine(int l, std::string line) const {
   mvaddstr(l, 0, clear_string.c_str());
   mvaddstr(l, COLS/2-line.length()/2, line.c_str());
 }
+
 void Drawrer::PrintCenteredLineBold(int l, std::string line) const {
   std::string clear_string(COLS, ' ');
   attron(WA_BOLD);
   mvaddstr(l, 0, clear_string.c_str());
   mvaddstr(l, COLS/2-line.length()/2, line.c_str());
   attroff(WA_BOLD);
+}
+
+void Drawrer::PrintOnlyCenteredLine(int l, std::string line) const {
+  clear();
+  PrintCenteredLine(l, line);
+  refresh();
 }
 
 void Drawrer::PrintCenteredLineColored(int l, std::vector<std::pair<std::string, int>> txt_with_color) {

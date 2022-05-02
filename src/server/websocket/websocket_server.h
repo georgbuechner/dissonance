@@ -9,6 +9,7 @@
 #include <iostream>
 #include <list>
 #include <map>
+#define NCURSES_NOMACROS
 #include <nlohmann/json.hpp>
 #include <shared_mutex>
 #include <string>

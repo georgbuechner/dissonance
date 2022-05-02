@@ -7,7 +7,6 @@
 #include <shared_mutex>
 #include <utility>
 #include <vector>
-#include <curses.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

@@ -89,3 +89,13 @@ TEST_CASE("duration") {
   REQUIRE(utils::GetElapsedNano(start, end) > 0);
   REQUIRE(utils::GetElapsedNano(end, start) < 0);
 }
+
+TEST_CASE("Split large data") {
+  std::string content = utils::GetMedia("dissonance/data/examples/elle_rond_elle_bon_et_blonde.wav");
+  size_t size = content.size();
+  size_t threshold = pow(2, 13);
+  std::cout << "Threshold: " << threshold << std::endl;
+  std::map<int, std::string> contents;
+  utils::SplitLargeData(contents, content, threshold);
+  REQUIRE((size/threshold)*2 > contents.size());
+}

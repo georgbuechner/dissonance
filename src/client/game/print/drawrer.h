@@ -93,6 +93,13 @@ class Drawrer {
     void PrintCenteredLine(int l, std::string line) const;
     void PrintCenteredLineBold(int l, std::string line) const;
 
+    /**
+     * Clears screen, prints centered line and refreshes screen.
+     * @param[in] l (what line to print to)
+     * @param[in] line (text to print
+     */
+    void PrintOnlyCenteredLine(int l, std::string line) const;
+
     void PrintStatistics() const;
 
     /**

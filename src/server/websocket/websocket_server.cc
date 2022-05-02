@@ -17,10 +17,10 @@
 #include <websocketpp/error.hpp>
 #include <websocketpp/frame.hpp>
 #include <spdlog/spdlog.h>
-#include "nlohmann/json_fwd.hpp"
+#include "server/game/player/player.h"
 #include "server/game/server_game.h"
+#include "share/objects/dtos.h"
 #include "share/objects/lobby.h"
-#include "share/objects/transfer.h"
 #include "spdlog/common.h"
 #include "spdlog/logger.h"
 #include "websocketpp/close.hpp"
@@ -154,16 +154,13 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
   spdlog::get(LOGGER)->info("Websocket::on_message: new message");
   // Handle binary data (audio-files) in otherwise.
   if (msg->get_opcode() == websocketpp::frame::opcode::binary && connections_.count(hdl.lock().get())) {
-    spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data");
-    std::string content = msg->get_payload(); 
-    std::string filename = content.substr(0, content.find("$"));
-    std::string path = "dissonance/data/user-files/"+connections_.at(hdl.lock().get())->username();
-    if (!std::filesystem::exists(path))
-      std::filesystem::create_directory(path);
-    path += +"/"+filename;
-    spdlog::get(LOGGER)->debug("Websocket::on_message: storing binary data to: {}", path);
-    utils::StoreMedia(path, content.substr(content.find("$")+1));
-    spdlog::get(LOGGER)->debug("Websocket::on_message: Done.");
+    AudioTransferData data(msg->get_payload().c_str(), msg->get_payload().size());
+    std::shared_lock sl(shared_mutex_games_);
+    auto game = GetGameFromUsername(data.username());
+    if (game)
+      game->AddAudioPart(data);
+    else
+      spdlog::get(LOGGER)->warn("WebsocketServer::on_message: binary data but game not found!");
     return;
   }
   // Validate json.
@@ -193,12 +190,9 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
     // Update lobby for all waiting players.
     if (command == "initialize_game") {
       for (const auto& it : connections_) {
-        if (it.second->waiting()) {
-          sleep(1);
-          SendMessage(it.second->username(), nlohmann::json({{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}}));
-        }
+        if (it.second->waiting())
+          SendMessage(it.second->username(), {{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}});
       }
-      spdlog::get(LOGGER)->debug("Done");
     }
   }
   spdlog::get(LOGGER)->info("Websocket::on_message: existed");

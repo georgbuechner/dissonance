@@ -2,13 +2,13 @@
 #define SRC_UTILS_H_
 
 #include <chrono>
+#include <cstddef>
 #include <iterator>
 #include <list>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "curses.h"
 #include "nlohmann/json.hpp"
 
 namespace utils {
@@ -159,6 +159,8 @@ namespace utils {
       std::string source);
 
   void WaitABit(int milliseconds);
+
+  void SplitLargeData(std::map<int, std::string>& contents, std::string content, size_t threshold);
 
   /**
    * Slices vector from `begin` to `begin+len`.

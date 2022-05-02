@@ -804,23 +804,9 @@ void ClientGame::m_SelectAudio(nlohmann::json& msg) {
   audio_file_path_ = SelectAudio("select map");
   // If not on same-device send audio file.
   if (!ws_srv_->same_device()) {
-    std::string content = "";
-    while (true) {
-      // Load file and create content.
-      std::filesystem::path p = audio_file_path_;
-      content = p.filename().string() + "$" + utils::GetMedia(audio_file_path_);
-      spdlog::get(LOGGER)->info("File size: {}", content.size());
-      // Check file size.
-      if (content.size() < pow(2, 25))
-        break;
-      // If insufficient, print error and select audio again
-      drawrer_.ClearField();
-      drawrer_.PrintCenteredLine(LINES/2, "File size too big! (press any key to continue.)");
-      getch();
-      drawrer_.ClearField();
+    while (!SendSong()) {
       audio_file_path_ = SelectAudio("select map");
     }
-    ws_srv_->SendMessageBinary(content);
   }
   // Otherwise send only path.
   else 
@@ -843,16 +829,43 @@ void ClientGame::m_SelectAudio(nlohmann::json& msg) {
   }
 }
 
-void ClientGame::m_PrintMsg(nlohmann::json& msg) {
-  drawrer_.ClearField();
-  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"]);
+bool ClientGame::SendSong() {
+  // Create initial data
+  std::filesystem::path p = audio_file_path_;
+  AudioTransferData data((std::string)username_, (std::string)p.filename().string());
+
+  // Get content.
+  std::string content = utils::GetMedia(audio_file_path_);
+  std::map<int, std::string> contents;
+  utils::SplitLargeData(contents, content, pow(2, 12));
+  spdlog::get(LOGGER)->info("Made {} parts of {} bits data", contents.size(), content.size());
+  data.set_parts(contents.size()-1);
+  for (const auto& it : contents) {
+    data.set_part(it.first);
+    data.set_content(it.second);
+    try {
+      drawrer_.PrintOnlyCenteredLine(LINES/2, "Sending audio part " + std::to_string(it.first+1) + " of " 
+          + std::to_string(contents.size()));
+      ws_srv_->SendMessageBinary(data.string());
+    } catch(...) {
+      drawrer_.ClearField();
+      drawrer_.PrintCenteredLine(LINES/2, "File size too big! (press any key to continue.)");
+      getch();
+      return false;
+    }
+  }
+  drawrer_.PrintCenteredLine(LINES/2, "server is analysing audio");
   refresh();
+  return true;
+}
+
+void ClientGame::m_PrintMsg(nlohmann::json& msg) {
+  drawrer_.PrintOnlyCenteredLine(LINES/2, msg["data"]["msg"]);
   msg = nlohmann::json();
 }
 
 void ClientGame::m_InitGame(nlohmann::json& msg) {
-  clear();
-  refresh();
+  drawrer_.ClearField();
   drawrer_.set_transfer(msg["data"]);
   drawrer_.PrintGame(false, false, current_context_);
   status_ = RUNNING;

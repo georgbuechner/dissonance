@@ -37,6 +37,9 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   pause_ = false;
   time_in_pause_ = 0;
   tutorial_ = mode == TUTORIAL;
+  audio_data_ = "";
+  audio_file_name_ = "";
+  base_path_ = base_path;
   // Initialize eventmanager.
   eventmanager_.AddHandler("initialize_game", &ServerGame::m_InitializeGame);
   eventmanager_.AddHandler("add_iron", &ServerGame::m_AddIron);
@@ -99,11 +102,41 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
     lines_ = (lines < lines_) ? lines : lines_;
     cols_ = (cols < cols_) ? cols : cols_;
     // Send audio-data to new player.
-    std::string audio_path = audio_.source_path();
-    std::filesystem::path p = audio_path;
-    std::string content = host_ + "&" + p.filename().string() + "$" + utils::GetMedia(audio_path);
-    cur_players_++;
-    ws_server_->SendMessageBinary(username, content);
+    SendSong(username);
+  }
+}
+
+void ServerGame::SendSong(std::string username) {
+  // Create initial data
+  AudioTransferData data(host_, audio_file_name_);
+  std::map<int, std::string> contents;
+  utils::SplitLargeData(contents, audio_data_, pow(2, 12));
+  spdlog::get(LOGGER)->info("Made {} parts of {} bits data", contents.size(), audio_data_.size());
+  data.set_parts(contents.size()-1);
+  for (const auto& it : contents) {
+    data.set_part(it.first);
+    data.set_content(it.second);
+    try {
+      ws_server_->SendMessageBinary(username, data.string());
+    } catch(...) {
+      return;
+    }
+  }
+  return;
+}
+
+void ServerGame::AddAudioPart(AudioTransferData& data) {
+  // Set song name if not already set.
+  if (audio_file_name_ == "")
+    audio_file_name_ = data.songname();
+  std::string path = base_path_ + "data/user-files/"+data.username();
+  if (!std::filesystem::exists(path))
+    std::filesystem::create_directory(path);
+  path += "/"+data.songname();
+  audio_data_+=data.content();
+  if (data.part() == data.parts()) {
+    spdlog::get(LOGGER)->debug("Websocket::on_message: storing binary data to: {}", path);
+    utils::StoreMedia(path, audio_data_);
   }
 }
 
@@ -417,7 +450,7 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
   if (data.contains("map_path"))
     audio_.set_source_path(data["map_path"]);
   else 
-    audio_.set_source_path("dissonance/data/user-files/" + host_ + "/" + map_name);
+    audio_.set_source_path(base_path_ + "/data/user-files/" + host_ + "/" + map_name);
   audio_.Analyze();
   if (map_name.size() > 10) 
     map_name = map_name.substr(0, 10);

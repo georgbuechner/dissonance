@@ -15,7 +15,7 @@
 
 class Client {
   public:
-    Client(ClientGame* game, std::string username);
+    Client(ClientGame* game, std::string username, std::string base_path);
 
     // getter 
     bool same_device();
@@ -34,6 +34,8 @@ class Client {
     bool same_device_;
     websocketpp::connection_hdl hdl_;
     ClientGame* game_;
+    std::string audio_data_;
+    std::string base_path_;
 
     void on_open(websocketpp::connection_hdl);
     

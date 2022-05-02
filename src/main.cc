@@ -34,6 +34,7 @@
 void SetupLogger(bool clear_log, std::string base_path, std::string log_level);
 
 int main(int argc, const char** argv) {
+  std::cout << "Starting version 2.0.1" << std::endl;
   // Command line arguments 
   bool show_help = false;
   bool keep_log = false;
@@ -92,6 +93,7 @@ int main(int argc, const char** argv) {
   // Enter-username (omitted for standalone server or only-ai)
   std::string username = "";
   if (!standalone && !only_ai) {
+    std::cout << "Using base-path: " << base_path << std::endl;
     std::cout << "Enter your username: ";
     std::getline(std::cin, username);
   }
@@ -134,7 +136,7 @@ int main(int argc, const char** argv) {
   // client and client-game.
   ClientGame::init();
   ClientGame* client_game = (standalone) ? nullptr : new ClientGame(base_path, username, multiplayer);
-  Client* client = (standalone) ? nullptr : new Client(client_game, username);
+  Client* client = (standalone) ? nullptr : new Client(client_game, username, base_path);
   if (client_game)
     client_game->set_client(client);
   std::thread thread_client([client, server_address]() { if (client) client->Start(server_address); });

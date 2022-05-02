@@ -232,3 +232,13 @@ void utils::WaitABit(int milliseconds) {
   auto cur_time = std::chrono::steady_clock::now();
   while (utils::GetElapsed(cur_time, std::chrono::steady_clock::now()) < milliseconds) {}
 }
+
+void utils::SplitLargeData(std::map<int, std::string>& contents, std::string content, size_t threshold) {
+  if (content.size() > threshold) {
+    SplitLargeData(contents, content.substr(0, content.size()/2), threshold);
+    SplitLargeData(contents, content.substr(content.size()/2), threshold);
+  }
+  else {
+    contents[contents.size()] = content;
+  }
+}

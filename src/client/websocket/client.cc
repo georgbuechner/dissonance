@@ -1,13 +1,15 @@
 #include "client/websocket/client.h"
 #include "nlohmann/json_fwd.hpp"
+#include "share/objects/dtos.h"
 #include "share/objects/units.h"
 
 #include "share/tools/utils/utils.h"
 #include "spdlog/spdlog.h"
 #include "websocketpp/frame.hpp"
 
-Client::Client(ClientGame* game, std::string username) : username_(username) {
+Client::Client(ClientGame* game, std::string username, std::string base_path) : username_(username) {
     game_ = game;
+    base_path_ = base_path;
   }
 
 bool Client::same_device() {
@@ -15,7 +17,8 @@ bool Client::same_device() {
 }
 
 void Client::Start(std::string address) {
-  same_device_ = address.find("localhost") != std::string::npos || address.find("127.0.0.1") != std::string::npos;
+  // same_device_ = address.find("localhost") != std::string::npos || address.find("127.0.0.1") != std::string::npos;
+  same_device_ = false; // TODO (fux): CHANGE!
   try {
     // Set logging to be pretty verbose (everything except message payloads)
     c_.set_access_channels(websocketpp::log::alevel::none);
@@ -70,20 +73,21 @@ void Client::on_open(websocketpp::connection_hdl) {
 void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr msg) {
   // Handle binary data (audio-files) in otherwise.
   if (msg->get_opcode() == websocketpp::frame::opcode::binary) {
-    spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data");
-    std::string content = msg->get_payload(); 
-    auto metadata = utils::Split(content.substr(0, content.find("$")), "&");
-    std::string username = metadata[0];
-    std::string filename = metadata[1];
-    std::string path = game_->base_path() + "/data/user-files/"+username;
+    AudioTransferData data(msg->get_payload().c_str(), msg->get_payload().size());
+    spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data size: {}", data.content().size());
+    std::string path = base_path_ + "data/user-files/"+data.username();
     if (!std::filesystem::exists(path))
       std::filesystem::create_directory(path);
-    path += +"/"+filename;
-    spdlog::get(LOGGER)->debug("Websocket::on_message: storing binary data to: {}", path);
-    utils::StoreMedia(path, content.substr(content.find("$")+1));
-    game_->set_audio_file_path(path);
-    spdlog::get(LOGGER)->debug("Websocket::on_message: Done.");
-    SendMessage(nlohmann::json({{"command", "ready"}, {"username", username_}, {"data", nlohmann::json()}}).dump());
+    path += "/"+data.songname();
+    audio_data_+=data.content();
+    game_->drawrer().PrintCenteredLineBold(LINES/2, "Sending audio part " + std::to_string(data.part()) + " of " 
+          + std::to_string(data.parts()));
+    if (data.part() == data.parts()) {
+      spdlog::get(LOGGER)->debug("Websocket::on_message: storing binary data to: {}", path);
+      utils::StoreMedia(path, audio_data_);
+      game_->set_audio_file_path(path);
+      SendMessage(nlohmann::json({{"command", "ready"}, {"username", username_}, {"data", nlohmann::json()}}).dump());
+    }
     return;
   }
   // Handle json-formatted data:

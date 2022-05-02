@@ -49,6 +49,7 @@ set(SRC_FILES_TEST
   test/test_player.cc
   test/test_utils.cc
   test/test_units.cc
+  test/test_transfer.cc
   test/testing_utils.cc
   ${SRC_FILES}
 )
