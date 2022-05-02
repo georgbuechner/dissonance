@@ -120,7 +120,7 @@ int main(int argc, const char** argv) {
   }
   
   // websocket server.
-  WebsocketServer* srv = new WebsocketServer(standalone);
+  WebsocketServer* srv = new WebsocketServer(standalone, base_path);
   std::thread thread_server([srv, server_port, multiplayer, standalone]() { 
     if (!multiplayer) {
       if (standalone)

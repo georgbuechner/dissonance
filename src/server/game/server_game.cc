@@ -459,7 +459,7 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
   std::vector<Audio*> audios; 
   if (msg["data"].contains("ais")) {
     for (const auto& it : msg["data"]["ais"].get<std::map<std::string, nlohmann::json>>()) {
-      Audio* new_audio = new Audio(msg["data"]["base_path"].get<std::string>());
+      Audio* new_audio = new Audio(base_path_);
       new_audio->set_source_path(it.first);
       // Analyze with given base-anaysis.
       new_audio->Analyze(it.second);

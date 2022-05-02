@@ -762,15 +762,15 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
   
   // Update msg
   msg["command"] = "init_game";
-  msg["data"] = {{"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, {"base_path", base_path_}};
+  msg["data"] = {{"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}};
  
   // Select single-player, mulit-player (host/ client), observer.
   choice_mapping_t mapping = {
-    {SINGLE_PLAYER, {"singe-player", (!muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
+    {SINGLE_PLAYER, {"singe-player", (!muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, // only in sp
     {MULTI_PLAYER, {"muli-player (host)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     {MULTI_PLAYER_CLIENT, {"muli-player (client)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
-    {TUTORIAL, {"tutorial", COLOR_AVAILIBLE}},
-    {OBSERVER, {"watch ki", COLOR_AVAILIBLE}},
+    {TUTORIAL, {"tutorial", (!muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, // only in sp
+    {OBSERVER, {"watch ki", (!muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, // only in sp
     {SETTINGS, {"settings", COLOR_AVAILIBLE}}
   };
   mode_ = SelectInteger("Select mode", true, mapping, {mapping.size()+1}, "Mode not available");
@@ -803,7 +803,7 @@ void ClientGame::m_SelectAudio(nlohmann::json& msg) {
   // Load map-audio.
   audio_file_path_ = SelectAudio("select map");
   // If not on same-device send audio file.
-  if (!ws_srv_->same_device()) {
+  if (mode_ == MULTI_PLAYER) {
     while (!SendSong()) {
       audio_file_path_ = SelectAudio("select map");
     }
@@ -818,7 +818,6 @@ void ClientGame::m_SelectAudio(nlohmann::json& msg) {
   // If observer load audio for two ai-files (no need to send audi-file: only analysed data)
   if (mode_ == OBSERVER) {
     msg["data"]["ais"] = nlohmann::json::object();
-    msg["data"]["base_path"] = base_path_;
     for (unsigned int i = 0; i<2; i++) {
       std::string source_path = SelectAudio("select ai sound " + std::to_string(i+1));
       Audio audio(base_path_);

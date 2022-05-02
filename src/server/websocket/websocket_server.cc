@@ -42,7 +42,8 @@ using websocketpp::lib::bind;
 //Function only needed for callback, but nether actually used.
 inline std::string get_password() { return ""; }
 
-WebsocketServer::WebsocketServer(bool standalone) : standalone_(standalone) {}
+WebsocketServer::WebsocketServer(bool standalone, std::string base_path) 
+  : standalone_(standalone), base_path_(base_path) {}
 
 WebsocketServer::~WebsocketServer() {
   server_.stop();
@@ -229,7 +230,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, c
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], 2, data["base_path"], this);
+    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], 2, base_path_, this);
     SendMessage(id, nlohmann::json({{"command", "select_audio"}, {"data", nlohmann::json()}}).dump());
   }
   else if (data["mode"] == MULTI_PLAYER) {
@@ -238,7 +239,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, c
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
     games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], data["num_players"],
-        data["base_path"], this);
+        base_path_, this);
     SendMessage(id, nlohmann::json({{"command", "select_audio"}, {"data", nlohmann::json()}}).dump());
     spdlog::get(LOGGER)->debug("New game added, informing waiting players");
   }
@@ -272,7 +273,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, c
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], 2, data["base_path"], this);
+    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], 2, base_path_, this);
     SendMessage(id, nlohmann::json({{"command", "select_audio"}, {"data", nlohmann::json()}}).dump());
   }
 }

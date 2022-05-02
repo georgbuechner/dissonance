@@ -42,7 +42,7 @@ class WebsocketServer {
     /**
      * Constructors websocket frame with pinter to user-manager.
      */
-    WebsocketServer(bool standalone);
+    WebsocketServer(bool standalone, std::string base_path);
 
     /**
      * Destructor stoping websocket server
@@ -93,6 +93,7 @@ class WebsocketServer {
     std::map<std::string, ServerGame*> games_;
 
     const bool standalone_;
+    const std::string base_path_;
 
     // methods:
     
