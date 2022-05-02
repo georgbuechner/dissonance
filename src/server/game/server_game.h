@@ -193,6 +193,8 @@ class ServerGame {
 
     // command methods
 
+    void m_SendAudioMap(nlohmann::json& data);
+
     /**
      * Analyzes audio and initialize game.
      * @param[in, out] msg

@@ -161,6 +161,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   eventmanager_.AddHandler("kill", &ClientGame::h_Kill);
   eventmanager_.AddHandler("select_mode", &ClientGame::m_SelectMode);
   eventmanager_.AddHandler("select_audio", &ClientGame::m_SelectAudio);
+  eventmanager_.AddHandler("send_audio_info", &ClientGame::m_SendAudioInfo);
   eventmanager_.AddHandler("print_msg", &ClientGame::m_PrintMsg);
   eventmanager_.AddHandler("init_game", &ClientGame::m_InitGame);
   eventmanager_.AddHandler("update_game", &ClientGame::m_UpdateGame);
@@ -797,20 +798,30 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
 }
 
 void ClientGame::m_SelectAudio(nlohmann::json& msg) {
-  msg["command"] = "initialize_game";
+  msg["command"] = "audio_map";
   msg["data"] = nlohmann::json::object();
 
   // Load map-audio.
   audio_file_path_ = SelectAudio("select map");
-  // If not on same-device send audio file.
-  if (mode_ == MULTI_PLAYER) {
-    while (!SendSong()) {
-      audio_file_path_ = SelectAudio("select map");
-    }
+  if (mode_ != MULTI_PLAYER) {
+    msg["data"]["map_path_same_device"] = audio_file_path_;
   }
-  // Otherwise send only path.
-  else 
-    msg["data"]["map_path"] = audio_file_path_;
+  else {
+    std::filesystem::path p = audio_file_path_;
+    msg["data"]["map_path"] = username_ + "/" + p.filename().string();
+    msg["data"]["song_name"] = p.filename().string();
+  }
+}
+
+void ClientGame::m_SendAudioInfo(nlohmann::json& msg) {
+  bool send_audio = msg["data"]["send_song"];
+  msg["command"] = "initialize_game";
+  msg["data"] = nlohmann::json::object();
+
+  // If server does not have sond, then send song.
+  if (send_audio) {
+    SendSong();
+  }
   // Add map-file name.
   std::filesystem::path p = audio_file_path_;
   msg["data"]["map_name"] = p.filename().string();

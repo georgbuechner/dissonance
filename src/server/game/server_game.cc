@@ -20,6 +20,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <filesystem>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -41,6 +42,7 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   audio_file_name_ = "";
   base_path_ = base_path;
   // Initialize eventmanager.
+  eventmanager_.AddHandler("audio_map", &ServerGame::m_SendAudioMap);
   eventmanager_.AddHandler("initialize_game", &ServerGame::m_InitializeGame);
   eventmanager_.AddHandler("add_iron", &ServerGame::m_AddIron);
   eventmanager_.AddHandler("remove_iron", &ServerGame::m_RemoveIron);
@@ -130,6 +132,7 @@ void ServerGame::AddAudioPart(AudioTransferData& data) {
   if (audio_file_name_ == "")
     audio_file_name_ = data.songname();
   std::string path = base_path_ + "data/user-files/"+data.username();
+  // Create directory for this user.
   if (!std::filesystem::exists(path))
     std::filesystem::create_directory(path);
   path += "/"+data.songname();
@@ -440,17 +443,33 @@ void ServerGame::BuildPotentials(int unit, position_t pos, int num, std::string 
   ws_server_->SendMessage(username, msg);
 }
 
-void ServerGame::m_InitializeGame(nlohmann::json& msg) {
+void ServerGame::m_SendAudioMap(nlohmann::json& msg) {
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: initializing with user: {} {}", host_, mode_);
   host_ = msg["username"];
+  bool send_song = false;
+  if (msg["data"].contains("map_path_same_device")) {
+    audio_.set_source_path(msg["data"]["map_path_same_device"]);
+  }
+  else {
+    std::string path = base_path_ + "/data/user-files/" + msg["data"]["map_path"].get<std::string>();
+    audio_.set_source_path(path);
+    if (std::filesystem::exists(path)) {
+      audio_data_ = utils::GetMedia(path);
+      audio_file_name_ = msg["data"]["song_name"];
+    }
+    else 
+      send_song = true;
+  }
+  msg["command"] = "send_audio_info";
+  msg["data"] = {{"send_song", send_song}};
+}
+
+void ServerGame::m_InitializeGame(nlohmann::json& msg) {
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: initializing with user: {} {}", host_, mode_);
   nlohmann::json data = msg["data"];
 
   // Get and analyze main audio-file (used for map and in SP for AI).
   std::string map_name = data["map_name"];
-  if (data.contains("map_path"))
-    audio_.set_source_path(data["map_path"]);
-  else 
-    audio_.set_source_path(base_path_ + "/data/user-files/" + host_ + "/" + map_name);
   audio_.Analyze();
   if (map_name.size() > 10) 
     map_name = map_name.substr(0, 10);

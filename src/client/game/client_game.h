@@ -226,6 +226,7 @@ class ClientGame {
     */
     void m_SelectMode(nlohmann::json&);
     void m_SelectAudio(nlohmann::json&);
+    void m_SendAudioInfo(nlohmann::json&);
     void m_PrintMsg(nlohmann::json&);
     void m_InitGame(nlohmann::json&);
     void m_UpdateGame(nlohmann::json&);
