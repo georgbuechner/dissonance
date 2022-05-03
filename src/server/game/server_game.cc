@@ -470,6 +470,7 @@ void ServerGame::m_InitializeGame(nlohmann::json& msg) {
 
   // Get and analyze main audio-file (used for map and in SP for AI).
   std::string map_name = data["map_name"];
+  ws_server_->SendMessage(host_, nlohmann::json({{"command", "preparing"}}));
   audio_.Analyze();
   if (map_name.size() > 10) 
     map_name = map_name.substr(0, 10);

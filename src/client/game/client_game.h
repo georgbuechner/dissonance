@@ -224,6 +224,7 @@ class ClientGame {
      * Shows player main-menu: with basic game info and lets player pic singe/
      * muliplayer
     */
+    void m_Preparing(nlohmann::json&);
     void m_SelectMode(nlohmann::json&);
     void m_SelectAudio(nlohmann::json&);
     void m_SendAudioInfo(nlohmann::json&);

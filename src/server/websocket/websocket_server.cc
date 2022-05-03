@@ -187,14 +187,10 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
   }
   // In game action
   else {
-    h_InGameAction(hdl.lock().get(), username, json_opt.second);
-    // Update lobby for all waiting players.
-    if (command == "initialize_game") {
-      for (const auto& it : connections_) {
-        if (it.second->waiting())
-          SendMessage(it.second->username(), {{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}});
-      }
-    }
+    std::thread handler([this, hdl, username, json_opt]() { 
+      h_InGameAction(hdl.lock().get(), username, json_opt.second); 
+    });
+    handler.detach();
   }
   spdlog::get(LOGGER)->info("Websocket::on_message: existed");
 }
@@ -278,11 +274,23 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, c
   }
 }
 
-void WebsocketServer::h_InGameAction(connection_id id, std::string username, const nlohmann::json& msg) {
+void WebsocketServer::h_InGameAction(connection_id id, std::string username, nlohmann::json msg) {
+  spdlog::get(LOGGER)->info("h_InGameAction: {}", msg.dump());
   std::shared_lock sl(shared_mutex_games_);
   auto game = GetGameFromUsername(username);
   if (game) {
-    nlohmann::json resp = game->HandleInput(msg["command"], msg);
+    std::string command = msg["command"];
+    spdlog::get(LOGGER)->info("h_InGameAction: calling game-function");
+    nlohmann::json resp = game->HandleInput(command, msg);
+    spdlog::get(LOGGER)->info("h_InGameAction: calling game-function: done");
+    // Update lobby for all waiting players after "initialize_game" was called (potentially new game)
+    if (command == "initialize_game") {
+      for (const auto& it : connections_) {
+        if (it.second->waiting())
+          SendMessage(it.second->username(), {{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}});
+      }
+    }
+    // If new comman, send back to user.
     if (resp.contains("command")) {
       SendMessage(id, resp.dump());
       resp["username"] = "";
@@ -290,6 +298,7 @@ void WebsocketServer::h_InGameAction(connection_id id, std::string username, con
   }
   else
     spdlog::get(LOGGER)->warn("Server: message with unkown command or username.");
+  
 }
 
 void WebsocketServer::CloseGames() {

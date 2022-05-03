@@ -159,6 +159,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
 
   // Initialize eventmanager.
   eventmanager_.AddHandler("kill", &ClientGame::h_Kill);
+  eventmanager_.AddHandler("preparing", &ClientGame::m_Preparing);
   eventmanager_.AddHandler("select_mode", &ClientGame::m_SelectMode);
   eventmanager_.AddHandler("select_audio", &ClientGame::m_SelectAudio);
   eventmanager_.AddHandler("audio_exists", &ClientGame::m_SongExists);
@@ -751,6 +752,11 @@ void ClientGame::RemovePickContext(int new_context) {
     drawrer_.set_viewpoint(current_context_);
     drawrer_.set_topline(contexts_.at(current_context_).topline());
   }
+}
+
+void ClientGame::m_Preparing(nlohmann::json& msg) {
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  drawrer_.PrintOnlyCenteredLine(LINES/2, "Preparing...");
 }
 
 void ClientGame::m_SelectMode(nlohmann::json& msg) {

@@ -184,7 +184,7 @@ class WebsocketServer {
      * @param[in] username 
      * @param[in, out] msg
      */
-    void h_InGameAction(connection_id id, std::string username, const nlohmann::json& msg);
+    void h_InGameAction(connection_id id, std::string username, nlohmann::json msg);
 
     /**
      * Deletes game and removes game and players. 
