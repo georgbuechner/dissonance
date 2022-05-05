@@ -755,8 +755,10 @@ void ClientGame::RemovePickContext(int new_context) {
 }
 
 void ClientGame::m_Preparing(nlohmann::json& msg) {
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  drawrer_.PrintOnlyCenteredLine(LINES/2, "Preparing...");
+  // Waiting is only to overwrite ugly debug-output from aubio (only single-player).
+  if (!muliplayer_availible_)
+    std::this_thread::sleep_for(std::chrono::milliseconds(15));
+  drawrer_.PrintOnlyCenteredLine(LINES/2, "Analyzing audio...");
 }
 
 void ClientGame::m_SelectMode(nlohmann::json& msg) {
@@ -881,8 +883,6 @@ bool ClientGame::SendSong() {
       return false;
     }
   }
-  drawrer_.PrintCenteredLine(LINES/2, "server is analysing audio");
-  refresh();
   return true;
 }
 
