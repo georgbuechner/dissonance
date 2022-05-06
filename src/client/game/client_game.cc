@@ -874,7 +874,7 @@ bool ClientGame::SendSong() {
     data.set_content(it.second);
     try {
       drawrer_.PrintOnlyCenteredLine(LINES/2, "Sending audio part " + std::to_string(it.first+1) + " of " 
-          + std::to_string(contents.size()));
+          + std::to_string(contents.size()) + "...");
       ws_srv_->SendMessageBinary(data.string());
     } catch(...) {
       drawrer_.ClearField();
