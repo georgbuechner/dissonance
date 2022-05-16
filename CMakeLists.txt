@@ -27,6 +27,8 @@ set(SRC_FILES
   src/share/objects/resource.cc
   src/share/tools/utils/utils.cc
   src/share/tools/random/random.cc
+  src/share/shemes/commands.cc
+  src/share/shemes/data.cc
 
   src/server/game/server_game.cc
   src/server/game/field/field.cc
@@ -50,6 +52,7 @@ set(SRC_FILES_TEST
   test/test_utils.cc
   test/test_units.cc
   test/test_transfer.cc
+  test/test_proto.cc
   test/testing_utils.cc
   ${SRC_FILES}
 )

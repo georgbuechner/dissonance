@@ -5,13 +5,11 @@
 #include "share/defines.h"
 #include "share/tools/utils/utils.h"
 #include <iostream>
-#include <msgpack/sbuffer.h>
-#include <msgpack/unpack.h>
 #include <string>
 #include <sstream>
 #include <utility>
 #include <vector>
-#include <msgpack/pack.h>
+#include <msgpack.hpp>
 
 struct GetPositionInfo {
   public:
@@ -103,15 +101,22 @@ class AudioTransferData {
 
     AudioTransferData(const char* payload, size_t len) {
       size_t offset = 0;
-      msgpack_zone mempool;
-      msgpack_zone_init(&mempool, 2048);
+      msgpack::object_handle result;
 
-      username_ = load_string(payload, len, offset, &mempool);
-      audioname_ = load_string(payload, len, offset, &mempool);
-      part_ = load_int(payload, len, offset, &mempool);
-      parts_ = load_int(payload, len, offset, &mempool);
-      content_ = load_string(payload, len, offset, &mempool);
-      msgpack_zone_destroy(&mempool);
+      unpack(result, payload, len, offset);
+      username_ = result->as<std::string>();
+
+      unpack(result, payload, len, offset);
+      audioname_ = result->as<std::string>();
+
+      unpack(result, payload, len, offset);
+      part_ = result->as<int>();
+
+      unpack(result, payload, len, offset);
+      parts_ = result->as<int>();
+
+      unpack(result, payload, len, offset);
+      content_ = result->as<std::string>();
     }
 
     // getter
@@ -128,29 +133,15 @@ class AudioTransferData {
 
     // Methods 
     std::string string() {
-      msgpack_sbuffer sbuf;
-      msgpack_sbuffer_init(&sbuf);
-      
       std::stringstream buffer;
-      /* serialize values into the buffer using msgpack_sbuffer_write callback function. */
-      msgpack_packer pk;
-      msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
 
-      // username
-      msgpack_pack_str(&pk, username_.length());
-      msgpack_pack_str_body(&pk, username_.c_str(), username_.length());
-      // audioname
-      msgpack_pack_str(&pk, audioname_.length());
-      msgpack_pack_str_body(&pk, audioname_.c_str(), audioname_.length());
-      // part and parts
-      msgpack_pack_int(&pk, part_);
-      msgpack_pack_int(&pk, parts_);
-      // content 
-      msgpack_pack_str(&pk, content_.length());
-      msgpack_pack_str_body(&pk, content_.c_str(), content_.length());
+      /* serialize values into the buffer using function. */
+      msgpack::pack(buffer, username_);
+      msgpack::pack(buffer, audioname_);
+      msgpack::pack(buffer, part_);
+      msgpack::pack(buffer, parts_);
+      msgpack::pack(buffer, content_);
 
-      buffer.write(sbuf.data,sbuf.size);
-      msgpack_sbuffer_destroy(&sbuf);
       return buffer.str();
     }
 
@@ -160,49 +151,6 @@ class AudioTransferData {
     std::string content_;
     int part_;
     int parts_;
-
-    std::string load_string(const char* payload, size_t len, size_t& offset, msgpack_zone *mempool) {
-      msgpack_object deserialized;
-      if(msgpack_unpack(payload, len, &offset, mempool, &deserialized)!=0) {
-        if(deserialized.type == MSGPACK_OBJECT_STR) {
-          return std::string(deserialized.via.str.ptr,deserialized.via.str.size);
-        }
-        else {
-          throw std::invalid_argument("The next expected type was string");
-        }
-      }
-      else {
-        throw std::invalid_argument("Unpack encountered an error");
-      }
-    }
-
-    uint64_t load_int(const char* payload, size_t len, size_t& offset, msgpack_zone *mempool) {
-      msgpack_object deserialized;
-      if(msgpack_unpack(payload, len, &offset, mempool, &deserialized)!=0) {
-        if(deserialized.type == MSGPACK_OBJECT_POSITIVE_INTEGER) {
-          return deserialized.via.u64;
-        }
-        else {
-          throw std::invalid_argument("The next expected type was positive integer");
-        }
-      }
-      else {
-        throw std::invalid_argument("Unpack encountered an error");
-      }
-    }
-
-    void write_int(int x, std::stringstream &buffer) {
-      msgpack_sbuffer sbuf;
-      msgpack_sbuffer_init(&sbuf);
-
-      /* serialize values into the buffer using msgpack_sbuffer_write callback function. */
-      msgpack_packer pk;
-      msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
-      msgpack_pack_int(&pk,x);
-
-      buffer.write(sbuf.data,sbuf.size);
-      msgpack_sbuffer_destroy(&sbuf);
-    }
 };
 
 #endif

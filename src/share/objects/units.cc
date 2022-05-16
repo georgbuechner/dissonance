@@ -4,7 +4,7 @@
 #include <cstddef>
 
 // Neurons
-Neuron::Neuron() : Unit() {}
+Neuron::Neuron() : Unit () {}
 Neuron::Neuron(position_t pos, int lp, int type) : Unit(pos, type) {
   lp_ = 0;
   max_lp_ = lp;

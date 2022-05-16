@@ -394,6 +394,7 @@ void ClientGame::h_BuildPotential(nlohmann::json& msg) {
   }
   msg = nlohmann::json();
 }
+
 void ClientGame::h_ToResourceContext(nlohmann::json&) {
   SwitchToResourceContext("Aborted adding neuron/ potential");
 }
@@ -433,7 +434,7 @@ void ClientGame::h_BuildNeuron(nlohmann::json& msg) {
 
 void ClientGame::h_SendSelectSynapse(nlohmann::json& msg) {
   spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: {}", msg.dump());
-  // If first call: initalize synape-context
+  // If first call: initalize synapse-context
   if (msg.size() == 0) {
     spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: sending initial request...");
     SwitchToSynapseContext();
@@ -504,11 +505,12 @@ void ClientGame::h_SetWPs(nlohmann::json& msg) {
     std::vector<position_t> center_positions = msg["data"]["positions"][0];
     SwitchToPickContext(center_positions, "select start position", "set_wps", msg, {'q'});
   }
-  // First call (request positions)
+  // First call (request positions): technology not researched
   else if (!drawrer_.synapse_options().at(0)) {
     FinalSynapseContextAction(msg["data"]["synapse_pos"]);
     drawrer_.set_msg("Technology \"choose way\" not researched");
   }
+  // First call (request positions)
   else {
     // If "msg" is contained, print message
     if (msg["data"].contains("msg"))

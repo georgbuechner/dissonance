@@ -175,7 +175,7 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
   std::string username = json_opt.second["username"];
   
   // Create controller connection
-  if (command == "initialize")
+  if (command == "initialize_user")
     h_InitializeUser(hdl.lock().get(), username, json_opt.second);
   // Start new game
   else if (command == "init_game")

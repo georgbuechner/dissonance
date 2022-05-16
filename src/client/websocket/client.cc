@@ -64,7 +64,7 @@ void Client::Stop() {
 }
 
 void Client::on_open(websocketpp::connection_hdl) {
-  nlohmann::json msg = {{"command", "initialize"}, {"username", username_}, {"data", nlohmann::json()}};
+  nlohmann::json msg = {{"command", "initialize_user"}, {"username", username_}, {"data", nlohmann::json()}};
   SendMessage(msg.dump());
 }
 

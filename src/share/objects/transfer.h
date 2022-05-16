@@ -38,7 +38,7 @@ class Transfer {
       bool active_;
     };
 
-    Transfer() {initialized_ = false; macro_ = -1;};
+    Transfer() { initialized_ = false; macro_ = -1; }
     Transfer(nlohmann::json json) {
       spdlog::get(LOGGER)->debug("from json: players {}", json["players"].dump());
       // build players from json.
