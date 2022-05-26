@@ -11,8 +11,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "nlohmann/json_fwd.hpp"
-#include "share/objects/transfer.h"
 #include "share/objects/units.h"
 #include "server/game/player/player.h"
 #include "share/tools/graph.h"
@@ -79,7 +77,7 @@ class Field {
      * @param target_pos target position.
      * @return list of positions.
      */ 
-    std::list<position_t> GetWayForSoldier(position_t start_pos, std::vector<position_t> way_points);
+    std::list<position_t> GetWay(position_t start_pos, std::vector<position_t> way_points);
 
     /** 
      * Finds the next free position near a given position with min and max
@@ -128,7 +126,8 @@ class Field {
      * @param[in] players
      * @return two-dimensional array with Symbol (string, color) as value.
      */
-    std::vector<std::vector<Transfer::Symbol>> Export(std::vector<Player*> players);
+    std::vector<std::vector<Data::Symbol>> Export(std::vector<Player*> players);
+    std::vector<std::vector<Data::Symbol>> Export(std::map<std::string, Player*> players);
 
   private: 
     // members

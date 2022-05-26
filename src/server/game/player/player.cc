@@ -10,12 +10,12 @@
 #include <utility>
 #include <vector>
 #include <spdlog/spdlog.h>
-#include "server/game/player/statistics.h"
 #include "share/audio/audio.h"
 #include "share/constants/codes.h"
 #include "share/constants/costs.h"
 #include "share/defines.h"
 #include "share/objects/units.h"
+#include "share/shemes/data.h"
 #include "spdlog/logger.h"
 
 #include "server/game/field/field.h"
@@ -30,7 +30,8 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
   macro_ = ran_gen->RandomInt(0, 1);
 
   // Set player-color in statistics.
-  statistics_.set_color(color);
+  statistics_ = std::make_shared<Statictics>();
+  statistics_->set_color(color);
 
   neurons_[nucleus_pos] = std::make_unique<Nucleus>(nucleus_pos);
   auto r_pos = field_->AddResources(nucleus_pos);
@@ -61,7 +62,7 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
 }
 
 // getter 
-Statictics& Player::statistics() {
+std::shared_ptr<Statictics> Player::statistics() {
   return statistics_;
 }
 std::map<std::string, Potential> Player::potential() { 
@@ -87,19 +88,12 @@ std::map<int, tech_of_t> Player::technologies() {
   return technologies_;
 }
 
-std::map<int, Transfer::Resource> Player::t_resources() {
-  std::map<int, Transfer::Resource>  resources;
+std::map<int, Data::Resource> Player::t_resources() {
+  std::map<int, Data::Resource>  resources;
   for (const auto& it : resources_) 
-    resources[it.first] = {utils::Dtos(it.second.cur()), utils::Dtos(it.second.bound()), 
-      std::to_string(it.second.limit()), std::to_string(it.second.distributed_iron()), it.second.Active()};
+    resources[it.first] = {it.second.cur(), it.second.bound(), it.second.limit(), it.second.distributed_iron(), 
+      it.second.Active()};
   return resources;
-}
-
-std::map<int, Transfer::Technology> Player::t_technologies() {
-  std::map<int, Transfer::Technology> technologies;
-  for (const auto& it : technologies_) 
-    technologies[it.first] = {std::to_string(it.second.first), std::to_string(it.second.second), it.second.first > 0};
-  return technologies;
 }
 
 std::map<position_t, int> Player::new_dead_neurons() {
@@ -149,7 +143,8 @@ void Player::set_lost(bool lost) {
 
 // methods 
 
-nlohmann::json Player::GetFinalStatistics() {
+std::shared_ptr<Statictics> Player::GetFinalStatistics(std::string username) {
+  statistics_->set_player_name(username);
   for (const auto& it : resources_) {
     std::map<std::string, double> res_stats;
     if (it.first != IRON) {
@@ -158,11 +153,11 @@ nlohmann::json Player::GetFinalStatistics() {
       res_stats["ø boost"] = it.second.average_boost();
       res_stats["ø bound"] = it.second.average_bound();
       res_stats["ø neg. faktor"] = 1-it.second.average_neg_factor();
-      statistics_.get_resources()[it.first] = res_stats;
+      statistics_->stats_resources()[it.first] = res_stats;
     }
   }
-  statistics_.set_technologies(technologies_);
-  return statistics_.ToJson();  
+  statistics_->set_technologies(technologies_);
+  return statistics_;
 }
 
 std::map<position_t, int> Player::GetEpspAtPosition() {
@@ -215,13 +210,13 @@ int Player::GetColorForPos(position_t pos) {
   return COLOR_DEFAULT;
 }
 
-std::map<position_t, int> Player::GetAllNeuronsInRange(position_t pos) {
-  std::map<position_t, int> neurons_in_range;
+std::vector<FieldPosition> Player::GetAllNeuronsInRange(position_t pos) {
+  std::vector<FieldPosition> neurons_in_range_;
   for (const auto& it : neurons_) {
     if (utils::Dist(it.first, pos) < cur_range_)
-      neurons_in_range[it.first] = it.second->type_;
+      neurons_in_range_.push_back(FieldPosition(it.first, it.second->type_, color_));
   }
-  return neurons_in_range;
+  return neurons_in_range_;
 }
 
 position_t Player::GetLoopholeTargetIfExists(position_t pos, bool only_active) {
@@ -315,12 +310,13 @@ int Player::ResetWayForSynapse(position_t pos, position_t way_position) {
   }
 }
 
-int Player::AddWayPosForSynapse(position_t pos, position_t way_position) {
-  spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse");
-  if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE) {
-    auto cur_way = neurons_.at(pos)->ways_points();
+int Player::AddWayPosForSynapse(position_t synapse_pos, position_t way_position) {
+  spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse. synape: {}", 
+      utils::PositionToString(synapse_pos));
+  if (neurons_.count(synapse_pos) && neurons_.at(synapse_pos)->type_ == UnitsTech::SYNAPSE) {
+    auto cur_way = neurons_.at(synapse_pos)->ways_points();
     cur_way.push_back(way_position);
-    neurons_.at(pos)->set_way_points(cur_way);
+    neurons_.at(synapse_pos)->set_way_points(cur_way);
     spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse: successfully");
     return cur_way.size();
   }
@@ -510,7 +506,7 @@ bool Player::AddNeuron(position_t pos, int neuron_type, position_t epsp_target, 
   }
   spdlog::get(LOGGER)->debug("Player::AddNeuron: done");
   new_neurons_[pos] = neuron_type;
-  statistics_.AddNewNeuron(neuron_type);
+  statistics_->AddNewNeuron(neuron_type);
   return true;
 }
 
@@ -527,7 +523,7 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
   // Create way.
   spdlog::get(LOGGER)->debug("Player::AddPotential: get way for potential.");
   neurons_.at(synapes_pos)->UpdateIpspTargetIfNotSet(enemies_.front()->GetRandomNeuron());
-  auto way = field_->GetWayForSoldier(synapes_pos, neurons_.at(synapes_pos)->GetWayPoints(unit));
+  auto way = field_->GetWay(synapes_pos, neurons_.at(synapes_pos)->GetWayPoints(unit));
 
   // Add potential.
   // Get boast from technologies.
@@ -558,7 +554,7 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
   // Decrease speed if given.
   potential_[id].movement_.first += inital_speed_decrease;
   spdlog::get(LOGGER)->debug("Player::AddPotential: done.");
-  statistics_.AddNewPotential(unit);
+  statistics_->AddNewPotential(unit);
   return true;
 }
 
@@ -636,7 +632,7 @@ void Player::MovePotential() {
         // If loophole-target exists, enter loophole.
         if (loophole_target.first != -1 && loophole_target.second != -1) {
           it.second.pos_ = loophole_target;
-          it.second.way_ = field_->GetWayForSoldier(it.second.pos_, {it.second.way_.back()});
+          it.second.way_ = field_->GetWay(it.second.pos_, {it.second.way_.back()});
           it.second.way_.pop_front(); // remove first position, which is the loophole.
         }
       }
@@ -664,13 +660,13 @@ void Player::MovePotential() {
               auto neurons = enemy->GetAllNeuronsInRange(it.second.pos_);
               spdlog::get(LOGGER)->debug("MACRO: got {} neurons in range.", neurons.size());
               int macro_lp = it.second.potential_;
-              for (const auto& pos : neurons) {
-                int lp = (pos.second == SYNAPSE) ? 5 : (pos.second == ACTIVATEDNEURON) ? 17 : 0;
+              for (const auto& neuron : neurons) {
+                int lp = (neuron.unit() == SYNAPSE) ? 5 : (neuron.unit() == ACTIVATEDNEURON) ? 17 : 0;
                 macro_lp-= lp;
                 if (macro_lp < 0) 
                   lp = macro_lp+lp;
                 spdlog::get(LOGGER)->debug("MACRO: making {} damage.", lp);
-                enemy->AddPotentialToNeuron(pos.first, lp);
+                enemy->AddPotentialToNeuron(neuron.pos(), lp);
                 if (macro_lp < 0) 
                   break;
               }
@@ -740,7 +736,7 @@ void Player::HandleDef() {
           int distance = utils::Dist(neuron.first, potential.second.pos_);
           if (distance < 3) {
             if (enemy->NeutralizePotential(potential.first, neuron.second->potential_slowdown()))
-              statistics_.AddKillderPotential(potential.first);
+              statistics_->AddKillderPotential(potential.first);
             neuron.second->reset_movement();  // neuron did action, so update last_action_.
             break;
           }
@@ -758,7 +754,7 @@ bool Player::NeutralizePotential(std::string id, int potential) {
     // Remove potential only if not already at it's target (length of way is greater than zero).
     if ((potential_.at(id).potential_ == 0 || potential_.at(id).potential_ > 10) && potential_.at(id).way_.size() > 0) {
       potential_.erase(id);
-      statistics_.AddLostPotential(id);
+      statistics_->AddLostPotential(id);
       return true;
     }
   }

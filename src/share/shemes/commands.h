@@ -9,8 +9,10 @@
 
 class Command {
   public: 
+    Command() {};
     Command(std::string command);
     Command(std::string command, std::shared_ptr<Data> data);
+    Command(std::string command, std::string username, std::shared_ptr<Data> data);
 
     Command(const char* payload, size_t len);
 

@@ -7,8 +7,10 @@
 #include <msgpack.hpp>
 #include <string>
 #include "nlohmann/json.hpp"
+#include "spdlog/spdlog.h"
 
 // SYMBOL 
+Data::Symbol::Symbol() {};
 Data::Symbol::Symbol(std::pair<std::string, short> symbol) {
   symbol_ = symbol.first;
   color_ = symbol.second;
@@ -23,6 +25,7 @@ std::pair<std::string, short> Data::Symbol::to_pair() const {
 }
 
 // RESOUCE 
+Data::Resource::Resource() {}
 Data::Resource::Resource(double value, double bound, unsigned int limit, unsigned int iron, bool active) {
   value_ = utils::Dtos(value);
   bound_ = utils::Dtos(bound);
@@ -52,6 +55,9 @@ void Data::Resource::binary(std::stringstream& buffer) const {
   msgpack::pack(buffer, iron_);
   msgpack::pack(buffer, active_);
 }
+
+// DATA
+Data::Data() {}
 
 // LOBBY ENTRY
 Data::LobbyEntry::LobbyEntry(short max_players, short cur_players, std::string game_id, std::string audio_map_name) {
@@ -98,15 +104,66 @@ void Msg::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, msg_);
 }
 
+// SELECT MODE
+InitNewGame::InitNewGame(unsigned short mode, unsigned short lines, unsigned short cols) : Data() {
+  mode_ = mode;
+  lines_ = lines;
+  cols_ = cols;
+  num_players_ = 0;
+  game_id_ = "";
+}
+
+InitNewGame::InitNewGame(const char* payload, size_t len, size_t& offset) : Data() {
+  msgpack::object_handle result;
+
+  unpack(result, payload, len, offset);
+  mode_ = result->as<unsigned short>();
+  unpack(result, payload, len, offset);
+  lines_ = result->as<unsigned short>();
+  unpack(result, payload, len, offset);
+  cols_= result->as<unsigned short>();
+  unpack(result, payload, len, offset);
+  num_players_= result->as<unsigned short>();
+  unpack(result, payload, len, offset);
+  game_id_ = result->as<std::string>();
+}
+
+// getter
+unsigned short InitNewGame::mode() { return mode_; }
+unsigned short InitNewGame::lines() { return lines_; }
+unsigned short InitNewGame::cols() { return cols_; }
+unsigned short InitNewGame::num_players() { return num_players_; }
+std::string InitNewGame::game_id() { return game_id_; }
+
+// setter 
+void InitNewGame::set_num_players(unsigned short num_players) { num_players_ = num_players; }
+void InitNewGame::set_game_id(std::string game_id) { game_id_ = game_id; }
+
+// methods 
+void InitNewGame::binary(std::stringstream& buffer) {
+  msgpack::pack(buffer, mode_);
+  msgpack::pack(buffer, lines_);
+  msgpack::pack(buffer, cols_);
+  msgpack::pack(buffer, num_players_);
+  msgpack::pack(buffer, game_id_);
+}
+
 // UPDATE_GAME
-Update::Update(std::map<std::string, std::pair<std::string, int>> players, std::map<position_t, int> new_dead_neurons,
-  float audio_played) : Data(), players_(players), new_dead_neurons_(new_dead_neurons), audio_played_(audio_played) {};
+Update::Update(std::map<std::string, std::pair<std::string, int>> players, 
+    std::map<position_t, std::pair<std::string, short>> potentials,
+    std::map<position_t, int> new_dead_neurons,
+    float audio_played) 
+  : Data(), players_(players), potentials_(potentials), new_dead_neurons_(new_dead_neurons), 
+    audio_played_(audio_played) {};
 
 Update::Update(const char* payload, size_t len, size_t& offset) : Data() {
   msgpack::object_handle result;
 
   unpack(result, payload, len, offset);
   players_ = result->as<std::map<std::string, std::pair<std::string, int>>>();
+
+  unpack(result, payload, len, offset);
+  potentials_ = result->as<std::map<position_t, std::pair<std::string, short>>>();
 
   unpack(result, payload, len, offset);
   new_dead_neurons_ = result->as<std::map<position_t, int>>();
@@ -131,6 +188,7 @@ Update::Update(const char* payload, size_t len, size_t& offset) : Data() {
 
 // getter 
 std::map<std::string, std::pair<std::string, int>> Update::players() { return players_; }
+std::map<position_t, std::pair<std::string, short>> Update::potentials() { return potentials_; }
 std::map<position_t, int> Update::new_dead_neurons() { return new_dead_neurons_; }
 float Update::audio_played() { return audio_played_; }
 std::map<int, Data::Resource> Update::resources() { return resources_; }
@@ -145,6 +203,7 @@ void Update::set_synapse_options(std::vector<bool> synapse_options) { synapse_op
 // methods 
 void Update::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, players_);
+  msgpack::pack(buffer, potentials_);
   msgpack::pack(buffer, new_dead_neurons_);
   msgpack::pack(buffer, audio_played_);
   // resources
@@ -221,7 +280,11 @@ void Init::binary(std::stringstream& buffer) {
 
 
 // SET_UNIT 
-FieldPosition::FieldPosition(position_t pos, short unit, short color) : Data(), pos_(pos), unit_(unit), color_(color) {}
+FieldPosition::FieldPosition(position_t pos, short unit, short color) 
+  : Data(), pos_(pos), unit_(unit), color_(color), resource_(0xFFF) {}
+FieldPosition::FieldPosition(position_t pos, short unit, short color, unsigned short resource) 
+  : Data(), pos_(pos), unit_(unit), color_(color), resource_(resource) {}
+
 FieldPosition::FieldPosition(const char* payload, size_t len, size_t& offset) : Data() {
   msgpack::object_handle result;
 
@@ -233,18 +296,23 @@ FieldPosition::FieldPosition(const char* payload, size_t len, size_t& offset) : 
 
   unpack(result, payload, len, offset);
   color_ = result->as<short>();
+
+  unpack(result, payload, len, offset);
+  resource_ = result->as<unsigned short>();
 }
 
 // getter 
-position_t FieldPosition::pos() { return pos_; }
-short FieldPosition::unit() { return unit_; }
-short FieldPosition::color() { return color_; }
+position_t FieldPosition::pos() const { return pos_; }
+short FieldPosition::unit() const { return unit_; }
+short FieldPosition::color() const { return color_; }
+unsigned short FieldPosition::resource() const { return resource_; }
 
 // methods 
 void FieldPosition::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, pos_);
   msgpack::pack(buffer, unit_);
   msgpack::pack(buffer, color_);
+  msgpack::pack(buffer, resource_);
 }
 
 // SET_UNITS
@@ -257,7 +325,7 @@ Units::Units(const char* payload, size_t len, size_t& offset) : Data() {
 }
 
 // getter 
-std::vector<FieldPosition> Units::units() { return units_; }
+std::vector<FieldPosition> Units::units() const { return units_; }
 
 // methods 
 void Units::binary(std::stringstream& buffer) {
@@ -294,6 +362,8 @@ Statictics::Statictics(const char* payload, size_t len, size_t& offset) : Data()
   msgpack::object_handle result;
 
   unpack(result, payload, len, offset);
+  player_name_ = result->as<std::string>();
+  unpack(result, payload, len, offset);
   player_color_ = result->as<int>();
   unpack(result, payload, len, offset);
   neurons_build_ = result->as<std::map<unsigned short, unsigned short>>();
@@ -312,6 +382,7 @@ Statictics::Statictics(const char* payload, size_t len, size_t& offset) : Data()
 }
 
 // getter
+std::string Statictics::player_name() const { return player_name_; }
 short Statictics::player_color() const { return player_color_; }
 std::map<unsigned short, unsigned short> Statictics::neurons_build() const { return neurons_build_; }
 std::map<unsigned short, unsigned short> Statictics::potentials_build() const { return potentials_build_; }
@@ -323,6 +394,7 @@ std::map<int, tech_of_t> Statictics::stats_technologies() const { return technol
 std::map<int, std::map<std::string, double>>& Statictics::stats_resources_ref() { return resources_; }
 
 // setter
+void Statictics::set_player_name(std::string player_name) { player_name_ = player_name; }
 void Statictics::set_color(short color) { player_color_ = color; }
 void Statictics::set_technologies(std::map<int, tech_of_t> technologies) { technologies_ = technologies; }
 
@@ -362,6 +434,7 @@ void Statictics::print() {
 }
 
 void Statictics::binary(std::stringstream& buffer) {
+  msgpack::pack(buffer, player_name_);
   msgpack::pack(buffer, player_color_);
   msgpack::pack(buffer, neurons_build_);
   msgpack::pack(buffer, potentials_build_);
@@ -390,6 +463,10 @@ GameEnd::GameEnd(const char* payload, size_t len, size_t& offset) : Data() {
 std::string GameEnd::msg() { return msg_; }
 std::vector<std::shared_ptr<Statictics>> GameEnd::statistics() { return statistics_; }
 
+// setter
+void GameEnd::set_msg(std::string msg) { msg_ = msg; }
+
+
 // methods 
 void GameEnd::AddStatistics(std::shared_ptr<Statictics> statistics) {
   statistics_.push_back(statistics);
@@ -403,7 +480,7 @@ void GameEnd::binary(std::stringstream& buffer) {
 }
 
 // BUILD POTENTIAL 
-BuildPotential::BuildPotential(short unit, short num) : Data(), unit_(unit), num_(num), start_pos_({-1, -1}) {}
+BuildPotential::BuildPotential(short unit, short num) : Data(), unit_(unit), num_(num), synapse_pos_(DEFAULT_POS) {}
 BuildPotential::BuildPotential(const char* payload, size_t len, size_t& offset) : Data() {
   msgpack::object_handle result;
   unpack(result, payload, len, offset);
@@ -411,33 +488,33 @@ BuildPotential::BuildPotential(const char* payload, size_t len, size_t& offset) 
   unpack(result, payload, len, offset);
   num_ = result->as<short>();
   unpack(result, payload, len, offset);
-  start_pos_ = result->as<position_t>();
+  synapse_pos_ = result->as<position_t>();
   unpack(result, payload, len, offset);
   positions_ = result->as<std::vector<position_t>>();
 }
 
 // getter 
-short BuildPotential::unit() { return unit_; }
+short BuildPotential::unit() const { return unit_; }
 short BuildPotential::num() { return num_; }
-position_t BuildPotential::start_pos() { return start_pos_; }
+position_t BuildPotential::synapse_pos() { return synapse_pos_; }
 std::vector<position_t> BuildPotential::positions() { return positions_; }
 
 // setter 
-void BuildPotential::set_start_pos(position_t pos) { start_pos_ = pos; }
+void BuildPotential::set_start_pos(position_t pos) { synapse_pos_= pos; }
 void BuildPotential::set_positions(std::vector<position_t> positions) { positions_ = positions; }
 
 // methods
 void BuildPotential::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, unit_);
   msgpack::pack(buffer, num_);
-  msgpack::pack(buffer, start_pos_);
+  msgpack::pack(buffer, synapse_pos_);
   msgpack::pack(buffer, positions_);
 }
 
-void BuildPotential::SetPickedPosition(position_t pos) { start_pos_ = pos; }
+void BuildPotential::SetPickedPosition(position_t pos) { synapse_pos_ = pos; }
 
 // BUILD NEURON
-BuildNeuron::BuildNeuron(short unit) : Data(), unit_(unit), range_(0), pos_({-1, -1}), start_pos_({-1, -1}) {}
+BuildNeuron::BuildNeuron(short unit) : Data(), unit_(unit), range_(0), pos_(DEFAULT_POS), start_pos_(DEFAULT_POS) {}
 BuildNeuron::BuildNeuron(const char* payload, size_t len, size_t& offset) : Data() {
   msgpack::object_handle result;
   unpack(result, payload, len, offset);
@@ -453,8 +530,8 @@ BuildNeuron::BuildNeuron(const char* payload, size_t len, size_t& offset) : Data
 }
 
 // getter 
-short BuildNeuron::unit() { return unit_; }
-position_t BuildNeuron::pos() { return pos_; }
+short BuildNeuron::unit() const { return unit_; }
+position_t BuildNeuron::pos() const { return pos_; }
 position_t BuildNeuron::start_pos() { return start_pos_; }
 std::vector<position_t> BuildNeuron::positions() { return positions_; }
 short BuildNeuron::range() { return range_; }
@@ -474,29 +551,44 @@ void BuildNeuron::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, positions_);
 }
 
-void BuildNeuron::SetPickedPosition(position_t pos) { start_pos_ = pos; }
+void BuildNeuron::SetPickedPosition(position_t pos) { 
+  if (start_pos_ == DEFAULT_POS)
+    start_pos_ = pos;
+  else 
+    pos_ = pos;
+}
+
 
 // SELECT SYNAPSE
-SelectSynapse::SelectSynapse(std::vector<position_t> positions) : Data(), synapse_pos_({-1, -1}), positions_(positions) {}
+SelectSynapse::SelectSynapse() : Data(), synapse_pos_(DEFAULT_POS), player_units_({}) {}
+SelectSynapse::SelectSynapse(position_t synapse_pos) : Data(), synapse_pos_(synapse_pos), player_units_({}) {}
+SelectSynapse::SelectSynapse(std::vector<position_t> positions) : Data(), synapse_pos_(DEFAULT_POS),
+  player_units_(positions) {}
 SelectSynapse::SelectSynapse(const char* payload, size_t len, size_t& offset) : Data() {
   msgpack::object_handle result;
   unpack(result, payload, len, offset);
   synapse_pos_ = result->as<position_t>();
   unpack(result, payload, len, offset);
-  positions_ = result->as<std::vector<position_t>>();
+  player_units_ = result->as<std::vector<position_t>>();
 }
 
 // getter 
 position_t SelectSynapse::synapse_pos() { return synapse_pos_; }
-std::vector<position_t> SelectSynapse::positions() { return positions_; }
+std::vector<position_t> SelectSynapse::player_units() { return player_units_; }
 
 // setter 
 void SelectSynapse::set_synapse_pos(position_t pos) { synapse_pos_ = pos; }
+void SelectSynapse::set_player_units(std::vector<position_t> positions) { 
+  if (positions.size() == 1)
+    synapse_pos_ = positions.front();
+  else
+    player_units_ = positions; 
+}
 
 // methods
 void SelectSynapse::binary(std::stringstream& buffer) { 
   msgpack::pack(buffer, synapse_pos_);
-  msgpack::pack(buffer, positions_);
+  msgpack::pack(buffer, player_units_);
 }
 
 /**
@@ -508,10 +600,17 @@ void SelectSynapse::SetPickedPosition(position_t pos) { synapse_pos_ = pos; }
 
 // SET WAYPOINTS
 SetWayPoints::SetWayPoints(position_t synapse_pos) : Data(), synapse_pos_(synapse_pos) {
-  way_point_ = {-1, -1};
+  start_pos_ = DEFAULT_POS;
+  way_point_ = DEFAULT_POS;
   msg_ = "";
   num_ = 1;
 };
+SetWayPoints::SetWayPoints(position_t synapse_pos, short num) 
+  : Data(), synapse_pos_(synapse_pos), num_(num) {
+  start_pos_ = DEFAULT_POS;
+  way_point_ = DEFAULT_POS;
+  msg_ = "";
+}
 
 SetWayPoints::SetWayPoints(const char* payload, size_t len, size_t& offset) : Data() {
   msgpack::object_handle result;
@@ -519,9 +618,17 @@ SetWayPoints::SetWayPoints(const char* payload, size_t len, size_t& offset) : Da
   unpack(result, payload, len, offset);
   synapse_pos_ = result->as<position_t>();
   unpack(result, payload, len, offset);
-  way_point_ = result->as<position_t>();
+  start_pos_ = result->as<position_t>();
   unpack(result, payload, len, offset);
-  positions_ = result->as<std::vector<position_t>>();
+  way_point_ = result->as<position_t>();
+
+  unpack(result, payload, len, offset);
+  centered_positions_ = result->as<std::vector<position_t>>();
+  unpack(result, payload, len, offset);
+  current_way_ = result->as<std::vector<position_t>>();
+  unpack(result, payload, len, offset);
+  current_waypoints_ = result->as<std::vector<position_t>>();
+
   unpack(result, payload, len, offset);
   msg_ = result->as<std::string>();
   unpack(result, payload, len, offset);
@@ -530,27 +637,40 @@ SetWayPoints::SetWayPoints(const char* payload, size_t len, size_t& offset) : Da
 
 // getter 
 position_t SetWayPoints::synapse_pos() { return synapse_pos_; }
+position_t SetWayPoints::start_pos() { return start_pos_; }
 position_t SetWayPoints::way_point() { return way_point_; }
-std::vector<position_t> SetWayPoints::positions() { return positions_; }
+std::vector<position_t> SetWayPoints::centered_positions() { return centered_positions_; }
+std::vector<position_t> SetWayPoints::current_way() { return current_way_; }
+std::vector<position_t> SetWayPoints::current_waypoints() { return current_waypoints_; }
 std::string SetWayPoints::msg() { return msg_; }
 short SetWayPoints::num() { return num_; }
 
 // setter 
 void SetWayPoints::set_way_point(position_t pos) { way_point_ = pos; }
-void SetWayPoints::set_positions(std::vector<position_t> positions) { positions_ = positions; }
+void SetWayPoints::set_centered_positions(std::vector<position_t> positions) { centered_positions_ = positions; }
+void SetWayPoints::set_current_way(std::vector<position_t> positions) { current_way_ = positions; }
+void SetWayPoints::set_current_waypoints(std::vector<position_t> positions) { current_waypoints_ = positions; }
 void SetWayPoints::set_msg(std::string msg) { msg_ = msg; }
 void SetWayPoints::set_num(short num) { num_ = num; }
 
 // methods
 void SetWayPoints::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, synapse_pos_);
+  msgpack::pack(buffer, start_pos_);
   msgpack::pack(buffer, way_point_);
-  msgpack::pack(buffer, positions_);
+  msgpack::pack(buffer, centered_positions_);
+  msgpack::pack(buffer, current_way_);
+  msgpack::pack(buffer, current_waypoints_);
   msgpack::pack(buffer, msg_);
   msgpack::pack(buffer, num_);
 }
 
-void SetWayPoints::SetPickedPosition(position_t pos) { way_point_ = pos; }
+void SetWayPoints::SetPickedPosition(position_t pos) { 
+  if (start_pos_ == DEFAULT_POS) 
+    start_pos_ = pos;
+  else
+    way_point_ = pos; 
+}
 
 // SET TARGET 
 SetTarget::SetTarget(position_t synapse_pos, short unit) : Data(), unit_(unit), synapse_pos_(synapse_pos) {
@@ -569,20 +689,28 @@ SetTarget::SetTarget(const char* payload, size_t len, size_t& offset) : Data() {
   unpack(result, payload, len, offset);
   target_ = result->as<position_t>();
   unpack(result, payload, len, offset);
-  positions_ = result->as<std::vector<position_t>>();
+  enemy_units_ = result->as<std::vector<position_t>>();
+  unpack(result, payload, len, offset);
+  target_positions_ = result->as<std::vector<position_t>>();
 }
 
 // getter 
-short SetTarget::unit() { return unit_; }
+short SetTarget::unit() const { return unit_; }
 position_t SetTarget::synapse_pos() { return synapse_pos_; }
 position_t SetTarget::start_pos() { return start_pos_; }
 position_t SetTarget::target() { return target_; }
-std::vector<position_t> SetTarget::positions() { return positions_; }
+std::vector<position_t> SetTarget::enemy_units() { return enemy_units_; }
+std::vector<position_t> SetTarget::target_positions() { return target_positions_; }
 
 // setter 
 void SetTarget::set_start_pos(position_t pos) { start_pos_ = pos; }
 void SetTarget::set_target(position_t pos) { target_ = pos; }
-void SetTarget::set_positions(std::vector<position_t> positions) { positions_ = positions; }
+void SetTarget::set_enemy_units(std::vector<position_t> positions) { 
+  enemy_units_ = positions; 
+  if (enemy_units_.size() == 1)
+    start_pos_ = enemy_units_.front();
+}
+void SetTarget::set_target_positions(std::vector<position_t> positions) { target_positions_ = positions; }
 
 // methods
 void SetTarget::binary(std::stringstream& buffer) {
@@ -590,10 +718,16 @@ void SetTarget::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, synapse_pos_);
   msgpack::pack(buffer, start_pos_);
   msgpack::pack(buffer, target_);
-  msgpack::pack(buffer, positions_);
+  msgpack::pack(buffer, enemy_units_);
+  msgpack::pack(buffer, target_positions_);
 }
 
-void SetTarget::SetPickedPosition(position_t pos) { start_pos_ = pos; }
+void SetTarget::SetPickedPosition(position_t pos) { 
+  if (start_pos_ == DEFAULT_POS) 
+    start_pos_ = pos; 
+  else 
+    target_ = pos;
+}
 
 // TOGGLE SWARM ATTACK
 ToggleSwarmAttack::ToggleSwarmAttack(position_t synapse_pos) : Data(), synapse_pos_(synapse_pos) {}
@@ -620,26 +754,35 @@ GetPositions::GetPositions(std::string return_cmd, std::map<short, PositionInfo>
 GetPositions::GetPositions(const char* payload, size_t len, size_t& offset) : Data() {
   msgpack::object_handle result;
 
+  // Read return_cmd
+  spdlog::get(LOGGER)->debug("GetPositions::GetPositions: reading return_cmd");
   unpack(result, payload, len, offset);
   return_cmd_ = result->as<std::string>();
 
-  // Parse position-requests
+  // Read num of position requests
+  spdlog::get(LOGGER)->debug("GetPositions::GetPositions: reading num_requests");
   unpack(result, payload, len, offset);
   unsigned int num_requests = result->as<unsigned int>();
+  // Read position requests
   for (unsigned int i=0; i<num_requests; i++) {
+    // Read key
+    spdlog::get(LOGGER)->debug("GetPositions::GetPositions: reading key");
     unpack(result, payload, len, offset);
     short key = result->as<short>();
+    // Read and convert value
+    spdlog::get(LOGGER)->debug("GetPositions::GetPositions: reading pos_info");
     unpack(result, payload, len, offset);
     std::pair<short, position_t> pos_info = result->as<std::pair<short, position_t>>();
     position_requests_[key] = PositionInfo(pos_info.first, pos_info.second);
   }
 
   // Parse matching data.
+  spdlog::get(LOGGER)->debug("GetPositions::GetPositions: reading data");
   if (return_cmd_ == "select_synapse")
     data_ = std::make_shared<SelectSynapse>(payload, len, offset);
   else if (return_cmd_ == "set_wps")
     data_ = std::make_shared<SetWayPoints>(payload, len, offset);
-  else if (return_cmd_ == "target")
+  else if (return_cmd_ == "set_target")
     data_ = std::make_shared<SetTarget>(payload, len, offset);
 }
 
@@ -651,9 +794,13 @@ std::shared_ptr<Data> GetPositions::data() { return data_; }
 // methods
 void GetPositions::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, return_cmd_);
+  // Write number of position-requests
   msgpack::pack(buffer, position_requests_.size());
+  // Write position-requests
   for (const auto& it : position_requests_) {
+    // Write key
     msgpack::pack(buffer, it.first);
+    // Convert and write value.
     std::pair<short, position_t> pos_info = {it.second._unit, it.second._pos};
     msgpack::pack(buffer, pos_info);
   }
@@ -686,6 +833,23 @@ void CheckSendAudio::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, same_device_);
   msgpack::pack(buffer, map_path_);
   msgpack::pack(buffer, audio_file_name_);
+}
+
+// SEND AUDIO INFO
+SendAudioInfo::SendAudioInfo(bool send_audio) : Data(), send_audio_(send_audio) {}
+SendAudioInfo::SendAudioInfo(const char* payload, size_t len, size_t& offset) : Data() {
+  msgpack::object_handle result;
+
+  unpack(result, payload, len, offset);
+  send_audio_ = result->as<bool>();
+}
+
+// getter
+bool SendAudioInfo::send_audio() { return send_audio_; }
+
+// methods
+void SendAudioInfo::binary(std::stringstream& buffer) {
+  msgpack::pack(buffer, send_audio_);
 }
 
 // AUDIO TRANSFER DATA
@@ -778,7 +942,7 @@ DistributeIron::DistributeIron(const char* payload, size_t len, size_t& offset) 
 }
 
 // getter
-unsigned short DistributeIron::resource() { return resource_; }
+unsigned short DistributeIron::resource() const { return resource_; }
 
 // methods
 void DistributeIron::binary(std::stringstream& buffer) {
@@ -795,7 +959,7 @@ AddTechnology::AddTechnology(const char* payload, size_t len, size_t& offset) : 
 }
 
 // getter
-unsigned short AddTechnology::technology() { return technology_; }
+unsigned short AddTechnology::technology() const { return technology_; }
 
 // methods
 void AddTechnology::binary(std::stringstream& buffer) {

@@ -1,10 +1,11 @@
 #ifndef SRC_CLIENT_CONTEXT_H_
 #define SRC_CLIENT_CONTEXT_H_
 
-#include "nlohmann/json.hpp"
 #include "share/defines.h"
+#include "share/shemes/data.h"
 #include "share/tools/eventmanager.h"
 #include "share/constants/texts.h"
+#include <memory>
 #include <vector>
 
 class ClientGame;
@@ -20,11 +21,12 @@ class Context {
      * Default constructor with one set of initial handlers.
      * @param[in] handlers to be added.
      */
-    Context(std::string msg, std::map<char, void(ClientGame::*)(nlohmann::json&)>& handlers,
+    Context(std::string msg, std::map<char, void(ClientGame::*)(std::shared_ptr<Data> data)>& handlers,
         std::vector<std::pair<std::string, int>> topline) : msg_(msg) {
       for (const auto& it : handlers)
         eventmanager_.AddHandler(it.first, it.second);
       topline_ = topline;
+      data_ = std::make_shared<Data>();
     } 
 
     /**
@@ -34,14 +36,15 @@ class Context {
      * @param[in] std_handlers to be added (standard handlers)
      * @param[in] handlers to be added (special handlers).
      */
-    Context(std::string msg, std::map<char, void(ClientGame::*)(nlohmann::json&)> std_handlers, 
-        std::map<char, void(ClientGame::*)(nlohmann::json&)> handlers,
+    Context(std::string msg, std::map<char, void(ClientGame::*)(std::shared_ptr<Data> data)> std_handlers, 
+        std::map<char, void(ClientGame::*)(std::shared_ptr<Data> data)> handlers,
         std::vector<std::pair<std::string, int>> topline) : msg_(msg) {
       for (const auto& it : std_handlers)
         eventmanager_.AddHandler(it.first, it.second);
       for (const auto& it : handlers)
         eventmanager_.AddHandler(it.first, it.second);
       topline_ = topline;
+      data_ = std::make_shared<Data>();
     } 
 
     // getter
@@ -50,17 +53,17 @@ class Context {
     int current_range() const { return current_range_; }
     position_t current_pos() const { return current_pos_; }
     char cmd() const { return cmd_; }
-    nlohmann::json data() const { return data_; }
+    std::shared_ptr<Data> data() const { return data_; }
     std::string action() const { return action_; }
     texts::paragraphs_field_t text() const { return text_; }
     unsigned int num() const { return num_; }
     int last_context() const { return last_context_; }
 
     std::vector<std::pair<std::string, int>> topline() const { return topline_; }
-    EventManager<char, ClientGame, nlohmann::json&>& eventmanager() { return eventmanager_; }
+    EventManager<char, ClientGame, std::shared_ptr<Data>>& eventmanager() { return eventmanager_; }
 
     // setter 
-    void set_data(nlohmann::json data) { data_ = data; }
+    void set_data(std::shared_ptr<Data> data) { data_ = data; }
     void set_cmd(char cmd) { cmd_ = cmd; }
     void set_action(std::string action) { action_ = action; }
     void set_text(texts::paragraphs_field_t text) { text_ = text; }
@@ -77,7 +80,7 @@ class Context {
     bool last_text() { return text_.size()-1 == num_; }
     
   private:
-    EventManager<char, ClientGame, nlohmann::json&> eventmanager_;
+    EventManager<char, ClientGame, std::shared_ptr<Data>> eventmanager_;
     std::string action_;
     std::string msg_;
     int current_unit_;
@@ -85,7 +88,7 @@ class Context {
     position_t current_pos_;
 
     char cmd_;
-    nlohmann::json data_;
+    std::shared_ptr<Data> data_;
 
     texts::paragraphs_field_t text_;
     unsigned int num_;

@@ -3,9 +3,12 @@
  */
 #include <exception>
 #include <filesystem>
+#include <memory>
+#include <mutex>
 #include <ostream>
 #include <shared_mutex>
 #include <stdexcept>
+#include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <system_error>
@@ -17,16 +20,15 @@
 #include <websocketpp/error.hpp>
 #include <websocketpp/frame.hpp>
 #include <spdlog/spdlog.h>
-#include "server/game/player/player.h"
-#include "server/game/server_game.h"
-#include "share/objects/dtos.h"
-#include "share/objects/lobby.h"
 #include "spdlog/common.h"
 #include "spdlog/logger.h"
 #include "websocketpp/close.hpp"
 #include "websocketpp/common/system_error.hpp"
 #include "websocketpp/logger/levels.hpp"
 
+#include "server/game/player/player.h"
+#include "server/game/server_game.h"
+#include "share/shemes/commands.h"
 #include "server/websocket/websocket_server.h"
 #include "share/tools/utils/utils.h"
 #include "share/constants/codes.h"
@@ -138,9 +140,10 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
       // If player was host (game exists with this username): update lobby for waiting players
       if (games_.count(username) > 0) {
         spdlog::get(LOGGER)->debug("Game removed, informing waiting players");
+        UpdateLobby();
         for (const auto& it : connections_) {
           if (it.second->waiting())
-            SendMessage(it.second->username(), nlohmann::json({{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}}));
+            SendMessage(it.second->username(), "update_lobby", lobby_);
         }
       }
     } catch (std::exception& e) {
@@ -153,152 +156,131 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
 
 void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, message_ptr msg) {
   spdlog::get(LOGGER)->info("Websocket::on_message: new message");
-  // Handle binary data (audio-files) in otherwise.
-  if (msg->get_opcode() == websocketpp::frame::opcode::binary && connections_.count(hdl.lock().get())) {
-    AudioTransferData data(msg->get_payload().c_str(), msg->get_payload().size());
-    std::shared_lock sl(shared_mutex_games_);
-    auto game = GetGameFromUsername(data.username());
-    if (game)
-      game->AddAudioPart(data);
-    else
-      spdlog::get(LOGGER)->warn("WebsocketServer::on_message: binary data but game not found!");
+  // try parsing dto:
+  Command cmd;
+  try {
+    cmd = Command(msg->get_payload().c_str(), msg->get_payload().size());
+    spdlog::get(LOGGER)->info("Websocket::on_message: new message with command: {}", cmd.command());
+  }
+  catch (std::exception& e) {
+    spdlog::get(LOGGER)->warn("Websocket::on_message: failed parsing message: {}", e.what());
     return;
   }
-  // Validate json.
-  spdlog::get(LOGGER)->debug("Websocket::on_message: validating new msg: {}", msg->get_payload());
-  auto json_opt = utils::ValidateJson({"command", "username", "data"}, msg->get_payload());
-  if (!json_opt.first) {
-    spdlog::get(LOGGER)->warn("Server: message with missing required fields (required: command, username, data)");
-    return;
-  }
-  std::string command = json_opt.second["command"];
-  std::string username = json_opt.second["username"];
-  
+
   // Create controller connection
-  if (command == "initialize_user")
-    h_InitializeUser(hdl.lock().get(), username, json_opt.second);
+  if (cmd.command() == "initialize_user")
+    h_InitializeUser(hdl.lock().get(), cmd.username());
   // Start new game
-  else if (command == "init_game")
-    h_InitializeGame(hdl.lock().get(), username, json_opt.second);
+  else if (cmd.command() == "setup_new_game")
+    h_InitializeGame(hdl.lock().get(), cmd.username(), cmd.data());
   // Indicate that player is ready (audio downloaded).
-  else if (command == "ready") {
-    if (username_game_id_mapping_.count(username) > 0)
-      games_.at(username_game_id_mapping_.at(username))->PlayerReady(username);
+  else if (cmd.command() == "ready") {
+    if (username_game_id_mapping_.count(cmd.username()) > 0)
+      games_.at(username_game_id_mapping_.at(cmd.username()))->PlayerReady(cmd.username());
   }
   // In game action
   else {
-    std::thread handler([this, hdl, username, json_opt]() { 
-      h_InGameAction(hdl.lock().get(), username, json_opt.second); 
-    });
+    std::thread handler([this, hdl, cmd]() { h_InGameAction(hdl.lock().get(), cmd); });
     handler.detach();
   }
   spdlog::get(LOGGER)->info("Websocket::on_message: existed");
 }
 
-void WebsocketServer::h_InitializeUser(connection_id id, std::string username, const nlohmann::json& msg) {
+void WebsocketServer::h_InitializeUser(connection_id id, std::string username) {
   // Create controller connection.
   // Username already exists.
-  if (connections_.count(id) > 0 && UsernameExists(username)) {
-    nlohmann::json resp = {{"command", "kill"}, {"data", {{"msg", "Username exists!"}}}};
-    SendMessage(id, resp.dump());
-  }
+  if (connections_.count(id) > 0 && UsernameExists(username))
+    SendMessage(id, "kill", std::make_shared<Msg>("Username exists!"));
   // Game exists with current username
-  else if (username_game_id_mapping_.count(username)) {
-    nlohmann::json resp = {{"command", "kill"}, {"data", {{"msg", "A game for this username is currently running!"}}}};
-    SendMessage(id, resp.dump());
-  }
+  else if (username_game_id_mapping_.count(username))
+    SendMessage(id, "kill", std::make_shared<Msg>("A game for this username is currently running!"));
   // Everything fine: set username and send next instruction to user.
   else if (connections_.count(id) > 0) {
     std::unique_lock ul(shared_mutex_connections_);
     connections_[id]->set_username(username);
     ul.unlock();
-    SendMessage(id, nlohmann::json({{"command", "select_mode"}}).dump());
+    SendMessage(id, Command("select_mode").bytes());
   }
-  else {
+  else
     spdlog::get(LOGGER)->warn("WebsocketServer::h_InitializeUser: connection does not exist! {}", username);
-  }
 }
 
-void WebsocketServer::h_InitializeGame(connection_id id, std::string username, const nlohmann::json& msg) {
-  nlohmann::json data = msg["data"];
-  if (data["mode"] == SINGLE_PLAYER || data["mode"] == TUTORIAL) {
+void WebsocketServer::h_InitializeGame(connection_id id, std::string username, std::shared_ptr<Data> data) {
+  if (data->mode() == SINGLE_PLAYER || data->mode() == TUTORIAL) {
     spdlog::get(LOGGER)->info("Server: initializing new single-player game.");
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], 2, base_path_, this);
-    SendMessage(id, nlohmann::json({{"command", "select_audio"}, {"data", nlohmann::json()}}).dump());
+    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), 2, base_path_, this);
+    SendMessage(id, Command("select_audio").bytes());
   }
-  else if (data["mode"] == MULTI_PLAYER) {
+  else if (data->mode() == MULTI_PLAYER) {
     spdlog::get(LOGGER)->info("Server: initializing new multi-player game.");
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], data["num_players"],
-        base_path_, this);
-    SendMessage(id, nlohmann::json({{"command", "select_audio"}, {"data", nlohmann::json()}}).dump());
+    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), data->num_players(), base_path_, this);
+    SendMessage(id, Command("select_audio").bytes());
     spdlog::get(LOGGER)->debug("New game added, informing waiting players");
   }
-  else if (data["mode"] == MULTI_PLAYER_CLIENT) {
-    spdlog::get(LOGGER)->debug("New client request: ", data.dump());
+  else if (data->mode() == MULTI_PLAYER_CLIENT) {
     std::unique_lock ul(shared_mutex_games_);
-    // without game_id: enter lobby
-    if (!data.contains("game_id")) {
-      SendMessage(id, nlohmann::json({{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}}).dump());
+    std::string game_id = data->game_id();
+    // game_id empy: enter lobby
+    if (game_id == "") {
+      UpdateLobby();
+      SendMessage(username, "update_lobby", lobby_);
       connections_.at(id)->set_waiting(true); // indicate player is now waiting for game.
     }
     // with game_id: joint game
-    else if (games_.count(data["game_id"]) > 0){
+    else if (games_.count(game_id) > 0){
       spdlog::get(LOGGER)->debug("New client about to join!");
-      std::string game_id = data["game_id"];
       ServerGame* game = games_.at(game_id);
       if (game->status() == WAITING_FOR_PLAYERS) {
         spdlog::get(LOGGER)->debug("New client about joined!");
         connections_.at(id)->set_waiting(false);  // indicate player has stopped waiting for game.
         username_game_id_mapping_[username] = game_id;  // Add username to mapping, to find matching game.
-        game->AddPlayer(username, data["lines"], data["cols"]); // Add user to game.
-        SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", {{"msg", "Waiting for players..."}}}}).dump());
+        game->AddPlayer(username, data->lines(), data->cols()); // Add user to game.
+        SendMessage(id, "print_msg", std::make_shared<Msg>("Waiting for players..."));
       }
     }
     else {
-      SendMessage(id, nlohmann::json({{"command", "print_msg"}, {"data", {{"msg", "Game No Longer Exists"}} }}).dump());
+      SendMessage(id, "print_msg", std::make_shared<Msg>("Game No Longer Exists"));
     }
   }
-  else if (data["mode"] == OBSERVER) {
+  else if (data->mode() == OBSERVER) {
     spdlog::get(LOGGER)->info("Server: initializing new observer game.");
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data["lines"], data["cols"], data["mode"], 2, base_path_, this);
-    SendMessage(id, nlohmann::json({{"command", "select_audio"}, {"data", nlohmann::json()}}).dump());
+    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), 2, base_path_, this);
+    SendMessage(id, Command("select_audio").bytes());
   }
 }
 
-void WebsocketServer::h_InGameAction(connection_id id, std::string username, nlohmann::json msg) {
-  spdlog::get(LOGGER)->info("h_InGameAction: {}", msg.dump());
+void WebsocketServer::h_InGameAction(connection_id id, Command cmd) {
+  spdlog::get(LOGGER)->info("h_InGameAction");
   std::shared_lock sl(shared_mutex_games_);
-  auto game = GetGameFromUsername(username);
+  spdlog::get(LOGGER)->info("h_InGameAction: username {}", cmd.username());
+  auto game = GetGameFromUsername(cmd.username());
   if (game) {
-    std::string command = msg["command"];
-    spdlog::get(LOGGER)->info("h_InGameAction: calling game-function");
-    nlohmann::json resp = game->HandleInput(command, msg);
-    spdlog::get(LOGGER)->info("h_InGameAction: calling game-function: done");
+    std::string command = cmd.command();
+    spdlog::get(LOGGER)->info("h_InGameAction: adding username");
+    cmd.data()->AddUsername(cmd.username());
+    spdlog::get(LOGGER)->debug("h_InGameAction: calling game-function");
+    game->HandleInput(command, cmd.data());
+    spdlog::get(LOGGER)->debug("h_InGameAction: calling game-function: done");
     // Update lobby for all waiting players after "initialize_game" was called (potentially new game)
     if (command == "initialize_game") {
+      UpdateLobby();
       for (const auto& it : connections_) {
         if (it.second->waiting())
-          SendMessage(it.second->username(), {{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}});
+          SendMessage(it.second->username(), "update_lobby", lobby_);
       }
-    }
-    // If new comman, send back to user.
-    if (resp.contains("command")) {
-      SendMessage(id, resp.dump());
-      resp["username"] = "";
     }
   }
   else
     spdlog::get(LOGGER)->warn("Server: message with unkown command or username.");
-  
 }
 
 void WebsocketServer::CloseGames() {
@@ -333,9 +315,10 @@ void WebsocketServer::CloseGames() {
     }
     if (games_to_delete.size() > 0) {
       spdlog::get(LOGGER)->debug("Game removed, informing waiting players");
+      UpdateLobby();
       for (const auto& it : connections_) {
-        if (it.second->waiting())
-          SendMessage(it.second->username(), nlohmann::json({{"command", "update_lobby"}, {"data", {{"lobby", GetLobby()}}}}));
+        if (it.second->waiting()) 
+          SendMessage(it.second->username(), "update_lobby", lobby_);
       }
     }
   }
@@ -376,9 +359,20 @@ std::vector<std::string> WebsocketServer::GetPlayingUsers(std::string username, 
   return all_playering_users;
 }
 
-void WebsocketServer::SendMessage(std::string username, nlohmann::json msg) {
-  spdlog::get(LOGGER)->debug("WebsocketFrame::SendMessage: username {}", username);
-  SendMessage(GetConnectionIdByUsername(username), msg.dump());
+void WebsocketServer::SendMessage(std::string username, Command& cmd) {
+  spdlog::get(LOGGER)->debug("WebsocketFrame::SendMessage: username: {}, command: {}", cmd.username(), cmd.command());
+  SendMessage(GetConnectionIdByUsername(username), cmd.bytes());
+}
+
+void WebsocketServer::SendMessage(std::string username, std::string command, std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("WebsocketFrame::SendMessage: username: {}, command: {}", username, command);
+  SendMessage(GetConnectionIdByUsername(username),  Command(command, data).bytes());
+}
+
+void WebsocketServer::SendMessage(connection_id id, std::string command, std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("WebsocketFrame::SendMessage: id: {}, command: {}", id, command);
+  Command cmd(Command(command, data));
+  SendMessage(id, cmd.bytes());
 }
 
 void WebsocketServer::SendMessage(connection_id id, std::string msg) {
@@ -390,27 +384,7 @@ void WebsocketServer::SendMessage(connection_id id, std::string msg) {
       return;
     }
     // Send message.
-    server_.send(connections_.at(id)->connection(), msg, websocketpp::frame::opcode::value::text);
-    spdlog::get(LOGGER)->debug("WebsocketFrame::SendMessage: successfully sent message.");
-
-  } catch (websocketpp::exception& e) {
-    spdlog::get(LOGGER)->error("WebsocketFrame::SendMessage: failed sending message: {}", e.what());
-  } catch (std::exception& e) {
-    spdlog::get(LOGGER)->error("WebsocketFrame::SendMessage: failed sending message: {}", e.what());
-  }
-}
-
-void WebsocketServer::SendMessageBinary(std::string username, std::string msg) {
-  auto connection_id = GetConnectionIdByUsername(username);
-  try {
-    // Set last incomming and get connection hdl from connection.
-    std::shared_lock sl(shared_mutex_connections_);
-    if (connections_.count(connection_id) == 0) {
-      spdlog::get(LOGGER)->error("WebsocketFrame::SendMessage: failed to get connection to {}", connection_id);
-      return;
-    }
-    // Send message.
-    server_.send(connections_.at(connection_id)->connection(), msg, websocketpp::frame::opcode::binary);
+    server_.send(connections_.at(id)->connection(), msg, websocketpp::frame::opcode::binary);
     spdlog::get(LOGGER)->debug("WebsocketFrame::SendMessage: successfully sent message.");
   } catch (websocketpp::exception& e) {
     spdlog::get(LOGGER)->error("WebsocketFrame::SendMessage: failed sending message: {}", e.what());
@@ -419,13 +393,12 @@ void WebsocketServer::SendMessageBinary(std::string username, std::string msg) {
   }
 }
 
-nlohmann::json WebsocketServer::GetLobby() {
-  Lobby lobby;
+void WebsocketServer::UpdateLobby() {
+  std::unique_lock ul(shared_mutex_lobby_);
   for (const auto& it : games_) {
     if (it.second->status() == WAITING_FOR_PLAYERS) {
       spdlog::get(LOGGER)->debug("Found game: {}", it.first);
-      lobby.AddEntry(it.first, it.second->max_players(), it.second->cur_players(), it.second->audio_map_name());
+      lobby_->AddEntry(it.first, it.second->max_players(), it.second->cur_players(), it.second->audio_map_name());
     }
   }
-  return lobby.ToJson();
 }

@@ -4,6 +4,7 @@
 #include "share/defines.h"
 #include "share/tools/fiboqueue.h"
 #include "share/tools/utils/utils.h"
+#include "spdlog/spdlog.h"
 #include <algorithm>
 #include <iostream>
 #include <iterator>
@@ -263,6 +264,7 @@ class Graph {
         chache_[start_end_tuple] = way;
         return way;
       }
+      spdlog::get(LOGGER)->debug("Could not find way: " + utils::PositionToString(s) + " to " + utils::PositionToString(t));
       throw "Could not find way: " + utils::PositionToString(s) + " to " + utils::PositionToString(t);
     }
 

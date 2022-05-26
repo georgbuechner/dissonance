@@ -2,6 +2,7 @@
 #define SRC_CLIENT_CLIENT_H_
 
 #include <iostream>
+#include <memory>
 #include <unistd.h>
 #include <string>
 #include <websocketpp/config/asio_no_tls_client.hpp>
@@ -23,8 +24,7 @@ class Client {
     // methods
     void Start(std::string address);
     void Stop();
-    void SendMessage(std::string msg);
-    void SendMessageBinary(std::string msg);
+    void SendMessage(std::string command, std::shared_ptr<Data> data);
 
   private:
     typedef websocketpp::client<websocketpp::config::asio_client> client;

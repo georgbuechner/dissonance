@@ -60,4 +60,6 @@ typedef std::pair<size_t, size_t> tech_of_t;
 /// topline (vector of string if color paired to each string)
 typedef std::vector<std::pair<std::string, int>> t_topline;
 
+const position_t DEFAULT_POS = {-1, -1};
+
 #endif

@@ -1,11 +1,12 @@
 #include "client/websocket/client.h"
 #include "nlohmann/json_fwd.hpp"
-#include "share/objects/dtos.h"
 #include "share/objects/units.h"
 
+#include "share/shemes/commands.h"
 #include "share/tools/utils/utils.h"
 #include "spdlog/spdlog.h"
 #include "websocketpp/frame.hpp"
+#include <memory>
 
 Client::Client(ClientGame* game, std::string username, std::string base_path) : username_(username) {
     game_ = game;
@@ -64,53 +65,37 @@ void Client::Stop() {
 }
 
 void Client::on_open(websocketpp::connection_hdl) {
-  nlohmann::json msg = {{"command", "initialize_user"}, {"username", username_}, {"data", nlohmann::json()}};
-  SendMessage(msg.dump());
+  SendMessage("initialize_user", std::make_shared<Data>());
 }
 
 // This message handler will be invoked once for each incoming message. It
 // prints the message and then sends a copy of the message back to the server.
 void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr msg) {
-  // Handle binary data (audio-files) in otherwise.
-  if (msg->get_opcode() == websocketpp::frame::opcode::binary) {
-    AudioTransferData data(msg->get_payload().c_str(), msg->get_payload().size());
-    spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data size: {}", data.content().size());
-    std::string path = base_path_ + "data/user-files/"+data.username();
-    if (!std::filesystem::exists(path))
-      std::filesystem::create_directory(path);
-    path += "/"+data.songname();
-    audio_data_+=data.content();
-    game_->drawrer().PrintOnlyCenteredLine(LINES/2, "Receiving audio part " + std::to_string(data.part()) + " of " 
-          + std::to_string(data.parts()));
-    if (data.part() == data.parts()) {
-      spdlog::get(LOGGER)->debug("Websocket::on_message: storing binary data to: {}", path);
-      utils::StoreMedia(path, audio_data_);
-      game_->set_audio_file_path(path);
-      SendMessage(nlohmann::json({{"command", "ready"}, {"username", username_}, {"data", nlohmann::json()}}).dump());
-    }
+  spdlog::get(LOGGER)->info("Client::on_message: new message");
+  Command cmd;
+  try {
+    cmd = Command(msg->get_payload().c_str(), msg->get_payload().size());
+    spdlog::get(LOGGER)->info("Client::on_message: new message with command: {}", cmd.command());
+  }
+  catch (std::exception& e) {
+    spdlog::get(LOGGER)->warn("Client::on_message: failed parsing message: {}", e.what());
     return;
   }
+
   // Handle json-formatted data:
-  spdlog::get(LOGGER)->debug("Client got message: {}", msg->get_payload());
-  std::thread handler([this, msg]() { game_->HandleAction(nlohmann::json::parse(msg->get_payload())); });
+  std::thread handler([this, cmd]() { game_->HandleAction(cmd); });
   handler.detach();
   spdlog::get(LOGGER)->info("Client::on_message: exited");
 }
 
-void Client::SendMessage(std::string msg) {
-  websocketpp::lib::error_code ec;
-  spdlog::get(LOGGER)->debug("Client::SendMessage: {}", msg);
-  c_.send(hdl_, msg, websocketpp::frame::opcode::text, ec);
-  spdlog::get(LOGGER)->info("Client::SendMessage: successfully sent message.");
-  if (ec)
-    std::cout << "Client: sending failed because: " << ec.message() << std::endl;
-}
+void Client::SendMessage(std::string command, std::shared_ptr<Data> data) {
+  Command cmd(command, username_, data);
+  spdlog::get(LOGGER)->debug("Client::SendMessage: username: {}, command: {}", username_, command);
 
-void Client::SendMessageBinary(std::string msg) {
+  // TODO (fux): add username)
   websocketpp::lib::error_code ec;
-  spdlog::get(LOGGER)->debug("Client::SendMessage: sending binary message: size {}", msg.size());
-  c_.send(hdl_, msg, websocketpp::frame::opcode::binary, ec);
-  spdlog::get(LOGGER)->debug("Client::SendMessage: sending binary success", msg.size());
+  c_.send(hdl_, cmd.bytes(), websocketpp::frame::opcode::binary, ec);
+  spdlog::get(LOGGER)->info("Client::SendMessage: successfully sent message.");
   if (ec)
     std::cout << "Client: sending failed because: " << ec.message() << std::endl;
 }

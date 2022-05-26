@@ -1,9 +1,8 @@
 #ifndef SRC_SERVER_GAME_H_
 #define SRC_SERVER_GAME_H_
 
-#include "nlohmann/json_fwd.hpp"
-#include "share/defines.h"
 #include <cstddef>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <stdio.h>
@@ -11,12 +10,15 @@
 #include <shared_mutex>
 #include <vector>
 
+#include "share/defines.h"
 #include "share/audio/audio.h"
 #include "share/constants/texts.h"
 #include "server/game/field/field.h"
 #include "server/game/player/audio_ki.h"
 #include "server/game/player/player.h"
 #include "share/objects/units.h"
+#include "share/shemes/commands.h"
+#include "share/shemes/data.h"
 #include "share/tools/random/random.h"
 #include "share/tools/eventmanager.h"
 
@@ -72,10 +74,9 @@ class ServerGame {
     /**
      * Handles input.
      * @param[in] command
-     * @param[in] msg
-     * @return json to forward to user, if "command" is contained.
+     * @param[in] data
      */
-    nlohmann::json HandleInput(std::string command, nlohmann::json msg);
+    void HandleInput(std::string command, std::shared_ptr<Data> data);
     
     // Threads
 
@@ -91,7 +92,6 @@ class ServerGame {
 
     bool RunAiGame();
 
-    void AddAudioPart(AudioTransferData& data);
 
   private: 
     Field* field_;  ///< field 
@@ -109,7 +109,7 @@ class ServerGame {
     std::string base_path_;
 
     WebsocketServer* ws_server_;
-    EventManager<std::string, ServerGame, nlohmann::json&> eventmanager_;
+    EventManager<std::string, ServerGame, std::shared_ptr<Data>> eventmanager_;
 
     std::shared_mutex mutex_status_;  ///< mutex locked, when printing field.
     int status_;
@@ -139,14 +139,26 @@ class ServerGame {
      * "swallows" epsp if enemy ipsp is on same field.
      * @return map of potentials in stacked format.
      */
-    std::map<position_t, std::pair<std::string, int>> GetAndUpdatePotentials();
+    std::map<position_t, std::pair<std::string, short>> GetAndUpdatePotentials();
 
     /**
-     * Create transfer data and sends it to all online players.
+     * Create player-agnostic transfer-data.
      * @param[in] audio_played between 0 and 1 indicating song progress.
-     * @param[in] update indicating whether to send update or inital data. (default true)
+     * @return player-agnostic transfer-data.
      */
-    void CreateAndSendTransferToAllPlayers(float audio_played, bool update=true);
+    std::shared_ptr<Update> CreateBaseUpdate(float audio_played);
+
+    /**
+     * Creates transfer-data and sends it to all online players.
+     * @param[in] audio_played between 0 and 1 indicating song progress.
+     */
+    void SendUpdate(float audio_played);
+
+    /**
+     * Creates initial transfer-data (includeing field and graph_positions) and sends 
+     * it to all online players.
+     */
+    void SendInitialData();
 
     /**
      * Checks if new players have died. Eventually sends messages or finally closes game, 
@@ -171,7 +183,7 @@ class ServerGame {
      * @param[in] message
      * @param[in] ignore_username if set, this user is ignored (default: not set)
      */
-    void SendMessageToAllPlayers(nlohmann::json msg, std::string ignore_username="");
+    void SendMessageToAllPlayers(Command cmd, std::string ignore_username="");
 
     /**
      * Creates string of missing costs.
@@ -191,90 +203,93 @@ class ServerGame {
 
     // command methods
 
-    void m_SendAudioMap(nlohmann::json& data);
-    void m_SendSong(nlohmann::json& msg);
+    void m_SendAudioMap(std::shared_ptr<Data> data);
+    void m_SendSong(std::shared_ptr<Data> data);
+    void m_AddAudioPart(std::shared_ptr<Data> data);
 
     /**
      * Analyzes audio and initialize game.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_InitializeGame(nlohmann::json& data);
+    void m_InitializeGame(std::shared_ptr<Data> data);
 
     /**
      * Adds iron
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_AddIron(nlohmann::json& msg);
+    void m_AddIron(std::shared_ptr<Data> data);
 
     /**
      * Removes iron
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_RemoveIron(nlohmann::json& msg);
+    void m_RemoveIron(std::shared_ptr<Data> data);
 
     /**
      * Adds technology
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_AddTechnology(nlohmann::json& msg);
-
-    /**
-     * Handles if a player resignes
-     * @param[in, out] msg
-     */
-    void m_Resign(nlohmann::json& msg);
+    void m_AddTechnology(std::shared_ptr<Data> data);
 
     /**
      * Checks if resources (or other criteria) are met for building neuron.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_CheckBuildNeuron(nlohmann::json& msg);
+    void m_CheckBuildNeuron(std::shared_ptr<Data> data);
 
     /**
      * Checks if resources (or other criteria) are met for building potential.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_CheckBuildPotential(nlohmann::json& msg);
+    void m_CheckBuildPotential(std::shared_ptr<Data> data);
 
     /**
      * Build neuron.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_BuildNeurons(nlohmann::json& msg);
+    void m_BuildNeurons(std::shared_ptr<Data> data);
 
     /**
      * Gets all requested positions: might be of own- or enemy-units. Sends command given command
-     * at msg["data"]["return_cmd"]
-     * @param[in, out] msg
+     * at data["data"]["return_cmd"]
+     * @param[in, out] data
      */
-    void m_GetPositions(nlohmann::json& msg);
+    void m_GetPositions(std::shared_ptr<Data> data);
 
     /**
      * Toggles swarm-attack.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_ToggleSwarmAttack(nlohmann::json& msg);
+    void m_ToggleSwarmAttack(std::shared_ptr<Data> data);
 
     /**
      * Set Way Point
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_SetWayPoint(nlohmann::json& msg);
+    void m_SetWayPoint(std::shared_ptr<Data> data);
 
     /**
      * Set Ipsp target.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_SetTarget(nlohmann::json& msg);
+    void m_SetTarget(std::shared_ptr<Data> data);
 
-    void m_SetPauseOn(nlohmann::json& msg);
-    void m_SetPauseOff(nlohmann::json& msg);
+    void m_SetPauseOn(std::shared_ptr<Data> data);
+    void m_SetPauseOff(std::shared_ptr<Data> data);
+
 
     /**
      * Build potential.
      * @param[in, out] msg
      */
     void BuildPotentials(int unit, position_t pos, int num_potenials_to_build, std::string username, Player* player);
+
+    /** 
+     * Returns pointer to player from username.
+     * Throws if player not found.
+     */
+    Player* GetPlayer(std::string username);
+
 };
 
 #endif

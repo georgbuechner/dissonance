@@ -9,13 +9,12 @@
 #include <set>
 #include <vector>
 
-#include "server/game/player/statistics.h"
 #include "share/audio/audio.h"
 #include "share/constants/codes.h"
 #include "share/constants/costs.h"
 #include "share/objects/resource.h"
-#include "share/objects/transfer.h"
 #include "share/objects/units.h"
+#include "share/shemes/data.h"
 #include "share/tools/random/random.h"
 #include "share/defines.h"
 
@@ -40,14 +39,13 @@ class Player {
     virtual ~Player() {}
 
     // getter:
-    Statictics& statistics();
+    std::shared_ptr<Statictics> statistics();
     std::map<std::string, Potential> potential();
     int cur_range();
     std::map<int, Resource> resources();
     std::map<int, tech_of_t> technologies();
 
-    std::map<int, Transfer::Resource> t_resources();
-    std::map<int, Transfer::Technology> t_technologies();
+    std::map<int, Data::Resource> t_resources();
     std::map<position_t, int> new_dead_neurons();
     std::map<position_t, int> new_neurons();
     std::vector<Player*> enemies();
@@ -64,12 +62,12 @@ class Player {
 
     // methods:
     
-    nlohmann::json GetFinalStatistics();
+    std::shared_ptr<Statictics> GetFinalStatistics(std::string username);
     std::map<position_t, int> GetEpspAtPosition();
     std::map<position_t, int> GetIpspAtPosition();
     std::map<position_t, int> GetMacroAtPosition();
     std::vector<position_t> GetPotentialPositions();
-    std::map<position_t, int> GetAllNeuronsInRange(position_t pos);
+    std::vector<FieldPosition> GetAllNeuronsInRange(position_t pos);
     position_t GetLoopholeTargetIfExists(position_t pos, bool only_active=false);
     int GetColorForPos(position_t pos);
 
@@ -286,7 +284,7 @@ class Player {
   protected: 
     Field* field_;
     Audio* audio_;
-    Statictics statistics_;
+    std::shared_ptr<Statictics> statistics_;
     RandomGenerator* ran_gen_;
     std::vector<Player*> enemies_;
     int cur_range_;

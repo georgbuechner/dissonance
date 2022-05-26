@@ -9,12 +9,14 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <memory>
 #define NCURSES_NOMACROS
-#include <nlohmann/json.hpp>
 #include <shared_mutex>
 #include <string>
 #include <websocketpp/common/connection_hdl.hpp>
 
+#include "share/shemes/commands.h"
+#include "share/shemes/data.h"
 #include "server/websocket/connection.h"
 #include "server/game/server_game.h"
 #include "share/defines.h"
@@ -57,17 +59,20 @@ class WebsocketServer {
 
     /**
      * Sends message to given connection by username.
-     * @param id of connection over which to send.
-     * @param msg message which to send.
+     * @param username 
+     * @param cmd reference to command 
      */
-    void SendMessage(std::string username, nlohmann::json msg);
-
+    void SendMessage(std::string username, Command& cmd);
     /**
-     * Sends message to given connection by username as binary data
-     * @param id of connection over which to send.
-     * @param msg message which to send.
+     * Sends message to given username. Constucts command to send from `command`
+     * and `data`.
      */
-    void SendMessageBinary(std::string username, std::string msg);
+    void SendMessage(std::string username, std::string command, std::shared_ptr<Data> data);
+    /**
+     * Sends message to given id. Constucts command to send from `command`
+     * and `data`.
+     */
+    void SendMessage(connection_id id, std::string command, std::shared_ptr<Data> data);
 
     void CloseGames();
 
@@ -91,6 +96,9 @@ class WebsocketServer {
     mutable std::shared_mutex shared_mutex_games_;  ///< Mutex for connections_.
     std::map<std::string, std::string> username_game_id_mapping_;
     std::map<std::string, ServerGame*> games_;
+
+    std::shared_ptr<Lobby> lobby_;
+    mutable std::shared_mutex shared_mutex_lobby_;  ///< Mutex for connections_.
 
     const bool standalone_;
     const std::string base_path_;
@@ -158,7 +166,7 @@ class WebsocketServer {
      */
     std::vector<std::string> GetPlayingUsers(std::string username, bool check_connected=false);
 
-    nlohmann::json GetLobby();
+    void UpdateLobby();
 
     // handlers:
     
@@ -168,7 +176,7 @@ class WebsocketServer {
      * @param[in] username 
      * @param[in, out] msg
      */
-    void h_InitializeUser(connection_id id, std::string username, const nlohmann::json& msg);
+    void h_InitializeUser(connection_id id, std::string username);
 
     /**
      * Starts new game in desired mode.
@@ -176,7 +184,7 @@ class WebsocketServer {
      * @param[in] username 
      * @param[in, out] msg
      */
-    void h_InitializeGame(connection_id id, std::string username, const nlohmann::json& msg);
+    void h_InitializeGame(connection_id id, std::string username, std::shared_ptr<Data> data);
 
     /**
      * Calls game for this user, to handle in game action.
@@ -184,15 +192,7 @@ class WebsocketServer {
      * @param[in] username 
      * @param[in, out] msg
      */
-    void h_InGameAction(connection_id id, std::string username, nlohmann::json msg);
-
-    /**
-     * Deletes game and removes game and players. 
-     * @param[in] id 
-     * @param[in] username 
-     * @param[in, out] msg
-     */
-    void h_CloseGame(connection_id id, std::string username, const nlohmann::json&);
+    void h_InGameAction(connection_id id, Command cmd);
 };
 
 #endif 

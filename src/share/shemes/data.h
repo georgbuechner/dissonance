@@ -14,12 +14,12 @@ class Update;
 class Statictics;
 
 /**
- * Used for cmds: `preparing`, `select_mode`, `select_audio`, `audio_exists`,
+ * Used for cmds: `preparing`, `select_mode`, `select_audio`, `send_audio`
  * `resign`, `set_pause_on`, `set_pause_off`, `initialize_user`, `ready`
  */
 class Data {
   public: 
-    Data() {}
+    Data();
 
     // objects
     struct Symbol {
@@ -28,6 +28,7 @@ class Data {
       short color_;
       // methods
       std::string str() const;
+      Symbol();
       Symbol(std::pair<std::string, short> symbol);
       std::pair<std::string, short> to_pair() const;
     };
@@ -39,7 +40,7 @@ class Data {
       std::string iron_;
       bool active_;
       // methods
-      Resource() {}
+      Resource();
       Resource(double value, double bound, unsigned int limit, unsigned int iron, bool active);
       Resource(const char* payload, size_t len, size_t& offset);
       void binary(std::stringstream& buffer) const;
@@ -65,15 +66,24 @@ class Data {
       position_t _pos;
     };
 
-
     // getter 
+    std::string u() { return u_; }
+
     virtual std::string msg() { return ""; } 
-    virtual position_t pos() { return {-1, -1}; }
-    virtual short unit() { return -1; }
-    virtual short color() { return -1; }
-    virtual std::vector<FieldPosition> units() { return {}; }
+
+    virtual unsigned short mode() { return 0; }
+    virtual unsigned short lines() { return 0; }
+    virtual unsigned short cols() { return 0; }
+    virtual unsigned short num_players() { return 0; }
+    virtual std::string game_id() { return ""; }
+
+    virtual position_t pos() const { return {-1, -1}; }
+    virtual short unit() const { return -1; }
+    virtual short color() const { return -1; }
+    virtual std::vector<FieldPosition> units() const { return {}; }
 
     virtual std::map<std::string, std::pair<std::string, int>> players() { return {}; }
+    virtual std::map<position_t, std::pair<std::string, short>> potentials() { return {}; }
     virtual std::map<position_t, int> new_dead_neurons() { return {}; }
     virtual float audio_played() { return 0; }
     virtual std::map<int, Resource> resources() { return {}; }
@@ -83,11 +93,18 @@ class Data {
 
     virtual std::vector<std::vector<Data::Symbol>> field() { return {}; }
     virtual std::vector<position_t> graph_positions() { return {}; }
+    virtual std::vector<position_t> centered_positions() { return {}; }
+    virtual std::vector<position_t> current_way() { return {}; }
+    virtual std::vector<position_t> current_waypoints() { return {}; }
+    virtual std::vector<position_t> player_units() { return {}; }
+    virtual std::vector<position_t> enemy_units() { return {}; }
+    virtual std::vector<position_t> target_positions() { return {}; }
     virtual std::shared_ptr<Update> update() { return nullptr; }
     virtual short macro() { return 0; }
 
     virtual const std::vector<LobbyEntry> lobby() { return {}; }
 
+    virtual std::string player_name() const { return ""; }
     virtual short player_color() const { return 0; }
     virtual std::map<unsigned short, unsigned short> neurons_build() const { return {}; }
     virtual std::map<unsigned short, unsigned short> potentials_build() const { return {}; }
@@ -99,7 +116,7 @@ class Data {
 
     virtual std::vector<std::shared_ptr<Statictics>> statistics() { return {}; }
 
-    virtual short num() { return 0; }
+    virtual short num() { return -1; }
     virtual position_t start_pos() { return {-1, -1}; }
     virtual std::vector<position_t> positions() { return {}; }
     virtual short range() { return 0; }
@@ -124,11 +141,14 @@ class Data {
     virtual::std::string map_name() { return ""; }
     virtual::std::map<std::string, nlohmann::json> ai_audio_data() { return {}; }
 
-    virtual unsigned short resource() { return 0; }
-    virtual unsigned short technology() { return 0; }
+    virtual unsigned short resource() const { return 0; }
+    virtual unsigned short technology() const { return 0; }
 
+    bool send_audio() { return false; }
 
     // setter
+    virtual void set_num_players(unsigned short num_players) {}
+    virtual void set_game_id(std::string game_id) {}
     virtual void set_resources(std::map<int, Resource> resources) {}
     virtual void set_build_options(std::vector<bool> build_options) {}
     virtual void set_synapse_options(std::vector<bool> synapse_options) {}
@@ -136,6 +156,13 @@ class Data {
     virtual void set_pos(position_t pos) {}
     virtual void set_start_pos(position_t pos) {}
     virtual void set_positions(std::vector<position_t> positions) {}
+    virtual void set_centered_positions(std::vector<position_t> positions) {} 
+    virtual void set_current_way(std::vector<position_t> positions) {}
+    virtual void set_current_waypoints(std::vector<position_t> positions) {}
+    virtual void set_player_units(std::vector<position_t> positions) {}
+    virtual void set_enemy_units(std::vector<position_t> positions) {}
+    virtual void set_target_positions(std::vector<position_t> positions) {}
+
     virtual void set_range(short range) {}
     virtual void set_synapse_pos(position_t pos) {}
     virtual void set_way_point(position_t pos) {}
@@ -145,7 +172,7 @@ class Data {
 
     virtual void set_content(std::string content) { }
     virtual void set_parts(int parts) { }
-    virtual void set_part(int part) { }
+    virtual void set_part(int part) {}
 
     // methods 
     virtual void binary(std::stringstream&) {} 
@@ -158,10 +185,14 @@ class Data {
     virtual void SetPickedPosition(position_t pos) {}
     virtual void AddAiAudioData(std::string source_path, nlohmann::json analysed_data) {}
 
+    void AddUsername(std::string username) { u_ = username; }
+
+  private:
+    std::string u_;
 };
 
 /**
- * Used for cmds: `kill`, `send_audio_info`, `print_msg`, `set_msg`
+ * Used for cmds: `kill`, `print_msg`, `set_msg`
  */
 class Msg : public Data {
   public: 
@@ -178,18 +209,50 @@ class Msg : public Data {
     std::string msg_;
 };
 
+/**
+ * Used for commands: `init_game` (from client-side)
+ */
+class InitNewGame : public Data {
+  public:
+    InitNewGame(unsigned short mode, unsigned short lines, unsigned short cols);
+    InitNewGame(const char* payload, size_t len, size_t& offset);
+
+    // getter
+    unsigned short mode();
+    unsigned short lines();
+    unsigned short cols();
+    unsigned short num_players();
+    std::string game_id();
+
+    // setter 
+    void set_num_players(unsigned short num_players);
+    void set_game_id(std::string game_id);
+    
+    // methods 
+    void binary(std::stringstream& buffer);
+
+  private:
+    unsigned short mode_;
+    unsigned short lines_;
+    unsigned short cols_;
+    unsigned short num_players_; ///< only for mode=MULTI_PLAYER
+    std::string game_id_; ///< only for mode=MULTI_PLAYER_CLIENT
+};
 
 /**
  * Used for cmds: `update_game`
  */
 class Update : public Data {
   public: 
-    Update(std::map<std::string, std::pair<std::string, int>> players, std::map<position_t, int> new_dead_neurons,
-      float audio_played);
+    Update(std::map<std::string, std::pair<std::string, int>> players, 
+        std::map<position_t, std::pair<std::string, short>> potentials,
+        std::map<position_t, int> new_dead_neurons, 
+        float audio_played);
     Update(const char* payload, size_t len, size_t& offset);
 
     // getter 
     std::map<std::string, std::pair<std::string, int>> players();
+    std::map<position_t, std::pair<std::string, short>> potentials();
     std::map<position_t, int> new_dead_neurons();
     float audio_played();
     std::map<int, Resource> resources();
@@ -203,10 +266,21 @@ class Update : public Data {
     
     // methods 
     void binary(std::stringstream& buffer);
+    t_topline PlayersToPrint() {
+      t_topline print;
+      for (const auto& it : players_) {
+        print.push_back({it.first + ": " + it.second.first, it.second.second});
+        print.push_back({" | ", COLOR_DEFAULT});
+      }
+      if (print.size() > 0)
+        print.pop_back();
+      return print;
+    }
 
   private: 
     // Identical for all players
     std::map<std::string, std::pair<std::string, int>> players_;
+    std::map<position_t, std::pair<std::string, short>> potentials_;
     std::map<position_t, int> new_dead_neurons_;
     float audio_played_;
 
@@ -255,12 +329,14 @@ class Init : public Data {
 class FieldPosition: public Data {
   public: 
     FieldPosition(position_t pos, short unit, short color);
+    FieldPosition(position_t pos, short unit, short color, unsigned short resource);
     FieldPosition(const char* payload, size_t len, size_t& offset);
 
     // getter 
-    position_t pos();
-    short unit();
-    short color();
+    position_t pos() const;
+    short unit() const;
+    short color() const;
+    unsigned short resource() const;
     
     // methods 
     void binary(std::stringstream& buffer);
@@ -269,6 +345,7 @@ class FieldPosition: public Data {
     position_t pos_;
     short unit_;
     short color_;
+    short resource_;
 };
 
 /**
@@ -280,13 +357,13 @@ class Units : public Data {
     Units(const char* payload, size_t len, size_t& offset);
 
     // getter 
-    std::vector<FieldPosition> units();
+    std::vector<FieldPosition> units() const;
 
     // methods 
     void binary(std::stringstream& buffer);
 
   private: 
-    std::vector<FieldPosition> units_;
+    std::vector<FieldPosition> units_; // TODO (fux): consider using shared_ptrs
 };
 
 /**
@@ -314,6 +391,7 @@ class Statictics : public Data {
     Statictics(const char* payload, size_t len, size_t& offset);
 
     // getter
+    std::string player_name() const;
     short player_color() const;
     std::map<unsigned short, unsigned short> neurons_build() const;
     std::map<unsigned short, unsigned short> potentials_build() const;
@@ -325,6 +403,7 @@ class Statictics : public Data {
     std::map<int, std::map<std::string, double>>& stats_resources_ref();
 
     // setter (no virtual, as called directly from player
+    void set_player_name(std::string player_name);
     void set_color(short color);
     void set_technologies(std::map<int, tech_of_t> technologies);
 
@@ -339,6 +418,7 @@ class Statictics : public Data {
     void binary(std::stringstream& buffer);
 
   private:
+    std::string player_name_;
     short player_color_;
     std::map<unsigned short, unsigned short> neurons_build_;
     std::map<unsigned short, unsigned short> potentials_build_;
@@ -360,6 +440,9 @@ class GameEnd : public Data {
     // getter 
     std::string msg();
     std::vector<std::shared_ptr<Statictics>> statistics();
+
+    // setter
+    void set_msg(std::string msg);
     
     // methods 
     void AddStatistics(std::shared_ptr<Statictics> statistics);
@@ -371,7 +454,7 @@ class GameEnd : public Data {
 };
 
 /**
- * Used for command `build_potential`
+ * Used for command `build_potential` and `check_build_potential`
  */
 class BuildPotential : public Data {
   public: 
@@ -379,9 +462,9 @@ class BuildPotential : public Data {
     BuildPotential(const char* payload, size_t len, size_t& offset);
     
     // getter 
-    short unit();
+    short unit() const;
     short num();
-    position_t start_pos();
+    position_t synapse_pos();
     std::vector<position_t> positions();
 
     // setter 
@@ -394,14 +477,14 @@ class BuildPotential : public Data {
     /**
      * Used by Pick-Context to set selected ('picked') position. 
      * Function needs to exists for all data-structs dependant on Pick-Context.
-     * Here: start_pos_
+     * Here: synapse_pos
      */
     void SetPickedPosition(position_t pos);
 
   private: 
     short unit_;
     short num_;
-    position_t start_pos_; ///< position from which to start field-context (nucleus-position)
+    position_t synapse_pos_; ///< position from which to start field-context (nucleus-position)
     std::vector<position_t> positions_;
 };
 
@@ -414,8 +497,8 @@ class BuildNeuron : public Data {
     BuildNeuron(const char* payload, size_t len, size_t& offset);
     
     // getter 
-    short unit();
-    position_t pos();
+    short unit() const;
+    position_t pos() const ;
     position_t start_pos();
     std::vector<position_t> positions();
     short range();
@@ -446,15 +529,18 @@ class BuildNeuron : public Data {
 
 class SelectSynapse : public Data {
   public: 
+    SelectSynapse();
+    SelectSynapse(position_t synapse_pos);
     SelectSynapse(std::vector<position_t> positions);
     SelectSynapse(const char* payload, size_t len, size_t& offset);
 
     // getter 
     position_t synapse_pos();
-    std::vector<position_t> positions();
+    std::vector<position_t> player_units();
 
     // setter 
     void set_synapse_pos(position_t pos);
+    void set_player_units(std::vector<position_t> positions);
 
     // methods
     void binary(std::stringstream& buffer);
@@ -468,24 +554,30 @@ class SelectSynapse : public Data {
 
   private:
     position_t synapse_pos_;
-    std::vector<position_t> positions_;
+    std::vector<position_t> player_units_;
 };
 
 class SetWayPoints : public Data {
   public: 
     SetWayPoints(position_t synapse_pos);
+    SetWayPoints(position_t synapse_pos, short num);
     SetWayPoints(const char* payload, size_t len, size_t& offset);
 
     // getter 
     position_t synapse_pos();
+    position_t start_pos();
     position_t way_point();
-    std::vector<position_t> positions();
+    std::vector<position_t> centered_positions();
+    std::vector<position_t> current_way();
+    std::vector<position_t> current_waypoints();
     std::string msg();
     short num();
 
     // setter 
     void set_way_point(position_t pos);
-    void set_positions(std::vector<position_t> positions);
+    void set_centered_positions(std::vector<position_t> positions);
+    void set_current_way(std::vector<position_t> positions);
+    void set_current_waypoints(std::vector<position_t> positions);
     void set_msg(std::string msg);
     void set_num(short num);
 
@@ -501,8 +593,11 @@ class SetWayPoints : public Data {
 
   private:
     position_t synapse_pos_;
+    position_t start_pos_;
     position_t way_point_;
-    std::vector<position_t> positions_;
+    std::vector<position_t> centered_positions_;
+    std::vector<position_t> current_way_;
+    std::vector<position_t> current_waypoints_;
     std::string msg_;
     short num_;
 };
@@ -513,16 +608,18 @@ class SetTarget : public Data {
     SetTarget(const char* payload, size_t len, size_t& offset);
 
     // getter 
-    short unit();
+    short unit() const;
     position_t synapse_pos();
     position_t start_pos(); 
     position_t target();
-    std::vector<position_t> positions();
+    std::vector<position_t> enemy_units();
+    std::vector<position_t> target_positions();
 
     // setter 
     void set_start_pos(position_t pos);
     void set_target(position_t pos);
-    void set_positions(std::vector<position_t> positions);
+    void set_enemy_units(std::vector<position_t> positions);
+    void set_target_positions(std::vector<position_t> positions);
 
     // methods
     void binary(std::stringstream& buffer);
@@ -539,7 +636,8 @@ class SetTarget : public Data {
     position_t synapse_pos_;
     position_t start_pos_; ///< position from which to start field-context (random field position)
     position_t target_;
-    std::vector<position_t> positions_;
+    std::vector<position_t> enemy_units_;
+    std::vector<position_t> target_positions_;
 };
 
 class ToggleSwarmAttack : public Data {
@@ -576,12 +674,14 @@ class GetPositions : public Data {
     std::shared_ptr<Data> data_;
 };
 
+/**
+ * Used for commands: `audio_map`, `audio_exists` (ignores `same_device_`)
+ */
 class CheckSendAudio : public Data {
   public:
     CheckSendAudio(std::string map_path);
     CheckSendAudio(std::string map_path, std::string audio_file_name);
     CheckSendAudio(const char* payload, size_t len, size_t& offset);
-    ~CheckSendAudio() { std::cout << "CheckSendAudio: deconstructor called!" << std::endl; }
 
     // getter 
     bool same_device();
@@ -595,6 +695,24 @@ class CheckSendAudio : public Data {
     bool same_device_;
     std::string map_path_;
     std::string audio_file_name_;
+};
+
+/** 
+ * Used for commands: `send_audio_info`
+ */
+class SendAudioInfo : public Data {
+  public:
+    SendAudioInfo(bool send_audio);
+    SendAudioInfo(const char* payload, size_t len, size_t& offset);
+
+    // getter
+    bool send_audio();
+    
+    // methods
+    void binary(std::stringstream& buffer);
+
+  private:
+    bool send_audio_;
 };
 
 class AudioTransferDataNew : public Data {
@@ -625,6 +743,9 @@ class AudioTransferDataNew : public Data {
     int parts_;
 };
 
+/**
+ * Used for command: `initialize_game`
+ */
 class InitializeGame : public Data {
   public: 
     InitializeGame(std::string map_name);
@@ -652,7 +773,7 @@ class DistributeIron : public Data {
     DistributeIron(const char* payload, size_t len, size_t& offset);
 
     // getter
-    unsigned short resource();
+    unsigned short resource() const;
 
     // methods
     void binary(std::stringstream& buffer);
@@ -667,7 +788,7 @@ class AddTechnology : public Data {
     AddTechnology(const char* payload, size_t len, size_t& offset);
 
     // getter
-    unsigned short technology();
+    unsigned short technology() const;
 
     // methods
     void binary(std::stringstream& buffer);

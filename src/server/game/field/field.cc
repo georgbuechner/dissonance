@@ -12,10 +12,10 @@
 #include <vector>
 
 #include "share/defines.h"
+#include "share/shemes/data.h"
 #include "spdlog/spdlog.h"
 
 #include "server/game/field/field.h"
-#include "share/objects/transfer.h"
 #include "share/objects/units.h"
 #include "share/constants/codes.h"
 #include "server/game/player/player.h"
@@ -194,7 +194,7 @@ void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned sh
 }
 
 
-std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<position_t> way_points) {
+std::list<position_t> Field::GetWay(position_t start_pos, std::vector<position_t> way_points) {
   spdlog::get(LOGGER)->debug("Field::GetWayForSoldier: pos={}", utils::PositionToString(start_pos));
   if (way_points.size() < 1)
     return {};
@@ -285,15 +285,22 @@ std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval,
   return positions;
 }
 
-std::vector<std::vector<Transfer::Symbol>> Field::Export(std::vector<Player*> players) {
+std::vector<std::vector<Data::Symbol>> Field::Export(std::map<std::string, Player*> players) {
+  std::vector<Player*> vec_players;
+  for (const auto& it : players)
+    vec_players.push_back(it.second);
+  return Export(vec_players);
+}
+
+std::vector<std::vector<Data::Symbol>> Field::Export(std::vector<Player*> players) {
   std::shared_lock sl_field(mutex_field_);
-  std::vector<std::vector<Transfer::Symbol>> t_field;
+  std::vector<std::vector<Data::Symbol>> t_field;
   // Create transfer-type field.
   for (int l=0; l<lines_; l++) {
-    t_field.push_back(std::vector<Transfer::Symbol>());
+    t_field.push_back(std::vector<Data::Symbol>());
     for (int c=0; c<cols_; c++) {
       position_t cur = {l, c};
-      int color = COLOR_DEFAULT;
+      short color = COLOR_DEFAULT;
       // Check if belongs to either player, is blocked or is resource-neuron
       for (unsigned int i=0; i<players.size(); i++) {
         auto new_color = players[i]->GetColorForPos(cur);
@@ -301,7 +308,7 @@ std::vector<std::vector<Transfer::Symbol>> Field::Export(std::vector<Player*> pl
           color = new_color;
       }
       // Add to json field.
-      t_field[l].push_back({field_[l][c], color});
+      t_field[l].push_back(Data::Symbol({field_[l][c], color}));
     }
   }
   return t_field;

@@ -241,7 +241,7 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
         utils::PositionToString(epsp_synapses_pos));
     return;
   }
-  auto epsp_way = field_->GetWayForSoldier(epsp_synapses_pos, neurons_.at(epsp_synapses_pos)
+  auto epsp_way = field_->GetWay(epsp_synapses_pos, neurons_.at(epsp_synapses_pos)
       ->GetWayPoints(UnitsTech::EPSP));
  
   auto ipsp_launch_synapes = AvailibleIpspLaunches(sorted_synapses, 5);
@@ -270,7 +270,7 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
   if (num_epsps_to_create > 0) {
     int inital_speed_decrease=0;
     if (ipsp_launch_synapes.size() > 0) {
-      auto ipsp_way = field_->GetWayForSoldier(ipsp_launch_synapes.front(), 
+      auto ipsp_way = field_->GetWay(ipsp_launch_synapes.front(), 
           neurons_.at(ipsp_launch_synapes.front())->GetWayPoints(UnitsTech::IPSP));
       inital_speed_decrease = SynchAttacks(epsp_way.size(), ipsp_way.size());
     }
@@ -383,7 +383,7 @@ void AudioKi::CreateActivatedNeuron(bool force) {
     }
   }
   else {
-    auto way = field_->GetWayForSoldier(nucleus_pos_, {enemies_.front()->GetOneNucleus()});
+    auto way = field_->GetWay(nucleus_pos_, {enemies_.front()->GetOneNucleus()});
     auto positions = field_->GetAllInRange(nucleus_pos_, cur_range_, 1, true);
     int max_way_points_in_range = 0;
     pos = positions.front();
@@ -523,7 +523,7 @@ std::vector<position_t> AudioKi::GetEnemySynapsesSortedByLeastDef(position_t sta
   auto enemy_synapses = enemies_.front()->GetAllPositionsOfNeurons(UnitsTech::SYNAPSE);
   std::list<std::pair<size_t, position_t>> sorted_positions;
   for (const auto& it : enemy_synapses) {
-    auto way = field_->GetWayForSoldier(start, {it});
+    auto way = field_->GetWay(start, {it});
     sorted_positions.push_back({GetAllActivatedNeuronsOnWay(way).size(), it});
   }
   sorted_positions.sort();
