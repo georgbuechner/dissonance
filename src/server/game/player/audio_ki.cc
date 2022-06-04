@@ -20,6 +20,7 @@ AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGener
   max_activated_neurons_ = 3;
   nucleus_pos_ = nucleus_pos;
   cur_interval_ = audio_->analysed_data().intervals_[0];
+  data_per_beat_ = audio_->analysed_data().data_per_beat_;
 
   // TODO (fux): increase iron by one.
   attack_strategies_ = {{Tactics::EPSP_FOCUSED, 1}, {Tactics::IPSP_FOCUSED, 1}, {Tactics::AIM_NUCLEUS, 1},
@@ -39,12 +40,8 @@ AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGener
   SetUpTactics(true);
 }
 
-std::list<AudioDataTimePoint> AudioKi::data_per_beat() {
-  return audio_->analysed_data().data_per_beat_;
-}
-
-void AudioKi::set_last_time_point(const AudioDataTimePoint &data_at_beat) {
-  last_data_point_ = data_at_beat;
+std::deque<AudioDataTimePoint> AudioKi::data_per_beat() {
+  return data_per_beat_;
 }
 
 void AudioKi::SetUpTactics(bool inital_setup) {
@@ -188,6 +185,19 @@ void AudioKi::SetEconomyTactics() {
     building_tactics_[ACTIVATEDNEURON] += 10;
   else
     building_tactics_[SYNAPSE] += 4;
+}
+
+bool AudioKi::DoAction() {
+  auto next_data_at_beat = data_per_beat_.front();
+  data_per_beat_.pop_front();
+  DoAction(next_data_at_beat);
+  last_data_point_ = next_data_at_beat;
+  // reload
+  if (data_per_beat_.size() == 0) {
+    data_per_beat_ = audio_->analysed_data().data_per_beat_;
+    return true;
+  }
+  return false;
 }
 
 void AudioKi::DoAction(const AudioDataTimePoint& data_at_beat) {
@@ -352,7 +362,6 @@ void AudioKi::CreateSynapses(bool force) {
       AddTechnology(UnitsTech::NUCLEUS_RANGE);
     // Otherwise build neuron.
     else if (AddNeuron(pos, UnitsTech::SYNAPSE, enemies_.front()->GetOneNucleus())) {
-      field_->AddNewUnitToPos(pos, UnitsTech::SYNAPSE);
       CheckResourceLimit();
     }
     else
@@ -408,7 +417,6 @@ void AudioKi::CreateActivatedNeuron(bool force) {
   }
   // Otherwise build neuron.
   else if (AddNeuron(pos, UnitsTech::ACTIVATEDNEURON)) {
-    field_->AddNewUnitToPos(pos, UnitsTech::ACTIVATEDNEURON);
     CheckResourceLimit();
   }
   else

@@ -156,17 +156,19 @@ void Drawrer::set_transfer(std::shared_ptr<Data> init) {
   spdlog::get(LOGGER)->debug("Drawrer::set_transfer: done");
 
   // Show player which macro they play with
-  set_stop_render(true);
-  std::string macro = (init->macro() == 0) ? "chained-potential" : "loophols";
-  std::string msg = "You are playing with \"" + macro + "\" as your macro!";
-  ClearField();
-  PrintCenteredLine(LINES/2, msg);
-  PrintCenteredLine(LINES/2+2, "[Press any key to continue]");
-  std::unique_lock ul(mutex_print_field_);
-  getch();
-  ul.unlock();
-  set_stop_render(false);
-  ul.lock();
+  if (mode_ != OBSERVER) {
+    set_stop_render(true);
+    std::string macro = (init->macro() == 0) ? "chained-potential" : "loophols";
+    std::string msg = "You are playing with \"" + macro + "\" as your macro!";
+    ClearField();
+    PrintCenteredLine(LINES/2, msg);
+    PrintCenteredLine(LINES/2+2, "[Press any key to continue]");
+    std::unique_lock ul(mutex_print_field_);
+    getch();
+    ul.unlock();
+    set_stop_render(false);
+    ul.lock();
+  }
   spdlog::get(LOGGER)->debug("Drawrer::set_transfer: done");
 }
 
@@ -202,8 +204,12 @@ void Drawrer::ClearMarkers(int type) {
 }
 
 void Drawrer::AddNewUnitToPos(position_t pos, short unit, short color) {
+  spdlog::get(LOGGER)->debug("Drawrer::AddNewUnitToPos: pos: {}, unit: {}, color: {}", 
+      utils::PositionToString(pos), unit, color);
   std::unique_lock ul(mutex_print_field_);
-  if (unit == UnitsTech::RESOURCENEURON)
+  if (unit == UnitsTech::RESOURCENEURON && color == COLOR_DEFAULT)
+    field_[pos.first][pos.second] = Data::Symbol({field_[pos.first][pos.second].symbol_, color});
+  else if (unit == UnitsTech::RESOURCENEURON)
     field_[pos.first][pos.second] = Data::Symbol({field_[pos.first][pos.second].symbol_, COLOR_RESOURCES});
   else if (unit_symbol_mapping.count(unit) > 0)
     field_[pos.first][pos.second] = Data::Symbol({unit_symbol_mapping.at(unit), color});

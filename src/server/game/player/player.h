@@ -2,6 +2,7 @@
 #define SRC_PLAYER_H_
 
 #include <cstddef>
+#include <deque>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -17,6 +18,7 @@
 #include "share/shemes/data.h"
 #include "share/tools/random/random.h"
 #include "share/defines.h"
+#include "share/tools/utils/utils.h"
 
 class Field;
 
@@ -25,6 +27,15 @@ using namespace costs;
 
 class Player {
   public:
+    struct AiOption {
+      int _type;
+      position_t _pos;
+      position_t _pos_2;
+      float _num;
+
+      std::string string() const { return std::to_string(_type) + ": pos1:" + utils::PositionToString(_pos) 
+        + ", pos2: " + utils::PositionToString(_pos_2) + ", num: " + utils::Dtos(_num); }
+    };
 
     /**
      * Constructor initializing all resources and gatherers with defaul values
@@ -35,6 +46,7 @@ class Player {
      * @param[in] color (random number generator).
      */
     Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color);
+    Player(const Player& p, Field* field);
 
     virtual ~Player() {}
 
@@ -50,7 +62,12 @@ class Player {
     std::map<position_t, int> new_neurons();
     std::vector<Player*> enemies();
     int color();
-    virtual std::list<AudioDataTimePoint> data_per_beat() { return {}; }
+    virtual std::deque<AudioDataTimePoint> data_per_beat() const { return {}; }
+    virtual Audio* audio() const { return nullptr; }
+    virtual AudioDataTimePoint last_data_point() const { return AudioDataTimePoint(); }
+    virtual std::vector<AiOption> actions() const { return {}; }
+    virtual position_t nucleus_pos() const { return DEFAULT_POS; }
+    virtual int last_action() const { return -1; }
 
     position_t GetSynapesTarget(position_t synapse_pos, int unit);
     std::vector<position_t> GetSynapesWayPoints(position_t synapse_pos, int unit=-1);
@@ -84,6 +101,7 @@ class Player {
      * @return current voltage balance in format: "[cur_voltage] / [max_voltage]"
      */
     std::string GetNucleusLive();
+    int GetNucleusVoltage();
     
     /**
      * Checks whether player has lost.
@@ -232,6 +250,9 @@ class Player {
      * @return potential transfered to the target.
      */
     void MovePotential();
+    void CheckLoophole(Potential& potential);
+    void HandleEpspAndMacro(Potential& potential);
+    bool HandleIpsp(Potential& potential);
 
     void SetBlockForNeuron(position_t pos, bool block);
 
@@ -278,12 +299,13 @@ class Player {
 
     virtual void SetUpTactics(bool) {}
     virtual void HandleIron(const AudioDataTimePoint&) {}
-    virtual void DoAction(const AudioDataTimePoint&) {}
-    virtual void set_last_time_point(const AudioDataTimePoint&) {}
+    virtual bool DoAction() { return false; }
+    virtual bool DoGivenAction(AiOption) { return false; }
+    virtual void Action() {}
+    virtual std::vector<AiOption> GetchChoices() { return {}; }
 
   protected: 
     Field* field_;
-    Audio* audio_;
     std::shared_ptr<Statictics> statistics_;
     RandomGenerator* ran_gen_;
     std::vector<Player*> enemies_;
@@ -296,10 +318,9 @@ class Player {
     double resource_slowdown_;
 
 
-    std::map<position_t, std::unique_ptr<Neuron>> neurons_;
+    std::map<position_t, std::shared_ptr<Neuron>> neurons_;
     std::map<position_t, int> new_dead_neurons_;
     std::map<position_t, int> new_neurons_;
-    position_t main_nucleus_pos_;
 
     std::map<std::string, Potential> potential_;
 

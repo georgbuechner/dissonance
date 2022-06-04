@@ -265,6 +265,7 @@ class Graph {
         return way;
       }
       spdlog::get(LOGGER)->debug("Could not find way: " + utils::PositionToString(s) + " to " + utils::PositionToString(t));
+      std::cout << "Could not find way: " + utils::PositionToString(s) + " to " + utils::PositionToString(t) << std::endl;
       throw "Could not find way: " + utils::PositionToString(s) + " to " + utils::PositionToString(t);
     }
 

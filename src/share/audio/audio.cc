@@ -25,6 +25,11 @@ std::map<std::string, std::vector<std::string>> Audio::keys_ = {};
 
 
 Audio::Audio(std::string base_path) : base_path_(base_path) {}
+Audio::Audio(const Audio& audio) : base_path_(audio.base_path_) {
+  source_path_ = audio.source_path_;
+  filename_ = audio.filename_;
+  analysed_data_ = audio.analysed_data_;
+}
 
 // getter 
 AudioData& Audio::analysed_data() {
@@ -91,7 +96,7 @@ void Audio::AnalyzePeak() {
 
 AudioData Audio::AnalyzeFile(std::string source_path) {
   spdlog::get(LOGGER)->debug("Audio::AnalyzeFile: starting analyses of {}", source_path); 
-  std::list<AudioDataTimePoint> data_per_beat;
+  std::deque<AudioDataTimePoint> data_per_beat;
   uint_t samplerate = 0;
   uint_t win_size = 1024; // window size
   uint_t hop_size = win_size / 4;
@@ -206,7 +211,7 @@ AudioData Audio::Load(nlohmann::json data) {
   audio_data.average_level_ = data["average_level"];
   audio_data.pitches_ = data["pitches"].get<std::vector<double>>();
   audio_data.average_pitch_ = data["average_pitch"];
-  std::list<AudioDataTimePoint> data_per_beat;
+  std::deque<AudioDataTimePoint> data_per_beat;
   for (const auto& it : data["time_points"]) {
     std::vector<int> midis = it["notes"];
     std::vector<Note> notes;

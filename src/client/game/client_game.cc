@@ -668,14 +668,7 @@ void ClientGame::SwitchToFieldContext(position_t pos, int range, std::string act
   // Set data for field-context and empy old positions.
   contexts_.at(CONTEXT_FIELD).set_action(action);
   contexts_.at(CONTEXT_FIELD).set_data(data);
-  // Clear potential sliped handlers
-  std::vector<char> handlers_to_remove;
-  for (const auto& it : contexts_.at(CONTEXT_FIELD).eventmanager().handlers()) {
-    if (handlers_[CONTEXT_FIELD].count(it.first) == 0)
-      handlers_to_remove.push_back(it.first);
-  }
-  for (const auto& it : handlers_to_remove) 
-    contexts_.at(CONTEXT_FIELD).eventmanager().handlers().erase(it);
+  contexts_.at(CONTEXT_FIELD).set_handlers(handlers_[CONTEXT_FIELD]);
   // Let handlers slip through.
   for (const auto& it : slip_handlers) {
     if (contexts_.at(current_context_).eventmanager().handlers().count(it) > 0)
@@ -916,6 +909,7 @@ void ClientGame::m_SetUnits(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->info("ClientGame::m_SetUnits");
   for (const auto& it : data->units()) 
     drawrer_.AddNewUnitToPos(it.pos(), it.unit(), it.color());
+  spdlog::get(LOGGER)->info("ClientGame::m_SetUnits: done, printing game.");
   drawrer_.PrintGame(false, false, current_context_);
 }
 

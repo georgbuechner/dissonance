@@ -7,12 +7,14 @@
 #include <exception>
 #include <iostream>
 #include <locale>
+#include <memory>
 #include <random>
 #include <stdexcept>
 #include <vector>
 
 #include "share/defines.h"
 #include "share/shemes/data.h"
+#include "share/tools/graph.h"
 #include "spdlog/spdlog.h"
 
 #include "server/game/field/field.h"
@@ -29,6 +31,7 @@ Field::Field(int lines, int cols, RandomGenerator* ran_gen) {
   lines_ = lines;
   cols_ = cols;
   ran_gen_ = ran_gen;
+  graph_ = std::make_shared<Graph>();
 
   // initialize empty field.
   for (int l=0; l<=lines_; l++) {
@@ -38,13 +41,25 @@ Field::Field(int lines, int cols, RandomGenerator* ran_gen) {
   }
 }
 
+Field::Field(const Field& field) {
+  lines_ = field.lines_;
+  cols_ = field.cols_;
+  ran_gen_ = field.ran_gen_; // check deep-copy
+  graph_ = field.graph_; 
+  field_ = field.field_; 
+  // neurons are added when player's neurons are added.
+}
+
 // getter 
 unsigned int Field::lines() { return lines_; }
 unsigned int Field::cols() { return cols_; }
+std::shared_ptr<Graph> Field::graph() { return graph_; }
+std::map<position_t, std::map<int, position_t>>& Field::resource_neurons() { return resource_neurons_; }
+
 
 std::vector<position_t> Field::GraphPositions() {
   std::vector<position_t> graph_positions;
-  for (const auto& it : graph_.nodes())
+  for (const auto& it : graph_->nodes())
     graph_positions.push_back(it.second->pos_);
   return graph_positions;
 }
@@ -57,7 +72,7 @@ std::vector<position_t> Field::AddNucleus(unsigned int num_players) {
     unsigned int free_positions = 0;
     auto positions_in_section = GetAllPositionsOfSection(i);
     for (const auto& it : positions_in_section) {
-      if (graph_.InGraph(it)) 
+      if (graph_->InGraph(it)) 
         free_positions++;
     }
     if (free_positions > positions_in_section.size()/4)
@@ -80,13 +95,14 @@ std::vector<position_t> Field::AddNucleus(unsigned int num_players) {
     // Add to field and nucleus positions.
     field_[pos.first][pos.second] = SYMBOL_DEN;
     nucleus_positions.push_back(pos);
+    AddResources(pos);
     spdlog::get(LOGGER)->info("Adding nucleus at position: {}", utils::PositionToString(pos));
   }
   spdlog::get(LOGGER)->info("Field::AddNucleus: done");
   return nucleus_positions;
 }
 
-std::map<int, position_t> Field::AddResources(position_t start_pos) {
+void Field::AddResources(position_t start_pos) {
   spdlog::get(LOGGER)->info("Field::AddResources {}", utils::PositionToString(start_pos));
   std::map<int, position_t> resource_positions;
 
@@ -110,8 +126,8 @@ std::map<int, position_t> Field::AddResources(position_t start_pos) {
     field_[pos.first][pos.second] = it.first;
     resource_positions[it.second] = pos;
   }
+  resource_neurons_[start_pos] = resource_positions;
   spdlog::get(LOGGER)->info("Field::AddResources: done");
-  return resource_positions;
 }
 
 void Field::BuildGraph() {
@@ -121,46 +137,24 @@ void Field::BuildGraph() {
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
       if (field_[l][c] != SYMBOL_HILL)
-        graph_.AddNode(l, c);
+        graph_->AddNode(l, c);
     }
   }
   // For each node, add edges.
   spdlog::get(LOGGER)->debug("Field::BuildGraph: Adding edged...");
-  for (auto node : graph_.nodes()) {
+  for (auto node : graph_->nodes()) {
     for (const auto& pos : GetAllInRange(node.second->pos_, 1.5, 1)) {
-      if (InField(pos) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
-        graph_.AddEdge(node.second, graph_.GetNode(pos));
+      if (InField(pos) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_->InGraph(pos))
+        graph_->AddEdge(node.second, graph_->GetNode(pos));
     }
   }
   // Remove all nodes not in main circle
   spdlog::get(LOGGER)->debug("Field::BuildGraph: reducing to greates component...");
-  int num_positions_before = graph_.nodes().size();
-  graph_.ReduceToGreatestComponent();
-  spdlog::get(LOGGER)->info("Field::BuildGraph: Done. {}/{} positions left!", graph_.nodes().size(), 
+  int num_positions_before = graph_->nodes().size();
+  graph_->ReduceToGreatestComponent();
+  spdlog::get(LOGGER)->info("Field::BuildGraph: Done. {}/{} positions left!", graph_->nodes().size(), 
       num_positions_before);
 }
-
-// void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned short denceness) {
-//   spdlog::get(LOGGER)->info("Field::AddHills: denceness={}", denceness);
-//   for (int l=0; l<lines_; l++) {
-//     for (int c=0; c<cols_; c++) {
-//       // Check random 50% chance for building a mountain.
-//       if (gen_1->RandomInt(0, 1) == 1) {
-//         spdlog::get(LOGGER)->debug("Creating muntain: {}|{}", l, c);
-//         field_[l][c] = SYMBOL_HILL;
-//         // Get size of mountain (0-5)
-//         int level = gen_2->RandomInt(0, 5)-999;
-//         if (level < 1)
-//           continue;
-//         spdlog::get(LOGGER)->debug("Creating {} hills", level);
-//         auto positions = GetAllInRange({l, c}, level - denceness, 1);
-//         for (const auto& pos : positions)
-//           field_[pos.first][pos.second] = SYMBOL_HILL;
-//       }
-//     }
-//   }
-//   spdlog::get(LOGGER)->debug("Field::AddHills: done");
-// }
 
 void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned short denceness) {
   auto pitches = gen_1->analysed_data().EveryXPitch(lines_*cols_);
@@ -203,7 +197,7 @@ std::list<position_t> Field::GetWay(position_t start_pos, std::vector<position_t
   for (unsigned int i=0; i<way_points.size(); i++) {
     try {
       // Get new way-part
-      auto new_part = graph_.DijkstrasWay(way.back(), way_points[i]);
+      auto new_part = graph_->DijkstrasWay(way.back(), way_points[i]);
       new_part.pop_front(); // Remove first element (start-position).
       way.insert(way.end(), new_part.begin(), new_part.end());
       // set start-pos as current way-point
@@ -216,18 +210,36 @@ std::list<position_t> Field::GetWay(position_t start_pos, std::vector<position_t
   return way;
 }
 
-void Field::AddNewUnitToPos(position_t pos, int unit) {
+void Field::AddNewUnitToPos(position_t pos, std::shared_ptr<Neuron> neuron, Player* p) {
   std::unique_lock ul_field(mutex_field_);
-  if (unit == UnitsTech::ACTIVATEDNEURON)
+  if (neuron->type_ == UnitsTech::ACTIVATEDNEURON)
     field_[pos.first][pos.second] = SYMBOL_DEF;
-  else if (unit == UnitsTech::SYNAPSE)
+  else if (neuron->type_== UnitsTech::SYNAPSE)
     field_[pos.first][pos.second] = SYMBOL_BARACK;
-  else if (unit == UnitsTech::NUCLEUS)
+  else if (neuron->type_ == UnitsTech::NUCLEUS)
     field_[pos.first][pos.second] = SYMBOL_DEN;
+  neurons_[pos] = {neuron, p};
+}
+
+void Field::RemoveUnitFromPos(position_t pos) {
+  if (neurons_.count(pos) > 0)
+    neurons_.erase(pos);
+}
+
+std::pair<short, Player*> Field::GetNeuronTypeAtPosition(position_t pos) {
+  if (neurons_.count(pos) > 0)
+    return {neurons_.at(pos).first->type_, neurons_.at(pos).second};
+  return {-1, nullptr};
 }
 
 bool Field::InField(position_t pos) {
   return (pos.first >= 0 && pos.first <= lines_ && pos.second >= 0 && pos.second <= cols_);
+}
+
+void Field::ClearNeurons() {
+  for (const auto& it : neurons_)
+    field_[it.first.first][it.first.second] = SYMBOL_FREE;
+  neurons_.clear();
 }
 
 position_t Field::FindFree(position_t pos, int min, int max) {
@@ -252,7 +264,7 @@ std::vector<position_t> Field::GetAllInRange(position_t start, double max_dist, 
       position_t pos = {upper_corner.first+i, upper_corner.second+j};
       if (InField(pos) && utils::InRange(start, pos, min_dist, max_dist)
           && (!free || field_[pos.first][pos.second] == SYMBOL_FREE)
-          && (!free || graph_.InGraph(pos)))
+          && (!free || graph_->InGraph(pos)))
         positions_in_range.push_back(pos);
     }
   }
@@ -278,7 +290,7 @@ std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval,
   int c = (interval < (SECTIONS/2)+1) ? 0 : lines_/2;
   for (int i=l; i<l+cols_/4; i++) {
     for (int j=c; j<c+lines_/2; j++) {
-      if (!in_graph || graph_.InGraph({j, i}))
+      if (!in_graph || graph_->InGraph({j, i}))
         positions.push_back({j, i});
     }
   }

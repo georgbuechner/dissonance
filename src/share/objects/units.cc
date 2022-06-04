@@ -1,6 +1,7 @@
 #include "share/objects/units.h"
 #include "share/constants/codes.h"
 #include "share/tools/utils/utils.h"
+#include "spdlog/spdlog.h"
 #include <cstddef>
 
 // Neurons
@@ -11,14 +12,22 @@ Neuron::Neuron(position_t pos, int lp, int type) : Unit(pos, type) {
   blocked_ = false;
 }
 
+Neuron::Neuron(const Neuron& neuron) {
+  pos_ = neuron.pos_;
+  type_ = neuron.type_;
+  lp_ = neuron.lp_;
+  max_lp_ = neuron.max_lp_;
+  blocked_ = neuron.blocked_;
+}
+
 // getter 
-int Neuron::voltage() { 
+int Neuron::voltage() const { 
   return lp_; 
 }
-int Neuron::max_voltage() { 
+int Neuron::max_voltage() const { 
   return max_lp_; 
 }
-bool Neuron::blocked() { return blocked_; };
+bool Neuron::blocked() const { return blocked_; };
 
 // setter
 void Neuron::set_blocked(bool blocked) { 
@@ -50,18 +59,33 @@ Synapse::Synapse(position_t pos, int max_stored, int num_availible_ways, positio
   num_availible_way_points_ = num_availible_ways;
 }
 
+Synapse::Synapse(const Neuron& neuron) : Neuron(neuron) {
+  swarm_ = neuron.swarm();
+  max_stored_ = neuron.max_stored();
+  stored_ = neuron.stored();
+  epsp_target_ = neuron.ipsp_target();
+  ipsp_target_ = neuron.epsp_target();
+  macro_target_ = neuron.macro_target();
+  num_availible_way_points_ = neuron.num_availible_ways();
+  way_points_ = neuron.ways_points();
+  spdlog::get(LOGGER)->debug("Added Synape. type: {}", type_);
+}
+
 // getter: 
-std::vector<position_t> Synapse::ways_points() { 
+std::vector<position_t> Synapse::ways_points() const { 
   return way_points_; 
 }
-bool Synapse::swarm() { 
+bool Synapse::swarm() const { 
   return swarm_; 
 }
-unsigned int Synapse::num_availible_ways() { 
+unsigned int Synapse::num_availible_ways() const { 
   return num_availible_way_points_; 
 }
-unsigned int Synapse::max_stored() { 
+unsigned int Synapse::max_stored() const { 
   return max_stored_; 
+}
+unsigned int Synapse::stored() const { 
+  return stored_; 
 }
 
 // setter: 
@@ -129,11 +153,20 @@ ActivatedNeuron::ActivatedNeuron(position_t pos, int slowdown_boast, int speed_b
   potential_slowdown_ = 1+slowdown_boast;
 }
 
+ActivatedNeuron::ActivatedNeuron(const Neuron& neuron) : Neuron(neuron) {
+  movement_ = neuron.movement();
+  potential_slowdown_ = neuron.potential_slowdown();
+  spdlog::get(LOGGER)->debug("Added ActivatedNeuron. type: {}", type_);
+}
+
 // getter 
-int ActivatedNeuron::movement() { 
+int ActivatedNeuron::cur_movement() const { 
   return movement_.first; 
 }
-int ActivatedNeuron::potential_slowdown() { 
+std::pair<int, int> ActivatedNeuron::movement() const { 
+  return movement_; 
+}
+int ActivatedNeuron::potential_slowdown() const { 
   return potential_slowdown_; 
 }
 
@@ -152,8 +185,11 @@ ResourceNeuron::ResourceNeuron(position_t pos, size_t resource) : Neuron(pos, 0,
     resource_(resource) {
   spdlog::get(LOGGER)->debug("ResourceNeuron::ResourceNeuron, type {}", UnitsTech::RESOURCENEURON);
 }
+ResourceNeuron::ResourceNeuron(const Neuron& neuron) : Neuron(neuron), resource_(neuron.resource()) { 
+  spdlog::get(LOGGER)->debug("Added ResourceNeuron. type: {}", type_);
+}
 
 // getter 
-size_t ResourceNeuron::resource() {
+size_t ResourceNeuron::resource() const {
   return resource_;
 }

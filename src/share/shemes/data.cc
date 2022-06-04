@@ -167,6 +167,7 @@ Update::Update(const char* payload, size_t len, size_t& offset) : Data() {
 
   unpack(result, payload, len, offset);
   new_dead_neurons_ = result->as<std::map<position_t, int>>();
+  spdlog::get(LOGGER)->debug("New-dead-neurons size: {}", new_dead_neurons_.size());
 
   unpack(result, payload, len, offset);
   audio_played_ = result->as<float>();
@@ -205,6 +206,7 @@ void Update::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, players_);
   msgpack::pack(buffer, potentials_);
   msgpack::pack(buffer, new_dead_neurons_);
+  spdlog::get(LOGGER)->debug("New-dead-neurons size: {}", new_dead_neurons_.size());
   msgpack::pack(buffer, audio_played_);
   // resources
   msgpack::pack(buffer, resources_.size());
@@ -379,6 +381,17 @@ Statictics::Statictics(const char* payload, size_t len, size_t& offset) : Data()
   resources_ = result->as<std::map<int, std::map<std::string, double>>>();
   unpack(result, payload, len, offset);
   technologies_ = result->as<std::map<int, tech_of_t>>();
+}
+Statictics::Statictics(const Statictics& statistics) {
+  player_name_ = statistics.player_name_;
+  player_color_ = statistics.player_color_;
+  neurons_build_ = statistics.neurons_build_;
+  potentials_build_ = statistics.potentials_build_;
+  potentials_killed_ = statistics.potentials_killed_;
+  potentials_lost_ = statistics.potentials_lost_;
+  epsp_swallowed_ = statistics.epsp_swallowed_;
+  resources_ = statistics.resources_;
+  technologies_ = statistics.technologies_;
 }
 
 // getter

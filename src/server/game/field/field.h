@@ -2,6 +2,7 @@
 #define SRC_FIELD_H_
 
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <shared_mutex>
@@ -24,11 +25,13 @@ class Field {
      * @param[in] cols availible cols
      */
     Field(int lines, int cols, RandomGenerator* ran_gen);
+    Field(const Field& field);
 
     // getter 
     unsigned int lines();
     unsigned int cols();
-    Graph& graph() { return graph_; }
+    std::shared_ptr<Graph> graph();
+    std::map<position_t, std::map<int, position_t>>& resource_neurons();
 
     // methods:
     
@@ -46,7 +49,7 @@ class Field {
      * Adds resources ([G]old, [S]ilver, [B]ronze) near given position.
      * @param start_pos position near which to create resources.
      */
-    std::map<int, position_t> AddResources(position_t start_pos);
+    void AddResources(position_t start_pos);
 
     /**
      * Adds position for player nucleus.
@@ -69,7 +72,11 @@ class Field {
      * @param pos position of new defence tower.
      * @param unit integer to identify unit.
      */
-    void AddNewUnitToPos(position_t pos, int unit);
+    void AddNewUnitToPos(position_t pos, std::shared_ptr<Neuron> neuron, Player* p);
+    void RemoveUnitFromPos(position_t pos);
+    std::pair<short, Player*> GetNeuronTypeAtPosition(position_t pos);
+    void ClearNeurons();
+    
 
     /**
      * Gets way to a soldiers target.
@@ -134,9 +141,11 @@ class Field {
     int lines_;
     int cols_;
     RandomGenerator* ran_gen_;
-    Graph graph_;
+    std::shared_ptr<Graph> graph_;
     std::vector<std::vector<std::string>> field_;
+    std::map<position_t, std::pair<std::shared_ptr<Neuron>, Player*>> neurons_;
     std::shared_mutex mutex_field_;
+    std::map<position_t, std::map<int, position_t>> resource_neurons_;
 
     // functions
     

@@ -92,6 +92,8 @@ void Resource::Increase(double gain, double slowdown) {
         calc_boast, gain, calc_negative_factor, free_, bound_, limit_);
   }
   else {
+    if (val+free_+bound_ > limit_)
+      val = 0;
     free_ += val;
     total_ += val;
     average_boost_.push_back(calc_boast);

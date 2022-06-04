@@ -49,13 +49,9 @@ class Context {
 
     // getter
     std::string msg() const { return msg_; }
-    int current_unit() const { return current_unit_; }
-    int current_range() const { return current_range_; }
-    position_t current_pos() const { return current_pos_; }
     char cmd() const { return cmd_; }
     std::shared_ptr<Data> data() const { return data_; }
     std::string action() const { return action_; }
-    texts::paragraphs_field_t text() const { return text_; }
     unsigned int num() const { return num_; }
     int last_context() const { return last_context_; }
 
@@ -63,12 +59,15 @@ class Context {
     EventManager<char, ClientGame, std::shared_ptr<Data>>& eventmanager() { return eventmanager_; }
 
     // setter 
+    void set_handlers(std::map<char, void(ClientGame::*)(std::shared_ptr<Data> data)> handlers) {
+      eventmanager_.handlers().clear();
+      for (const auto& it : handlers)
+        eventmanager_.AddHandler(it.first, it.second);
+    }
     void set_data(std::shared_ptr<Data> data) { data_ = data; }
     void set_cmd(char cmd) { cmd_ = cmd; }
     void set_action(std::string action) { action_ = action; }
-    void set_text(texts::paragraphs_field_t text) { text_ = text; }
     void set_num(unsigned int num) { num_ = num; }
-    void set_last_context(int context) { last_context_ = context; }
 
     // methods 
     void init_text(texts::paragraphs_field_t text, int context) {
@@ -83,9 +82,6 @@ class Context {
     EventManager<char, ClientGame, std::shared_ptr<Data>> eventmanager_;
     std::string action_;
     std::string msg_;
-    int current_unit_;
-    int current_range_;
-    position_t current_pos_;
 
     char cmd_;
     std::shared_ptr<Data> data_;

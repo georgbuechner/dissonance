@@ -1,5 +1,6 @@
 #include "server/game/server_game.h"
 #include "server/game/player/audio_ki.h"
+#include "server/game/player/monto_carlo_ai.h"
 #include "server/game/player/player.h"
 #include "share/audio/audio.h"
 #include "share/constants/codes.h"
@@ -19,6 +20,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <deque>
 #include <exception>
 #include <filesystem>
 #include <memory>
@@ -262,10 +264,8 @@ void ServerGame::m_BuildNeurons(std::shared_ptr<Data> data) {
   else 
     success = player->AddNeuron(pos, unit);
   // Add position to field, tell all players to add position and send success mesage.
-  if (success) {
-    field_->AddNewUnitToPos(pos, unit);
+  if (success)
     ws_server_->SendMessage(data->u(), "set_unit", std::make_shared<FieldPosition>(pos, unit, player->color()));
-  }
   else
     ws_server_->SendMessage(data->u(), "set_msg", std::make_shared<Msg>("Failed!"));
 }
@@ -491,10 +491,11 @@ void ServerGame::InitAiGame(std::string base_path, std::string path_audio_map, s
   audios.push_back(audio_b);
 
   // Create players
-  players_["AI (" + audios[0]->filename(true) + ")"] = nullptr;
-  players_["AI (" + audios[1]->filename(true) + ")"] = nullptr;
+  players_["AI (1)"] = nullptr;
+  players_["AI (2)"] = nullptr;
 
   // Initialize game (for ai-games `StartGame` does not start game, but only create map etc.)
+  spdlog::get(LOGGER)->debug("Creating ai game");
   StartGame(audios);
   // Actually start AI game and keep track of time.
   auto audio_start_time = std::chrono::steady_clock::now();
@@ -520,18 +521,19 @@ void ServerGame::StartGame(std::vector<Audio*> audios) {
   for (const auto& it : nucleus_positions)
     nucleus_positions_str += utils::PositionToString(it) + ", ";
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Creating {} players at {}", max_players_, nucleus_positions_str);
+  unsigned int ai_audio_counter = 0;
   unsigned int counter = 0;
-  unsigned int ai_counter = 0;
   for (const auto& it : players_) {
     int color = (counter % 4) + 10; // currently results in four different colors
     // Add AI
     if (IsAi(it.first)) {
       // If audios are given, uses one of the audios (observer- or ai-game)
       if (audios.size() == 0)
-        players_[it.first] = new AudioKi(nucleus_positions[counter], field_, &audio_, ran_gen, color);
+        players_[it.first] = new MontoCarloAi(nucleus_positions[counter], field_, &audio_, ran_gen, color);
       // Other wise uses same audio as map.
       else 
-        players_[it.first] = new AudioKi(nucleus_positions[counter], field_, audios[ai_counter++], ran_gen, color);
+        players_[it.first] = new MontoCarloAi(nucleus_positions[counter], field_, audios[ai_audio_counter++], 
+            ran_gen, color);
     }
     // Add human player
     else {
@@ -601,22 +603,19 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
 }
 
 bool ServerGame::RunAiGame() {
+  spdlog::get(LOGGER)->debug("ServerGame::RunAiGame");
   // Get audio-data for map and all ais..
   auto data_per_beat = audio_.analysed_data().data_per_beat_;
-  std::map<std::string, std::list<AudioDataTimePoint>> audio_ais;
-  for (const auto& it : players_)
-    audio_ais[it.first] = it.second->data_per_beat();
-
-  std::map<std::string, int> time_analysis;
+  std::string main_ai = players_.begin()->first;
+  std::cout << main_ai << " is main_ai." << std::endl;
+  RandomGenerator* ran_gen = new RandomGenerator();
 
   // Main-loop going through all beats in song once.
   int counter=0;
   while(data_per_beat.size() > 0) {
     // Get next beat.
-    auto start_time_stamps = std::chrono::steady_clock::now();
     auto data_at_beat = data_per_beat.front();
     data_per_beat.pop_front();
-    time_analysis["TimeStamps"]+=utils::GetElapsedNano(start_time_stamps, std::chrono::steady_clock::now());
 
     // Main actions
     for (const auto& ai : players_) {
@@ -624,64 +623,177 @@ bool ServerGame::RunAiGame() {
       ai.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
       ai.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
       // Get next audio-data and if empty, reset to beginning.
-      auto start_time_stamps_ais = std::chrono::steady_clock::now();
-      auto data_at_beat_ai = audio_ais[ai.first].front();
-      audio_ais[ai.first].pop_front();
-      if (audio_ais[ai.first].size() == 0)
-        audio_ais[ai.first] = ai.second->data_per_beat();
-      time_analysis["TimeStampsAis"]+=utils::GetElapsedNano(start_time_stamps_ais, std::chrono::steady_clock::now());
       // Do action and set last time-point.
-      auto start = std::chrono::steady_clock::now();
-      ai.second->DoAction(data_at_beat_ai);
-      time_analysis["DoAction"]+=utils::GetElapsedNano(start, std::chrono::steady_clock::now());
-      ai.second->set_last_time_point(data_at_beat);
+      if (ai.first == main_ai) {
+        auto start = std::chrono::steady_clock::now();
+        spdlog::get(LOGGER)->debug("Main Ais turn");
+        auto actions = ai.second->GetchChoices();
+        if (actions.size() > 0) {
+          spdlog::get(LOGGER)->debug("Got {} actions for MC-AI", actions.size());
+          std::map<float, std::vector<Player::AiOption>> weigthed_actions;
+          std::cout << "Players turn: " << std::endl;
+          for (const auto& action : actions) {
+            auto start_mc_game = std::chrono::steady_clock::now();
+            auto res = RunMCGames(data_per_beat, main_ai, action);
+            std::cout << " - " << action.string() << ": " << res << " (" 
+              << utils::GetElapsed(start_mc_game, std::chrono::steady_clock::now()) << ")" << std::endl;
+            weigthed_actions[res].push_back(action);
+          }
+          auto action = weigthed_actions.begin()->second[ran_gen->RandomInt(0, 
+              weigthed_actions.begin()->second.size()-1)];
+          std::cout << " -> Using: " << action.string() << " (" << weigthed_actions.begin()->first << ")" << std::endl;
+          ai.second->DoGivenAction(action);
+          std::cout << utils::GetElapsed(start, std::chrono::steady_clock::now()) << "ms to find next move." << std::endl;
+        }
+      }
+      else {
+        spdlog::get(LOGGER)->debug("Opponents turn");
+        ai.second->DoAction();
+        for (const auto& it : players_) {
+          spdlog::get(LOGGER)->info("RunAiGame: {} with {} oxygen, {} potassium, {} glutamate, {} neurons and {} potentials", 
+            it.first,
+            it.second->resources().at(OXYGEN).cur(), 
+            it.second->resources().at(POTASSIUM).cur(), 
+            it.second->resources().at(GLUTAMATE).cur(), 
+            it.second->GetAllPositionsOfNeurons().size(), 
+            it.second->potential().size());
+        }
+      }
     }
 
     // Movement actions: repeat eight time for every beat.
     for (int i=0; i<8; i++) {
       // Move potentials
-      auto start_move = std::chrono::steady_clock::now();
       for (const auto& ai : players_)
         ai.second->MovePotential();
-      time_analysis["MovePotential"]+=utils::GetElapsedNano(start_move, std::chrono::steady_clock::now());
       // Check if one player has lost.
       for (const auto& ai : players_) {
         if (ai.second->HasLost()) {
-          std::cout << "Time analysis: " << std::endl;
-          for (const auto& it : time_analysis) {
-            std::cout << it.first << ": " << it.second << std::endl; 
-          }
           return true;
         }
       }
-      auto start_def_1 = std::chrono::steady_clock::now();
       // Handle def and ipsp-swallow.
       if (counter++%4 == 0) {
         for (const auto& ai : players_) {
           ai.second->HandleDef();
         }
       }
-      time_analysis["Def 1"]+=utils::GetElapsedNano(start_def_1, std::chrono::steady_clock::now());
-      auto start_def_2 = std::chrono::steady_clock::now();
       for (const auto& ai : players_) {
         for (const auto& it : ai.second->GetIpspAtPosition())
           IpspSwallow(it.first, ai.second, ai.second->enemies());
       }
-      time_analysis["Def 2"]+=utils::GetElapsedNano(start_def_2, std::chrono::steady_clock::now());
     }
   }
-  std::cout << "Time analysis: " << std::endl;
-  for (const auto& it : time_analysis) {
-    std::cout << it.first << ": " << it.second/1000000 << std::endl; 
-  }
+  std::cout << "Time analysis (after " << counter << " beats): " << std::endl;
   return false;
+}
+
+float ServerGame::RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, std::string main_ai, 
+    Player::AiOption action) {
+  spdlog::get(LOGGER)->debug("ServerGame::RunMCGames: action {}", action._type);
+
+  spdlog::get(LOGGER)->debug("ServerGame::RunMCGames: creating field");
+  Field field(*field_);
+
+  spdlog::get(LOGGER)->debug("ServerGame::RunMCGames: creating players");
+  std::map<std::string, Player*> ais;
+  for (const auto& it : players_)
+    ais[it.first] = new MontoCarloAi(*it.second, &field);
+  for (const auto& it : ais) {
+    std::vector<Player*> enemies;
+    for (const auto& jt : ais)
+      if (jt.first != it.first) 
+        enemies.push_back(jt.second);
+    it.second->set_enemies(enemies);
+  }
+
+ 
+  spdlog::get(LOGGER)->debug("ServerGame::RunMCGames: do action");
+  // Do selected action
+  ais[main_ai]->DoGivenAction(action);
+  for (const auto& it : ais) {
+    if (it.first != main_ai)
+      it.second->DoAction();
+  }
+
+  spdlog::get(LOGGER)->debug("ServerGame::RunMCGames: playout!");
+  // Main-loop going through all beats in song once.
+  int counter=0;
+  bool end = false;
+  while(data_per_beat.size() > 0 && end != true) {
+    // Get next beat.
+    auto data_at_beat = data_per_beat.front();
+    data_per_beat.pop_front();
+
+    // Main actions
+    for (const auto& ai : ais) {
+      // IncreaseResources (ai gets double resources)
+      ai.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      ai.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      // Get next audio-data and if empty, reset to beginning.
+      // Do action and set last time-point (random-choice for both ais)
+      spdlog::get(LOGGER)->info("RunMCGame: {} with {} iron, {} oxygen, {} potassium, {} chloride, {} glutamate, "
+          "{} dopamine, {} serotonin, {} neurons and {} potentials", 
+        ai.first,
+        ai.second->resources().at(IRON).cur(), 
+        ai.second->resources().at(OXYGEN).cur(), 
+        ai.second->resources().at(POTASSIUM).cur(), 
+        ai.second->resources().at(CHLORIDE).cur(), 
+        ai.second->resources().at(GLUTAMATE).cur(), 
+        ai.second->resources().at(DOPAMINE).cur(), 
+        ai.second->resources().at(SEROTONIN).cur(), 
+        ai.second->GetAllPositionsOfNeurons().size(), 
+        ai.second->potential().size());
+      ai.second->DoAction();
+      for (const auto& it: ais) {
+        spdlog::get(LOGGER)->debug("ServerGame::RunMCGame (before action). nucleus_positions: {}", 
+          it.second->GetAllPositionsOfNeurons(NUCLEUS).size());
+      }
+    }
+
+    // Movement actions: repeat eight time for every beat.
+    for (int i=0; i<8; i++) {
+      // Move potentials
+      for (const auto& ai : ais)
+        ai.second->MovePotential();
+      // Check if one player has lost.
+      for (const auto& ai : ais) {
+        if (ai.second->HasLost())
+          end = true;
+      }
+      // Handle def and ipsp-swallow.
+      if (counter++%4 == 0) {
+        for (const auto& ai : ais) {
+          ai.second->HandleDef();
+        }
+      }
+      for (const auto& ai : ais) {
+        for (const auto& it : ai.second->GetIpspAtPosition())
+          IpspSwallow(it.first, ai.second, ai.second->enemies());
+      }
+    }
+  }
+  int voltage_player = ais.at(main_ai)->GetNucleusVoltage();
+  int voltage_enemy = 0;
+  for (const auto& ai : ais) {
+    if (ai.first != main_ai)
+      voltage_enemy = ai.second->GetNucleusVoltage();
+  }
+  for (const auto& it : ais)
+    delete it.second;
+
+  if (voltage_player == 0 && voltage_enemy == 0)
+    return 1;
+  if (voltage_enemy == 0)
+    return 0xFFF;
+  return (float)voltage_player/(float)voltage_enemy;
 }
 
 void ServerGame::Thread_RenderField() {
   spdlog::get(LOGGER)->info("Game::Thread_RenderField: started");
   // Set up audio data and initialize render-frequency (8 times per beat).
   auto audio_start_time = std::chrono::steady_clock::now();
-  std::list<AudioDataTimePoint> data_per_beat = audio_.analysed_data().data_per_beat_;
+  std::deque<AudioDataTimePoint> data_per_beat = audio_.analysed_data().data_per_beat_;
   auto last_update = std::chrono::steady_clock::now();
   auto data_at_beat = data_per_beat.front();
   double render_frequency = 60000.0/(data_at_beat.bpm_*8);
@@ -759,37 +871,28 @@ void ServerGame::Thread_RenderField() {
 void ServerGame::Thread_Ai(std::string username) {
   spdlog::get(LOGGER)->info("Game::Thread_Ai: started: {}", username);
   auto audio_start_time = std::chrono::steady_clock::now();
-  std::list<AudioDataTimePoint> data_per_beat = players_.at(username)->data_per_beat();
   Player* ai = players_.at(username);
 
   // Handle building neurons and potentials.
-  auto data_at_beat = data_per_beat.front();
+  auto data_at_beat = ai->data_per_beat().front();
   while(ai && !ai->HasLost() && status_ < CLOSING) {
     if (pause_) continue;
     auto cur_time = std::chrono::steady_clock::now();
     // Analyze audio data.
     std::shared_lock sl(mutex_pause_);
     if (utils::GetElapsed(audio_start_time, cur_time)-time_in_pause_ >= data_at_beat.time_) {
-      spdlog::get(LOGGER)->flush();
+      spdlog::get(LOGGER)->debug("ServerGame::Thread_Ai: next action {}", data_at_beat.time_);
       sl.unlock();
       // Do action.
       std::unique_lock ul(mutex_players_);
-      ai->DoAction(data_at_beat);
-      ai->set_last_time_point(data_at_beat);
+      // if last audi-data-point reached, reset audio.
+      if (ai->DoAction())
+        audio_start_time = std::chrono::steady_clock::now();
+      data_at_beat = ai->data_per_beat().front();
       // Increase reasources twice every beat.
       ai->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
       // if (!tutorial_) 
       ai->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
-      // Update render-frequency.
-      data_per_beat.pop_front();
-      // If all beats have been used, restart at beginning.
-      if (data_per_beat.size() == 0) {
-        spdlog::get(LOGGER)->debug("AI audio-data done. Resetting... {}", players_.at(username)->data_per_beat().size());
-        data_per_beat = players_.at(username)->data_per_beat();
-        audio_start_time = std::chrono::steady_clock::now();
-      }
-      else 
-        data_at_beat = data_per_beat.front();
     }
   }
   spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");
@@ -852,7 +955,7 @@ std::shared_ptr<Update> ServerGame::CreateBaseUpdate(float audio_played) {
   for (const auto& it : players_) {
     players_status[it.first] = {it.second->GetNucleusLive(), it.second->color()};
     for (const auto& it : it.second->new_dead_neurons())
-      new_dead_neurons[it.first]= it.second;
+      new_dead_neurons[it.first] = it.second;
   }
   return std::make_shared<Update>(players_status, updated_potentials, new_dead_neurons, audio_played);
 }
@@ -873,8 +976,6 @@ void ServerGame::SendInitialData() {
   // Send data to all observers.
   for (const auto& it : observers_)
     ws_server_->SendMessage(it, "init_game", init);
-  // Send all new neurons to obersers.
-  SendNeuronsToObservers();
 }
 
 void ServerGame::SendUpdate(float audio_played) {
@@ -887,7 +988,7 @@ void ServerGame::SendUpdate(float audio_played) {
   }
   // Send data to all observers.
   for (const auto& it : observers_)
-    ws_server_->SendMessage(it, "update", update);
+    ws_server_->SendMessage(it, "update_game", update);
   // Send all new neurons to obersers.
   SendNeuronsToObservers();
 }
@@ -951,6 +1052,7 @@ void ServerGame::SendNeuronsToObservers() {
     for (const auto& neuron : it.second->new_neurons()) 
       units.push_back(FieldPosition(neuron.first, neuron.second, it.second->color())); 
   }
+  spdlog::get(LOGGER)->debug("SendMessage: Sending {} neurons to obsers", units.size());
   for (const auto& it : observers_)
     ws_server_->SendMessage(it, "set_units", std::make_shared<Units>(units));
 }

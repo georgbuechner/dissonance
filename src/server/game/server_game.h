@@ -2,6 +2,7 @@
 #define SRC_SERVER_GAME_H_
 
 #include <cstddef>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -90,7 +91,6 @@ class ServerGame {
      */
     void Thread_Ai(std::string username);
 
-    bool RunAiGame();
 
 
   private: 
@@ -98,6 +98,7 @@ class ServerGame {
     std::shared_mutex mutex_players_;
     std::map<std::string, Player*> players_;
     std::map<std::string, Player*> human_players_;
+    std::vector<std::vector<std::string>> original_field_;
 
     std::vector<std::string> observers_;
     std::set<std::string> dead_players_;
@@ -290,6 +291,8 @@ class ServerGame {
      */
     Player* GetPlayer(std::string username);
 
+    bool RunAiGame();
+    float RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, std::string main_ai, Player::AiOption action);
 };
 
 #endif

@@ -13,6 +13,7 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <queue>
 #include <string>
 #include <vector>
 #define MINIAUDIO_IMPLEMENTATION
@@ -45,7 +46,7 @@ struct Interval {
 };
 
 struct AudioData {
-  std::list<AudioDataTimePoint> data_per_beat_;
+  std::deque<AudioDataTimePoint> data_per_beat_;
   float average_bpm_;
   float average_level_;
   std::vector<double> pitches_;
@@ -69,6 +70,7 @@ struct AudioData {
 class Audio {
   public:
     Audio(std::string base_path);
+    Audio(const Audio& audio);
     
     // getter
     AudioData& analysed_data();

@@ -389,6 +389,7 @@ class Statictics : public Data {
   public:
     Statictics();
     Statictics(const char* payload, size_t len, size_t& offset);
+    Statictics(const Statictics& statistics);
 
     // getter
     std::string player_name() const;
