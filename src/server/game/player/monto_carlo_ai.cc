@@ -1,4 +1,6 @@
 #include "server/game/player/monto_carlo_ai.h"
+#include "curses.h"
+#include "nlohmann/json_fwd.hpp"
 #include "server/game/player/player.h"
 #include "share/audio/audio.h"
 #include "share/constants/codes.h"
@@ -7,50 +9,65 @@
 #include "share/tools/utils/utils.h"
 #include "spdlog/spdlog.h"
 #include <deque>
+#include <unistd.h>
 #include <vector>
 
-MontoCarloAi::MontoCarloAi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, int color) 
+RandomChoiceAi::RandomChoiceAi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, int color)
   : Player(nucleus_pos, field, ran_gen, color) {
-  spdlog::get(LOGGER)->info("Creating MontoCarloAi...");
+  spdlog::get(LOGGER)->info("Creating MontoCarloAi...audio is {}", audio == nullptr);
   audio_ = audio;
+  delete_audio_ = false;
   ran_gen_ = new RandomGenerator();
   data_per_beat_ = audio_->analysed_data().data_per_beat_;
   last_action_ = 0;
-  nucleus_pos_ = nucleus_pos;
+  std::cout << "data points: " << data_per_beat_.size() << std::endl;
+  action_pool_ = data_per_beat_.size()/10;
+  std::cout << "action_pool_ is " << action_pool_ << std::endl;
 }
 
-MontoCarloAi::MontoCarloAi(const Player& ai, Field* field) : Player(ai, field) {
+RandomChoiceAi::RandomChoiceAi(const Player& ai, Field* field) : Player(ai, field) {
+  spdlog::get(LOGGER)->debug("RandomChoiceAi::RandomChoiceAi: copy-constructor.");
+  spdlog::get(LOGGER)->debug("RandomChoiceAi::RandomChoiceAi: creating audio. audio is {}", ai.audio() == nullptr);
   audio_ = new Audio(*ai.audio());
+  spdlog::get(LOGGER)->debug("RandomChoiceAi::RandomChoiceAi: audio created.");
+  delete_audio_ = true;
   data_per_beat_ = ai.data_per_beat();
+  spdlog::get(LOGGER)->debug("RandomChoiceAi::RandomChoiceAi: data per beat set.");
   last_data_point_ = ai.last_data_point();
-  nucleus_pos_ = ai.nucleus_pos();
+  spdlog::get(LOGGER)->debug("RandomChoiceAi::RandomChoiceAi: last data-point set.");
+  action_pool_ = ai.action_pool();
+  spdlog::get(LOGGER)->debug("RandomChoiceAi::RandomChoiceAi: action point set.");
   spdlog::get(LOGGER)->debug("MontoCarloAi::MontoCarloAi. Added new monto_carlo_ai with inition neurons:");
   for (const auto& it : neurons_) {
     spdlog::get(LOGGER)->debug(" - {}: pos: {}, sym: {}", units_tech_name_mapping.at(it.second->type_), 
         utils::PositionToString(it.first), field->GetSymbolAtPos(it.first));
   }
+  spdlog::get(LOGGER)->debug("RandomChoiceAi::RandomChoiceAi: copy-constructor done.");
 }
 
-MontoCarloAi::~MontoCarloAi() { delete audio_; }
+RandomChoiceAi::~RandomChoiceAi() { 
+  if (delete_audio_)
+    delete audio_; 
+}
 
 // getter
-Audio* MontoCarloAi::audio() const { return audio_; }
-std::deque<AudioDataTimePoint> MontoCarloAi::data_per_beat() const { return data_per_beat_; }
-AudioDataTimePoint MontoCarloAi::last_data_point() const { return last_data_point_; }
-std::vector<Player::AiOption> MontoCarloAi::actions() const { return actions_; }
-position_t MontoCarloAi::nucleus_pos() const { return nucleus_pos_; }
-int MontoCarloAi::last_action() const { return last_action_; }
+Audio* RandomChoiceAi::audio() const { return audio_; }
+std::deque<AudioDataTimePoint> RandomChoiceAi::data_per_beat() const { return data_per_beat_; }
+AudioDataTimePoint RandomChoiceAi::last_data_point() const { return last_data_point_; }
+int RandomChoiceAi::action_pool() const { return action_pool_; }
+std::vector<Player::AiOption> RandomChoiceAi::actions() const { return actions_; }
+int RandomChoiceAi::last_action() const { return last_action_; }
 
 // methods
-bool MontoCarloAi::DoAction() {
-  spdlog::get(LOGGER)->debug("MontoCarloAi::GetchChoices (random).");
+bool RandomChoiceAi::DoRandomAction() {
+  spdlog::get(LOGGER)->debug("MontoCarloAi::DoAction (random).");
   auto next_data_at_beat = data_per_beat_.front();
   data_per_beat_.pop_front();
-  // check whether to generate actions.
-  // if (actions_.size() == 0 || last_action_++ == 10)
-    GetchChoices();
+  // Re-generate actions if no actions availibe or actions where not regenerated more than 10 times.
+  // if (actions_.size() <= 1 || last_action_++ >= 10)
+  GetchChoices();
   // get random action
-  spdlog::get(LOGGER)->info("got {} actions", actions_.size());
+  spdlog::get(LOGGER)->info("MontoCarloAi::DoAction: got {} actions", actions_.size());
   if (actions_.size() > 0) {
     auto action = actions_[ran_gen_->RandomInt(0, actions_.size()-1)];
     ExecuteAction(next_data_at_beat, action);
@@ -64,11 +81,11 @@ bool MontoCarloAi::DoAction() {
   return false;
 }
 
-bool MontoCarloAi::DoGivenAction(AiOption action) {
-  spdlog::get(LOGGER)->debug("MontoCarloAi::GetchChoices (given). action: {}", action._type);
+bool RandomChoiceAi::DoGivenAction(AiOption action) {
+  spdlog::get(LOGGER)->debug("MontoCarloAi::DoGivenAction. action: {}", action._type);
+  spdlog::get(LOGGER)->info("MontoCarloAi::DoGivenAction: got {} actions", actions_.size());
   auto next_data_at_beat = data_per_beat_.front();
   data_per_beat_.pop_front();
-  // check whether to generate actions.
   ExecuteAction(next_data_at_beat, action);
   last_data_point_ = next_data_at_beat;
   // reload
@@ -79,9 +96,12 @@ bool MontoCarloAi::DoGivenAction(AiOption action) {
   return false;
 }
 
-void MontoCarloAi::ExecuteAction(const AudioDataTimePoint&, AiOption action) {
-  spdlog::get(LOGGER)->info("MontoCarloAi::GetchChoices (main). action: {}", action.string());
-  
+void RandomChoiceAi::ExecuteAction(const AudioDataTimePoint&, AiOption action) {
+  spdlog::get(LOGGER)->info("MontoCarloAi::ExecuteAction. action: {}", action.string());
+  // Decrease action-pool
+  if (action._type != -1)
+    action_pool_--;
+
   // units
   if (action._type == EPSP) {
     auto costs = units_costs_.at(UnitsTech::EPSP);
@@ -147,10 +167,23 @@ void MontoCarloAi::ExecuteAction(const AudioDataTimePoint&, AiOption action) {
   }
 }
 
-std::vector<Player::AiOption> MontoCarloAi::GetchChoices() {
+std::vector<Player::AiOption> RandomChoiceAi::GetchChoices() {
   spdlog::get(LOGGER)->debug("MontoCarloAi::GetchChoices.");
+  spdlog::get(LOGGER)->info("MontoCarloAi::GetchChoices: action_pool: {}", action_pool_);
   actions_.clear();
-  actions_.push_back(AiOption{-1, DEFAULT_POS, DEFAULT_POS, 0});
+  // Always add no-action as action.
+  actions_.push_back(AiOption(-1, DEFAULT_POS, DEFAULT_POS, 0));
+  // Only add other actions if action-pool is still "full"
+  if (action_pool_ > 0) {
+    GetAvailibleActions();
+    spdlog::get(LOGGER)->info("MontoCarloAi::GetchChoices: actions {}", actions_.size());
+  }
+  last_action_ = 0;
+  // get random nucleus
+  return actions_;
+}
+
+void RandomChoiceAi::GetAvailibleActions() {
   if (resources_.at(IRON).cur() > 0) {
     unsigned int resources_activated = 0;
     for (const auto& it : resources_)
@@ -169,48 +202,42 @@ std::vector<Player::AiOption> MontoCarloAi::GetchChoices() {
   if (building_options[0]) {
     for (const auto& synapse_pos : GetAllPositionsOfNeurons(SYNAPSE)) {
       for (float num : {0.1, 0.5, 1.0})
-        actions_.push_back(AiOption{IPSP, synapse_pos, DEFAULT_POS, num});
+        actions_.push_back(AiOption(IPSP, synapse_pos, DEFAULT_POS, num));
     }
   }
   if (building_options[1]) {
     for (const auto& synapse_pos : GetAllPositionsOfNeurons(SYNAPSE)) {
       for (float num : {0.1, 0.5, 1.0})
-        actions_.push_back(AiOption{EPSP, synapse_pos, DEFAULT_POS, num});
+        actions_.push_back(AiOption(EPSP, synapse_pos, DEFAULT_POS, num));
     }
   }
   if (building_options[2]) {
     for (const auto& synapse_pos : GetAllPositionsOfNeurons(SYNAPSE)) {
-      actions_.push_back(AiOption{MACRO, synapse_pos, DEFAULT_POS, -1});
+      actions_.push_back(AiOption(MACRO, synapse_pos, DEFAULT_POS, -1));
     }
   }
   if (building_options[3] && GetAllPositionsOfNeurons(ACTIVATEDNEURON).size() < 7) {
     for (const auto& nucleus_pos : GetAllPositionsOfNeurons(NUCLEUS))
-      actions_.push_back(AiOption{ACTIVATEDNEURON, nucleus_pos, DEFAULT_POS, -1});
+      actions_.push_back(AiOption(ACTIVATEDNEURON, nucleus_pos, DEFAULT_POS, -1));
   }
   if (building_options[4] && GetAllPositionsOfNeurons(SYNAPSE).size() < 4) {
     for (const auto& nucleus_pos : GetAllPositionsOfNeurons(NUCLEUS))
-      actions_.push_back(AiOption{SYNAPSE, nucleus_pos, DEFAULT_POS, -1});
+      actions_.push_back(AiOption(SYNAPSE, nucleus_pos, DEFAULT_POS, -1));
   }
   if (building_options[5] && GetAllPositionsOfNeurons(SYNAPSE).size() < 2) {
      for (int i=0; i<8; i++) 
-       actions_.push_back(AiOption{NUCLEUS, DEFAULT_POS, DEFAULT_POS, (float)i});
+       actions_.push_back(AiOption(NUCLEUS, DEFAULT_POS, DEFAULT_POS, (float)i));
   }
   if (GetAllPositionsOfNeurons(SYNAPSE).size() > 0) {
     for (const auto& synapse_pos : GetAllPositionsOfNeurons(SYNAPSE)) {
       for (const auto& target_pos : enemies_.front()->GetAllPositionsOfNeurons()) {
         if (ran_gen_->RandomInt(0, 2) == 1)
-          actions_.push_back(AiOption{200, synapse_pos, target_pos, -1});
+          actions_.push_back(AiOption(200, synapse_pos, target_pos, -1));
       }
       for (const auto& target_pos : enemies_.front()->GetAllPositionsOfNeurons(ACTIVATEDNEURON)) {
         if (ran_gen_->RandomInt(0, 2) == 1)
-          actions_.push_back(AiOption{250, synapse_pos, target_pos, -1});
+          actions_.push_back(AiOption(250, synapse_pos, target_pos, -1));
       }
     }
   }
-  last_action_ = 0;
-  // get random nucleus
-  auto nucleus_positions = GetAllPositionsOfNeurons(UnitsTech::NUCLEUS);
-  nucleus_pos_ = nucleus_positions[ran_gen_->RandomInt(0, nucleus_positions.size()-1)];
-  spdlog::get(LOGGER)->debug("MontoCarloAi::GetchChoices. nucleus_pos_: {}", utils::PositionToString(nucleus_pos_));
-  return actions_;
 }

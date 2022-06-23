@@ -10,37 +10,40 @@
 #include "share/objects/units.h"
 #include "server/game/player/player.h"
 
-class MontoCarloAi : public Player {
+class RandomChoiceAi : public Player {
   public:
-    MontoCarloAi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, int color);
-    MontoCarloAi(const Player& ai, Field* field);
-    ~MontoCarloAi();
+    RandomChoiceAi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, int color);
+    RandomChoiceAi(const Player& ai, Field* field);
+    ~RandomChoiceAi();
     
     // getter 
     Audio* audio() const;
     std::deque<AudioDataTimePoint> data_per_beat() const;
     AudioDataTimePoint last_data_point() const;
+    int action_pool() const;
     std::vector<AiOption> actions() const;
-    position_t nucleus_pos() const;
     int last_action() const;
 
     // methods
-    bool DoAction();
+    bool DoRandomAction();
     bool DoGivenAction(AiOption action);
     std::vector<AiOption> GetchChoices();
+    void SafeTree();
 
   private:
     // members 
     Audio* audio_;
     std::deque<AudioDataTimePoint> data_per_beat_;
     AudioDataTimePoint last_data_point_;
+    bool delete_audio_;
 
+    int action_pool_;
     std::vector<AiOption> actions_;
-    position_t nucleus_pos_;
     int last_action_;
 
     // members functions
     void ExecuteAction(const AudioDataTimePoint& data_at_beat, AiOption action);
+    void GetAvailibleActions();
 };
 
 #endif

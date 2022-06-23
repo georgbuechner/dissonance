@@ -35,6 +35,22 @@ class Player {
 
       std::string string() const { return std::to_string(_type) + ": pos1:" + utils::PositionToString(_pos) 
         + ", pos2: " + utils::PositionToString(_pos_2) + ", num: " + utils::Dtos(_num); }
+
+      std::string hash() const { return std::to_string(_type) + ";" + utils::PositionToString(_pos) + ";"
+        + utils::PositionToString(_pos_2) + ";" + std::to_string(_num); }
+      AiOption(std::string action) {
+        auto parts = utils::Split(action, ";");
+        _type = std::stoi(parts[0]);
+        _pos = utils::PositionFromString(parts[1]);
+        _pos_2 = utils::PositionFromString(parts[2]);
+        _num = std::atof(parts[3].c_str());
+      }
+      AiOption(int type, position_t pos, position_t pos2, float num) {
+        _type = type;
+        _pos = pos;
+        _pos_2 = pos2;
+        _num = num;
+      }
     };
 
     /**
@@ -65,8 +81,8 @@ class Player {
     virtual std::deque<AudioDataTimePoint> data_per_beat() const { return {}; }
     virtual Audio* audio() const { return nullptr; }
     virtual AudioDataTimePoint last_data_point() const { return AudioDataTimePoint(); }
+    virtual int action_pool() const { return -1; }
     virtual std::vector<AiOption> actions() const { return {}; }
-    virtual position_t nucleus_pos() const { return DEFAULT_POS; }
     virtual int last_action() const { return -1; }
 
     position_t GetSynapesTarget(position_t synapse_pos, int unit);
@@ -252,7 +268,7 @@ class Player {
     void MovePotential();
     void CheckLoophole(Potential& potential);
     void HandleEpspAndMacro(Potential& potential);
-    bool HandleIpsp(Potential& potential);
+    bool HandleIpsp(Potential& potential, std::string id);
 
     void SetBlockForNeuron(position_t pos, bool block);
 
@@ -300,6 +316,7 @@ class Player {
     virtual void SetUpTactics(bool) {}
     virtual void HandleIron(const AudioDataTimePoint&) {}
     virtual bool DoAction() { return false; }
+    virtual bool DoRandomAction() { return false; }
     virtual bool DoGivenAction(AiOption) { return false; }
     virtual void Action() {}
     virtual std::vector<AiOption> GetchChoices() { return {}; }
@@ -321,6 +338,7 @@ class Player {
     std::map<position_t, std::shared_ptr<Neuron>> neurons_;
     std::map<position_t, int> new_dead_neurons_;
     std::map<position_t, int> new_neurons_;
+    std::map<int, std::vector<position_t>> neuron_positions_;
 
     std::map<std::string, Potential> potential_;
 
@@ -336,6 +354,9 @@ class Player {
      * @param[in] faktor (between -1 and 1)
      */
     void UpdateResourceLimits(float faktor);
+
+    void CreateNeuron(int type, position_t);
+    void DeleteNeuron(int type, position_t);
 };
 
 #endif

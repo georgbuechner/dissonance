@@ -94,11 +94,21 @@ class ServerGame {
 
 
   private: 
+    struct McNode {
+      int _count;
+      float cur_weight_;
+      std::map<std::string, McNode*> _nodes;
+
+      void update(float weight) {
+        _count++;
+        cur_weight_ += weight;
+      }
+    };
+
     Field* field_;  ///< field 
     std::shared_mutex mutex_players_;
     std::map<std::string, Player*> players_;
     std::map<std::string, Player*> human_players_;
-    std::vector<std::vector<std::string>> original_field_;
 
     std::vector<std::string> observers_;
     std::set<std::string> dead_players_;
@@ -119,6 +129,25 @@ class ServerGame {
     std::chrono::time_point<std::chrono::steady_clock> pause_start_;
     double time_in_pause_;
 
+    struct TimeAnalysis {
+      long double total_time_in_game_;
+      long double time_ai_action_;
+      long double time_ai_ran_;
+      long double time_ai_mc_;
+      long double time_game_;
+      long double time_setup_;
+      TimeAnalysis() : total_time_in_game_(0), time_ai_action_(0), time_ai_mc_(0), time_game_(0), time_setup_(0) {}
+      void print() { 
+        std::cout << "- total time: " << total_time_in_game_/1000000 << std::endl;
+        std::cout << "- ai action: " << time_ai_action_/1000000 << std::endl;
+        std::cout << "  - ran action: " << time_ai_ran_/1000000 << std::endl;
+        std::cout << "  - mc action: " << time_ai_mc_/1000000 << std::endl;
+        std::cout << "- game: " << time_game_/1000000 << std::endl;
+        std::cout << "- setup mc game: " << time_setup_/1000000 << std::endl;
+      }
+    };
+    TimeAnalysis time_analysis_;
+
     const int mode_; ///< SINGLE_PLAYER | MULTI_PLAYER | OBSERVER
     int lines_; 
     int cols_;
@@ -127,13 +156,6 @@ class ServerGame {
     std::string host_;
 
     // methods
-
-    /**
-     * Starts game, sending start-game info with initial game data to all
-     * players.
-     */
-    void StartGame(std::vector<Audio*> audios);
-    std::vector<position_t> SetUpField(RandomGenerator* ran_gen);
 
     /**
      * Gets map of all potentials in stacked format (ipsp: 1-9, epsp a-z) and
@@ -200,8 +222,6 @@ class ServerGame {
      * @param[in] player who "owns" ipsp.
      * @param[in] list of enemies of given player.
      */
-    static void IpspSwallow(position_t ipsp_pos, Player* player, std::vector<Player*> enemies);
-
     // command methods
 
     void m_SendAudioMap(std::shared_ptr<Data> data);
@@ -291,8 +311,19 @@ class ServerGame {
      */
     Player* GetPlayer(std::string username);
 
-    bool RunAiGame();
-    float RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, std::string main_ai, Player::AiOption action);
+    /**
+     * Setups game
+     */
+    void SetUpGame(std::vector<Audio*> audios);
+    std::vector<position_t> SetUpField(RandomGenerator* ran_gen);
+    /**
+     * Runs game, 
+     * sends start-game info with initial game data to all and players.
+     * starts main- and ai-thread(s)
+     */
+    void RunGame(std::vector<Audio*> audios = {});
+    bool RunAiGame(std::vector<Audio*> audios = {});
+    void RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, McNode* node);
 };
 
 #endif

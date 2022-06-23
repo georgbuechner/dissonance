@@ -38,7 +38,7 @@ int main(int argc, const char** argv) {
   // Command line arguments 
   bool show_help = false;
   bool keep_log = false;
-  std::string log_level = "warn";
+  std::string log_level = "error";
   std::string base_path = getenv("HOME");
   base_path += "/.dissonance/";
   int server_port = 4444;
@@ -157,7 +157,9 @@ void SetupLogger(bool keep_log, std::string base_path, std::string log_level) {
   std::string logger_file = "logs/" + utils::GetFormatedDatetime() + "_logfile.txt";
   auto logger = spdlog::basic_logger_mt("logger", base_path + logger_file);
   spdlog::flush_on(spdlog::level::warn);
-  if (log_level == "warn")
+  if (log_level == "error")
+    spdlog::set_level(spdlog::level::err);
+  else if (log_level == "warn")
     spdlog::set_level(spdlog::level::warn);
   else if (log_level == "info") {
     spdlog::set_level(spdlog::level::info);

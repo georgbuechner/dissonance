@@ -55,7 +55,7 @@ unsigned int Field::lines() { return lines_; }
 unsigned int Field::cols() { return cols_; }
 std::shared_ptr<Graph> Field::graph() { return graph_; }
 std::map<position_t, std::map<int, position_t>>& Field::resource_neurons() { return resource_neurons_; }
-
+std::map<position_t, std::vector<std::pair<std::string, Player*>>>& Field::epsps() { return epsps_; }
 
 std::vector<position_t> Field::GraphPositions() {
   std::vector<position_t> graph_positions;
@@ -331,4 +331,14 @@ bool Field::NucleusInRange(position_t pos, unsigned int range) {
     if (field_[it.first][it.second] == SYMBOL_DEN)
       return true;
   return false; 
+}
+
+void Field::GetEpsps( std::map<std::string, Player*> players) {
+  epsps_.clear();
+  for (const auto& p : players) {
+    for (const auto& potential : p.second->potential()) {
+      if (potential.first.find("epsp") != std::string::npos || potential.first.find("macro_1") != std::string::npos)
+        epsps_[potential.second.pos_].push_back({potential.first, p.second});
+    }
+  }
 }

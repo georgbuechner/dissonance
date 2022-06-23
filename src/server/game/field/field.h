@@ -32,6 +32,7 @@ class Field {
     unsigned int cols();
     std::shared_ptr<Graph> graph();
     std::map<position_t, std::map<int, position_t>>& resource_neurons();
+    std::map<position_t, std::vector<std::pair<std::string, Player*>>>& epsps();
 
     // methods:
     
@@ -136,6 +137,8 @@ class Field {
     std::vector<std::vector<Data::Symbol>> Export(std::vector<Player*> players);
     std::vector<std::vector<Data::Symbol>> Export(std::map<std::string, Player*> players);
 
+    void GetEpsps(std::map<std::string, Player*> players);
+
   private: 
     // members
     int lines_;
@@ -146,6 +149,7 @@ class Field {
     std::map<position_t, std::pair<std::shared_ptr<Neuron>, Player*>> neurons_;
     std::shared_mutex mutex_field_;
     std::map<position_t, std::map<int, position_t>> resource_neurons_;
+    std::map<position_t, std::vector<std::pair<std::string, Player*>>> epsps_;
 
     // functions
     

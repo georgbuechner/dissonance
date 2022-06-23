@@ -207,10 +207,16 @@ void Drawrer::AddNewUnitToPos(position_t pos, short unit, short color) {
   spdlog::get(LOGGER)->debug("Drawrer::AddNewUnitToPos: pos: {}, unit: {}, color: {}", 
       utils::PositionToString(pos), unit, color);
   std::unique_lock ul(mutex_print_field_);
+  // If resource-neuron deactivated, set color to default
   if (unit == UnitsTech::RESOURCENEURON && color == COLOR_DEFAULT)
-    field_[pos.first][pos.second] = Data::Symbol({field_[pos.first][pos.second].symbol_, color});
+    field_[pos.first][pos.second] = Data::Symbol({field_[pos.first][pos.second].symbol_, COLOR_DEFAULT});
+  // If resource-neuron activated, set color to resource-color
   else if (unit == UnitsTech::RESOURCENEURON)
     field_[pos.first][pos.second] = Data::Symbol({field_[pos.first][pos.second].symbol_, COLOR_RESOURCES});
+  // If loophole destroyed, set symbol to free.
+  else if (unit == UnitsTech::LOOPHOLE && color == COLOR_DEFAULT)
+    field_[pos.first][pos.second] = Data::Symbol({SYMBOL_FREE, COLOR_DEFAULT});
+  // Otherwise add neuron with player-color.
   else if (unit_symbol_mapping.count(unit) > 0)
     field_[pos.first][pos.second] = Data::Symbol({unit_symbol_mapping.at(unit), color});
 }
