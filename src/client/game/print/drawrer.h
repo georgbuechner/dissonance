@@ -101,7 +101,47 @@ class Drawrer {
      */
     void PrintOnlyCenteredLine(int l, std::string line) const;
 
+    /**
+     * Prints all statistics.
+     */
     void PrintStatistics() const;
+
+    /**
+     * Prints single statistics-entry (with multiple/ map of infos)
+     * @param[in] heading printed (f.e. "Neurons Built")
+     * @param[in] s (start-line)
+     * @param[in] i (current line)
+     * @param[in] infos to print (f.e. map with all neurons built neuron-type -> num)
+     * @return new current line (i)
+     */
+    int PrintStatisticEntry(std::string heading, int s, int i, std::map<unsigned short, unsigned short> infos) const;
+    /**
+     * Prints single statistics-entry (with single information)
+     * @param[in] heading printed (f.e. "Neurons Built")
+     * @param[in] s (start-line)
+     * @param[in] i (current line)
+     * @param[in] infos to print (f.e. number of enemy epsps swallowed)
+     * @return new current line (i)
+     */
+    int PrintStatisticEntry(std::string heading, int s, int i, unsigned short info) const;
+
+    /**
+     * Prints resource-statistics
+     * @param[in] start_line
+     * @param[in] i (current line)
+     * @param[in] resources 
+     * @return new current line (i)
+     */
+    int PrintStatisticsResources(int start_line, int i, std::map<int, std::map<std::string, double>> resources) const;
+
+    /**
+     * Prints technology-statistics
+     * @param[in] start_line
+     * @param[in] i (current line)
+     * @param[in] technologies
+     * @return new current line (i)
+     */
+    int PrintStatisticsTechnology(int start_line, int i, std::map<int, tech_of_t> technologies) const;
 
     /**
      * Prints a single line centered, but here the line is splitted into parts,

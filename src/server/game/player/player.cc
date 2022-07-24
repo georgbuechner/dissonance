@@ -186,10 +186,12 @@ std::shared_ptr<Statictics> Player::GetFinalStatistics(std::string username) {
       res_stats["spent"] = it.second.spent();
       res_stats["ø boost"] = it.second.average_boost();
       res_stats["ø bound"] = it.second.average_bound();
-      res_stats["ø neg. faktor"] = 1-it.second.average_neg_factor();
-      statistics_->stats_resources()[it.first] = res_stats;
+      res_stats["ø neg.-faktor"] = 1-it.second.average_neg_factor();
+      statistics_->stats_resources_ref()[it.first] = res_stats;
     }
   }
+  spdlog::get(LOGGER)->debug("Player::GetFinalStatistics: {} resource-stat-entries", 
+        statistics_->stats_resources().size());
   statistics_->set_technologies(technologies_);
   return statistics_;
 }
@@ -764,11 +766,13 @@ bool Player::HandleIpsp(Potential& potential, std::string id) {
     for (auto it = vec.begin(); it != vec.end(); it++) {
       // If so, neutralize potential
       if (it->second->color() != color_) {
+        spdlog::get(LOGGER)->info("Player::HandleIpsp: swallow!!");
         NeutralizePotential(id, -1); // increase potential by one
         if (it->second->NeutralizePotential(it->first, 1)) { // decrease potential by one
           statistics_->AddEpspSwallowed(); // add statistics entry.
           vec.erase(it); // remove from epsp at this position.
         }
+        spdlog::get(LOGGER)->info("Player::HandleIpsp: swallowing done!!");
         break;
       }
     }

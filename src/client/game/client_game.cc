@@ -961,7 +961,7 @@ void ClientGame::h_TutorialSetUnit(std::shared_ptr<Data> data) {
     texts.push_back(texts::tutorial_build_ipsp);
     tutorial_.chloride_ = true;
   }
-  else if (data->unit() == RESOURCENEURON && data->unit() == DOPAMINE && !tutorial_.dopamine_) {
+  else if (data->unit() == RESOURCENEURON && data->resource() == DOPAMINE && !tutorial_.dopamine_) {
     texts.push_back(texts::tutorial_technologies_dopamine);
     tutorial_.dopamine_ = true;
     if (tutorial_.serotonin_)
@@ -1005,6 +1005,7 @@ void ClientGame::h_TutorialSetUnit(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::h_TutorialScouted(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("ClientGame::h_TutorialScouted. ENEMY revield? {}", tutorial_.discovered_);
   texts::paragraphs_field_t text;
   // On first discoring enemy terretoris: tutorial for selecting targets.
   if (!tutorial_.discovered_) {
@@ -1015,8 +1016,11 @@ void ClientGame::h_TutorialScouted(std::shared_ptr<Data> data) {
   else {
     // Check number 
     int counter = 0;
-    for (const auto& it : data->units())
+    spdlog::get(LOGGER)->debug("ClientGame::h_TutorialScouted. num units: {}", data->units().size());
+    for (const auto& it : data->units()) {
+      spdlog::get(LOGGER)->debug("ClientGame::h_TutorialScouted. - unit-type: {}", it.unit());
       if (it.unit() == ACTIVATEDNEURON) counter++;
+    }
     if (counter >= 2 && tutorial_.chloride_ && tutorial_.dopamine_)  {
       text = texts::tutorial_final_attack;
       tutorial_.action_active_ = true;

@@ -565,46 +565,56 @@ void Drawrer::PrintStatistics() const {
       PrintCenteredLineBold(start_line, utils::ToUpper(it->player_name()));
       attroff(COLOR_PAIR(it->player_color()));
       int i=2;
-      spdlog::get(LOGGER)->info("Printing statistics: neurons");
-      PrintCenteredLineBold(start_line+(++i), "Neurons Built");
-      for (const auto& it : it->neurons_build()) 
-        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
-      i++;
-      spdlog::get(LOGGER)->info("Printing statistics: potentials");
-      PrintCenteredLineBold(start_line+(++i), "Potentials Built");
-      for (const auto& it : it->potentials_build()) 
-        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
-      i++;
-      PrintCenteredLineBold(start_line+(++i), "Potentials Killed");
-      for (const auto& it : it->potentials_killed()) 
-        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
-      i++;
-      PrintCenteredLineBold(start_line+(++i), "Potentials Lost");
-      for (const auto& it : it->potentials_lost()) 
-        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
-      i++;
-      PrintCenteredLineBold(start_line+(++i), "Enemy Epsps Swallowed By Ipsp");
-      PrintCenteredLine(start_line+(++i), std::to_string(it->epsp_swallowed()));
-      i++;
-      PrintCenteredLineBold(start_line+(++i), "Resources");
-      for (const auto& resource : it->stats_resources()) {
-        PrintCenteredLine(start_line+(++i), resources_name_mapping.at(resource.first));
-        std::string info = "";
-        for (const auto& jt : resource.second)
-          info += jt.first + ": " + utils::Dtos(jt.second) + ", ";
-        info.substr(0, info.length()-2);
-        PrintCenteredLine(start_line+(++i), info);
-      }
-      i++;
-      PrintCenteredLineBold(start_line+(++i), "Technologies");
-      for (const auto& it : it->technologies()) {
-        std::string info = units_tech_name_mapping.at(it.first) + ": " 
-          + utils::PositionToString(it.second);
-        PrintCenteredLine(start_line+(++i), info);
-      }
+      i = PrintStatisticEntry("Neurons Built", start_line, i, it->neurons_build());
+      i = PrintStatisticEntry("Potentials Built", start_line, i, it->potentials_build());
+      i = PrintStatisticEntry("Potentials Killed", start_line, i, it->potentials_killed());
+      i = PrintStatisticEntry("Potentials Lost", start_line, i, it->potentials_lost());
+      i = PrintStatisticEntry("Enemy Epsps Swallowed By Ipsp", start_line, i, it->epsp_swallowed());
+      i = PrintStatisticsResources(start_line, i, it->stats_resources());
+      i = PrintStatisticsTechnology(start_line, i, it->stats_technologies());
       PrintCenteredLine(start_line+2+(++i), "(press 'q' to quit.)");
     }
   }
+}
+int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, 
+    std::map<unsigned short, unsigned short> infos) const {
+  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticEntry: {}, {}", heading, infos.size());
+  PrintCenteredLineBold(s+(++i), "Neurons Built");
+  for (const auto& it : infos) 
+    PrintCenteredLine(s+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
+  return ++i;
+}
+
+int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, unsigned short info) const {
+  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticEntry: {}, {}", heading, info);
+  PrintCenteredLineBold(s+(++i), heading);
+  PrintCenteredLine(s+(++i), std::to_string(info));
+  return ++i;
+}
+
+int Drawrer::PrintStatisticsResources(int start_line, int i, 
+    std::map<int, std::map<std::string, double>> resources) const {
+  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticsResources: {} resource-entries", resources.size());
+  PrintCenteredLineBold(start_line+(++i), "Resources");
+  for (const auto& resource : resources) {
+    PrintCenteredLine(start_line+(++i), resources_name_mapping.at(resource.first));
+    std::string info = "";
+    for (const auto& jt : resource.second)
+      info += jt.first + ": " + utils::Dtos(jt.second) + ", ";
+    info.substr(0, info.length()-2);
+    PrintCenteredLine(start_line+(++i), info);
+  }
+  return ++i;
+}
+
+int Drawrer::PrintStatisticsTechnology(int start_line, int i, std::map<int, tech_of_t> technologies) const {
+  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticsTechnology: {} technology-entries", technologies.size());
+  PrintCenteredLineBold(start_line+(++i), "Technologies");
+  for (const auto& it : technologies) {
+    std::string info = units_tech_name_mapping.at(it.first) + ": " + utils::PositionToString(it.second);
+    PrintCenteredLine(start_line+(++i), info);
+  }
+  return i;
 }
 
 void Drawrer::ClearLine(int line, int start_col) {
