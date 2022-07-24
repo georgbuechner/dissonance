@@ -40,7 +40,7 @@ AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGener
   SetUpTactics(true);
 }
 
-std::deque<AudioDataTimePoint> AudioKi::data_per_beat() {
+std::deque<AudioDataTimePoint> AudioKi::data_per_beat() const {
   return data_per_beat_;
 }
 
@@ -188,6 +188,7 @@ void AudioKi::SetEconomyTactics() {
 }
 
 bool AudioKi::DoAction() {
+  spdlog::get(LOGGER)->debug("AudioKi::DoAction beats left: {}.", data_per_beat_.size());
   auto next_data_at_beat = data_per_beat_.front();
   data_per_beat_.pop_front();
   DoAction(next_data_at_beat);
@@ -200,12 +201,11 @@ bool AudioKi::DoAction() {
   return false;
 }
 
-void AudioKi::DoAction(const AudioDataTimePoint& data_at_beat) {
-  spdlog::get(LOGGER)->debug("AudioKi::DoAction.");
+bool AudioKi::DoAction(const AudioDataTimePoint& data_at_beat) {
+  spdlog::get(LOGGER)->debug("AudioKi::DoAction(data_at_beat)");
   // Change tactics when interval changes:
   if (data_at_beat.interval_ > last_data_point_.interval_)
     SetUpTactics(false);
-
   // Create synapses when switch above average level.
   if (data_at_beat.level_ > average_level_ && last_data_points_above_average_level_.size() == 0) 
     CreateSynapses();
@@ -235,6 +235,8 @@ void AudioKi::DoAction(const AudioDataTimePoint& data_at_beat) {
   else 
     HandleIron(data_at_beat);
   CreateExtraActivatedNeurons();
+  spdlog::get(LOGGER)->debug("AudioKi::DoAction(data_at_beat) done.");
+  return false;
 }
 
 void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
@@ -591,11 +593,11 @@ void AudioKi::CheckResourceLimit() {
 }
 
 void AudioKi::CreateExtraActivatedNeurons() {
+  spdlog::get(LOGGER)->debug("AudioKi::CreateExtraActivatedNeurons");
   int voltage = 0;
   try {
     voltage = neurons_.at(GetOneNucleus())->voltage();
-  }
-  catch (std::exception& e) {
+  } catch (std::exception& e) {
     spdlog::get(LOGGER)->warn("AudioKi::CreateExtraActivatedNeurons: Accessed nucleus but didn't exist.");
     return;
   }

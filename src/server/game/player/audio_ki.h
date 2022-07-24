@@ -17,11 +17,10 @@ class AudioKi : public Player {
     ~AudioKi() {};
 
     // getter 
-    std::deque<AudioDataTimePoint> data_per_beat();
+    std::deque<AudioDataTimePoint> data_per_beat() const;
     
     void SetUpTactics(bool economy_tactics);
     bool DoAction();
-    void DoAction(const AudioDataTimePoint& data_at_beat);
     void HandleIron(const AudioDataTimePoint& data_at_beat);
 
   private:
@@ -48,6 +47,8 @@ class AudioKi : public Player {
     std::map<unsigned int, unsigned int> extra_activated_neurons_;
 
     // functions 
+    bool DoAction(const AudioDataTimePoint& data_at_beat);
+
     void LaunchAttack(const AudioDataTimePoint& data_at_beat);
 
     // Create potental/ neurons. Add technology

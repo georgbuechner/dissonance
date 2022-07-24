@@ -76,6 +76,7 @@ class Data {
     virtual unsigned short cols() { return 0; }
     virtual unsigned short num_players() { return 0; }
     virtual std::string game_id() { return ""; }
+    virtual bool mc_ai() { return false; }
 
     virtual position_t pos() const { return {-1, -1}; }
     virtual short unit() const { return -1; }
@@ -144,7 +145,8 @@ class Data {
     virtual unsigned short resource() const { return 0; }
     virtual unsigned short technology() const { return 0; }
 
-    bool send_audio() { return false; }
+    virtual bool send_audio() { return false; }
+    virtual bool send_ai_audios() { return false; }
 
     // setter
     virtual void set_num_players(unsigned short num_players) {}
@@ -214,7 +216,7 @@ class Msg : public Data {
  */
 class InitNewGame : public Data {
   public:
-    InitNewGame(unsigned short mode, unsigned short lines, unsigned short cols);
+    InitNewGame(unsigned short mode, unsigned short lines, unsigned short cols, bool mc_ai);
     InitNewGame(const char* payload, size_t len, size_t& offset);
 
     // getter
@@ -223,6 +225,7 @@ class InitNewGame : public Data {
     unsigned short cols();
     unsigned short num_players();
     std::string game_id();
+    bool mc_ai();
 
     // setter 
     void set_num_players(unsigned short num_players);
@@ -237,6 +240,7 @@ class InitNewGame : public Data {
     unsigned short cols_;
     unsigned short num_players_; ///< only for mode=MULTI_PLAYER
     std::string game_id_; ///< only for mode=MULTI_PLAYER_CLIENT
+    bool mc_ai_;
 };
 
 /**
@@ -379,6 +383,7 @@ class Lobby  : public Data {
 
     // methods    
     void AddEntry(std::string game_id, short max_players, short cur_players, std::string audio_map_name);
+    void clear();
     void binary(std::stringstream& buffer);
 
   private:
@@ -703,17 +708,19 @@ class CheckSendAudio : public Data {
  */
 class SendAudioInfo : public Data {
   public:
-    SendAudioInfo(bool send_audio);
+    SendAudioInfo(bool send_audio, bool send_ai_audios);
     SendAudioInfo(const char* payload, size_t len, size_t& offset);
 
     // getter
     bool send_audio();
+    bool send_ai_audios();
     
     // methods
     void binary(std::stringstream& buffer);
 
   private:
     bool send_audio_;
+    bool send_ai_audios_;
 };
 
 class AudioTransferDataNew : public Data {

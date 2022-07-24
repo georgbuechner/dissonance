@@ -696,7 +696,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   mini_fields_["field_player_oxygen_potassium_glutamat_activated"] = exported_field;
 
   // Simple map showing how to select position on map.
-  spdlog::get(LOGGER)->debug("Simple map with showing highlighted range.");
+  spdlog::get(LOGGER)->debug("MAP: Simple map with showing highlighted range.");
   auto positions = field->GetAllInRange(nucleus.front(), 4, 0);
   for (const auto& pos : positions) {
     spdlog::get(LOGGER)->debug("pos: {}", utils::PositionToString(pos));
@@ -711,6 +711,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   spdlog::get(LOGGER)->debug("done creating highliting-map");
 
   // Move selection on map.
+  spdlog::get(LOGGER)->debug("MAP: Move selection on map");
   exported_field[nucleus.front().first][nucleus.front().second].color_ = player_color;
   exported_field[nucleus.front().first][nucleus.front().second].symbol_ = SYMBOL_DEN;
   auto pos = field->GetAllInRange(nucleus.front(), 2, 1.5, true).front();
@@ -719,6 +720,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   mini_fields_["field_select_neuron_position_2"] = exported_field;
 
   // Add activated neuron.
+  spdlog::get(LOGGER)->debug("MAP: Add activated neuron.");
   positions = field->GetAllInRange(nucleus.front(), 3, 2, true);
   exported_field[pos.first][pos.second].color_ = COLOR_SUCCESS; // mark position as free
   exported_field[pos.first][pos.second].symbol_ = SYMBOL_FREE; // mark position as free
@@ -728,6 +730,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   exported_field = mini_fields_["field_player_oxygen_potassium_glutamat_activated"];
   
   // Simple map with player nucleus and resources (not activated)
+  spdlog::get(LOGGER)->debug("MAP: Simple map with player nucleus and resources (not activated)");
   spdlog::get(LOGGER)->info("Enemy map with advancing potentials");
   Field* field_enemy = new Field(10, 10, ran_gen);
   field_enemy->BuildGraph();
@@ -761,6 +764,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   mini_fields_["field_attack"] = exported_field_enemy;
 
   // Simple map showing enemy's epsp reaching your nucleus.
+  spdlog::get(LOGGER)->debug("MAP: Simple map showing enemy's epsp reaching your nucleus.");
   way = field_enemy->GetWay(nucleus.front(), {{9, 9}});
   std::vector<position_t> way_vec_2(way.begin(), way.end());
   for (unsigned int i=1; i<way_vec_2.size(); i+=2) {
@@ -771,6 +775,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   mini_fields_["field_attack_2"] = exported_field;
   
   // Map showing how to select between multiple synapses.
+  spdlog::get(LOGGER)->debug("MAP: showing how to select between multiple synapses.");
   exported_field = mini_fields_["field_player_oxygen_potassium_glutamat_activated"];
   auto synapse_a = field->GetAllInRange(nucleus.front(), 2, 1.5, true).front();
   auto synapse_b = field->GetAllInRange(nucleus.front(), 3, 2, true).front();

@@ -11,6 +11,7 @@
 #include <shared_mutex>
 #include <vector>
 
+#include "server/game/player/monto_carlo_ai.h"
 #include "share/defines.h"
 #include "share/audio/audio.h"
 #include "share/constants/texts.h"
@@ -34,7 +35,7 @@ class ServerGame {
      * @param[in] cols availible cols
      * @param[in] srv pointer to websocket-server, to send messages.
      */
-    ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv);
+    ServerGame(int lines, int cols, int mode, bool mc_ai, int num_players, std::string base_path, WebsocketServer* srv);
 
     // getter 
     int status();
@@ -56,8 +57,7 @@ class ServerGame {
     /**
      *
      */
-    void InitAiGame(std::string base_path, std::string path_audio_map, std::string path_audio_a, 
-        std::string path_audio_b);
+    void InitAiGame(std::string base_path, std::string path_audio_map, std::vector<std::string> ai_audio_paths);
 
     /**
      * Prints statistics to stdout for all players.
@@ -79,32 +79,7 @@ class ServerGame {
      */
     void HandleInput(std::string command, std::shared_ptr<Data> data);
     
-    // Threads
-
-    /**
-     * Updates game status at every beat.
-     */
-    void Thread_RenderField();
-
-    /**
-     * Handles AI actions at every beat.
-     */
-    void Thread_Ai(std::string username);
-
-
-
   private: 
-    struct McNode {
-      int _count;
-      float cur_weight_;
-      std::map<std::string, McNode*> _nodes;
-
-      void update(float weight) {
-        _count++;
-        cur_weight_ += weight;
-      }
-    };
-
     Field* field_;  ///< field 
     std::shared_mutex mutex_players_;
     std::map<std::string, Player*> players_;
@@ -147,6 +122,7 @@ class ServerGame {
       }
     };
     TimeAnalysis time_analysis_;
+    bool mc_ai_;
 
     const int mode_; ///< SINGLE_PLAYER | MULTI_PLAYER | OBSERVER
     int lines_; 
@@ -156,6 +132,16 @@ class ServerGame {
     std::string host_;
 
     // methods
+
+    // getter 
+    
+    /**
+     * Gets vector of enemies fort given player.
+     * @param[in] players 
+     * @param[in] player
+     * @return vector of enemies fort given player.
+     */
+    std::vector<Player*> enemies(std::map<std::string, Player*>& players, std::string player);
 
     /**
      * Gets map of all potentials in stacked format (ipsp: 1-9, epsp a-z) and
@@ -188,6 +174,12 @@ class ServerGame {
      * when all players except of one have died.
      */
     void HandlePlayersLost();
+
+    /**
+     * Checks if player has loophols and sends loophol-field-positions to
+     * player.
+     */ 
+    void SendLoopHols(std::string username, Player* player);
 
     /**
      * Checks if for any (human) player a potential has scouted new enemy
@@ -323,7 +315,26 @@ class ServerGame {
      */
     void RunGame(std::vector<Audio*> audios = {});
     bool RunAiGame(std::vector<Audio*> audios = {});
-    void RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, McNode* node);
+
+    std::string FindNextMcMove(std::deque<AudioDataTimePoint> data_per_beat, Player::McNode* node, 
+        RandomGenerator* ran_gen);
+    void RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, Player::McNode* node);
+    std::string GetAction(Player* ai, Player::McNode* node, RandomGenerator* ran_gen);
+
+    bool RunActions(std::map<std::string, Player*>& players);
+    
+    // Threads
+
+    /**
+     * Updates game status at every beat.
+     */
+    void Thread_RenderField();
+
+    /**
+     * Handles AI actions at every beat.
+     */
+    void Thread_Ai(std::string username);
+    void Thread_McAi(std::string username);
 };
 
 #endif

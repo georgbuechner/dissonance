@@ -20,6 +20,7 @@
 #include <websocketpp/error.hpp>
 #include <websocketpp/frame.hpp>
 #include <spdlog/spdlog.h>
+#include "share/shemes/data.h"
 #include "spdlog/common.h"
 #include "spdlog/logger.h"
 #include "websocketpp/close.hpp"
@@ -45,7 +46,9 @@ using websocketpp::lib::bind;
 inline std::string get_password() { return ""; }
 
 WebsocketServer::WebsocketServer(bool standalone, std::string base_path) 
-  : standalone_(standalone), base_path_(base_path) {}
+  : standalone_(standalone), base_path_(base_path) {
+  lobby_ = std::make_shared<Lobby>();
+}
 
 WebsocketServer::~WebsocketServer() {
   server_.stop();
@@ -183,7 +186,7 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
     std::thread handler([this, hdl, cmd]() { h_InGameAction(hdl.lock().get(), cmd); });
     handler.detach();
   }
-  spdlog::get(LOGGER)->info("Websocket::on_message: existed");
+  spdlog::get(LOGGER)->info("Websocket::on_message: exited");
 }
 
 void WebsocketServer::h_InitializeUser(connection_id id, std::string username) {
@@ -207,21 +210,23 @@ void WebsocketServer::h_InitializeUser(connection_id id, std::string username) {
 
 void WebsocketServer::h_InitializeGame(connection_id id, std::string username, std::shared_ptr<Data> data) {
   if (data->mode() == SINGLE_PLAYER || data->mode() == TUTORIAL) {
-    spdlog::get(LOGGER)->info("Server: initializing new single-player game.");
+    spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: initializing new single-player game.");
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), 2, base_path_, this);
+    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), false, 2, base_path_, this);
     SendMessage(id, Command("select_audio").bytes());
   }
   else if (data->mode() == MULTI_PLAYER) {
-    spdlog::get(LOGGER)->info("Server: initializing new multi-player game.");
+    spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: initializing new multi-player game.");
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), data->num_players(), base_path_, this);
+    spdlog::get(LOGGER)->debug("ServerGame::WebsocketServer: num_players: {}", data->num_players());
+    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), false, data->num_players(), 
+        base_path_, this);
     SendMessage(id, Command("select_audio").bytes());
-    spdlog::get(LOGGER)->debug("New game added, informing waiting players");
+    spdlog::get(LOGGER)->debug("WebsocketServer::h_InitializeGame: New game added, informing waiting players");
   }
   else if (data->mode() == MULTI_PLAYER_CLIENT) {
     std::unique_lock ul(shared_mutex_games_);
@@ -234,10 +239,10 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     }
     // with game_id: joint game
     else if (games_.count(game_id) > 0){
-      spdlog::get(LOGGER)->debug("New client about to join!");
+      spdlog::get(LOGGER)->debug("WebsocketServer::h_InitializeGame: New client about to join!");
       ServerGame* game = games_.at(game_id);
       if (game->status() == WAITING_FOR_PLAYERS) {
-        spdlog::get(LOGGER)->debug("New client about joined!");
+        spdlog::get(LOGGER)->debug("WebsocketServer::h_InitializeGame: New client about joined!");
         connections_.at(id)->set_waiting(false);  // indicate player has stopped waiting for game.
         username_game_id_mapping_[username] = game_id;  // Add username to mapping, to find matching game.
         game->AddPlayer(username, data->lines(), data->cols()); // Add user to game.
@@ -253,7 +258,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), 2, base_path_, this);
+    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), data->mc_ai(), 2, base_path_, this);
     SendMessage(id, Command("select_audio").bytes());
   }
 }
@@ -395,10 +400,12 @@ void WebsocketServer::SendMessage(connection_id id, std::string msg) {
 
 void WebsocketServer::UpdateLobby() {
   std::unique_lock ul(shared_mutex_lobby_);
+  lobby_->clear();
   for (const auto& it : games_) {
     if (it.second->status() == WAITING_FOR_PLAYERS) {
-      spdlog::get(LOGGER)->debug("Found game: {}", it.first);
+      spdlog::get(LOGGER)->debug("WebsocketServer::UpdateLobby: Found game: {}", it.first);
       lobby_->AddEntry(it.first, it.second->max_players(), it.second->cur_players(), it.second->audio_map_name());
+      spdlog::get(LOGGER)->debug("WebsocketServer::UpdateLobby: game added!", it.first);
     }
   }
 }

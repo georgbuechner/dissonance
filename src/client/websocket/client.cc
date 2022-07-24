@@ -13,13 +13,7 @@ Client::Client(ClientGame* game, std::string username, std::string base_path) : 
     base_path_ = base_path;
   }
 
-bool Client::same_device() {
-  return same_device_;
-}
-
 void Client::Start(std::string address) {
-  // same_device_ = address.find("localhost") != std::string::npos || address.find("127.0.0.1") != std::string::npos;
-  same_device_ = false; // TODO (fux): CHANGE!
   try {
     // Set logging to be pretty verbose (everything except message payloads)
     c_.set_access_channels(websocketpp::log::alevel::none);

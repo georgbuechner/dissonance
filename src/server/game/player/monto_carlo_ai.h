@@ -23,10 +23,11 @@ class RandomChoiceAi : public Player {
     int action_pool() const;
     std::vector<AiOption> actions() const;
     int last_action() const;
+    McNode* mc_node();
 
     // methods
     bool DoRandomAction();
-    bool DoGivenAction(AiOption action);
+    bool DoAction(AiOption action);
     std::vector<AiOption> GetchChoices();
     void SafeTree();
 
@@ -40,6 +41,8 @@ class RandomChoiceAi : public Player {
     int action_pool_;
     std::vector<AiOption> actions_;
     int last_action_;
+
+    McNode* mc_node_;
 
     // members functions
     void ExecuteAction(const AudioDataTimePoint& data_at_beat, AiOption action);

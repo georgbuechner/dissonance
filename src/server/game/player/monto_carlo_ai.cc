@@ -23,11 +23,13 @@ RandomChoiceAi::RandomChoiceAi(position_t nucleus_pos, Field* field, Audio* audi
   std::cout << "data points: " << data_per_beat_.size() << std::endl;
   action_pool_ = data_per_beat_.size()/10;
   std::cout << "action_pool_ is " << action_pool_ << std::endl;
+  mc_node_ = new McNode({0, 0.0});
 }
 
 RandomChoiceAi::RandomChoiceAi(const Player& ai, Field* field) : Player(ai, field) {
   spdlog::get(LOGGER)->debug("RandomChoiceAi::RandomChoiceAi: copy-constructor.");
-  spdlog::get(LOGGER)->debug("RandomChoiceAi::RandomChoiceAi: creating audio. audio is {}", ai.audio() == nullptr);
+  spdlog::get(LOGGER)->debug("RandomChoiceAi::RandomChoiceAi: creating audio. audio is nullptr? {}", 
+      ai.audio() == nullptr);
   audio_ = new Audio(*ai.audio());
   spdlog::get(LOGGER)->debug("RandomChoiceAi::RandomChoiceAi: audio created.");
   delete_audio_ = true;
@@ -57,6 +59,7 @@ AudioDataTimePoint RandomChoiceAi::last_data_point() const { return last_data_po
 int RandomChoiceAi::action_pool() const { return action_pool_; }
 std::vector<Player::AiOption> RandomChoiceAi::actions() const { return actions_; }
 int RandomChoiceAi::last_action() const { return last_action_; }
+Player::McNode* RandomChoiceAi::mc_node() { return mc_node_; }
 
 // methods
 bool RandomChoiceAi::DoRandomAction() {
@@ -81,7 +84,7 @@ bool RandomChoiceAi::DoRandomAction() {
   return false;
 }
 
-bool RandomChoiceAi::DoGivenAction(AiOption action) {
+bool RandomChoiceAi::DoAction(AiOption action) {
   spdlog::get(LOGGER)->debug("MontoCarloAi::DoGivenAction. action: {}", action._type);
   spdlog::get(LOGGER)->info("MontoCarloAi::DoGivenAction: got {} actions", actions_.size());
   auto next_data_at_beat = data_per_beat_.front();
@@ -104,6 +107,8 @@ void RandomChoiceAi::ExecuteAction(const AudioDataTimePoint&, AiOption action) {
 
   // units
   if (action._type == EPSP) {
+    spdlog::get(LOGGER)->debug("RandomChoiceAi::ExecuteAction: adding epsp @{}. Num synapses: {}", 
+        utils::PositionToString(action._pos), GetAllPositionsOfNeurons(SYNAPSE).size());
     auto costs = units_costs_.at(UnitsTech::EPSP);
     size_t res = resources_.at(POTASSIUM).cur() / costs[POTASSIUM];
     for (int i=0; i < res*action._num; i++) {
@@ -143,7 +148,12 @@ void RandomChoiceAi::ExecuteAction(const AudioDataTimePoint&, AiOption action) {
       auto enemy_neurons = enemies_.front()->GetAllPositionsOfNeurons();
       auto ipsp_target = enemy_neurons[ran_gen_->RandomInt(0, enemy_neurons.size()-1)];
       auto epsp_target = enemies_.front()->GetOneNucleus();
-      AddNeuron(pos, SYNAPSE, epsp_target, ipsp_target);
+      spdlog::get(LOGGER)->debug("Adding Synapse: ipsp_target: {}, epsp_target: {}",
+          utils::PositionToString(ipsp_target), utils::PositionToString(epsp_target));
+      if (epsp_target == DEFAULT_POS || ipsp_target == DEFAULT_POS)
+        spdlog::get(LOGGER)->debug("RandomChoiceAi::ExecuteAction Adding Synapse: enemy has no nucleus!");
+      else
+        AddNeuron(pos, SYNAPSE, epsp_target, ipsp_target);
     }
   }
   else if (action._type == NUCLEUS) {
@@ -154,6 +164,9 @@ void RandomChoiceAi::ExecuteAction(const AudioDataTimePoint&, AiOption action) {
   // resources 
   else if (action._type == 100) {
     DistributeIron(action._num);
+    // Distribute again if iron left and not actiaved yet.
+    if (!resources_.at(action._num).Active() && resources_.at(IRON).cur() > 0)
+      DistributeIron(action._num);
   }
   else if (action._type == 150) {
     RemoveIron(action._num);
@@ -165,6 +178,7 @@ void RandomChoiceAi::ExecuteAction(const AudioDataTimePoint&, AiOption action) {
   else if (action._type == 250) {
     ChangeEpspTargetForSynapse(action._pos, action._pos_2);
   }
+  spdlog::get(LOGGER)->info("MontoCarloAi::ExecuteAction done.");
 }
 
 std::vector<Player::AiOption> RandomChoiceAi::GetchChoices() {

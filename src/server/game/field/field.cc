@@ -88,9 +88,9 @@ std::vector<position_t> Field::AddNucleus(unsigned int num_players) {
     int section = ran_gen_->RandomInt(0, availible_sections.size()-1);
     auto positions_in_section = GetAllPositionsOfSection(availible_sections[section], true);
     availible_sections.erase(availible_sections.begin() + section);
-    // Make sure no other nucleus is too near.
+    // Make sure no other nucleus is too near and enough free fields
     position_t pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size()-1)];
-    while (NucleusInRange(pos, 8))
+    while (NucleusInRange(pos, 8) || GetAllInRange(pos, 1.5, 0, true).size() < 8)
       pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size())];
     // Add to field and nucleus positions.
     field_[pos.first][pos.second] = SYMBOL_DEN;
@@ -211,6 +211,9 @@ std::list<position_t> Field::GetWay(position_t start_pos, std::vector<position_t
 }
 
 void Field::AddNewUnitToPos(position_t pos, std::shared_ptr<Neuron> neuron, Player* p) {
+  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos({})", utils::PositionToString(pos));
+  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos() x-size: {}", field_.size());
+  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos() y-size: {}", field_[0].size());
   std::unique_lock ul_field(mutex_field_);
   if (neuron->type_ == UnitsTech::ACTIVATEDNEURON)
     field_[pos.first][pos.second] = SYMBOL_DEF;
@@ -219,6 +222,7 @@ void Field::AddNewUnitToPos(position_t pos, std::shared_ptr<Neuron> neuron, Play
   else if (neuron->type_ == UnitsTech::NUCLEUS)
     field_[pos.first][pos.second] = SYMBOL_DEN;
   neurons_[pos] = {neuron, p};
+  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos() done.");
 }
 
 void Field::RemoveUnitFromPos(position_t pos) {
@@ -268,9 +272,6 @@ std::vector<position_t> Field::GetAllInRange(position_t start, double max_dist, 
         positions_in_range.push_back(pos);
     }
   }
-  std::string pos_str = "";
-  for (const auto& position : positions_in_range) 
-    pos_str += utils::PositionToString(position) + ", ";
   return positions_in_range;
 }
 

@@ -6,12 +6,14 @@
 #include "server/game/player/audio_ki.h"
 #include "server/game/player/player.h"
 #include "share/tools/random/random.h"
+#include "spdlog/spdlog.h"
 #include "testing_utils.h"
 #include "share/tools/utils/utils.h"
 
 std::pair<Player*, Field*> SetUpPlayer(bool resources) {
   RandomGenerator* ran_gen = new RandomGenerator();
   Field* field = new Field(ran_gen->RandomInt(50, 150), ran_gen->RandomInt(50, 150), ran_gen);
+  spdlog::get(LOGGER)->info("SetUpPlayer with field cols: {} and lines: {}", field->cols(), field->lines());
   field->BuildGraph();
   auto nucleus_positions = field->AddNucleus(2);
   Player* player_one_ = new Player(nucleus_positions[0], field, ran_gen, 0);
@@ -24,19 +26,28 @@ std::pair<Player*, Field*> SetUpPlayer(bool resources) {
     for (int i=0; i<100; i++)
       player_one_->IncreaseResources(true);
     // Activated each resource
-    for (int i=Resources::IRON; i<Resources::SEROTONIN; i++)
-      for (int counter=0; counter<3; counter++)
+    for (int i=Resources::IRON+1; i<=Resources::SEROTONIN; i++)
+      for (int counter=0; counter<2; counter++) {
         player_one_->DistributeIron(i);
+        player_one_->IncreaseResources(true);
+      }
     // Increase resources 100 times for resource gain.
     for (int i=0; i<100; i++)
       player_one_->IncreaseResources(true);
+  }
+  for (const auto& it : player_one_->resources()) {
+    spdlog::get(LOGGER)->debug("{}. Active: {}", resources_name_mapping.at(it.first), it.second.Active());
   }
   return {player_one_, field};
 }
 
 void CreateRandomNeurons(Player* player, Field* field, int num, RandomGenerator* ran_gen) {
-  for (int i=0; i<num; i++)
-    player->AddNeuron(t_utils::GetRandomPositionInField(field, ran_gen), ran_gen->RandomInt(0, 1));
+  spdlog::get(LOGGER)->info("CreateRandomNeurons {}", num);
+  for (int i=0; i<num; i++) {
+    auto pos = t_utils::GetRandomPositionInField(field, ran_gen);
+    spdlog::get(LOGGER)->debug("Creating neuron with pos: {}", utils::PositionToString(pos));
+    player->AddNeuron(pos, ran_gen->RandomInt(0, 1));
+  }
 }
 
 TEST_CASE("test_ipsp_takes_epsp_potential", "[test_player]") {
@@ -85,8 +96,14 @@ TEST_CASE("test_ipsp_takes_epsp_potential", "[test_player]") {
     for (const auto& it : all_synapse_position)
       REQUIRE(player->GetNeuronTypeAtPosition(it) == SYNAPSE);
 
+    auto all_nucleus = player->GetAllPositionsOfNeurons(NUCLEUS).size();
+    auto all_resource_neuerons = player->GetAllPositionsOfNeurons(RESOURCENEURON).size();
+
     // All synapses and all activated neurons +6 (nucleus & resource-neurons) should equal the number of all neurons.
-    REQUIRE(all_activated_neurons.size() + all_synapse_position.size() + 6 == player->GetAllPositionsOfNeurons().size());
+    REQUIRE(all_activated_neurons.size() + all_synapse_position.size() + all_nucleus + all_resource_neuerons
+        == player->GetAllPositionsOfNeurons().size());
+    REQUIRE(all_nucleus == 1);
+    REQUIRE(all_resource_neuerons == 6);
   }
   
   SECTION ("test ResetWayForSynapse") {

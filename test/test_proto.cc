@@ -47,7 +47,7 @@ TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
 
   SECTION ("Test create setup_new_game-command for single-player", "[msgpack]") {
     unsigned short mode = SINGLE_PLAYER;
-    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
+    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols, false);
     Command cmd(command, data);
     REQUIRE(cmd.command() == command);
     REQUIRE(cmd.data()->mode() == mode);
@@ -69,7 +69,7 @@ TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
   SECTION ("Test create setup_new_game-command for multi-player (host)", "[msgpack]") {
     unsigned short num_players = 2;
     unsigned short mode = MULTI_PLAYER;
-    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
+    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols, false);
     data->set_num_players(num_players);
     Command cmd(command, data);
     REQUIRE(cmd.command() == command);
@@ -92,7 +92,7 @@ TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
   SECTION ("Test create setup_new_game-command for multi-player (client)", "[msgpack]") {
     std::string game_id = "fux_game";
     unsigned short mode = MULTI_PLAYER_CLIENT;
-    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
+    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols, false);
     data->set_game_id(game_id);
     Command cmd(command, data);
     REQUIRE(cmd.command() == command);
@@ -968,11 +968,13 @@ TEST_CASE("Test creating add_technology-dto", "[msgpack]") {
 TEST_CASE("Test creating send_audio_info-dto", "[msgpack]") {
   std::string command = "send_audio_info";
   bool send_audio = false;
+  bool send_ai_audios = false;
 
-  std::shared_ptr<Data> data = std::make_shared<SendAudioInfo>(send_audio);
+  std::shared_ptr<Data> data = std::make_shared<SendAudioInfo>(send_audio, send_ai_audios);
   Command cmd(command, data);
   REQUIRE(cmd.command() == command);
   REQUIRE(cmd.data()->send_audio() == send_audio);
+  REQUIRE(cmd.data()->send_ai_audios() == send_ai_audios);
   auto payload = cmd.bytes();
 
   Command cmd_from_bytes(payload.c_str(), payload.size());

@@ -108,8 +108,9 @@ int main(int argc, const char** argv) {
 
   // only ai-game
   if (only_ai) {
-    ServerGame* game = new ServerGame(50, 50, AI_GAME, 2, base_path, nullptr);
-    game->InitAiGame(base_path, path_sound_map, path_sound_ai_1, path_sound_ai_2);
+    ServerGame* game = new ServerGame(50, 50, AI_GAME, true, 2, base_path, nullptr);
+    // game->InitAiGame(base_path, path_sound_map, {path_sound_ai_1, path_sound_ai_2});
+    game->InitAiGame(base_path, path_sound_map, {});
     utils::WaitABit(100);
     return 0;
   }

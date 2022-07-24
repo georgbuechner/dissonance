@@ -319,7 +319,7 @@ void ClientGame::h_SelectGame(std::shared_ptr<Data>) {
   spdlog::get(LOGGER)->info("ClientGame::h_SelectGame");
   nlohmann::json msg;
   std::shared_ptr<Data> data = std::make_shared<InitNewGame>(MULTI_PLAYER_CLIENT, drawrer_.field_height(), 
-      drawrer_.field_width());
+      drawrer_.field_width(), false);
 
   std::string game_id = drawrer_.game_id_from_lobby();
   if (game_id != "") {
@@ -729,8 +729,16 @@ void ClientGame::m_SelectMode(std::shared_ptr<Data> data) {
     EditSettings();
     m_SelectMode(data);
   }
+  bool mc_ai = false;
+  if (mode_ == OBSERVER) {
+    choice_mapping_t mapping = { 
+      {0, {"audio-ai", COLOR_AVAILIBLE}},
+      {1, {"monto-carl-ai (not available yet)", COLOR_DEFAULT}}
+    };
+    mc_ai = SelectInteger("Select AI type", true, mapping, {mapping.size()+1}, "AI type not available");
+  }
   drawrer_.set_mode(mode_);
-  auto new_data = std::make_shared<InitNewGame>(mode_, drawrer_.field_height(), drawrer_.field_width());
+  auto new_data = std::make_shared<InitNewGame>(mode_, drawrer_.field_height(), drawrer_.field_width(), mc_ai);
   // Tutorial: show first tutorial message, then change mode (in request) to normal singe-player.
   if (mode_ == TUTORIAL) {
     drawrer_.PrintCenteredParagraphs(texts::tutorial_start);
@@ -742,8 +750,9 @@ void ClientGame::m_SelectMode(std::shared_ptr<Data> data) {
       {1, {"3 players", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
       {2, {"4 players", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     };
-    data->set_num_players(2 + SelectInteger("Select number of players", true, 
-        mapping, {mapping.size()+1}, "Max 4 players!"));
+    int num_players = 2 + SelectInteger("Select number of players", true, mapping, {mapping.size()+1}, "Max 4 players!");
+    spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode: num_players: {}", num_players);
+    new_data->set_num_players(num_players);
   }
   ws_srv_->SendMessage("setup_new_game", new_data);
 }
@@ -794,7 +803,7 @@ void ClientGame::m_SendAudioInfo(std::shared_ptr<Data> data) {
   auto new_data = std::make_shared<InitializeGame>(p.filename().string());
 
   // If observer load audio for two ai-files (no need to send audi-file: only analysed data)
-  if (mode_ == OBSERVER) {
+  if (data->send_ai_audios()) {
     for (unsigned int i = 0; i<2; i++) {
       std::string source_path = SelectAudio("select ai sound " + std::to_string(i+1));
       Audio audio(base_path_);

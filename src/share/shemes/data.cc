@@ -105,17 +105,17 @@ void Msg::binary(std::stringstream& buffer) {
 }
 
 // SELECT MODE
-InitNewGame::InitNewGame(unsigned short mode, unsigned short lines, unsigned short cols) : Data() {
+InitNewGame::InitNewGame(unsigned short mode, unsigned short lines, unsigned short cols, bool mc_ai) : Data() {
   mode_ = mode;
   lines_ = lines;
   cols_ = cols;
   num_players_ = 0;
   game_id_ = "";
+  mc_ai_ = mc_ai;
 }
 
 InitNewGame::InitNewGame(const char* payload, size_t len, size_t& offset) : Data() {
   msgpack::object_handle result;
-
   unpack(result, payload, len, offset);
   mode_ = result->as<unsigned short>();
   unpack(result, payload, len, offset);
@@ -123,9 +123,11 @@ InitNewGame::InitNewGame(const char* payload, size_t len, size_t& offset) : Data
   unpack(result, payload, len, offset);
   cols_= result->as<unsigned short>();
   unpack(result, payload, len, offset);
-  num_players_= result->as<unsigned short>();
+  num_players_ = result->as<unsigned short>();
   unpack(result, payload, len, offset);
   game_id_ = result->as<std::string>();
+  unpack(result, payload, len, offset);
+  mc_ai_ = result->as<bool>();
 }
 
 // getter
@@ -134,6 +136,7 @@ unsigned short InitNewGame::lines() { return lines_; }
 unsigned short InitNewGame::cols() { return cols_; }
 unsigned short InitNewGame::num_players() { return num_players_; }
 std::string InitNewGame::game_id() { return game_id_; }
+bool InitNewGame::mc_ai() { return mc_ai_; }
 
 // setter 
 void InitNewGame::set_num_players(unsigned short num_players) { num_players_ = num_players; }
@@ -146,6 +149,7 @@ void InitNewGame::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, cols_);
   msgpack::pack(buffer, num_players_);
   msgpack::pack(buffer, game_id_);
+  msgpack::pack(buffer, mc_ai_);
 }
 
 // UPDATE_GAME
@@ -350,6 +354,10 @@ const std::vector<Data::LobbyEntry> Lobby::lobby() { return lobby_; }
 // methods    
 void Lobby::AddEntry(std::string game_id, short max_players, short cur_players, std::string audio_map_name) {
   lobby_.push_back(LobbyEntry({max_players, cur_players, game_id, audio_map_name}));
+}
+
+void Lobby::clear() {
+  lobby_.clear();
 }
 
 void Lobby::binary(std::stringstream& buffer) {
@@ -849,20 +857,25 @@ void CheckSendAudio::binary(std::stringstream& buffer) {
 }
 
 // SEND AUDIO INFO
-SendAudioInfo::SendAudioInfo(bool send_audio) : Data(), send_audio_(send_audio) {}
+SendAudioInfo::SendAudioInfo(bool send_audio, bool send_ai_audios) 
+  : Data(), send_audio_(send_audio), send_ai_audios_(send_ai_audios) {}
 SendAudioInfo::SendAudioInfo(const char* payload, size_t len, size_t& offset) : Data() {
   msgpack::object_handle result;
 
   unpack(result, payload, len, offset);
   send_audio_ = result->as<bool>();
+  unpack(result, payload, len, offset);
+  send_ai_audios_ = result->as<bool>();
 }
 
 // getter
 bool SendAudioInfo::send_audio() { return send_audio_; }
+bool SendAudioInfo::send_ai_audios() { return send_ai_audios_; }
 
 // methods
 void SendAudioInfo::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, send_audio_);
+  msgpack::pack(buffer, send_ai_audios_);
 }
 
 // AUDIO TRANSFER DATA

@@ -38,15 +38,18 @@ bool IsAi(std::string username) {
   return username.find("#AI") != std::string::npos;
 }
 
-ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, 
+ServerGame::ServerGame(int lines, int cols, int mode, bool mc_ai, int num_players, std::string base_path, 
     WebsocketServer* srv) : max_players_(num_players), cur_players_(1), audio_(base_path), ws_server_(srv), 
     status_(WAITING), mode_((mode == TUTORIAL) ? SINGLE_PLAYER : mode), lines_(lines), cols_(cols) {
+  spdlog::get(LOGGER)->info("ServerGame::ServerGame: num_players: {}, tutorial-mode? {}, monto-carlo-ai? {}", 
+      max_players_, tutorial_, mc_ai_);
   pause_ = false;
   time_in_pause_ = 0;
   tutorial_ = mode == TUTORIAL;
   audio_data_ = "";
   audio_file_name_ = "";
   base_path_ = base_path;
+  mc_ai_ = mc_ai;
   // Initialize eventmanager.
   eventmanager_.AddHandler("audio_map", &ServerGame::m_SendAudioMap);
   eventmanager_.AddHandler("send_audio", &ServerGame::m_SendSong);
@@ -101,7 +104,7 @@ void ServerGame::PrintStatistics() {
 
 void ServerGame::AddPlayer(std::string username, int lines, int cols) {
   std::unique_lock ul(mutex_players_);
-  spdlog::get(LOGGER)->info("ServerGame::AddPlayer: {}", username);
+  spdlog::get(LOGGER)->info("ServerGame::AddPlayer: {}, cur: {}, max: {}", username, players_.size(), max_players_);
   // Check is free slots in lobby.
   if (players_.size() < max_players_) {
     players_[username] = nullptr;
@@ -132,10 +135,19 @@ void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
 }
 
 void ServerGame::PlayerReady(std::string username) {
+  spdlog::get(LOGGER)->debug("ServerGame::PlayerReady: starting game as last player entered game.");
   // Only start game if status is still waiting, to avoid starting game twice.
   if (players_.size() >= max_players_ && status_ == WAITING_FOR_PLAYERS) {
-    spdlog::get(LOGGER)->info("ServerGame::AddPlayer: starting game as last player entered game.");
+    spdlog::get(LOGGER)->info("ServerGame::PlayerReady: starting game as last player entered game.");
     RunGame();
+  }
+}
+
+void ServerGame::PlayerResigned(std::string username) {
+  spdlog::get(LOGGER)->debug("ServerGame::PlayerResigned: player {} resigned.", username);
+  if (players_.count(username) > 0 && players_.at(username) != nullptr && dead_players_.count(username) == 0) {
+    players_.at(username)->set_lost(true);
+    SendMessageToAllPlayers(Command("set_msg", std::make_shared<Msg>(username + " resigned")), username);
   }
 }
 
@@ -146,14 +158,12 @@ void ServerGame::HandleInput(std::string command, std::shared_ptr<Data> data) {
     std::unique_lock ul(mutex_players_);
     try {
       (this->*eventmanager_.handlers().at(command))(data);
-    }
-    catch(std::exception& e) {
+    } catch(std::exception& e) {
       spdlog::get(LOGGER)->error("ServerGame::HandleInput: failed with exception: {}", e.what());
     }
   }
-  else {
+  else
     spdlog::get(LOGGER)->warn("ServerGame::HandleInput: unknown command!");
-  }
 }
 
 // command methods
@@ -181,8 +191,7 @@ void ServerGame::m_RemoveIron(std::shared_ptr<Data> data) {
     // If resource is now below produce-minimum, send client resource-neuron as new unit.
     if (player->resources().at(data->resource()).bound() == 1) {
       ws_server_->SendMessage(data->u(), "set_unit", std::make_shared<FieldPosition>(
-            player->resources().at(data->resource()).pos(), RESOURCENEURON, COLOR_DEFAULT, 
-            data->resource()));
+            player->resources().at(data->resource()).pos(), RESOURCENEURON, COLOR_DEFAULT, data->resource()));
     }
     msg = "Remove iron: done!";
   }
@@ -206,8 +215,7 @@ void ServerGame::m_CheckBuildNeuron(std::shared_ptr<Data> data) {
   std::string missing = GetMissingResourceStr(player->GetMissingResources(unit));
   // Not enough resources: send error (not-enough-resource) message.
   if (missing != "") {
-    std::string msg = "Not enough resource! missing: " + missing;
-    ws_server_->SendMessage(data->u(), "set_msg", std::make_shared<Msg>(msg));
+    ws_server_->SendMessage(data->u(), "set_msg", std::make_shared<Msg>("Not enough resource! missing: " + missing));
   }
   else {
     // Always set range
@@ -227,24 +235,20 @@ void ServerGame::m_CheckBuildNeuron(std::shared_ptr<Data> data) {
 
 void ServerGame::m_CheckBuildPotential(std::shared_ptr<Data> data) {
   Player* player = GetPlayer(data->u());
-  int unit = data->unit();
-  int num = data->num();
   auto synapses = player->GetAllPositionsOfNeurons(SYNAPSE);
-  std::string missing = GetMissingResourceStr(player->GetMissingResources(unit));
+  std::string missing = GetMissingResourceStr(player->GetMissingResources(data->unit()));
   // Not enough resources: send error (not-enough-resource) message.
   if (missing != "") {
     std::string msg = "Not enough resource! missing: " + missing;
     ws_server_->SendMessage(data->u(), "set_msg", std::make_shared<Msg>(msg));
   }
   // No synapses: send error (no-synapses) message.
-  else if (synapses.size() == 0) {
-    std::string msg = "No synapse!";
-    ws_server_->SendMessage(data->u(), "set_msg", std::make_shared<Msg>(msg));
-  }
+  else if (synapses.size() == 0)
+    ws_server_->SendMessage(data->u(), "set_msg", std::make_shared<Msg>("No synapse!"));
   // Only one synapse or player specified position => add potential
   else if (synapses.size() == 1 || data->synapse_pos() != DEFAULT_POS) {
     position_t pos = (synapses.size() == 1) ? synapses.front() : data->synapse_pos();
-    BuildPotentials(unit, pos, num, data->u(), player);
+    BuildPotentials(data->unit(), pos, data->num(), data->u(), player);
   }
   // More than one synapse and position not given => tell user to select position.
   else  {
@@ -255,20 +259,18 @@ void ServerGame::m_CheckBuildPotential(std::shared_ptr<Data> data) {
 
 void ServerGame::m_BuildNeurons(std::shared_ptr<Data> data) {
   Player* player = GetPlayer(data->u());
-  int unit = data->unit();
   position_t pos = data->pos();
-
   bool success = false;
   // In case of synapse get random position for epsp- and ipsp-target.
-  if (unit == SYNAPSE)
-    success = player->AddNeuron(pos, unit, player->enemies().front()->GetOneNucleus(), 
-      player->enemies().front()->GetRandomNeuron());
+  if (data->unit() == SYNAPSE)
+    success = player->AddNeuron(pos, data->unit(), player->enemies().front()->GetOneNucleus(), 
+        player->enemies().front()->GetRandomNeuron());
   // Otherwise simply add.
   else 
-    success = player->AddNeuron(pos, unit);
+    success = player->AddNeuron(pos, data->unit());
   // Add position to field, tell all players to add position and send success mesage.
   if (success)
-    ws_server_->SendMessage(data->u(), "set_unit", std::make_shared<FieldPosition>(pos, unit, player->color()));
+    ws_server_->SendMessage(data->u(), "set_unit", std::make_shared<FieldPosition>(pos, data->unit(), player->color()));
   else
     ws_server_->SendMessage(data->u(), "set_msg", std::make_shared<Msg>("Failed!"));
 }
@@ -367,13 +369,12 @@ void ServerGame::m_SetPauseOff(std::shared_ptr<Data>) {
   pause_ = false;
   std::unique_lock ul(mutex_pause_);
   time_in_pause_ += utils::GetElapsed(pause_start_, std::chrono::steady_clock::now());
-  spdlog::get(LOGGER)->info("Set pause off {}", time_in_pause_);
 }
 
 void ServerGame::BuildPotentials(int unit, position_t pos, int num, std::string username, Player* player) {
   bool success = false;
   // (Try to) build number of given potentials to build.
-  for (int i=0; i < num; i++) {
+  for (int i=0; i<num; i++) {
     success = player->AddPotential(pos, unit, i/2);
     if (!success)
       break;
@@ -399,7 +400,8 @@ void ServerGame::m_SendAudioMap(std::shared_ptr<Data> data) {
     else 
       send_song = true;
   }
-  ws_server_->SendMessage(data->u(), "send_audio_info", std::make_shared<SendAudioInfo>(send_song));
+  bool send_ai_audios = mode_ == OBSERVER && !mc_ai_;
+  ws_server_->SendMessage(data->u(), "send_audio_info", std::make_shared<SendAudioInfo>(send_song, send_ai_audios));
 }
 
 void ServerGame::m_SendSong(std::shared_ptr<Data> data) {
@@ -431,7 +433,7 @@ void ServerGame::m_InitializeGame(std::shared_ptr<Data> data) {
 
   // Get and analyze audio-files for AIs (OBSERVER-mode).
   std::vector<Audio*> audios; 
-  if (data->ai_audio_data().size() > 0) {
+  if (data->ai_audio_data().size() > 0 && !mc_ai_) {
     for (const auto& it : data->ai_audio_data()) {
       Audio* new_audio = new Audio(base_path_);
       new_audio->set_source_path(it.first);
@@ -447,8 +449,9 @@ void ServerGame::m_InitializeGame(std::shared_ptr<Data> data) {
     human_players_[host_] = nullptr;
   }
   // Or to observers.
-  else if (mode_ == OBSERVER)
+  else if (mode_ == OBSERVER) {
     observers_.push_back(host_);
+  }
   
   // If mode is OBSERVER or SINGLE_PLAYER, add ais and run game.
   if (mode_ == SINGLE_PLAYER || mode_ == OBSERVER) {
@@ -457,7 +460,11 @@ void ServerGame::m_InitializeGame(std::shared_ptr<Data> data) {
       players_["#AI (" + map_name + ")"] = nullptr;
     }
     // If observers, add both ais.
-    else if (mode_ == OBSERVER) {
+    else if (mode_ == OBSERVER && mc_ai_) {
+      players_[MC_AI] = nullptr;
+      players_[RAN_AI] = nullptr;
+    }
+    else if (mode_ == OBSERVER && !mc_ai_) {
       players_["#AI (" + audios[0]->filename(true) + ")"] = nullptr;
       players_["#AI (" + audios[1]->filename(true) + ")"] = nullptr;
     }
@@ -470,30 +477,20 @@ void ServerGame::m_InitializeGame(std::shared_ptr<Data> data) {
   }
 }
 
-void ServerGame::PlayerResigned(std::string username) {
-  if (players_.count(username) > 0 && players_.at(username) != nullptr && dead_players_.count(username) == 0) {
-    players_.at(username)->set_lost(true);
-    SendMessageToAllPlayers(Command("set_msg", std::make_shared<Msg>(username + " resigned")), username);
-  }
-}
-
-void ServerGame::InitAiGame(std::string base_path, std::string path_audio_map, std::string path_audio_a, 
-    std::string path_audio_b) {
+void ServerGame::InitAiGame(std::string base_path, std::string path_audio_map, 
+    std::vector<std::string> ai_audio_paths) {
   // Analyze map audio
   audio_.set_source_path(path_audio_map);
   audio_.Analyze();
   // Analyze audio for ais.
   std::vector<Audio*> audios; 
-  // Analyze audio for first ai.
-  Audio* audio_a = new Audio(base_path);
-  audio_a->set_source_path(path_audio_a);
-  audio_a->Analyze();
-  audios.push_back(audio_a);
-  // Analyze audio for second ai.
-  Audio* audio_b = new Audio(base_path);
-  audio_b->set_source_path(path_audio_b);
-  audio_b->Analyze();
-  audios.push_back(audio_b);
+  // Analyze ai-audios 
+  for (const auto& audio_path : ai_audio_paths) {
+    Audio* audio_a = new Audio(base_path);
+    audio_a->set_source_path(audio_path);
+    audio_a->Analyze();
+    audios.push_back(audio_a);
+  }
 
   // Create players
   players_[MC_AI] = nullptr;
@@ -503,7 +500,7 @@ void ServerGame::InitAiGame(std::string base_path, std::string path_audio_map, s
   spdlog::get(LOGGER)->debug("Creating ai game");
   // Actually start AI game and keep track of time.
   auto audio_start_time = std::chrono::steady_clock::now();
-  int one_player_won = RunAiGame();
+  int one_player_won = RunAiGame(audios);
   auto elapsed = utils::GetElapsed(audio_start_time, std::chrono::steady_clock::now());
   
   // Print a few metadatas
@@ -528,14 +525,12 @@ void ServerGame::SetUpGame(std::vector<Audio*> audios) {
     int color = (counter % 4) + 10; // currently results in four different colors
     auto nucleus_pos = nucleus_positions[counter];
     // Add AI
-    if (IsAi(it.first)) {
-      // If audios are given, uses one of the audios (observer- or ai-game)
-      if (audios.size() == 0)
-        players_[it.first] = new RandomChoiceAi(nucleus_pos, field_, &audio_, ran_gen, color);
-      // Other wise uses same audio as map.
-      else 
-        players_[it.first] = new RandomChoiceAi(nucleus_pos, field_, audios[ai_audio_counter++], ran_gen, color);
-    }
+    if (IsAi(it.first) && mc_ai_)
+      players_[it.first] = new RandomChoiceAi(nucleus_pos, field_, &audio_, ran_gen, color);
+    else if (IsAi(it.first) && audios.size() > 0)
+      players_[it.first] = new AudioKi(nucleus_pos, field_, audios[ai_audio_counter++], ran_gen, color);
+    else if (IsAi(it.first))
+      players_[it.first] = new AudioKi(nucleus_pos, field_, &audio_, ran_gen, color);
     // Add human player
     else {
       players_[it.first] = new Player(nucleus_pos, field_, ran_gen, color);
@@ -545,13 +540,8 @@ void ServerGame::SetUpGame(std::vector<Audio*> audios) {
   }
   // Pass all players a vector of all enemies.
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Setting enemies for each player");
-  for (const auto& it : players_) {
-    std::vector<Player*> enemies;
-    for (const auto& jt : players_)
-      if (jt.first != it.first) 
-        enemies.push_back(jt.second);
-    it.second->set_enemies(enemies);
-  }
+  for (const auto& it : players_)
+    it.second->set_enemies(enemies(players_, it.first));
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Done setting up game");
   return;
 }
@@ -561,7 +551,7 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
   RandomGenerator* ran_gen_2 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_level_peaks);
   // Create field.
   field_ = nullptr;
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: creating map. field initialized? {}", field_ != nullptr);
+  spdlog::get(LOGGER)->info("ServerGame::SetUpField: creating map. field initialized? {}", field_ != nullptr);
   std::vector<position_t> nucleus_positions;
   int denseness = 0;
   while (!field_ && denseness < 4) {
@@ -583,7 +573,7 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
       "It might work with a higher resolution. (dissonance -r)";
     SendMessageToAllPlayers(Command("print_msg", std::make_shared<Msg>(msg)));
   }
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: successfully created map.");
+  spdlog::get(LOGGER)->info("ServerGame::SetUpField: successfully created map.");
   return nucleus_positions;
 }
 
@@ -595,11 +585,18 @@ void ServerGame::RunGame(std::vector<Audio*> audios) {
   if (mode_ != AI_GAME) {
     // Inform players, to start game with initial field included
     SendInitialData();
-    for (const auto& it : players_) {
-      if (IsAi(it.first)) {
-        std::thread ai([this, it]() { Thread_Ai(it.first); });
-        ai.detach();
+    // For non-monto-carlo-games, start ai-threads.
+    if (!mc_ai_) {
+      for (const auto& it : players_) {
+        if (IsAi(it.first)) {
+          std::thread ai([this, it]() { Thread_Ai(it.first); });
+          ai.detach();
+        }
       }
+    }
+    else {
+      std::thread ai([this]() { Thread_McAi(MC_AI); });
+      ai.detach();
     }
     // Start update-shedule.
     std::thread update([this]() { Thread_RenderField(); });
@@ -614,13 +611,12 @@ bool ServerGame::RunAiGame(std::vector<Audio*> audios) {
   SetUpGame(audios);
   auto data_per_beat = audio_.analysed_data().data_per_beat_;
   RandomGenerator* ran_gen = new RandomGenerator();
-
-  McNode* mc_node = new McNode({0, 0.0});
+  // Initialize monto-carlo tree.
+  Player::McNode* mc_node = players_[MC_AI]->mc_node();
 
   // Main-loop going through all beats in song once.
   bool end = false;
-  int counter=0;
-  int counter_2 = 0;
+  int counter = 0;
   while(data_per_beat.size() > 0 && end == false) {
     // Get next beat.
     auto data_at_beat = data_per_beat.front();
@@ -633,65 +629,59 @@ bool ServerGame::RunAiGame(std::vector<Audio*> audios) {
       ai.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
       // Get next audio-data and if empty, reset to beginning.
       // Do action and set last time-point.
+      std::string action;
       if (ai.first == MC_AI) {
-        auto start = std::chrono::steady_clock::now();
         spdlog::get(LOGGER)->debug("Main Ais turn");
-        // Do 100 playouts.
-        std::cout << "Players turn:  (action " << counter_2++ << ")" << std::endl;
-        for (unsigned int i=0; i<100; i++)
-          RunMCGames(data_per_beat, mc_node);
-        std::cout << "Got " << mc_node->_nodes.size() << " choices" << std::endl;
-        // Get sorted actions
-        std::map<float, std::vector<std::string>> weigthed;
-        for (const auto& it: mc_node->_nodes)
-          weigthed[it.second->_count/it.second->cur_weight_].push_back(it.first);
-        // Pick random actions from best actions (last key in map is heighest key)
-        auto best_actions = weigthed.begin()->second;
-        auto action = best_actions[ran_gen->RandomInt(0, best_actions.size()-1)];
+        std::cout << "Players turn:  (action " << counter/8 << ")" << std::endl;
+        action = FindNextMcMove(data_per_beat, mc_node, ran_gen);
         // Do action and update node
-        std::cout << " -> Using: " << action << " (" << weigthed.begin()->first << ")" << std::endl;
-        ai.second->DoGivenAction(Player::AiOption(action));
-        mc_node = mc_node->_nodes.at(action);
-        std::cout << utils::GetElapsed(start, std::chrono::steady_clock::now()) << "ms to find next move." << std::endl;
+        ai.second->DoAction(Player::AiOption(action));
       }
       else {
         spdlog::get(LOGGER)->info("Opponents turn");
-        ai.second->DoRandomAction();
-        mc_node->_nodes["ran"] = new McNode({0, 0.0});
-        mc_node = mc_node->_nodes.at("ran");
+        action = GetAction(ai.second, mc_node, ran_gen);
+        ai.second->DoAction(action);
       }
+      mc_node = mc_node->_nodes.at(action);
     }
-
-    // Movement actions: repeat eight time for every beat.
-    for (int i=0; i<8; i++) {
-      field_->GetEpsps(players_);
-      // Move potentials
-      for (const auto& ai : players_)
-        ai.second->MovePotential();
-      // Check if one player has lost.
-      for (const auto& ai : players_) {
-        if (ai.second->HasLost())
-          end = true;
-      }
-      // Handle def and ipsp-swallow.
-      if (counter++%4 == 0) {
-        for (const auto& ai : players_)
-          ai.second->HandleDef();
-      }
-    }
+    // Movement actions: repeat eight times for every beat.
+    end = RunActions(players_);
+    counter+=8;
   }
   std::cout << "Time analysis (after " << counter << " beats): " << std::endl;
   time_analysis_.print();
   return end; // if true: time was up.
 }
 
-void ServerGame::RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, McNode* node) {
-  spdlog::get(LOGGER)->debug("ServerGame::RunMCGames");
-  auto start_mc_game = std::chrono::steady_clock::now();
+std::string ServerGame::FindNextMcMove(std::deque<AudioDataTimePoint> data_per_beat, Player::McNode* node, 
+    RandomGenerator* ran_gen) {
+  spdlog::get(LOGGER)->debug("ServerGame::FindNextMcMove");
+  auto start = std::chrono::steady_clock::now();
+  // Do 100 playouts.
+  for (unsigned int i=0; i<100; i++)
+    RunMCGames(data_per_beat, node);
+  spdlog::get(LOGGER)->debug("ServerGame::FindNextMcMove: all 100 mc games run");
+  // Get sorted actions
+  std::map<float, std::vector<std::string>> weigthed;
+  for (const auto& it: node->_nodes)
+    weigthed[it.second->_count/it.second->cur_weight_].push_back(it.first);
+  // Pick random actions from best actions (last key in map is heighest key)
+  auto best_actions = weigthed.begin()->second;
+  auto action = best_actions[ran_gen->RandomInt(0, best_actions.size()-1)];
+  // Do action and update node
+  if (mode_ == AI_GAME) {
+    std::cout << " -> Using: " << action << " of " << node->_nodes.size() << " options (" << weigthed.begin()->first 
+      << ", " << utils::GetElapsed(start, std::chrono::steady_clock::now()) << "ms)" << std::endl;
+  }
+  return action;
+}
 
+void ServerGame::RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, Player::McNode* node) {
+  spdlog::get(LOGGER)->debug("ServerGame::RunMCGames");
   // Init monto-carlo tree variables.
+  auto start_mc_game = std::chrono::steady_clock::now();
   std::vector<std::string> vistited;
-  McNode* cur_node = node;
+  Player::McNode* cur_node = node;
   RandomGenerator* ran_gen = new RandomGenerator();
 
   spdlog::get(LOGGER)->debug("ServerGame::RunMCGames: creating field");
@@ -699,19 +689,12 @@ void ServerGame::RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, McNode
 
   spdlog::get(LOGGER)->debug("ServerGame::RunMCGames: creating players");
   std::map<std::string, Player*> ais;
-  for (const auto& it : players_) {
+  for (const auto& it : players_)
     ais[it.first] = new RandomChoiceAi(*it.second, &field);
-  }
   spdlog::get(LOGGER)->debug("ServerGame::RunMCGames: adding enemies");
-  for (const auto& it : ais) {
-    std::vector<Player*> enemies;
-    for (const auto& jt : ais)
-      if (jt.first != it.first) 
-        enemies.push_back(jt.second);
-    it.second->set_enemies(enemies);
-  }
+  for (const auto& it : ais)
+    it.second->set_enemies(enemies(ais, it.first));
   time_analysis_.time_setup_ += utils::GetElapsedNano(start_mc_game, std::chrono::steady_clock::now());
-
 
   spdlog::get(LOGGER)->debug("ServerGame::RunMCGames: playout!");
   // Main-loop going through all beats in song once.
@@ -731,34 +714,16 @@ void ServerGame::RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, McNode
       ai.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
       ai.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
       // Get next audio-data and if empty, reset to beginning.
-      // Do action and set last time-point (random-choice for both ais)
-      // ignore for first move of ran-ai.
+      // Do action and set last time-point (random-choice for both ais). Ignore for first move of ran-ai.
       if (!(ai.first == RAN_AI && counter == 0)) {
-        std::string action_hash = "";
-        // Actions already calculated for this node.
-        if (cur_node->_nodes.size() > 1) {
-          // Select random existing action.
-          auto it = cur_node->_nodes.begin();
-          std::advance(it, ran_gen->RandomInt(0, cur_node->_nodes.size()-1)); 
-          action_hash = it->first;
-          // std::cout << "- " << counter << "(" << ai.first << ") used existing " << action_hash << " " << std::endl;
-        }
-        // New node
-        else {
-          // get actions
-          auto actions = ai.second->GetchChoices();
-          // Add actions to tree or update:
-          for (const auto& it : actions) {
-            if (cur_node->_nodes.count(it.hash()) == 0)
-              cur_node->_nodes[it.hash()] = new McNode({0, 0.0});
-          }
-          // Select random action
-          action_hash = actions[ran_gen->RandomInt(0, actions.size()-1)].hash();
-        }
         // Set current node and update vistited for updating weights.
+        std::string action_hash = GetAction(ai.second, cur_node, ran_gen);
+        spdlog::get(LOGGER)->debug("Got action_hash: {}", action_hash);
         vistited.push_back(action_hash);
         cur_node = cur_node->_nodes.at(action_hash);
-        ai.second->DoGivenAction(Player::AiOption(action_hash));
+        spdlog::get(LOGGER)->debug("exec action...");
+        ai.second->DoAction(Player::AiOption(action_hash));
+        spdlog::get(LOGGER)->debug("done.");
         if (ai.first == MC_AI) 
           time_analysis_.time_ai_mc_ += utils::GetElapsedNano(start_ai_action, std::chrono::steady_clock::now());
         else 
@@ -769,22 +734,8 @@ void ServerGame::RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, McNode
 
     // Movement actions: repeat eight time for every beat.
     start = std::chrono::steady_clock::now();
-    for (int i=0; i<8; i++) {
-      field_->GetEpsps(ais);
-      // Move potentials
-      for (const auto& ai : ais)
-        ai.second->MovePotential();
-      // Check if one player has lost.
-      for (const auto& ai : ais) {
-        if (ai.second->HasLost())
-          end = true;
-      }
-      // Handle def and ipsp-swallow.
-      if (counter++%4 == 0) {
-        for (const auto& ai : ais)
-          ai.second->HandleDef();
-      }
-    }
+    end = RunActions(ais);
+    counter+=8;
     time_analysis_.time_game_ += utils::GetElapsedNano(start, std::chrono::steady_clock::now());
   }
   spdlog::get(LOGGER)->debug("ServerGame::RunMCGame: Calculating success.");
@@ -804,6 +755,49 @@ void ServerGame::RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, McNode
   time_analysis_.total_time_in_game_ += utils::GetElapsedNano(start_mc_game, std::chrono::steady_clock::now());
   // std::cout << " - time: " << utils::GetElapsed(start_mc_game, std::chrono::steady_clock::now())
   //   << ", res: " << res << ", data-points: " << counter/8 << std::endl;
+}
+
+std::string ServerGame::GetAction(Player* ai, Player::McNode* node, RandomGenerator* ran_gen) {
+  std::string action_hash = "";
+  // Actions already calculated for this node.
+  if (node->_nodes.size() > 1) {
+    // Select random existing action.
+    auto it = node->_nodes.begin();
+    std::advance(it, ran_gen->RandomInt(0, node->_nodes.size()-1)); 
+    return it->first;
+  }
+  // New node
+  else {
+    // get actions
+    auto actions = ai->GetchChoices();
+    // Add actions to tree or update:
+    for (const auto& it : actions) {
+      if (node->_nodes.count(it.hash()) == 0)
+        node->_nodes[it.hash()] = new Player::McNode({0, 0.0});
+    }
+    // Select random action
+    return actions[ran_gen->RandomInt(0, actions.size()-1)].hash();
+  }
+}
+
+bool ServerGame::RunActions(std::map<std::string, Player*>& players) {
+  for (int i=0; i<8; i++) {
+    field_->GetEpsps(players);
+    // Move potentials 
+    for (const auto& ai : players)
+      ai.second->MovePotential();
+    // Check if one player has lost.
+    for (const auto& ai : players_) {
+      if (ai.second->HasLost())
+        return true;
+    }
+    // Handle def 
+    if (i++%4 == 0) {
+      for (const auto& ai : players)
+        ai.second->HandleDef();
+    }
+  }
+  return false;
 }
 
 void ServerGame::Thread_RenderField() {
@@ -853,15 +847,8 @@ void ServerGame::Thread_RenderField() {
       for (const auto& it : players_) {
         it.second->MovePotential();
         // Send newly created loophols to player.
-        if (!IsAi(it.first)) {
-          auto positions = it.second->GetAllPositionsOfNeurons(LOOPHOLE);
-          if (positions.size() > 0) {
-            std::vector<FieldPosition> new_units;
-            for (const auto& pos : positions) 
-              new_units.push_back(FieldPosition(pos, LOOPHOLE, it.second->color()));
-            ws_server_->SendMessage(it.first, "set_units", std::make_shared<Units>(new_units));
-          }
-        }
+        if (!IsAi(it.first))
+          SendLoopHols(it.first, it.second);
       }
       // After potentials where move check if a new player has lost and whether a player has scouted new enemy neuerons
       HandlePlayersLost();
@@ -876,7 +863,7 @@ void ServerGame::Thread_RenderField() {
       // Refresh page
       last_update = cur_time;
     }
-  } 
+  }
   std::unique_lock ul(mutex_status_);
   // Clean up
   delete field_;
@@ -890,27 +877,60 @@ void ServerGame::Thread_Ai(std::string username) {
   spdlog::get(LOGGER)->info("Game::Thread_Ai: started: {}", username);
   auto audio_start_time = std::chrono::steady_clock::now();
   Player* ai = players_.at(username);
-
+  
   // Handle building neurons and potentials.
-  auto data_at_beat = ai->data_per_beat().front();
   while(ai && !ai->HasLost() && status_ < CLOSING) {
     if (pause_) continue;
     auto cur_time = std::chrono::steady_clock::now();
     // Analyze audio data.
-    std::shared_lock sl(mutex_pause_);
-    if (utils::GetElapsed(audio_start_time, cur_time)-time_in_pause_ >= data_at_beat.time_) {
-      spdlog::get(LOGGER)->debug("ServerGame::Thread_Ai: next action {}", data_at_beat.time_);
-      sl.unlock();
+    std::shared_lock sl_pause(mutex_pause_);
+    if (utils::GetElapsed(audio_start_time, cur_time)-time_in_pause_ >= ai->data_per_beat().front().time_) {
+      spdlog::get(LOGGER)->debug("ServerGame::Thread_Ai: next action in {}ms", ai->data_per_beat().front().time_);
+      sl_pause.unlock();
       // Do action.
       std::unique_lock ul(mutex_players_);
       // if last audi-data-point reached, reset audio.
-      if (ai->DoRandomAction())
+      if (ai->DoAction()) 
         audio_start_time = std::chrono::steady_clock::now();
-      data_at_beat = ai->data_per_beat().front();
       // Increase reasources twice every beat.
-      ai->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      ai->IncreaseResources(audio_.MoreOffNotes(ai->data_per_beat().front()));
       // if (!tutorial_) 
-      ai->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      ai->IncreaseResources(audio_.MoreOffNotes(ai->data_per_beat().front()));
+    }
+  }
+  spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");
+}
+
+void ServerGame::Thread_McAi(std::string username) {
+  spdlog::get(LOGGER)->info("Game::Thread_Ai: started: {}", username);
+  auto audio_start_time = std::chrono::steady_clock::now();
+  Player* ai = players_.at(username);
+  Player* enemy = enemies(players_, username).front();
+  RandomGenerator* ran_gen = new RandomGenerator();
+  Player::McNode* mc_node = ai->mc_node();
+  
+  // Handle building neurons and potentials.
+  while(ai && !ai->HasLost() && status_ < CLOSING) {
+    if (pause_) continue;
+    auto cur_time = std::chrono::steady_clock::now();
+    // Analyze audio data.
+    std::shared_lock sl_pause(mutex_pause_);
+    if (utils::GetElapsed(audio_start_time, cur_time)-time_in_pause_ >= ai->data_per_beat().front().time_) {
+      spdlog::get(LOGGER)->debug("ServerGame::Thread_Ai: next action in {}ms", ai->data_per_beat().front().time_);
+      sl_pause.unlock();
+      // Do action.
+      std::unique_lock ul(mutex_players_);
+      // monto-carl ai
+      auto action = FindNextMcMove(ai->data_per_beat(), mc_node, ran_gen);
+      mc_node = mc_node->_nodes.at(action);
+      ai->DoAction(Player::AiOption(action));
+      // random-choice ai
+      action = GetAction(enemy, mc_node, ran_gen);
+      enemy->DoAction(action);
+      mc_node = mc_node->_nodes.at(action);
+      // Increase reasources twice every beat.
+      ai->IncreaseResources(audio_.MoreOffNotes(ai->data_per_beat().front()));
+      ai->IncreaseResources(audio_.MoreOffNotes(ai->data_per_beat().front()));
     }
   }
   spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");
@@ -951,7 +971,7 @@ std::map<position_t, std::pair<std::string, short>> ServerGame::GetAndUpdatePote
       else if (potential_per_pos[jt.first].first < symbol)
         potential_per_pos[jt.first] = {symbol, it.second->color()};
     }
-    // MACRO is always shown on top of epsp and ipsp
+    // MACRO is always shown on top of epsp and ipsp (player domination is "random", t.i. based on name)
     for (const auto& jt : it.second->GetMacroAtPosition()) {
       potential_per_pos[jt.first] = {"0", it.second->color()};
     }
@@ -1041,6 +1061,16 @@ void ServerGame::HandlePlayersLost() {
   }
 }
 
+void ServerGame::SendLoopHols(std::string username, Player* player) {
+  auto positions = player->GetAllPositionsOfNeurons(LOOPHOLE);
+  if (positions.size() > 0) {
+    std::vector<FieldPosition> new_units;
+    for (const auto& pos : positions) 
+      new_units.push_back(FieldPosition(pos, LOOPHOLE, player->color()));
+    ws_server_->SendMessage(username, "set_units", std::make_shared<Units>(new_units));
+  }
+}
+
 void ServerGame::SendScoutedNeurons() {
   for (const auto& it : human_players_) {
     for (const auto& potential : it.second->GetPotentialPositions()) {
@@ -1093,4 +1123,13 @@ Player* ServerGame::GetPlayer(std::string username) {
   if (players_.at(username) == nullptr)
     throw "ServerGame::GetPlayer: player(" + username + ") is null~";
   return players_.at(username);
+}
+
+std::vector<Player*> ServerGame::enemies(std::map<std::string, Player*>& players, std::string player) {
+  std::vector<Player*> enemies;
+  for (const auto& it : players) {
+    if (it.first != player)
+      enemies.push_back(it.second);
+  }
+  return enemies;
 }

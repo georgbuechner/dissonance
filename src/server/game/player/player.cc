@@ -39,7 +39,7 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
   std::map<int, position_t> r_pos = field_->resource_neurons().at(nucleus_pos);
   // Max only 20 as iron should be rare.
   resources_.insert(std::pair<int, Resource>(IRON, Resource(3, 22, 2, true, {-1, -1})));  
-  resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(15.5, 100, 2, false, r_pos[OXYGEN]))); 
+  resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(15.5, 100, 0, false, r_pos[OXYGEN]))); 
   resources_.insert(std::pair<int, Resource>(Resources::POTASSIUM, Resource(0, 100, 0, false, r_pos[POTASSIUM]))); 
   resources_.insert(std::pair<int, Resource>(Resources::CHLORIDE, Resource(0, 100, 0, false, r_pos[CHLORIDE]))); 
   // Max 150: allows 7 activated neurons withput updates.
@@ -106,6 +106,7 @@ position_t Player::GetOneNucleus() {
   auto all_nucleus_positions = GetAllPositionsOfNeurons(NUCLEUS);
   if (all_nucleus_positions.size() > 0)
     return all_nucleus_positions.front();
+  spdlog::get(LOGGER)->warn("NO NUCLEUS!");
   return {-1, -1};
 }
 
@@ -404,7 +405,6 @@ void Player::ChangeMacroTargetForSynapse(position_t pos, position_t target_pos) 
 void Player::IncreaseResources(bool inc_iron) {
   spdlog::get(LOGGER)->debug("Player::IncreaseResources, iron: {}, {}", resources_.at(IRON).cur(), 
       resources_.at(IRON).bound());
-
   double gain = std::abs(log(resources_.at(Resources::OXYGEN).cur()+0.5));
   for (auto& it : resources_) {
     // Inc only if min 2 iron is distributed, inc iron only depending on audio.
@@ -429,6 +429,8 @@ bool Player::DistributeIron(int resource) {
   }
   resources_.at(resource).set_distribited_iron(resources_.at(resource).distributed_iron()+1);
   // if it is now two, then resource is now active and we need to create a new resource-neuron.
+  spdlog::get(LOGGER)->debug("Player::DistributeIron: {} distributed_iron: {}!", 
+      resources_name_mapping.at(resource), resources_.at(resource).distributed_iron());
   if (resources_.at(resource).distributed_iron() == 2)
     AddNeuron(resources_.at(resource).pos(), RESOURCENEURON);  // Add resource neuron.
   resources_.at(IRON).set_cur(resources_.at(IRON).cur() - 1);
@@ -574,6 +576,10 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
   // Create way.
   spdlog::get(LOGGER)->debug("Player::AddPotential: get way for potential.");
   neurons_.at(synapes_pos)->UpdateIpspTargetIfNotSet(enemies_.front()->GetRandomNeuron());
+  spdlog::get(LOGGER)->debug("Player::AddPotential: way points:");
+  for (const auto& it : neurons_.at(synapes_pos)->GetWayPoints(unit)) {
+    spdlog::get(LOGGER)->debug("Player::AddPotential: {}", utils::PositionToString(it));
+  }
   auto way = field_->GetWay(synapes_pos, neurons_.at(synapes_pos)->GetWayPoints(unit));
 
   // Add potential.
@@ -810,8 +816,7 @@ void Player::HandleDef() {
       for (const auto& enemy : enemies_) {
         // Check for potentials in range of activated neuron.
         for (const auto& potential : enemy->potential()) {
-          int distance = utils::Dist(neuron.first, potential.second.pos_);
-          if (distance < 3) {
+          if (utils::Dist(neuron.first, potential.second.pos_) < 3) {
             if (enemy->NeutralizePotential(potential.first, neuron.second->potential_slowdown()))
               statistics_->AddKillderPotential(potential.first);
             neuron.second->reset_movement();  // neuron did action, so update last_action_.
@@ -944,9 +949,13 @@ std::string Player::GetCurrentResources() {
 void Player::CreateNeuron(int type, position_t pos) {
   spdlog::get(LOGGER)->debug("Player::CreateNeuron");
   new_neurons_[pos] = type;
+  spdlog::get(LOGGER)->debug("Player::CreateNeuron 1");
   statistics_->AddNewNeuron(type);
+  spdlog::get(LOGGER)->debug("Player::CreateNeuron 2");
   field_->AddNewUnitToPos(pos, neurons_.at(pos), this);
+  spdlog::get(LOGGER)->debug("Player::CreateNeuron 3");
   neuron_positions_[type].push_back(pos);
+  spdlog::get(LOGGER)->debug("Player::CreateNeuron 4");
   neuron_positions_[-1].push_back(pos);
   spdlog::get(LOGGER)->debug("Player::CreateNeuron. done");
 }
