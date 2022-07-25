@@ -47,7 +47,7 @@ TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
 
   SECTION ("Test create setup_new_game-command for single-player", "[msgpack]") {
     unsigned short mode = SINGLE_PLAYER;
-    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols, false);
+    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
     Command cmd(command, data);
     REQUIRE(cmd.command() == command);
     REQUIRE(cmd.data()->mode() == mode);
@@ -69,7 +69,7 @@ TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
   SECTION ("Test create setup_new_game-command for multi-player (host)", "[msgpack]") {
     unsigned short num_players = 2;
     unsigned short mode = MULTI_PLAYER;
-    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols, false);
+    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
     data->set_num_players(num_players);
     Command cmd(command, data);
     REQUIRE(cmd.command() == command);
@@ -92,7 +92,7 @@ TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
   SECTION ("Test create setup_new_game-command for multi-player (client)", "[msgpack]") {
     std::string game_id = "fux_game";
     unsigned short mode = MULTI_PLAYER_CLIENT;
-    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols, false);
+    std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
     data->set_game_id(game_id);
     Command cmd(command, data);
     REQUIRE(cmd.command() == command);

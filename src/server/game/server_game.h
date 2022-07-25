@@ -11,7 +11,6 @@
 #include <shared_mutex>
 #include <vector>
 
-#include "server/game/player/monto_carlo_ai.h"
 #include "share/defines.h"
 #include "share/audio/audio.h"
 #include "share/constants/texts.h"
@@ -34,7 +33,7 @@ class ServerGame {
      * @param[in] cols availible cols
      * @param[in] srv pointer to websocket-server, to send messages.
      */
-    ServerGame(int lines, int cols, int mode, bool mc_ai, int num_players, std::string base_path, WebsocketServer* srv);
+    ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv);
 
     // getter 
     int status() const;
@@ -53,14 +52,6 @@ class ServerGame {
      * @param[in] username
      */
     void PlayerResigned(std::string username);
-
-    /**
-     * Sets up new AI-game
-     * @param[in] base_path
-     * @param[in] path_audio_map (path to audio-file for game-map)
-     * @param[in] ai_audio_paths (paths to ai-audio-files)
-     */
-    void InitAiGame(std::string base_path, std::string path_audio_map, std::vector<std::string> ai_audio_paths);
 
     /**
      * Prints statistics to stdout for all players.
@@ -119,7 +110,6 @@ class ServerGame {
     int pause_;  //< indicates whether game is currently paused (only availible in single-player-mode)
     std::chrono::time_point<std::chrono::steady_clock> pause_start_;  ///< start-time of pause
     double time_in_pause_;  ///< time in pause (used for finding next audio-beat correctly after pause)
-    bool mc_ai_;  ///< indicates whether to use audio-ai or monto-carlo-ai
 
     struct TimeAnalysis {
       long double total_time_in_game_;
@@ -347,19 +337,6 @@ class ServerGame {
      */
     void RunGame(std::vector<Audio*> audios = {});
 
-    /**
-     * Runs ai-game.
-     * @param[in] audios (audios-used for multiple ais. Default empty).
-     */
-    bool RunAiGame(std::vector<Audio*> audios = {});
-
-    // monto-carlo
-    std::string FindNextMcMove(std::deque<AudioDataTimePoint> data_per_beat, Player::McNode* node, 
-        RandomGenerator* ran_gen);
-    void RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, Player::McNode* node);
-    std::string GetAction(Player* ai, Player::McNode* node, RandomGenerator* ran_gen);
-    bool RunActions(std::map<std::string, Player*>& players);
-    
     // Threads
 
     /**
@@ -369,9 +346,9 @@ class ServerGame {
 
     /**
      * Handles AI actions at every beat.
+     * @param[in] username of ai handled by this thread.
      */
     void Thread_Ai(std::string username);
-    void Thread_McAi(std::string username);
 };
 
 #endif

@@ -105,13 +105,12 @@ void Msg::binary(std::stringstream& buffer) {
 }
 
 // SELECT MODE
-InitNewGame::InitNewGame(unsigned short mode, unsigned short lines, unsigned short cols, bool mc_ai) : Data() {
+InitNewGame::InitNewGame(unsigned short mode, unsigned short lines, unsigned short cols) : Data() {
   mode_ = mode;
   lines_ = lines;
   cols_ = cols;
   num_players_ = 0;
   game_id_ = "";
-  mc_ai_ = mc_ai;
 }
 
 InitNewGame::InitNewGame(const char* payload, size_t len, size_t& offset) : Data() {
@@ -126,8 +125,6 @@ InitNewGame::InitNewGame(const char* payload, size_t len, size_t& offset) : Data
   num_players_ = result->as<unsigned short>();
   unpack(result, payload, len, offset);
   game_id_ = result->as<std::string>();
-  unpack(result, payload, len, offset);
-  mc_ai_ = result->as<bool>();
 }
 
 // getter
@@ -136,7 +133,6 @@ unsigned short InitNewGame::lines() { return lines_; }
 unsigned short InitNewGame::cols() { return cols_; }
 unsigned short InitNewGame::num_players() { return num_players_; }
 std::string InitNewGame::game_id() { return game_id_; }
-bool InitNewGame::mc_ai() { return mc_ai_; }
 
 // setter 
 void InitNewGame::set_num_players(unsigned short num_players) { num_players_ = num_players; }
@@ -149,7 +145,6 @@ void InitNewGame::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, cols_);
   msgpack::pack(buffer, num_players_);
   msgpack::pack(buffer, game_id_);
-  msgpack::pack(buffer, mc_ai_);
 }
 
 // UPDATE_GAME

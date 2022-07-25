@@ -319,7 +319,7 @@ void ClientGame::h_SelectGame(std::shared_ptr<Data>) {
   spdlog::get(LOGGER)->info("ClientGame::h_SelectGame");
   nlohmann::json msg;
   std::shared_ptr<Data> data = std::make_shared<InitNewGame>(MULTI_PLAYER_CLIENT, drawrer_.field_height(), 
-      drawrer_.field_width(), false);
+      drawrer_.field_width());
 
   std::string game_id = drawrer_.game_id_from_lobby();
   if (game_id != "") {
@@ -729,16 +729,8 @@ void ClientGame::m_SelectMode(std::shared_ptr<Data> data) {
     EditSettings();
     m_SelectMode(data);
   }
-  bool mc_ai = false;
-  if (mode_ == OBSERVER) {
-    choice_mapping_t mapping = { 
-      {0, {"audio-ai", COLOR_AVAILIBLE}},
-      {1, {"monto-carl-ai (not available yet)", COLOR_DEFAULT}}
-    };
-    mc_ai = SelectInteger("Select AI type", true, mapping, {mapping.size()+1}, "AI type not available");
-  }
   drawrer_.set_mode(mode_);
-  auto new_data = std::make_shared<InitNewGame>(mode_, drawrer_.field_height(), drawrer_.field_width(), mc_ai);
+  auto new_data = std::make_shared<InitNewGame>(mode_, drawrer_.field_height(), drawrer_.field_width());
   // Tutorial: show first tutorial message, then change mode (in request) to normal singe-player.
   if (mode_ == TUTORIAL) {
     drawrer_.PrintCenteredParagraphs(texts::tutorial_start);

@@ -90,12 +90,6 @@ class Player {
     std::vector<Player*> enemies();
     int color();
     virtual std::deque<AudioDataTimePoint> data_per_beat() const { return {}; }
-    virtual Audio* audio() const { return nullptr; }
-    virtual AudioDataTimePoint last_data_point() const { return AudioDataTimePoint(); }
-    virtual int action_pool() const { return -1; }
-    virtual std::vector<AiOption> actions() const { return {}; }
-    virtual int last_action() const { return -1; }
-    virtual McNode* mc_node() { return nullptr; }
 
     position_t GetSynapesTarget(position_t synapse_pos, int unit);
     std::vector<position_t> GetSynapesWayPoints(position_t synapse_pos, int unit=-1);
@@ -325,14 +319,11 @@ class Player {
 
     std::string GetCurrentResources();
 
+    // Audio-ai
     virtual void SetUpTactics(bool) {}
     virtual void HandleIron(const AudioDataTimePoint&) {}
     virtual bool DoAction() { return false; }
-    virtual bool DoAction(AiOption) { return false; }
     virtual bool DoAction(const AudioDataTimePoint& data_at_beat) { return false; }
-    virtual bool DoRandomAction() { return false; }
-    virtual void Action() {}
-    virtual std::vector<AiOption> GetchChoices() { return {}; }
 
   protected: 
     Field* field_;

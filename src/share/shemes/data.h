@@ -76,7 +76,6 @@ class Data {
     virtual unsigned short cols() { return 0; }
     virtual unsigned short num_players() { return 0; }
     virtual std::string game_id() { return ""; }
-    virtual bool mc_ai() { return false; }
 
     virtual position_t pos() const { return {-1, -1}; }
     virtual short unit() const { return -1; }
@@ -216,7 +215,7 @@ class Msg : public Data {
  */
 class InitNewGame : public Data {
   public:
-    InitNewGame(unsigned short mode, unsigned short lines, unsigned short cols, bool mc_ai);
+    InitNewGame(unsigned short mode, unsigned short lines, unsigned short cols);
     InitNewGame(const char* payload, size_t len, size_t& offset);
 
     // getter
@@ -240,7 +239,6 @@ class InitNewGame : public Data {
     unsigned short cols_;
     unsigned short num_players_; ///< only for mode=MULTI_PLAYER
     std::string game_id_; ///< only for mode=MULTI_PLAYER_CLIENT
-    bool mc_ai_;
 };
 
 /**
