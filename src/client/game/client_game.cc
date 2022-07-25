@@ -30,6 +30,7 @@
 #include <vector>
 
 #define STD_HANDLERS -1
+#define TUTORIAL_MSG_LAG 300
 
 #define CONTEXT_RESOURCES_MSG "Distribute (+)/ remove (-) iron to handler resource-gain"
 #define CONTEXT_TECHNOLOGIES_MSG "Research technology by pressing [enter]"
@@ -989,7 +990,7 @@ void ClientGame::h_TutorialSetUnit(std::shared_ptr<Data> data) {
       final_text.insert(final_text.end(), std::make_move_iterator(texts[i].begin()), 
         std::make_move_iterator(texts[i].end()));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
     contexts_.at(CONTEXT_TEXT).init_text(final_text, current_context_);
     current_context_ = CONTEXT_TEXT;
     h_TextPrint();
@@ -1023,7 +1024,7 @@ void ClientGame::h_TutorialScouted(std::shared_ptr<Data> data) {
   // If text was set, print text:
   if (text.size() > 0) {
     Pause();
-    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
     contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
     current_context_ = CONTEXT_TEXT;
     h_TextPrint();
@@ -1043,7 +1044,7 @@ void ClientGame::h_TutorialBuildNeuron(std::shared_ptr<Data> data) {
   // If text was set, print text:
   if (text.size() > 0) {
     Pause();
-    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
     contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
     current_context_ = CONTEXT_TEXT;
     h_TextPrint();
@@ -1072,7 +1073,7 @@ void ClientGame::h_TutorialAction(std::shared_ptr<Data> data) {
   if (text.size() > 0) {
     tutorial_.action_++;
     Pause();
-    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
     contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
     current_context_ = CONTEXT_TEXT;
     h_TextPrint();
@@ -1090,7 +1091,7 @@ void ClientGame::h_TutorialSetMessage(std::shared_ptr<Data> data) {
   // If text was set, print text:
   if (text.size() > 0) {
     Pause();
-    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
     contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
     current_context_ = CONTEXT_TEXT;
     h_TextPrint();
@@ -1114,7 +1115,7 @@ void ClientGame::h_TutorialUpdateGame(std::shared_ptr<Data> data) {
   // If text was set, print text:
   if (text.size() > 0) {
     Pause();
-    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
     contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
     current_context_ = CONTEXT_TEXT;
     h_TextPrint();

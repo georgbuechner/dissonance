@@ -334,7 +334,7 @@ bool Field::NucleusInRange(position_t pos, unsigned int range) {
   return false; 
 }
 
-void Field::GetEpsps( std::map<std::string, Player*> players) {
+void Field::GetEpsps(std::map<std::string, Player*> players) {
   epsps_.clear();
   for (const auto& p : players) {
     for (const auto& potential : p.second->potential()) {

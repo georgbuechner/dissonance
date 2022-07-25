@@ -118,7 +118,7 @@ std::string utils::Dtos(double value, unsigned int precision) {
 
 std::string utils::CreateId(std::string type) {
   std::string id = type;
-  for (int i=0; i<32; i++) {
+  for (int i=0; i<16; i++) {
     int ran = rand() % 9;
     id += std::to_string(ran);
   }

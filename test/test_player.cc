@@ -1,4 +1,5 @@
 #include <catch2/catch.hpp>
+#include <iterator>
 #include "server/game/field/field.h"
 #include "share/constants/codes.h"
 #include "share/defines.h"
@@ -55,6 +56,48 @@ TEST_CASE("test_ipsp_takes_epsp_potential", "[test_player]") {
   auto player_and_field = SetUpPlayer(true); // set up player with lots of resources.
   Player* player = player_and_field.first;
   Field* field = player_and_field.second;
+
+  /*
+    TODO (fux): this test should be added. However, it is currently hard to create enemy neurons 
+    and potentials at specific positions.
+  SECTION("test ipsp-swallow") {
+    Player* enemy = player->enemies().front();
+    auto nucleus_pos = player->GetOneNucleus();
+    auto synape_pos = field->FindFree(nucleus_pos, 2, 3); // random pos in range of nucleus
+    auto enemy_pos = field->FindFree(synape_pos, 2, 3);  // close free position
+    auto way = field->GetWay(synape_pos, {enemy_pos}); // get way from synapse to enemy_pos
+    std::cout << "Synapse pos: " << utils::PositionToString(synape_pos) << std::endl;
+    std::cout << "Enemy pos: " << utils::PositionToString(enemy_pos) << std::endl;
+    std::cout << "WAY: " << std::endl;
+    for (const auto& it : way)
+      std::cout << "- " << utils::PositionToString(it) << std::endl;
+    REQUIRE(way.size() >= 3);
+
+    // Get position of epsp on the way between synape_pos and enemy_pos.
+    auto it = way.begin();
+    std::advance(it, 1);
+    auto epsp_pos = *it; 
+    std::cout << "epsp_pos: " << utils::PositionToString(epsp_pos) << std::endl;
+
+    // Create epsps at this position (set epsps of field is enough since they are check in HandleIpsp)
+    field->set_epsps({{{epsp_pos}, {{"epsp1", enemy}, {"epsp2", enemy}}}});
+
+    // Create synape at synape_pos with ipsp-target=enemy_pos;
+    player->AddNeuron(synape_pos, SYNAPSE, enemy_pos, enemy_pos);
+    player->AddPotential(synape_pos, IPSP);
+    player->AddPotential(synape_pos, IPSP);
+
+    REQUIRE(player->statistics()->epsp_swallowed() == 0);
+    // Move 8 times (as ipsp-speed = -8)
+    for (unsigned int i=0; i<8; i++) 
+      player->MovePotential();
+    for (unsigned int i=0; i<8; i++) 
+      player->MovePotential();
+
+    // Ipsp should have swallowed the added potential
+    REQUIRE(player->statistics()->epsp_swallowed() == 1);
+  }
+  */
 
   SECTION("test GetPositionOfClosestNeuron") {
     CreateRandomNeurons(player, field, 10, ran_gen);

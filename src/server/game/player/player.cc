@@ -669,6 +669,8 @@ void Player::MovePotential() {
   // Move soldiers along the way to it's target and check if target is reached.
   std::vector<std::string> potential_to_remove;
   for (auto& it : potential_) {
+    spdlog::get(LOGGER)->debug("Player::MovePotential. next: {}, movement: {}", 
+        it.first, utils::PositionToString(it.second.movement_));
     it.second.movement_.first--; // update cooldown.
     // If target not yet reached and it is time for the next action, move potential
     if (it.second.way_.size() > 0 && it.second.movement_.first == 0) {
@@ -689,13 +691,18 @@ void Player::MovePotential() {
     }
     // Ipsp: check if just time is up -> remove ipsp, otherwise -> block target.
     else {
-      if (HandleIpsp(it.second, it.first))
-        potential_to_remove.push_back(it.first); // remove 
+      if (HandleIpsp(it.second, it.first)) {
+        spdlog::get(LOGGER)->debug("Player::MovePotential. adding ipsp to potentials to remove: {}", it.first);
+        potential_to_remove.push_back(it.first); // 
+      }
     }
+    spdlog::get(LOGGER)->debug("Player::MovePotential. done with {}", it.first);
   }
   // Remove potential which has reached it's target.
-  for (const auto& it : potential_to_remove)
+  for (const auto& it : potential_to_remove) {
+    spdlog::get(LOGGER)->debug("Player::MovePotential. Removing potential with id: {}", it);
     potential_.erase(it);
+  }
   spdlog::get(LOGGER)->debug("Player::MovePotential done");
 }
 
@@ -759,19 +766,23 @@ void Player::HandleEpspAndMacro(Potential& potential) {
 }
 
 bool Player::HandleIpsp(Potential& potential, std::string id) {
+  spdlog::get(LOGGER)->debug("Player::HandleIpsp. pos: {}", utils::PositionToString(potential.pos_));
+  
   // Potential swallow (i: 
   if (field_->epsps().count(potential.pos_) > 0) {
     // Go through all epsps at ipsp's position and check if belonging to other player (different color)
     std::vector<std::pair<std::string, Player*>> vec = field_->epsps().at(potential.pos_);
+    spdlog::get(LOGGER)->debug("Got {} epsp at pos {}", vec.size(), utils::PositionToString(potential.pos_));
     for (auto it = vec.begin(); it != vec.end(); it++) {
       // If so, neutralize potential
       if (it->second->color() != color_) {
         spdlog::get(LOGGER)->info("Player::HandleIpsp: swallow!!");
-        NeutralizePotential(id, -1); // increase potential by one
-        if (it->second->NeutralizePotential(it->first, 1)) { // decrease potential by one
-          statistics_->AddEpspSwallowed(); // add statistics entry.
-          vec.erase(it); // remove from epsp at this position.
-        }
+        // Decrease enemy-potential by one. If destroyed, update statistics.
+        if (it->second->NeutralizePotential(it->first, 1)) 
+          statistics_->AddEpspSwallowed(); 
+        // Increase potential by one (without destroying! If destroyed, return true, so ipsp is destroyed in loop).
+        if (NeutralizePotential(id, -1, false))
+          return true;
         spdlog::get(LOGGER)->info("Player::HandleIpsp: swallowing done!!");
         break;
       }
@@ -782,6 +793,7 @@ bool Player::HandleIpsp(Potential& potential, std::string id) {
     auto res = field_->GetNeuronTypeAtPosition(potential.pos_);
     if (res.first != -1)
       res.second->SetBlockForNeuron(potential.pos_, false);  // unblock target.
+    spdlog::get(LOGGER)->debug("Player::HandleIpsp: done. Removing potential...");
     return true;
   }
   // If target was reached for the first time, block target and change
@@ -794,6 +806,7 @@ bool Player::HandleIpsp(Potential& potential, std::string id) {
     if (res.first != -1)
       res.second->SetBlockForNeuron(potential.pos_, true);  // block target
   }
+  spdlog::get(LOGGER)->debug("Player::HandleIpsp: done. Not removing potential...");
   return false;
 }
 
@@ -832,14 +845,16 @@ void Player::HandleDef() {
   }
 }
 
-bool Player::NeutralizePotential(std::string id, int potential) {
-  spdlog::get(LOGGER)->debug("Player::NeutralizePotential: {}", potential);
+bool Player::NeutralizePotential(std::string id, int potential, bool erase) {
+  spdlog::get(LOGGER)->debug("Player::NeutralizePotential: {} {}", id, potential);
   if (potential_.count(id) > 0) {
     spdlog::get(LOGGER)->debug("Player::NeutralizePotential: left potential: {}", potential_.at(id).potential_);
     potential_.at(id).potential_ -= potential;
     // Remove potential only if not already at it's target (length of way is greater than zero).
     if ((potential_.at(id).potential_ == 0 || potential_.at(id).potential_ > 10) && potential_.at(id).way_.size() > 0) {
-      potential_.erase(id);
+      spdlog::get(LOGGER)->debug("Player::NeutralizePotential: potential: died.");
+      if (erase)
+        potential_.erase(id);
       statistics_->AddLostPotential(id);
       return true;
     }

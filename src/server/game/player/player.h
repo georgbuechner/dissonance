@@ -288,7 +288,7 @@ class Player {
      * @param id of potential.
      * @return whether potential was removed.
      */
-    bool NeutralizePotential(std::string id, int potential);
+    bool NeutralizePotential(std::string id, int potential, bool erase=true);
 
     /**
      * Adds potential to neuron and destroies neuron if max potential is reached.

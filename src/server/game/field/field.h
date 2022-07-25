@@ -34,6 +34,11 @@ class Field {
     std::map<position_t, std::map<int, position_t>>& resource_neurons();
     std::map<position_t, std::vector<std::pair<std::string, Player*>>>& epsps();
 
+    // setter 
+    void set_epsps(std::map<position_t, std::vector<std::pair<std::string, Player*>>> epsp) {
+      epsps_ = epsp;
+    }
+
     // methods:
     
     /**
@@ -162,6 +167,5 @@ class Field {
 
     bool NucleusInRange(position_t pos, unsigned int range);
 };
-
 
 #endif
