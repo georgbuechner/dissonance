@@ -818,7 +818,7 @@ void ClientGame::m_SendAudioInfo(std::shared_ptr<Data> data) {
 bool ClientGame::SendSong() {
   // Create initial data
   std::filesystem::path p = audio_file_path_;
-  auto data = std::make_shared<AudioTransferDataNew>(username_, p.filename().string());
+  auto data = std::make_shared<AudioTransferData>(username_, p.filename().string());
 
   // Get content.
   std::string content = utils::GetMedia(audio_file_path_);

@@ -87,7 +87,7 @@ std::vector<position_t> Field::AddNucleus(unsigned int num_players) {
     // Get random section and then erase retreived section from availible sections
     int section = ran_gen_->RandomInt(0, availible_sections.size()-1);
     auto positions_in_section = GetAllPositionsOfSection(availible_sections[section], true);
-    availible_sections.erase(availible_sections.begin() + section);
+    // availible_sections.erase(availible_sections.begin() + section);
     // Make sure no other nucleus is too near and enough free fields
     position_t pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size()-1)];
     while (NucleusInRange(pos, 8) || GetAllInRange(pos, 1.5, 0, true).size() < 8)

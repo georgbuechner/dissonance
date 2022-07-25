@@ -879,7 +879,7 @@ void SendAudioInfo::binary(std::stringstream& buffer) {
 }
 
 // AUDIO TRANSFER DATA
-AudioTransferDataNew::AudioTransferDataNew(std::string username, std::string audioname) : Data() {
+AudioTransferData::AudioTransferData(std::string username, std::string audioname) : Data() {
   username_ = username;
   audioname_ = audioname;
   part_ = 0;
@@ -888,7 +888,7 @@ AudioTransferDataNew::AudioTransferDataNew(std::string username, std::string aud
   std::cout << "AudioTransferData successfully created" << std::endl;
 }
 
-AudioTransferDataNew::AudioTransferDataNew(const char* payload, size_t len, size_t& offset) : Data() {
+AudioTransferData::AudioTransferData(const char* payload, size_t len, size_t& offset) : Data() {
   msgpack::object_handle result;
 
   unpack(result, payload, len, offset);
@@ -904,19 +904,19 @@ AudioTransferDataNew::AudioTransferDataNew(const char* payload, size_t len, size
 }
 
 // getter
-std::string AudioTransferDataNew::username() { return username_; }
-std::string AudioTransferDataNew::songname() { return audioname_; }
-std::string AudioTransferDataNew::content() { return content_; }
-int AudioTransferDataNew::part() { return part_; } 
-int AudioTransferDataNew::parts() { return parts_; }
+std::string AudioTransferData::username() { return username_; }
+std::string AudioTransferData::songname() { return audioname_; }
+std::string AudioTransferData::content() { return content_; }
+int AudioTransferData::part() { return part_; } 
+int AudioTransferData::parts() { return parts_; }
 
 // setter 
-void AudioTransferDataNew::set_content(std::string content) { content_ = content; }
-void AudioTransferDataNew::set_parts(int parts) { parts_ = parts; }
-void AudioTransferDataNew::set_part(int part) { part_ = part; }
+void AudioTransferData::set_content(std::string content) { content_ = content; }
+void AudioTransferData::set_parts(int parts) { parts_ = parts; }
+void AudioTransferData::set_part(int part) { part_ = part; }
 
 // Methods 
-void AudioTransferDataNew::binary(std::stringstream& buffer) {
+void AudioTransferData::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, username_);
   msgpack::pack(buffer, audioname_);
   msgpack::pack(buffer, part_);

@@ -69,7 +69,7 @@ Command::Command(const char* payload, size_t len) {
   else if (command_ == "audio_map")
     data_ = std::make_shared<CheckSendAudio>(payload, len, offset);
   else if (command_ == "send_audio_data")
-    data_ = std::make_shared<AudioTransferDataNew>(payload, len, offset);
+    data_ = std::make_shared<AudioTransferData>(payload, len, offset);
   else if (command_ == "initialize_game")
     data_ = std::make_shared<InitializeGame>(payload, len, offset);
   else if (command_ == "add_iron")

@@ -723,10 +723,10 @@ class SendAudioInfo : public Data {
     bool send_ai_audios_;
 };
 
-class AudioTransferDataNew : public Data {
+class AudioTransferData : public Data {
   public:
-    AudioTransferDataNew(std::string username, std::string audioname);
-    AudioTransferDataNew(const char* payload, size_t len, size_t& offset);
+    AudioTransferData(std::string username, std::string audioname);
+    AudioTransferData(const char* payload, size_t len, size_t& offset);
 
     // getter
     std::string username();

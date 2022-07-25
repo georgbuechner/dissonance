@@ -222,7 +222,6 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     std::string game_id = username;
     std::unique_lock ul(shared_mutex_games_);
     username_game_id_mapping_[username] = game_id;
-    spdlog::get(LOGGER)->debug("ServerGame::WebsocketServer: num_players: {}", data->num_players());
     games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), false, data->num_players(), 
         base_path_, this);
     SendMessage(id, Command("select_audio").bytes());
@@ -239,10 +238,8 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     }
     // with game_id: joint game
     else if (games_.count(game_id) > 0){
-      spdlog::get(LOGGER)->debug("WebsocketServer::h_InitializeGame: New client about to join!");
       ServerGame* game = games_.at(game_id);
       if (game->status() == WAITING_FOR_PLAYERS) {
-        spdlog::get(LOGGER)->debug("WebsocketServer::h_InitializeGame: New client about joined!");
         connections_.at(id)->set_waiting(false);  // indicate player has stopped waiting for game.
         username_game_id_mapping_[username] = game_id;  // Add username to mapping, to find matching game.
         game->AddPlayer(username, data->lines(), data->cols()); // Add user to game.
@@ -270,7 +267,6 @@ void WebsocketServer::h_InGameAction(connection_id id, Command cmd) {
   auto game = GetGameFromUsername(cmd.username());
   if (game) {
     std::string command = cmd.command();
-    spdlog::get(LOGGER)->info("h_InGameAction: adding username");
     cmd.data()->AddUsername(cmd.username());
     spdlog::get(LOGGER)->debug("h_InGameAction: calling game-function");
     game->HandleInput(command, cmd.data());
@@ -319,7 +315,7 @@ void WebsocketServer::CloseGames() {
       }
     }
     if (games_to_delete.size() > 0) {
-      spdlog::get(LOGGER)->debug("Game removed, informing waiting players");
+      spdlog::get(LOGGER)->info("Game removed, informing waiting players");
       UpdateLobby();
       for (const auto& it : connections_) {
         if (it.second->waiting()) 
@@ -330,7 +326,6 @@ void WebsocketServer::CloseGames() {
 }
 
 WebsocketServer::connection_id WebsocketServer::GetConnectionIdByUsername(std::string username) {
-  spdlog::get(LOGGER)->debug("WebsocketServer::GetConnectionIdByUsername: username: {}", username);
   for (const auto& it : connections_)
     if (it.second->username() == username) 
       return it.second->get_connection_id();
@@ -338,7 +333,6 @@ WebsocketServer::connection_id WebsocketServer::GetConnectionIdByUsername(std::s
 }
 
 bool WebsocketServer::UsernameExists(std::string username) {
-  spdlog::get(LOGGER)->debug("WebsocketServer::UsernameExists: username: {}", username);
   for (const auto& it : connections_)
     if (it.second->username() == username) 
       return true;
@@ -402,10 +396,7 @@ void WebsocketServer::UpdateLobby() {
   std::unique_lock ul(shared_mutex_lobby_);
   lobby_->clear();
   for (const auto& it : games_) {
-    if (it.second->status() == WAITING_FOR_PLAYERS) {
-      spdlog::get(LOGGER)->debug("WebsocketServer::UpdateLobby: Found game: {}", it.first);
+    if (it.second->status() == WAITING_FOR_PLAYERS)
       lobby_->AddEntry(it.first, it.second->max_players(), it.second->cur_players(), it.second->audio_map_name());
-      spdlog::get(LOGGER)->debug("WebsocketServer::UpdateLobby: game added!", it.first);
-    }
   }
 }

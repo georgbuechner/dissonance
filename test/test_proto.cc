@@ -861,7 +861,7 @@ TEST_CASE("Test creating check-send-audio-data-dto", "[msgpack]") {
   int parts = 2;
   std::string content = "hello I am audio content";
   SECTION ("Test creating check-send-audio-data-dto", "[msgpack]") {
-    std::shared_ptr<Data> data = std::make_shared<AudioTransferDataNew>(username, songname);
+    std::shared_ptr<Data> data = std::make_shared<AudioTransferData>(username, songname);
     data->set_parts(parts);
     data->set_part(part);
     data->set_content(content);

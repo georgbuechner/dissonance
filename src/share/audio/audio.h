@@ -75,7 +75,7 @@ class Audio {
     // getter
     AudioData& analysed_data();
     static std::map<std::string, std::vector<std::string>> keys();
-    std::string filename(bool shortened);
+    std::string filename(bool shortened) const;
     std::string source_path();
 
     // setter 

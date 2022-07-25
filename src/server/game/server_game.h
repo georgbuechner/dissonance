@@ -25,7 +25,6 @@
 #include "share/tools/eventmanager.h"
 
 class WebsocketServer;
-class AudioTransferData;
 
 class ServerGame {
   public:
@@ -38,11 +37,11 @@ class ServerGame {
     ServerGame(int lines, int cols, int mode, bool mc_ai, int num_players, std::string base_path, WebsocketServer* srv);
 
     // getter 
-    int status();
-    int mode();
-    int max_players();
-    int cur_players();
-    std::string audio_map_name();
+    int status() const;
+    int mode() const;
+    int max_players() const;
+    int cur_players() const;
+    std::string audio_map_name() const;
 
     // setter 
     void set_status(int status);
@@ -50,26 +49,36 @@ class ServerGame {
     // methods.
     
     /**
-     *
+     * Sends message to all other players that player has lost (resigned).
+     * @param[in] username
      */
     void PlayerResigned(std::string username);
 
     /**
-     *
+     * Sets up new AI-game
+     * @param[in] base_path
+     * @param[in] path_audio_map (path to audio-file for game-map)
+     * @param[in] ai_audio_paths (paths to ai-audio-files)
      */
     void InitAiGame(std::string base_path, std::string path_audio_map, std::vector<std::string> ai_audio_paths);
 
     /**
      * Prints statistics to stdout for all players.
      */
-    void PrintStatistics();
+    void PrintStatistics() const;
 
     /**
      * Adds new players and checks if game is ready to start.
      * @param[in] username 
+     * @param[in] lines (availible lines of new player)
+     * @param[in] cols (availible columns of new player)
      */
     void AddPlayer(std::string username, int lines, int cols);
 
+    /**
+     * Starts game once all players are ready.
+     * @param[in] username
+     */
     void PlayerReady(std::string username);
 
     /**
@@ -80,29 +89,37 @@ class ServerGame {
     void HandleInput(std::string command, std::shared_ptr<Data> data);
     
   private: 
+    // field
     Field* field_;  ///< field 
+    int lines_; 
+    int cols_;
+
+    // players
     std::shared_mutex mutex_players_;
     std::map<std::string, Player*> players_;
-    std::map<std::string, Player*> human_players_;
-
-    std::vector<std::string> observers_;
-    std::set<std::string> dead_players_;
+    std::map<std::string, Player*> human_players_;  ///< easy acces for only human-players
+    std::string host_;  ///< host player.
+    std::vector<std::string> observers_;  ///< vector with usernames of observers
+    std::set<std::string> dead_players_;  ///< keeps track of dead players.
     const unsigned int max_players_;
-    unsigned int cur_players_;
-    Audio audio_;
-    std::string audio_data_;
-    std::string audio_file_name_;
+
+    // audio
+    Audio audio_;  ///< main-audio (f.e. map and in single-player: ai)
+    std::string audio_data_buffer_;  ///< audio data (used as buffer when receiving audio-data)
+    std::string audio_file_name_;  ///< audio-file-name.
     std::string base_path_;
 
+    // meta 
     WebsocketServer* ws_server_;
     EventManager<std::string, ServerGame, std::shared_ptr<Data>> eventmanager_;
-
+    const int mode_; ///< (see: codes.h: Mode)
     std::shared_mutex mutex_status_;  ///< mutex locked, when printing field.
-    int status_;
+    int status_;  ///< current game status (see: codes.h: GameStatus)
     std::shared_mutex mutex_pause_;
-    int pause_;
-    std::chrono::time_point<std::chrono::steady_clock> pause_start_;
-    double time_in_pause_;
+    int pause_;  //< indicates whether game is currently paused (only availible in single-player-mode)
+    std::chrono::time_point<std::chrono::steady_clock> pause_start_;  ///< start-time of pause
+    double time_in_pause_;  ///< time in pause (used for finding next audio-beat correctly after pause)
+    bool mc_ai_;  ///< indicates whether to use audio-ai or monto-carlo-ai
 
     struct TimeAnalysis {
       long double total_time_in_game_;
@@ -122,14 +139,6 @@ class ServerGame {
       }
     };
     TimeAnalysis time_analysis_;
-    bool mc_ai_;
-
-    const int mode_; ///< SINGLE_PLAYER | MULTI_PLAYER | OBSERVER
-    int lines_; 
-    int cols_;
-    bool tutorial_;
-
-    std::string host_;
 
     // methods
 
@@ -141,7 +150,7 @@ class ServerGame {
      * @param[in] player
      * @return vector of enemies fort given player.
      */
-    std::vector<Player*> enemies(std::map<std::string, Player*>& players, std::string player);
+    std::vector<Player*> enemies(std::map<std::string, Player*>& players, std::string player) const;
 
     /**
      * Gets map of all potentials in stacked format (ipsp: 1-9, epsp a-z) and
@@ -207,17 +216,25 @@ class ServerGame {
      */
     static std::string GetMissingResourceStr(Costs missing_costs);
 
-    /**
-     * If a enemy epsp is on same field as given ipsp, increase ipsp potential and decrease epsp 
-     * potential by one.
-     * @param[in] ipsp_pos position of ipsp in question.
-     * @param[in] player who "owns" ipsp.
-     * @param[in] list of enemies of given player.
-     */
     // command methods
 
+    /**
+     * Either loads audios from disc (if same-device or audio already exists) or
+     * requests audio-data from host.
+     * @param[in] data (CheckSendAudio)
+     */
     void m_SendAudioMap(std::shared_ptr<Data> data);
+
+    /**
+     * Sends audio-data to player.
+     * @param[in] data (used only to get player's username).
+     */
     void m_SendSong(std::shared_ptr<Data> data);
+
+    /**
+     * Adds new audio-data-part to audio-buffer.
+     * @param[in] data (AudioTransferData)
+     */
     void m_AddAudioPart(std::shared_ptr<Data> data);
 
     /**
@@ -287,9 +304,15 @@ class ServerGame {
      */
     void m_SetTarget(std::shared_ptr<Data> data);
 
-    void m_SetPauseOn(std::shared_ptr<Data> data);
-    void m_SetPauseOff(std::shared_ptr<Data> data);
+    /**
+     * Activates pause.
+     */
+    void m_SetPauseOn(std::shared_ptr<Data>);
 
+    /**
+     * Deactivates pause.
+     */
+    void m_SetPauseOff(std::shared_ptr<Data>);
 
     /**
      * Build potential.
@@ -304,29 +327,43 @@ class ServerGame {
     Player* GetPlayer(std::string username);
 
     /**
-     * Setups game
+     * Sets up game.
+     * Calls SetUpField and creates players.
+     * @param[in] audios.
      */
     void SetUpGame(std::vector<Audio*> audios);
-    std::vector<position_t> SetUpField(RandomGenerator* ran_gen);
     /**
-     * Runs game, 
-     * sends start-game info with initial game data to all and players.
-     * starts main- and ai-thread(s)
+     * Sets up field.
+     * @param[in] ran_gen (random generator used for game).
+     * @return list of nucleus-positions of players.
+     */
+    std::vector<position_t> SetUpField(RandomGenerator* ran_gen);
+
+    /**
+     * Runs game.
+     * - sends start-game info with initial game data to all and players.
+     * - starts main- and ai-thread(s)
+     * @param[in] audios (audios-used for multiple ais. Default empty).
      */
     void RunGame(std::vector<Audio*> audios = {});
+
+    /**
+     * Runs ai-game.
+     * @param[in] audios (audios-used for multiple ais. Default empty).
+     */
     bool RunAiGame(std::vector<Audio*> audios = {});
 
+    // monto-carlo
     std::string FindNextMcMove(std::deque<AudioDataTimePoint> data_per_beat, Player::McNode* node, 
         RandomGenerator* ran_gen);
     void RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, Player::McNode* node);
     std::string GetAction(Player* ai, Player::McNode* node, RandomGenerator* ran_gen);
-
     bool RunActions(std::map<std::string, Player*>& players);
     
     // Threads
 
     /**
-     * Updates game status at every beat.
+     * Updates game status at every beat. (THREAD)
      */
     void Thread_RenderField();
 

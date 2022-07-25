@@ -40,7 +40,7 @@ std::map<std::string, std::vector<std::string>> Audio::keys() {
   return keys_;
 }
 
-std::string Audio::filename(bool shortened) {
+std::string Audio::filename(bool shortened) const {
   std::string filename = filename_;
   if (shortened && filename.size() > 7)
     filename.erase(7);

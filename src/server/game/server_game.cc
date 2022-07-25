@@ -39,14 +39,13 @@ bool IsAi(std::string username) {
 }
 
 ServerGame::ServerGame(int lines, int cols, int mode, bool mc_ai, int num_players, std::string base_path, 
-    WebsocketServer* srv) : max_players_(num_players), cur_players_(1), audio_(base_path), ws_server_(srv), 
-    status_(WAITING), mode_((mode == TUTORIAL) ? SINGLE_PLAYER : mode), lines_(lines), cols_(cols) {
-  spdlog::get(LOGGER)->info("ServerGame::ServerGame: num_players: {}, tutorial-mode? {}, monto-carlo-ai? {}", 
-      max_players_, tutorial_, mc_ai_);
+    WebsocketServer* srv) : lines_(lines), cols_(cols), max_players_(num_players), audio_(base_path), 
+    ws_server_(srv), mode_((mode == TUTORIAL) ? SINGLE_PLAYER : mode), status_(WAITING) 
+{
+  spdlog::get(LOGGER)->info("ServerGame::ServerGame: num_players: {}, monto-carlo-ai? {}", max_players_, mc_ai_);
   pause_ = false;
   time_in_pause_ = 0;
-  tutorial_ = mode == TUTORIAL;
-  audio_data_ = "";
+  audio_data_buffer_ = "";
   audio_file_name_ = "";
   base_path_ = base_path;
   mc_ai_ = mc_ai;
@@ -71,20 +70,20 @@ ServerGame::ServerGame(int lines, int cols, int mode, bool mc_ai, int num_player
 
 // getter
 
-int ServerGame::status() {
+int ServerGame::status() const {
   return status_;
 }
 
-int ServerGame::mode() {
+int ServerGame::mode() const {
   return mode_;
 }
-int ServerGame::max_players() {
+int ServerGame::max_players() const {
   return max_players_;
 }
-int ServerGame::cur_players() {
-  return cur_players_;
+int ServerGame::cur_players() const {
+  return human_players_.size();
 }
-std::string ServerGame::audio_map_name() {
+std::string ServerGame::audio_map_name() const {
   return audio_.filename(false);
 }
 
@@ -94,7 +93,7 @@ void ServerGame::set_status(int status) {
   status_ = status;
 }
 
-void ServerGame::PrintStatistics() {
+void ServerGame::PrintStatistics() const {
   for (const auto& it : players_) {
     std::string status = (it.second->HasLost()) ? "LOST" : "WON";
     std::cout << it.first << " (" << status << " " << it.second->GetNucleusLive() << ")" << std::endl;
@@ -127,15 +126,13 @@ void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
   if (!std::filesystem::exists(path))
     std::filesystem::create_directory(path);
   path += "/"+data->songname();
-  audio_data_+=data->content();
-  if (data->part() == data->parts()) {
-    spdlog::get(LOGGER)->debug("Websocket::on_message: storing binary data to: {}", path);
-    utils::StoreMedia(path, audio_data_);
-  }
+  audio_data_buffer_+=data->content();
+  if (data->part() == data->parts())
+    utils::StoreMedia(path, audio_data_buffer_);
 }
 
 void ServerGame::PlayerReady(std::string username) {
-  spdlog::get(LOGGER)->debug("ServerGame::PlayerReady: starting game as last player entered game.");
+  spdlog::get(LOGGER)->debug("ServerGame::PlayerReady. {}", username);
   // Only start game if status is still waiting, to avoid starting game twice.
   if (players_.size() >= max_players_ && status_ == WAITING_FOR_PLAYERS) {
     spdlog::get(LOGGER)->info("ServerGame::PlayerReady: starting game as last player entered game.");
@@ -342,7 +339,6 @@ void ServerGame::m_SetWayPoint(std::shared_ptr<Data> data) {
   auto new_data = std::make_shared<SetWayPoints>(data->synapse_pos());
   new_data->set_msg("New way-point added: " + std::to_string(data->num()) + "/" + std::to_string(tech));
   new_data->set_num((data->num() < tech) ? data->num()+1 : 0xFFF);
-  spdlog::get(LOGGER)->debug("ServerGame::m_SetWayPoint. Returning with num={}", new_data->num());
   ws_server_->SendMessage(data->u(), "set_wps", new_data);
 }
 
@@ -361,6 +357,7 @@ void ServerGame::m_SetTarget(std::shared_ptr<Data> data) {
 
 void ServerGame::m_SetPauseOn(std::shared_ptr<Data>) {
   spdlog::get(LOGGER)->info("Set pause on");
+  std::unique_lock ul(mutex_pause_);
   pause_ = true; 
   pause_start_ = std::chrono::steady_clock::now();
 }
@@ -387,14 +384,16 @@ void ServerGame::m_SendAudioMap(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: initializing with user: {} {}", host_, mode_);
   host_ = data->u();
   bool send_song = false;
+  // If same device, set path to map-path.
   if (data->same_device()) {
     audio_.set_source_path(data->map_path());
   }
+  // Otherwise check if audio-file already exists, otherwise, request audio-data from host.
   else {
     std::string path = base_path_ + "/data/user-files/" + data->map_path();
     audio_.set_source_path(path);
     if (std::filesystem::exists(path)) {
-      audio_data_ = utils::GetMedia(path);
+      audio_data_buffer_ = utils::GetMedia(path);
       audio_file_name_ = data->audio_file_name();
     }
     else 
@@ -406,10 +405,10 @@ void ServerGame::m_SendAudioMap(std::shared_ptr<Data> data) {
 
 void ServerGame::m_SendSong(std::shared_ptr<Data> data) {
   // Create initial data
-  std::shared_ptr<Data> audio_data = std::make_shared<AudioTransferDataNew>(host_, audio_file_name_);
+  std::shared_ptr<Data> audio_data = std::make_shared<AudioTransferData>(host_, audio_file_name_);
   std::map<int, std::string> contents;
-  utils::SplitLargeData(contents, audio_data_, pow(2, 12));
-  spdlog::get(LOGGER)->info("Made {} parts of {} bits data", contents.size(), audio_data_.size());
+  utils::SplitLargeData(contents, audio_data_buffer_, pow(2, 12));
+  spdlog::get(LOGGER)->info("Made {} parts of {} bits data", contents.size(), audio_data_buffer_.size());
   audio_data->set_parts(contents.size()-1);
   for (const auto& it : contents) {
     audio_data->set_part(it.first);
@@ -477,8 +476,7 @@ void ServerGame::m_InitializeGame(std::shared_ptr<Data> data) {
   }
 }
 
-void ServerGame::InitAiGame(std::string base_path, std::string path_audio_map, 
-    std::vector<std::string> ai_audio_paths) {
+void ServerGame::InitAiGame(std::string base_path, std::string path_audio_map, std::vector<std::string> ai_audio_paths) {
   // Analyze map audio
   audio_.set_source_path(path_audio_map);
   audio_.Analyze();
@@ -564,6 +562,8 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
       field_ = nullptr;
     }
   }
+  spdlog::get(LOGGER)->info("ServerGame::SetUpField: created map.");
+
   // Delete random generators user for creating map.
   delete ran_gen_1;
   delete ran_gen_2;
@@ -578,6 +578,9 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
 }
 
 void ServerGame::RunGame(std::vector<Audio*> audios) {
+  // Delete audio-data buffer as no longer needed.
+  audio_data_buffer_.clear();
+  // Setup game.
   SetUpGame(audios);
   // Start ai-threads for all ai-players.
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Starting game (if not ai-game).");
@@ -704,7 +707,6 @@ void ServerGame::RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, Player
     // Get next beat.
     auto data_at_beat = data_per_beat.front();
     data_per_beat.pop_front();
-    spdlog::get(LOGGER)->debug("Next beat: {}", data_at_beat.time_);
 
     // Main actions
     auto start = std::chrono::steady_clock::now();
@@ -718,12 +720,9 @@ void ServerGame::RunMCGames(std::deque<AudioDataTimePoint> data_per_beat, Player
       if (!(ai.first == RAN_AI && counter == 0)) {
         // Set current node and update vistited for updating weights.
         std::string action_hash = GetAction(ai.second, cur_node, ran_gen);
-        spdlog::get(LOGGER)->debug("Got action_hash: {}", action_hash);
         vistited.push_back(action_hash);
         cur_node = cur_node->_nodes.at(action_hash);
-        spdlog::get(LOGGER)->debug("exec action...");
         ai.second->DoAction(Player::AiOption(action_hash));
-        spdlog::get(LOGGER)->debug("done.");
         if (ai.first == MC_AI) 
           time_analysis_.time_ai_mc_ += utils::GetElapsedNano(start_ai_action, std::chrono::steady_clock::now());
         else 
@@ -1095,7 +1094,6 @@ void ServerGame::SendNeuronsToObservers() {
     for (const auto& neuron : it.second->new_neurons()) 
       units.push_back(FieldPosition(neuron.first, neuron.second, it.second->color())); 
   }
-  spdlog::get(LOGGER)->debug("SendMessage: Sending {} neurons to obsers", units.size());
   for (const auto& it : observers_)
     ws_server_->SendMessage(it, "set_units", std::make_shared<Units>(units));
 }
@@ -1125,7 +1123,7 @@ Player* ServerGame::GetPlayer(std::string username) {
   return players_.at(username);
 }
 
-std::vector<Player*> ServerGame::enemies(std::map<std::string, Player*>& players, std::string player) {
+std::vector<Player*> ServerGame::enemies(std::map<std::string, Player*>& players, std::string player) const {
   std::vector<Player*> enemies;
   for (const auto& it : players) {
     if (it.first != player)
