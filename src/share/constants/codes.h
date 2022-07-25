@@ -230,6 +230,11 @@ const std::map<int, std::string> units_tech_description_mapping = {
   {NUCLEUS_RANGE, "Increases range of nucleus."},
 };
 
+const std::map<char, int> char_unit_mapping = { 
+  {'A', ACTIVATEDNEURON}, {'S', SYNAPSE}, {'N', NUCLEUS},
+  {'e', EPSP}, {'i', IPSP}, {'m', MACRO}
+
+};
 
 const std::vector<std::string> resource_symbols = {SYMBOL_OXYGEN, SYMBOL_POTASSIUM, SYMBOL_SEROTONIN, SYMBOL_GLUTAMATE, 
     SYMBOL_DOPAMINE, SYMBOL_CHLORIDE};

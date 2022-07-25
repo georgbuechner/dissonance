@@ -1,11 +1,13 @@
 [requires] 
+zlib/1.2.12
+openssl/1.1.1o
 nlohmann_json/3.9.1
 ncurses/6.2
 catch2/2.13.8
 spdlog/[>=1.4.1]
 lyra/1.5.1
 websocketpp/0.8.2
-msgpack-c/4.0.0 
+msgpack/3.3.0
 
 [generators]
 cmake

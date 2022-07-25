@@ -317,6 +317,9 @@ namespace texts {
       "TUTORIAL",
       "",
       "Place THREE activated neurons.",
+      "HINT: Activated neurons can decrease potential of incoming potentials in a certain range.",
+      "this range. If you place you activated neurons to close to your nucleus, they won't affect",
+      "incoming potentials *behind* the activated neurons."
      }, {}}
   };
 
@@ -392,6 +395,7 @@ namespace texts {
       "and then 'a' (select first synapse)."
     }, {"multi_synapse_selection_1", "multi_synapse_selection_2", "multi_synapse_selection_3"}}
   };
+
   const paragraphs_field_t tutorial_strong_attack = {
     {{
       "TUTORIAL",

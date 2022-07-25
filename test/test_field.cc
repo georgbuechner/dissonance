@@ -2,12 +2,12 @@
 #include <cstddef>
 #include <iterator>
 #include <algorithm>
+#include <memory>
 #include <set>
 #include <vector>
 #include "share/constants/codes.h"
 #include "server/game/field/field.h"
 #include "share/defines.h"
-#include "share/objects/transfer.h"
 #include "share/objects/units.h"
 #include "server/game/player/player.h"
 #include "share/tools/graph.h"
@@ -39,7 +39,7 @@ TEST_CASE("test_field", "[main]") {
         std::vector<position_t> way_points = {way_point_1, way_point_2, target_pos};
 
         // Create way
-        auto way = field->GetWayForSoldier(start_pos, way_points);
+        auto way = field->GetWay(start_pos, way_points);
 
         // Way was created with length of min number of way-points and make sure order is correct.
         REQUIRE(way.size() > 4);
@@ -99,7 +99,7 @@ TEST_CASE("test_field", "[main]") {
       field->BuildGraph(); // Check free also checks in graph.
       auto positions_to_block = field->GetAllInRange({50, 50}, 2, 0, true);
       for (const auto& it : positions_to_block) 
-        field->AddNewUnitToPos(it, UnitsTech::ACTIVATEDNEURON);
+        field->AddNewUnitToPos(it, std::make_shared<ActivatedNeuron>(it, 0, 0), nullptr);
       auto positions_in_range = field->GetAllInRange({50, 50}, 3, 0, true);
       REQUIRE(positions_in_range.size() == 29-positions_to_block.size());
     }
@@ -128,7 +128,9 @@ TEST_CASE("test_field", "[main]") {
 
   SECTION("test AddResources") {
     field->BuildGraph(); // Check free also checks in graph.
-    auto resource_positions = field->AddResources(t_utils::GetRandomPositionInField(field, ran_gen));
+    auto nucleus_pos = t_utils::GetRandomPositionInField(field, ran_gen);
+    field->AddResources(nucleus_pos);
+    auto resource_positions = field->resource_neurons().at(nucleus_pos);
     // One resource was create for each existing resource in resource-mapping (all resources expect iron)
     REQUIRE(resource_positions.size() == resource_symbol_mapping.size()-1); 
     // no two resources have an idenical position:
@@ -141,15 +143,15 @@ TEST_CASE("test_field", "[main]") {
   SECTION ("test AddNewUnitToPos") {
     auto pos = t_utils::GetRandomPositionInField(field, ran_gen);
     SECTION("test add activated neuron to field") {
-      field->AddNewUnitToPos(pos, UnitsTech::ACTIVATEDNEURON);
+      field->AddNewUnitToPos(pos, std::make_shared<ActivatedNeuron>(pos, 0, 0), nullptr);
       REQUIRE(field->GetSymbolAtPos(pos) == SYMBOL_DEF);
     }
     SECTION("test add synapse to field") {
-      field->AddNewUnitToPos(pos, UnitsTech::SYNAPSE);
+      field->AddNewUnitToPos(pos, std::make_shared<Synapse>(pos, 0, 0, DEFAULT_POS, DEFAULT_POS), nullptr);
       REQUIRE(field->GetSymbolAtPos(pos) == SYMBOL_BARACK);
     }
     SECTION("test add nucleus to field") {
-      field->AddNewUnitToPos(pos, UnitsTech::NUCLEUS);
+      field->AddNewUnitToPos(pos, std::make_shared<Nucleus>(pos), nullptr);
       REQUIRE(field->GetSymbolAtPos(pos) == SYMBOL_DEN);
     }
   }
@@ -182,7 +184,7 @@ TEST_CASE("test graph", "[graph]") {
   SECTION("fasted way direction forward") {
     position_t start = {2, 0};
     position_t target = {1, 3};
-    auto new_way = field->graph().DijkstrasWay(start, target);
+    auto new_way = field->graph()->DijkstrasWay(start, target);
     REQUIRE(new_way.front() == start);
     REQUIRE(new_way.back() == target);
   }
@@ -190,7 +192,7 @@ TEST_CASE("test graph", "[graph]") {
   SECTION("fasted way direction backward") {
     position_t start = {1, 3};
     position_t target = {2, 0};
-    auto new_way = field->graph().DijkstrasWay(start, target);
+    auto new_way = field->graph()->DijkstrasWay(start, target);
     REQUIRE(new_way.front() == start);
     REQUIRE(new_way.back() == target);
   }
@@ -204,10 +206,10 @@ TEST_CASE("test graph", "[graph]") {
     position_t start = {99, 99};
 
     start_time = std::chrono::steady_clock::now();
-    auto way = field->graph().FindWay(start, target);
+    auto way = field->graph()->FindWay(start, target);
     std::cout << "Time (tiefensuche): " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
     start_time = std::chrono::steady_clock::now();
-    auto new_way = field->graph().DijkstrasWay(start, target);
+    auto new_way = field->graph()->DijkstrasWay(start, target);
     std::cout << "Time (DijkstrasWay): " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
     REQUIRE(way.front() == new_way.front());
     REQUIRE(way.back() == new_way.back());
@@ -247,10 +249,10 @@ TEST_CASE("test graph-cache", "[graph]") {
   position_t start = {99, 99};
 
   auto start_time = std::chrono::steady_clock::now();
-  auto way_1 = field->graph().DijkstrasWay(start, target);
+  auto way_1 = field->graph()->DijkstrasWay(start, target);
   auto time_1 = utils::GetElapsed(start_time, std::chrono::steady_clock::now());
   start_time = std::chrono::steady_clock::now();
-  auto way_2 = field->graph().DijkstrasWay(start, target);
+  auto way_2 = field->graph()->DijkstrasWay(start, target);
   auto time_2 = utils::GetElapsed(start_time, std::chrono::steady_clock::now());
   REQUIRE(way_1 == way_2);
   REQUIRE(time_1 > time_2*1000);
@@ -264,28 +266,28 @@ TEST_CASE("test graph: find way with special conditions", "[graph]") {
   SECTION("Expecting specific length") {
     position_t target = {2, 0};
     position_t start = {2, 2};
-    auto way = field->graph().DijkstrasWay(start, target);
+    auto way = field->graph()->DijkstrasWay(start, target);
     REQUIRE(way.size() == 3);
   }
 
   SECTION("Target one field away vertically") {
     position_t target = {2, 0};
     position_t start = {2, 1};
-    auto way = field->graph().DijkstrasWay(start, target);
+    auto way = field->graph()->DijkstrasWay(start, target);
     REQUIRE(way.size() == 2); // start and target only
   }
 
   SECTION("Target one field away horizontally") {
     position_t target = {2, 0};
     position_t start = {3, 0};
-    auto way = field->graph().DijkstrasWay(start, target);
+    auto way = field->graph()->DijkstrasWay(start, target);
     REQUIRE(way.size() == 2); // start and target only
   }
 
   SECTION("Target one field away diagonally") {
     position_t target = {2, 0};
     position_t start = {3, 1};
-    auto way = field->graph().DijkstrasWay(start, target);
+    auto way = field->graph()->DijkstrasWay(start, target);
     REQUIRE(way.size() == 2); // start and target only
   }
 }

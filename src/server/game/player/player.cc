@@ -10,12 +10,12 @@
 #include <utility>
 #include <vector>
 #include <spdlog/spdlog.h>
-#include "server/game/player/statistics.h"
 #include "share/audio/audio.h"
 #include "share/constants/codes.h"
 #include "share/constants/costs.h"
 #include "share/defines.h"
 #include "share/objects/units.h"
+#include "share/shemes/data.h"
 #include "spdlog/logger.h"
 
 #include "server/game/field/field.h"
@@ -24,16 +24,19 @@
 
 Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color) 
     : cur_range_(4), color_(color), resource_slowdown_(3) {
+  spdlog::get(LOGGER)->debug("Creatinge player...");
   field_ = field;
   ran_gen_ = ran_gen;
   lost_ = false;
   macro_ = ran_gen->RandomInt(0, 1);
 
   // Set player-color in statistics.
-  statistics_.set_color(color);
+  statistics_ = std::make_shared<Statictics>();
+  statistics_->set_color(color);
 
-  neurons_[nucleus_pos] = std::make_unique<Nucleus>(nucleus_pos);
-  auto r_pos = field_->AddResources(nucleus_pos);
+  neurons_[nucleus_pos] = std::make_shared<Nucleus>(nucleus_pos);
+  CreateNeuron(NUCLEUS, nucleus_pos);
+  std::map<int, position_t> r_pos = field_->resource_neurons().at(nucleus_pos);
   // Max only 20 as iron should be rare.
   resources_.insert(std::pair<int, Resource>(IRON, Resource(3, 22, 2, true, {-1, -1})));  
   resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(15.5, 100, 0, false, r_pos[OXYGEN]))); 
@@ -60,8 +63,39 @@ Player::Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, i
   };
 }
 
+Player::Player(const Player& p, Field* field) {
+  spdlog::get(LOGGER)->debug("Player::Player: copy-constructor.");
+  field_ = field;
+  statistics_ = std::make_shared<Statictics>(*p.statistics_.get());
+  ran_gen_ = p.ran_gen_; // check deep-copy
+  cur_range_ = p.cur_range_;
+  color_ = p.color_;
+  lost_ = p.lost_;
+  macro_ = p.macro_;
+  resources_ = p.resources_;
+  resource_slowdown_ = p.resource_slowdown_;
+  spdlog::get(LOGGER)->debug("Player::Player: copying neurons...");
+  for (const auto& it : p.neurons_) {
+    spdlog::get(LOGGER)->debug("Player::Player: pos: {}, type: {}", utils::PositionToString(it.first), it.second->type_);
+    if (it.second->type_ == ACTIVATEDNEURON) 
+      neurons_[it.first] = std::make_shared<ActivatedNeuron>(*it.second.get());
+    else if (it.second->type_ == SYNAPSE)  
+      neurons_[it.first] = std::make_shared<Synapse>(*it.second.get());
+    else if (it.second->type_ == RESOURCENEURON)
+      neurons_[it.first] = std::make_shared<ResourceNeuron>(*it.second.get());
+    else if (it.second->type_ == NUCLEUS) 
+      neurons_[it.first] = std::make_shared<Nucleus>(*it.second.get());
+    CreateNeuron(it.second->type_, it.first);
+  }
+  spdlog::get(LOGGER)->debug("Player::Player: copying neurons done.");
+  new_dead_neurons_ = p.new_dead_neurons_;
+  potential_ = p.potential_;
+  technologies_ = p.technologies_;
+  spdlog::get(LOGGER)->debug("Player::Player: copy-constructor done.");
+}
+
 // getter 
-Statictics& Player::statistics() {
+std::shared_ptr<Statictics> Player::statistics() {
   return statistics_;
 }
 std::map<std::string, Potential> Player::potential() { 
@@ -72,6 +106,7 @@ position_t Player::GetOneNucleus() {
   auto all_nucleus_positions = GetAllPositionsOfNeurons(NUCLEUS);
   if (all_nucleus_positions.size() > 0)
     return all_nucleus_positions.front();
+  spdlog::get(LOGGER)->warn("NO NUCLEUS!");
   return {-1, -1};
 }
 
@@ -87,19 +122,12 @@ std::map<int, tech_of_t> Player::technologies() {
   return technologies_;
 }
 
-std::map<int, Transfer::Resource> Player::t_resources() {
-  std::map<int, Transfer::Resource>  resources;
+std::map<int, Data::Resource> Player::t_resources() {
+  std::map<int, Data::Resource>  resources;
   for (const auto& it : resources_) 
-    resources[it.first] = {utils::Dtos(it.second.cur()), utils::Dtos(it.second.bound()), 
-      std::to_string(it.second.limit()), std::to_string(it.second.distributed_iron()), it.second.Active()};
+    resources[it.first] = {it.second.cur(), it.second.bound(), it.second.limit(), it.second.distributed_iron(), 
+      it.second.Active()};
   return resources;
-}
-
-std::map<int, Transfer::Technology> Player::t_technologies() {
-  std::map<int, Transfer::Technology> technologies;
-  for (const auto& it : technologies_) 
-    technologies[it.first] = {std::to_string(it.second.first), std::to_string(it.second.second), it.second.first > 0};
-  return technologies;
 }
 
 std::map<position_t, int> Player::new_dead_neurons() {
@@ -149,7 +177,8 @@ void Player::set_lost(bool lost) {
 
 // methods 
 
-nlohmann::json Player::GetFinalStatistics() {
+std::shared_ptr<Statictics> Player::GetFinalStatistics(std::string username) {
+  statistics_->set_player_name(username);
   for (const auto& it : resources_) {
     std::map<std::string, double> res_stats;
     if (it.first != IRON) {
@@ -157,12 +186,14 @@ nlohmann::json Player::GetFinalStatistics() {
       res_stats["spent"] = it.second.spent();
       res_stats["ø boost"] = it.second.average_boost();
       res_stats["ø bound"] = it.second.average_bound();
-      res_stats["ø neg. faktor"] = 1-it.second.average_neg_factor();
-      statistics_.get_resources()[it.first] = res_stats;
+      res_stats["ø neg.-faktor"] = 1-it.second.average_neg_factor();
+      statistics_->stats_resources_ref()[it.first] = res_stats;
     }
   }
-  statistics_.set_technologies(technologies_);
-  return statistics_.ToJson();  
+  spdlog::get(LOGGER)->debug("Player::GetFinalStatistics: {} resource-stat-entries", 
+        statistics_->stats_resources().size());
+  statistics_->set_technologies(technologies_);
+  return statistics_;
 }
 
 std::map<position_t, int> Player::GetEpspAtPosition() {
@@ -215,13 +246,13 @@ int Player::GetColorForPos(position_t pos) {
   return COLOR_DEFAULT;
 }
 
-std::map<position_t, int> Player::GetAllNeuronsInRange(position_t pos) {
-  std::map<position_t, int> neurons_in_range;
+std::vector<FieldPosition> Player::GetAllNeuronsInRange(position_t pos) {
+  std::vector<FieldPosition> neurons_in_range_;
   for (const auto& it : neurons_) {
     if (utils::Dist(it.first, pos) < cur_range_)
-      neurons_in_range[it.first] = it.second->type_;
+      neurons_in_range_.push_back(FieldPosition(it.first, it.second->type_, color_));
   }
-  return neurons_in_range;
+  return neurons_in_range_;
 }
 
 position_t Player::GetLoopholeTargetIfExists(position_t pos, bool only_active) {
@@ -260,6 +291,19 @@ std::string Player::GetNucleusLive() {
     + " / " + std::to_string(neurons_.at(positions.front())->max_voltage());
 }
 
+int Player::GetNucleusVoltage() {
+  spdlog::get(LOGGER)->debug("Player::GetNucleusVoltage");
+  auto positions = GetAllPositionsOfNeurons(NUCLEUS);
+  if (lost_ || positions.size() == 0) {
+    spdlog::get(LOGGER)->debug("Player::GetNucleusVoltage. Returning 0 (lost or not found)");
+    return 0;
+  }
+  spdlog::get(LOGGER)->debug("Player::GetNucleusVoltage. Returning voltage");
+  spdlog::get(LOGGER)->debug("Player::GetNucleusVoltage. voltage={}", neurons_.at(positions.front())->voltage());
+  return neurons_.at(positions.front())->voltage();
+}
+ 
+
 bool Player::HasLost() {
   return lost_ || GetAllPositionsOfNeurons(NUCLEUS).size() == 0;
 }
@@ -277,11 +321,9 @@ bool Player::IsNeuronBlocked(position_t pos) {
 }
 
 std::vector<position_t> Player::GetAllPositionsOfNeurons(int type) {
-  std::vector<position_t> positions;
-  for (const auto& it : neurons_)
-    if (type == -1 || it.second->type_ == type)
-      positions.push_back(it.first);
-  return positions;
+  if (neuron_positions_.count(type) > 0)
+    return neuron_positions_.at(type);
+  return {};
 }
 
 position_t Player::GetRandomNeuron(std::vector<int>) {
@@ -315,12 +357,13 @@ int Player::ResetWayForSynapse(position_t pos, position_t way_position) {
   }
 }
 
-int Player::AddWayPosForSynapse(position_t pos, position_t way_position) {
-  spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse");
-  if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE) {
-    auto cur_way = neurons_.at(pos)->ways_points();
+int Player::AddWayPosForSynapse(position_t synapse_pos, position_t way_position) {
+  spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse. synape: {}", 
+      utils::PositionToString(synapse_pos));
+  if (neurons_.count(synapse_pos) && neurons_.at(synapse_pos)->type_ == UnitsTech::SYNAPSE) {
+    auto cur_way = neurons_.at(synapse_pos)->ways_points();
     cur_way.push_back(way_position);
-    neurons_.at(pos)->set_way_points(cur_way);
+    neurons_.at(synapse_pos)->set_way_points(cur_way);
     spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse: successfully");
     return cur_way.size();
   }
@@ -362,11 +405,14 @@ void Player::ChangeMacroTargetForSynapse(position_t pos, position_t target_pos) 
 }
 
 void Player::IncreaseResources(bool inc_iron) {
-  spdlog::get(LOGGER)->debug("Player::IncreaseResources");
+  spdlog::get(LOGGER)->debug("Player::IncreaseResources, iron: {}, {}", resources_.at(IRON).cur(), 
+      resources_.at(IRON).bound());
   double gain = std::abs(log(resources_.at(Resources::OXYGEN).cur()+0.5));
   for (auto& it : resources_) {
     // Inc only if min 2 iron is distributed, inc iron only depending on audio.
-    if (it.second.Active() && !it.second.blocked() && (it.first != IRON || inc_iron)) {
+    if (it.first == IRON && inc_iron && it.second.cur()+it.second.bound()<it.second.limit())
+      it.second.set_cur(it.second.cur()+1);
+    else if (it.first != IRON && it.second.Active() && !it.second.blocked()) {
       it.second.Increase(gain, resource_slowdown_);
     }
   }
@@ -385,6 +431,8 @@ bool Player::DistributeIron(int resource) {
   }
   resources_.at(resource).set_distribited_iron(resources_.at(resource).distributed_iron()+1);
   // if it is now two, then resource is now active and we need to create a new resource-neuron.
+  spdlog::get(LOGGER)->debug("Player::DistributeIron: {} distributed_iron: {}!", 
+      resources_name_mapping.at(resource), resources_.at(resource).distributed_iron());
   if (resources_.at(resource).distributed_iron() == 2)
     AddNeuron(resources_.at(resource).pos(), RESOURCENEURON);  // Add resource neuron.
   resources_.at(IRON).set_cur(resources_.at(IRON).cur() - 1);
@@ -446,7 +494,8 @@ bool Player::TakeResources(int type, bool bind_resources, int boast) {
 void Player::FreeBoundResources(int type) {
   spdlog::get(LOGGER)->debug("Player::FreeBoundResources: {}", type);
   if (units_costs_.count(type) == 0) {
-    spdlog::get(LOGGER)->warn("Player::FreeBoundResources: attempting to free, but no costs known. Type: {}", type);
+    if (type != RESOURCENEURON)
+      spdlog::get(LOGGER)->warn("Player::FreeBoundResources: attempting to free, but no costs known. Type: {}", type);
     return;
   }
   // Get costs for this unit.
@@ -457,30 +506,32 @@ void Player::FreeBoundResources(int type) {
 }
 
 bool Player::AddNeuron(position_t pos, int neuron_type, position_t epsp_target, position_t ipsp_target) {
-  spdlog::get(LOGGER)->debug("Player::AddNeuron");
+  spdlog::get(LOGGER)->debug("Player::AddNeuron: {} {}", neuron_type, utils::PositionToString(pos));
   if (!TakeResources(neuron_type, true))
     return false;
   if (neuron_type == UnitsTech::ACTIVATEDNEURON) {
     spdlog::get(LOGGER)->debug("Player::AddNeuron: ActivatedNeuron");
     int speed_boast = technologies_.at(UnitsTech::DEF_SPEED).first * 40;
     int potential_boast = technologies_.at(UnitsTech::DEF_POTENTIAL).first;
-    neurons_[pos] = std::make_unique<ActivatedNeuron>(pos, potential_boast, speed_boast);
+    neurons_[pos] = std::make_shared<ActivatedNeuron>(pos, potential_boast, speed_boast);
   }
   else if (neuron_type == UnitsTech::SYNAPSE) {
     spdlog::get(LOGGER)->debug("Player::AddNeuron: Synapse");
-    neurons_[pos] = std::make_unique<Synapse>(pos, technologies_.at(UnitsTech::SWARM).first*3+1, 
+    neurons_[pos] = std::make_shared<Synapse>(pos, technologies_.at(UnitsTech::SWARM).first*3+1, 
         technologies_.at(UnitsTech::WAY).first, epsp_target, ipsp_target);
     spdlog::get(LOGGER)->debug("Player::AddNeuron, created synapse, {}", neurons_.at(pos)->type_);
   }
   else if (neuron_type == UnitsTech::NUCLEUS) {
     spdlog::get(LOGGER)->debug("Player::AddNeuron: Nucleus");
-    neurons_[pos] = std::make_unique<Nucleus>(pos);
+    neurons_[pos] = std::make_shared<Nucleus>(pos);
     UpdateResourceLimits(0.1); // Increase max resource if new nucleus is built.
   }
   else if (neuron_type == UnitsTech::RESOURCENEURON) {
+    spdlog::get(LOGGER)->debug("Player::AddNeuron: ResourceNeuron: pos {}", utils::PositionToString(pos));
     std::string symbol = field_->GetSymbolAtPos(pos);
+    spdlog::get(LOGGER)->debug("Player::AddNeuron: ResourceNeuron: symbol {}", symbol);
     int resource_type = symbol_resource_mapping.at(symbol);
-    neurons_[pos] = std::make_unique<ResourceNeuron>(pos, resource_type);
+    neurons_[pos] = std::make_shared<ResourceNeuron>(pos, resource_type);
   }
   else if (neuron_type == UnitsTech::LOOPHOLE) {
     spdlog::get(LOGGER)->debug("Player::AddNeuron: Loophole");
@@ -494,23 +545,23 @@ bool Player::AddNeuron(position_t pos, int neuron_type, position_t epsp_target, 
     else if (loopholes.size() == 2) {
       if (utils::GetElapsedNano(neurons_.at(loopholes[0])->created_at(), neurons_.at(loopholes[1])->created_at()) > 0) {
         neurons_.erase(loopholes[0]);
-        new_dead_neurons_[loopholes[0]] = LOOPHOLE;
+        DeleteNeuron(LOOPHOLE, loopholes[0]);
         target = loopholes[1];
       }
       else {
         neurons_.erase(loopholes[1]);
-        new_dead_neurons_[loopholes[1]] = LOOPHOLE;
+        DeleteNeuron(LOOPHOLE, loopholes[1]);
         target = loopholes[0];
       }
     }
     // Create new loophole and make it the target of old loophole.
-    neurons_[pos] = std::make_unique<Loophole>(pos, target);
+    neurons_[pos] = std::make_shared<Loophole>(pos, target);
     if (target.first != -1 && target.second != -1)
       neurons_[target]->set_target(pos);
   }
+  spdlog::get(LOGGER)->debug("Player::AddNeuron: adding new neuron and neuron to field.");
+  CreateNeuron(neuron_type, pos);
   spdlog::get(LOGGER)->debug("Player::AddNeuron: done");
-  new_neurons_[pos] = neuron_type;
-  statistics_.AddNewNeuron(neuron_type);
   return true;
 }
 
@@ -527,7 +578,11 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
   // Create way.
   spdlog::get(LOGGER)->debug("Player::AddPotential: get way for potential.");
   neurons_.at(synapes_pos)->UpdateIpspTargetIfNotSet(enemies_.front()->GetRandomNeuron());
-  auto way = field_->GetWayForSoldier(synapes_pos, neurons_.at(synapes_pos)->GetWayPoints(unit));
+  spdlog::get(LOGGER)->debug("Player::AddPotential: way points:");
+  for (const auto& it : neurons_.at(synapes_pos)->GetWayPoints(unit)) {
+    spdlog::get(LOGGER)->debug("Player::AddPotential: {}", utils::PositionToString(it));
+  }
+  auto way = field_->GetWay(synapes_pos, neurons_.at(synapes_pos)->GetWayPoints(unit));
 
   // Add potential.
   // Get boast from technologies.
@@ -558,7 +613,7 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
   // Decrease speed if given.
   potential_[id].movement_.first += inital_speed_decrease;
   spdlog::get(LOGGER)->debug("Player::AddPotential: done.");
-  statistics_.AddNewPotential(unit);
+  statistics_->AddNewPotential(unit);
   return true;
 }
 
@@ -621,97 +676,125 @@ void Player::MovePotential() {
       it.second.pos_ = it.second.way_.front(); 
       it.second.way_.pop_front();
       it.second.movement_.first = it.second.movement_.second;  // potential did action, so reset speed.
-      // loopholes only for ipsp and epsp
-      if (!(it.second.type_ == MACRO && macro_ == 1)) {
-        // Check if entered own loophole:
-        position_t loophole_target = GetLoopholeTargetIfExists(it.second.pos_);
-        // Check if entered enemy's loophole (if loophole is active):
-        for (const auto& enemy : enemies_) {
-          auto new_loophole_target = enemy->GetLoopholeTargetIfExists(it.second.pos_, true);
-          if (new_loophole_target.first != -1 && new_loophole_target.second != -1) {
-            loophole_target = new_loophole_target;
-            break;
-          }
-        }
-        // If loophole-target exists, enter loophole.
-        if (loophole_target.first != -1 && loophole_target.second != -1) {
-          it.second.pos_ = loophole_target;
-          it.second.way_ = field_->GetWayForSoldier(it.second.pos_, {it.second.way_.back()});
-          it.second.way_.pop_front(); // remove first position, which is the loophole.
-        }
-      }
+      CheckLoophole(it.second);
     }
     // If target is reached, handle epsp and ipsp seperatly.
     // Epsp: add potential to target and add epsp to list of potentials to remove.
     if (it.second.type_ == UnitsTech::EPSP || it.second.type_ == UnitsTech::MACRO) {
       spdlog::get(LOGGER)->debug("Handling potential arrived EPSP/ MACRO.", it.second.type_);
       if (it.second.way_.size() == 0) {
-        spdlog::get(LOGGER)->debug("Handling potential arrived EPSP");
-        // Epsp
-        if (it.second.type_ == UnitsTech::EPSP) {
-          for (const auto& enemy : enemies_) {
-            if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1)
-              enemy->AddPotentialToNeuron(it.second.pos_, it.second.potential_);
-          }
-          // Friendly fire
-          AddPotentialToNeuron(it.second.pos_, it.second.potential_);
-        }
-        // Makro
-        else if (it.second.type_ == UnitsTech::MACRO && macro_ == 0) {
-          spdlog::get(LOGGER)->debug("Handling potential arrived MACRO A");
-          for (const auto& enemy : enemies_) {
-            if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1) {
-              auto neurons = enemy->GetAllNeuronsInRange(it.second.pos_);
-              spdlog::get(LOGGER)->debug("MACRO: got {} neurons in range.", neurons.size());
-              int macro_lp = it.second.potential_;
-              for (const auto& pos : neurons) {
-                int lp = (pos.second == SYNAPSE) ? 5 : (pos.second == ACTIVATEDNEURON) ? 17 : 0;
-                macro_lp-= lp;
-                if (macro_lp < 0) 
-                  lp = macro_lp+lp;
-                spdlog::get(LOGGER)->debug("MACRO: making {} damage.", lp);
-                enemy->AddPotentialToNeuron(pos.first, lp);
-                if (macro_lp < 0) 
-                  break;
-              }
-            }
-          }
-        }
-        else if (it.second.type_ == UnitsTech::MACRO && macro_ == 1) {
-          spdlog::get(LOGGER)->debug("Handling potential arrived MACRO B");
-          AddNeuron(it.second.pos_, LOOPHOLE);
-        }
+        HandleEpspAndMacro(it.second);
         potential_to_remove.push_back(it.first); // remove 
       }
     }
     // Ipsp: check if just time is up -> remove ipsp, otherwise -> block target.
     else {
-      // If duration since last action is reached, add ipsp to list of potentials to remove and unblock target.
-      if (it.second.movement_.first == 0) {
-        for (const auto& enemy : enemies_) {
-          if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1)
-            enemy->SetBlockForNeuron(it.second.pos_, false);  // unblock target.
-        }
+      if (HandleIpsp(it.second, it.first))
         potential_to_remove.push_back(it.first); // remove 
-      }
-      // If target was reached for the first time, block target and change
-      // movement form speed to duration.
-      else if (it.second.way_.size() == 0 && !it.second.target_blocked_) {
-        it.second.movement_.first = it.second.duration_;
-        it.second.target_blocked_ = true;
-        spdlog::get(LOGGER)->warn("IPSP reached target, set movement to {}", it.second.movement_.first);
-        for (const auto& enemy : enemies_) {
-          if (enemy->GetNeuronTypeAtPosition(it.second.pos_) != -1) {
-            enemy->SetBlockForNeuron(it.second.pos_, true);  // block target
-          }
-        }
-      }
     }
   }
   // Remove potential which has reached it's target.
   for (const auto& it : potential_to_remove)
     potential_.erase(it);
   spdlog::get(LOGGER)->debug("Player::MovePotential done");
+}
+
+void Player::CheckLoophole(Potential& potential) {
+  // loopholes only for ipsp and epsp
+  if (!(potential.type_ == MACRO && macro_ == 1)) {
+    // Check if entered own loophole:
+    position_t loophole_target = GetLoopholeTargetIfExists(potential.pos_);
+    // Check if entered enemy's loophole (if loophole is active):
+    for (const auto& enemy : enemies_) {
+      auto new_loophole_target = enemy->GetLoopholeTargetIfExists(potential.pos_, true);
+      if (new_loophole_target.first != -1 && new_loophole_target.second != -1) {
+        loophole_target = new_loophole_target;
+        break;
+      }
+    }
+    // If loophole-target exists, enter loophole.
+    if (loophole_target.first != -1 && loophole_target.second != -1) {
+      potential.pos_ = loophole_target;
+      potential.way_ = field_->GetWay(potential.pos_, {potential.way_.back()});
+      potential.way_.pop_front(); // remove first position, which is the loophole.
+    }
+  }
+}
+
+void Player::HandleEpspAndMacro(Potential& potential) {
+  spdlog::get(LOGGER)->debug("Handling potential arrived EPSP/ MACRO.", potential.type_);
+  spdlog::get(LOGGER)->debug("Handling potential arrived EPSP");
+  // Epsp
+  if (potential.type_ == UnitsTech::EPSP) {
+    auto res = field_->GetNeuronTypeAtPosition(potential.pos_);
+    if (res.first != -1)
+      res.second->AddPotentialToNeuron(potential.pos_, potential.potential_);
+    // Friendly fire
+    AddPotentialToNeuron(potential.pos_, potential.potential_);
+  }
+  // Makro
+  else if (potential.type_ == UnitsTech::MACRO && macro_ == 0) {
+    spdlog::get(LOGGER)->debug("Handling potential arrived MACRO A");
+    auto res = field_->GetNeuronTypeAtPosition(potential.pos_);
+    if (res.first != -1) {
+      auto neurons = res.second->GetAllNeuronsInRange(potential.pos_);
+      spdlog::get(LOGGER)->debug("MACRO: got {} neurons in range.", neurons.size());
+      int macro_lp = potential.potential_;
+      for (const auto& neuron : neurons) {
+        int lp = (neuron.unit() == SYNAPSE) ? 5 : (neuron.unit() == ACTIVATEDNEURON) ? 17 : 0;
+        macro_lp-= lp;
+        if (macro_lp < 0) 
+          lp = macro_lp+lp;
+        spdlog::get(LOGGER)->debug("MACRO: making {} damage.", lp);
+        res.second->AddPotentialToNeuron(neuron.pos(), lp);
+        if (macro_lp < 0) 
+          break;
+      }
+    }
+  }
+  else if (potential.type_ == UnitsTech::MACRO && macro_ == 1) {
+    spdlog::get(LOGGER)->debug("Handling potential arrived MACRO B");
+    AddNeuron(potential.pos_, LOOPHOLE);
+  }
+}
+
+bool Player::HandleIpsp(Potential& potential, std::string id) {
+  // Potential swallow (i: 
+  if (field_->epsps().count(potential.pos_) > 0) {
+    // Go through all epsps at ipsp's position and check if belonging to other player (different color)
+    std::vector<std::pair<std::string, Player*>> vec = field_->epsps().at(potential.pos_);
+    for (auto it = vec.begin(); it != vec.end(); it++) {
+      // If so, neutralize potential
+      if (it->second->color() != color_) {
+        spdlog::get(LOGGER)->info("Player::HandleIpsp: swallow!!");
+        NeutralizePotential(id, -1); // increase potential by one
+        if (it->second->NeutralizePotential(it->first, 1)) { // decrease potential by one
+          statistics_->AddEpspSwallowed(); // add statistics entry.
+          vec.erase(it); // remove from epsp at this position.
+        }
+        spdlog::get(LOGGER)->info("Player::HandleIpsp: swallowing done!!");
+        break;
+      }
+    }
+  }
+  // If duration since last action is reached, add ipsp to list of potentials to remove and unblock target.
+  if (potential.movement_.first == 0) {
+    auto res = field_->GetNeuronTypeAtPosition(potential.pos_);
+    if (res.first != -1)
+      res.second->SetBlockForNeuron(potential.pos_, false);  // unblock target.
+    return true;
+  }
+  // If target was reached for the first time, block target and change
+  // movement form speed to duration.
+  else if (potential.way_.size() == 0 && !potential.target_blocked_) {
+    potential.movement_.first = potential.duration_;
+    potential.target_blocked_ = true;
+    spdlog::get(LOGGER)->warn("IPSP reached target, set movement to {}", potential.movement_.first);
+    auto res = field_->GetNeuronTypeAtPosition(potential.pos_);
+    if (res.first != -1)
+      res.second->SetBlockForNeuron(potential.pos_, true);  // block target
+  }
+  return false;
 }
 
 void Player::SetBlockForNeuron(position_t pos, bool blocked) {
@@ -732,15 +815,14 @@ void Player::HandleDef() {
       continue;
     // Check if activated neurons recharge is done.
     neuron.second->decrease_cooldown();
-    if (neuron.second->movement() == 0 && !neuron.second->blocked()) {
+    if (neuron.second->cur_movement() == 0 && !neuron.second->blocked()) {
       // for every enemy
       for (const auto& enemy : enemies_) {
         // Check for potentials in range of activated neuron.
         for (const auto& potential : enemy->potential()) {
-          int distance = utils::Dist(neuron.first, potential.second.pos_);
-          if (distance < 3) {
+          if (utils::Dist(neuron.first, potential.second.pos_) < 3) {
             if (enemy->NeutralizePotential(potential.first, neuron.second->potential_slowdown()))
-              statistics_.AddKillderPotential(potential.first);
+              statistics_->AddKillderPotential(potential.first);
             neuron.second->reset_movement();  // neuron did action, so update last_action_.
             break;
           }
@@ -758,7 +840,7 @@ bool Player::NeutralizePotential(std::string id, int potential) {
     // Remove potential only if not already at it's target (length of way is greater than zero).
     if ((potential_.at(id).potential_ == 0 || potential_.at(id).potential_ > 10) && potential_.at(id).way_.size() > 0) {
       potential_.erase(id);
-      statistics_.AddLostPotential(id);
+      statistics_->AddLostPotential(id);
       return true;
     }
   }
@@ -790,7 +872,7 @@ void Player::AddPotentialToNeuron(position_t pos, int potential) {
         CheckNeuronsAfterNucleusDies();
         UpdateResourceLimits(-0.1);  // Remove added max resources when nucleus dies.
       }
-      new_dead_neurons_[pos] = type;
+      DeleteNeuron(type, pos);
       spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: adding potential finished.");
     }
   }
@@ -810,14 +892,16 @@ void Player::CheckNeuronsAfterNucleusDies() {
     // Add first and if in range of a nucleus, remove again.
     neurons_to_remove.push_back({neuron.first, neuron.second->type_});
     for (const auto& nucleus_pos : all_nucleus)
-      if (utils::Dist(neuron.first, nucleus_pos) <= cur_range_)
+      if (utils::Dist(neuron.first, nucleus_pos) <= cur_range_) {
         neurons_to_remove.pop_back();
+        break;
+      }
   }
   // Remove neuerons no longer in range of nucleus, free bound resources and add to new-dead-neurons.
   for (const auto& it : neurons_to_remove) {
     neurons_.erase(it.first);
     FreeBoundResources(it.second);
-    new_dead_neurons_[it.first] = it.second;
+    DeleteNeuron(it.second, it.first);
   }
   spdlog::get(LOGGER)->debug("Player::CheckNeuronsAfterNucleusDies: done");
 }
@@ -830,10 +914,11 @@ std::string Player::GetPotentialIdIfPotential(position_t pos, int unit) {
 }
 
 std::vector<bool> Player::GetBuildingOptions() {
+  bool atleast_one_synapse = GetAllPositionsOfNeurons(SYNAPSE).size() > 0;
   return {
-    (GetAllPositionsOfNeurons(SYNAPSE).size() > 0 && GetMissingResources(IPSP).size() == 0),
-    (GetAllPositionsOfNeurons(SYNAPSE).size() > 0 && GetMissingResources(EPSP).size() == 0),
-    (GetAllPositionsOfNeurons(SYNAPSE).size() > 0 && GetMissingResources(MACRO).size() == 0),
+    (atleast_one_synapse && GetMissingResources(IPSP).size() == 0),
+    (atleast_one_synapse && GetMissingResources(EPSP).size() == 0),
+    (atleast_one_synapse && GetMissingResources(MACRO).size() == 0),
     (GetMissingResources(ACTIVATEDNEURON).size() == 0),
     (GetMissingResources(SYNAPSE).size() == 0),
     (GetMissingResources(NUCLEUS).size() == 0),
@@ -863,4 +948,27 @@ std::string Player::GetCurrentResources() {
   for (const auto& it : resources()) 
     msg += resources_name_mapping.at(it.first) + ": " + std::to_string(it.second.cur()) + ", ";
   return msg;
+}
+
+void Player::CreateNeuron(int type, position_t pos) {
+  spdlog::get(LOGGER)->debug("Player::CreateNeuron");
+  new_neurons_[pos] = type;
+  spdlog::get(LOGGER)->debug("Player::CreateNeuron 1");
+  statistics_->AddNewNeuron(type);
+  spdlog::get(LOGGER)->debug("Player::CreateNeuron 2");
+  field_->AddNewUnitToPos(pos, neurons_.at(pos), this);
+  spdlog::get(LOGGER)->debug("Player::CreateNeuron 3");
+  neuron_positions_[type].push_back(pos);
+  spdlog::get(LOGGER)->debug("Player::CreateNeuron 4");
+  neuron_positions_[-1].push_back(pos);
+  spdlog::get(LOGGER)->debug("Player::CreateNeuron. done");
+}
+
+void Player::DeleteNeuron(int type, position_t pos) {
+  new_dead_neurons_[pos] = type;
+  field_->RemoveUnitFromPos(pos);
+  neuron_positions_[-1].erase(std::remove(neuron_positions_[-1].begin(), 
+        neuron_positions_[-1].end(), pos), neuron_positions_[-1].end());
+  neuron_positions_[type].erase(std::remove(neuron_positions_[type].begin(), 
+        neuron_positions_[type].end(), pos), neuron_positions_[type].end());
 }

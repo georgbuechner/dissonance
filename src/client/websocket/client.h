@@ -2,6 +2,7 @@
 #define SRC_CLIENT_CLIENT_H_
 
 #include <iostream>
+#include <memory>
 #include <unistd.h>
 #include <string>
 #include <websocketpp/config/asio_no_tls_client.hpp>
@@ -17,21 +18,16 @@ class Client {
   public:
     Client(ClientGame* game, std::string username, std::string base_path);
 
-    // getter 
-    bool same_device();
-
     // methods
     void Start(std::string address);
     void Stop();
-    void SendMessage(std::string msg);
-    void SendMessageBinary(std::string msg);
+    void SendMessage(std::string command, std::shared_ptr<Data> data);
 
   private:
     typedef websocketpp::client<websocketpp::config::asio_client> client;
     typedef websocketpp::config::asio_client::message_type::ptr message_ptr;
     const std::string username_;
     client c_;
-    bool same_device_;
     websocketpp::connection_hdl hdl_;
     ClientGame* game_;
     std::string audio_data_;

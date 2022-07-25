@@ -2,6 +2,7 @@
 #define SRC_PLAYER_H_
 
 #include <cstddef>
+#include <deque>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -9,15 +10,15 @@
 #include <set>
 #include <vector>
 
-#include "server/game/player/statistics.h"
 #include "share/audio/audio.h"
 #include "share/constants/codes.h"
 #include "share/constants/costs.h"
 #include "share/objects/resource.h"
-#include "share/objects/transfer.h"
 #include "share/objects/units.h"
+#include "share/shemes/data.h"
 #include "share/tools/random/random.h"
 #include "share/defines.h"
+#include "share/tools/utils/utils.h"
 
 class Field;
 
@@ -26,6 +27,42 @@ using namespace costs;
 
 class Player {
   public:
+    struct AiOption {
+      int _type;
+      position_t _pos;
+      position_t _pos_2;
+      float _num;
+
+      std::string string() const { return std::to_string(_type) + ": pos1:" + utils::PositionToString(_pos) 
+        + ", pos2: " + utils::PositionToString(_pos_2) + ", num: " + utils::Dtos(_num); }
+
+      std::string hash() const { return std::to_string(_type) + ";" + utils::PositionToString(_pos) + ";"
+        + utils::PositionToString(_pos_2) + ";" + std::to_string(_num); }
+      AiOption(std::string action) {
+        auto parts = utils::Split(action, ";");
+        _type = std::stoi(parts[0]);
+        _pos = utils::PositionFromString(parts[1]);
+        _pos_2 = utils::PositionFromString(parts[2]);
+        _num = std::atof(parts[3].c_str());
+      }
+      AiOption(int type, position_t pos, position_t pos2, float num) {
+        _type = type;
+        _pos = pos;
+        _pos_2 = pos2;
+        _num = num;
+      }
+    };
+
+    struct McNode {
+      int _count;
+      float cur_weight_;
+      std::map<std::string, McNode*> _nodes;
+
+      void update(float weight) {
+        _count++;
+        cur_weight_ += weight;
+      }
+    };
 
     /**
      * Constructor initializing all resources and gatherers with defaul values
@@ -36,23 +73,23 @@ class Player {
      * @param[in] color (random number generator).
      */
     Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color);
+    Player(const Player& p, Field* field);
 
     virtual ~Player() {}
 
     // getter:
-    Statictics& statistics();
+    std::shared_ptr<Statictics> statistics();
     std::map<std::string, Potential> potential();
     int cur_range();
     std::map<int, Resource> resources();
     std::map<int, tech_of_t> technologies();
 
-    std::map<int, Transfer::Resource> t_resources();
-    std::map<int, Transfer::Technology> t_technologies();
+    std::map<int, Data::Resource> t_resources();
     std::map<position_t, int> new_dead_neurons();
     std::map<position_t, int> new_neurons();
     std::vector<Player*> enemies();
     int color();
-    virtual std::list<AudioDataTimePoint> data_per_beat() { return {}; }
+    virtual std::deque<AudioDataTimePoint> data_per_beat() const { return {}; }
 
     position_t GetSynapesTarget(position_t synapse_pos, int unit);
     std::vector<position_t> GetSynapesWayPoints(position_t synapse_pos, int unit=-1);
@@ -64,12 +101,12 @@ class Player {
 
     // methods:
     
-    nlohmann::json GetFinalStatistics();
+    std::shared_ptr<Statictics> GetFinalStatistics(std::string username);
     std::map<position_t, int> GetEpspAtPosition();
     std::map<position_t, int> GetIpspAtPosition();
     std::map<position_t, int> GetMacroAtPosition();
     std::vector<position_t> GetPotentialPositions();
-    std::map<position_t, int> GetAllNeuronsInRange(position_t pos);
+    std::vector<FieldPosition> GetAllNeuronsInRange(position_t pos);
     position_t GetLoopholeTargetIfExists(position_t pos, bool only_active=false);
     int GetColorForPos(position_t pos);
 
@@ -86,6 +123,7 @@ class Player {
      * @return current voltage balance in format: "[cur_voltage] / [max_voltage]"
      */
     std::string GetNucleusLive();
+    int GetNucleusVoltage();
     
     /**
      * Checks whether player has lost.
@@ -234,6 +272,9 @@ class Player {
      * @return potential transfered to the target.
      */
     void MovePotential();
+    void CheckLoophole(Potential& potential);
+    void HandleEpspAndMacro(Potential& potential);
+    bool HandleIpsp(Potential& potential, std::string id);
 
     void SetBlockForNeuron(position_t pos, bool block);
 
@@ -278,15 +319,15 @@ class Player {
 
     std::string GetCurrentResources();
 
+    // Audio-ai
     virtual void SetUpTactics(bool) {}
     virtual void HandleIron(const AudioDataTimePoint&) {}
-    virtual void DoAction(const AudioDataTimePoint&) {}
-    virtual void set_last_time_point(const AudioDataTimePoint&) {}
+    virtual bool DoAction() { return false; }
+    virtual bool DoAction(const AudioDataTimePoint& data_at_beat) { return false; }
 
   protected: 
     Field* field_;
-    Audio* audio_;
-    Statictics statistics_;
+    std::shared_ptr<Statictics> statistics_;
     RandomGenerator* ran_gen_;
     std::vector<Player*> enemies_;
     int cur_range_;
@@ -298,10 +339,10 @@ class Player {
     double resource_slowdown_;
 
 
-    std::map<position_t, std::unique_ptr<Neuron>> neurons_;
+    std::map<position_t, std::shared_ptr<Neuron>> neurons_;
     std::map<position_t, int> new_dead_neurons_;
     std::map<position_t, int> new_neurons_;
-    position_t main_nucleus_pos_;
+    std::map<int, std::vector<position_t>> neuron_positions_;
 
     std::map<std::string, Potential> potential_;
 
@@ -317,6 +358,9 @@ class Player {
      * @param[in] faktor (between -1 and 1)
      */
     void UpdateResourceLimits(float faktor);
+
+    void CreateNeuron(int type, position_t);
+    void DeleteNeuron(int type, position_t);
 };
 
 #endif

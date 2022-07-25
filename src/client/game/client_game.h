@@ -2,8 +2,9 @@
 #define SRC_CLIENT_CLIENT_GAME_H_
 
 #include "share/audio/audio.h"
+#include "share/shemes/commands.h"
 // #include "share/objects/dtos.h"
-#include "share/objects/lobby.h"
+#include <memory>
 #define NCURSES_NOMACROS
 #include <cstddef>
 #include <curses.h>
@@ -36,17 +37,11 @@ class ClientGame {
       return base_path_;
     }
 
-    void set_audio_file_path(std::string path) {
-      audio_file_path_ = path;
-    }
-
     void set_client(Client* ws_srv) {
       ws_srv_ = ws_srv;
     }
 
-    Drawrer& drawrer() { return drawrer_; }
-
-    void HandleAction(nlohmann::json);
+    void HandleAction(Command cmd);
 
     void GetAction();
 
@@ -57,9 +52,9 @@ class ClientGame {
     const std::string username_;
     const bool muliplayer_availible_;
     Client* ws_srv_;
-    EventManager<std::string, ClientGame, nlohmann::json&> eventmanager_;
-    EventManager<std::string, ClientGame, nlohmann::json&> eventmanager_tutorial_;
-    EventManager<char, ClientGame, nlohmann::json&> eventmanager_tutorial_action_;
+    EventManager<std::string, ClientGame, std::shared_ptr<Data>> eventmanager_;
+    EventManager<std::string, ClientGame, std::shared_ptr<Data>> eventmanager_tutorial_;
+    std::string audio_data_;
 
     struct Tutorial {
       int activated_neurons_;
@@ -147,44 +142,43 @@ class ClientGame {
      */
     std::string InputString(std::string msg);
 
-    void h_Help(nlohmann::json&); ///< show help
-    void h_Quit(nlohmann::json&); ///< ingame: asks user whether to really quit.
-    void h_Kill(nlohmann::json&); ///< before game: kills game.
-    void h_PauseAndUnPause(nlohmann::json&);
-    void h_MoveSelectionUp(nlohmann::json&);
-    void h_MoveSelectionDown(nlohmann::json&);
-    void h_MoveSelectionLeft(nlohmann::json&);
-    void h_MoveSelectionRight(nlohmann::json&);
-    void h_SelectGame(nlohmann::json&); 
-    void h_ChangeViewPoint(nlohmann::json&);
-    void h_AddIron(nlohmann::json&);
-    void h_RemoveIron(nlohmann::json&);
-    void h_AddTech(nlohmann::json&);
+    void h_Help(std::shared_ptr<Data> data); ///< show help
+    void h_Quit(std::shared_ptr<Data> data); ///< ingame: asks user whether to really quit.
+    void h_Kill(std::shared_ptr<Data> data); ///< before game: kills game.
+    void h_PauseAndUnPause(std::shared_ptr<Data> data);
+    void h_MoveSelectionUp(std::shared_ptr<Data> data);
+    void h_MoveSelectionDown(std::shared_ptr<Data> data);
+    void h_MoveSelectionLeft(std::shared_ptr<Data> data);
+    void h_MoveSelectionRight(std::shared_ptr<Data> data);
+    void h_SelectGame(std::shared_ptr<Data> data); 
+    void h_ChangeViewPoint(std::shared_ptr<Data> data);
+    void h_AddIron(std::shared_ptr<Data> data);
+    void h_RemoveIron(std::shared_ptr<Data> data);
+    void h_AddTech(std::shared_ptr<Data> data); ///< Requests adding tech.
+    void h_AddTechnology(std::shared_ptr<Data> data); ///< Response for successfully adding tech.
 
-    void h_BuildNeuron(nlohmann::json&);
-    void h_BuildPotential(nlohmann::json&);
-    void h_ToResourceContext(nlohmann::json&);
+    void h_BuildNeuron(std::shared_ptr<Data> data);
+    void h_BuildPotential(std::shared_ptr<Data> data);
+    void h_ToResourceContext(std::shared_ptr<Data> data);
 
-    void h_SendSelectSynapse(nlohmann::json&);
+    void h_SendSelectSynapse(std::shared_ptr<Data> data);
 
-    void h_SetWPs(nlohmann::json&);
-    void h_SetTarget(nlohmann::json&);
-    void h_SwarmAttack(nlohmann::json&);
-    void h_ResetOrQuitSynapseContext(nlohmann::json&);
-
-    void SetTarget(nlohmann::json& msg, int unit);
+    void h_SetWPs(std::shared_ptr<Data> data);
+    void h_SetTarget(std::shared_ptr<Data> data);
+    void h_SwarmAttack(std::shared_ptr<Data> data);
+    void h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data);
 
     // tutorial
-    void h_TutorialGetOxygen(nlohmann::json&);
+    void h_TutorialGetOxygen(std::shared_ptr<Data> data);
     /**
      * Reacts after setting a unit. (Also resource activated/ inactivated)
      */
-    void h_TutorialSetUnit(nlohmann::json&);
-    void h_TutorialBuildNeuron(nlohmann::json&);
-    void h_TutorialScouted(nlohmann::json&);
-    void h_TutorialSetMessage(nlohmann::json&);
-    void h_TutorialUpdateGame(nlohmann::json&);
-    void h_TutorialAction(nlohmann::json&);
+    void h_TutorialSetUnit(std::shared_ptr<Data> data);
+    void h_TutorialBuildNeuron(std::shared_ptr<Data> data);
+    void h_TutorialScouted(std::shared_ptr<Data> data);
+    void h_TutorialSetMessage(std::shared_ptr<Data> data);
+    void h_TutorialUpdateGame(std::shared_ptr<Data> data);
+    void h_TutorialAction(std::shared_ptr<Data> data);
 
     void Pause();
     void UnPause();
@@ -194,19 +188,19 @@ class ClientGame {
      * Increases current text and call h_TextPrint
      * @param[in, out] msg (unchanged)
      */
-    void h_TextNext(nlohmann::json&);
+    void h_TextNext(std::shared_ptr<Data> data);
 
     /**
      * Decreases current text and call h_TextPrint
      * @param[in, out] msg (unchanged)
      */
-    void h_TextPrev(nlohmann::json&);
+    void h_TextPrev(std::shared_ptr<Data> data);
 
     /**
      * Simply calls h_TextQuit()
      * @param[in, out] msg (unchanged)
      */
-    void h_TextQuit(nlohmann::json&);
+    void h_TextQuit(std::shared_ptr<Data> data);
 
     /**
      * Changes back to last context.
@@ -224,37 +218,39 @@ class ClientGame {
      * Shows player main-menu: with basic game info and lets player pic singe/
      * muliplayer
     */
-    void m_Preparing(nlohmann::json&);
-    void m_SelectMode(nlohmann::json&);
-    void m_SelectAudio(nlohmann::json&);
-    void m_SendAudioInfo(nlohmann::json&);
-    void m_PrintMsg(nlohmann::json&);
-    void m_InitGame(nlohmann::json&);
-    void m_UpdateGame(nlohmann::json&);
-    void m_UpdateLobby(nlohmann::json&);
-    void m_SetMsg(nlohmann::json&);
-    void m_GameEnd(nlohmann::json&);
-    void m_SetUnit(nlohmann::json&);
-    void m_SetUnits(nlohmann::json&);
+    void m_Preparing(std::shared_ptr<Data> data);
+    void m_SelectMode(std::shared_ptr<Data> data);
+    void m_SelectAudio(std::shared_ptr<Data> data);
+    void m_SendAudioInfo(std::shared_ptr<Data> data);
+    void m_GetAudioData(std::shared_ptr<Data> data);
+    void m_PrintMsg(std::shared_ptr<Data> data);
+    void m_InitGame(std::shared_ptr<Data> data);
+    void m_UpdateGame(std::shared_ptr<Data> data);
+    void m_UpdateLobby(std::shared_ptr<Data> data);
+    void m_SetMsg(std::shared_ptr<Data> data);
+    void m_GameEnd(std::shared_ptr<Data> data);
+    void m_SetUnit(std::shared_ptr<Data> data);
+    void m_SetUnits(std::shared_ptr<Data> data);
 
-    void m_SongExists(nlohmann::json&);
+    void m_SongExists(std::shared_ptr<Data> data);
 
     /**
      * Add `pos`-field to current data, by taking pos from current field-position.
      */
-    void h_AddPosition(nlohmann::json&);
+    void h_AddPosition(std::shared_ptr<Data> data);
 
     /**
      * Add `start_pos`-field to current data, by taking pos from marker-position at last symbol.
      */
-    void h_AddStartPosition(nlohmann::json&);
+    void h_AddStartPosition(std::shared_ptr<Data> data);
 
     void SwitchToPickContext(std::vector<position_t> positions, std::string msg, std::string action, 
-        nlohmann::json data, std::vector<char> slip_handlers = {});
-    void SwitchToFieldContext(position_t pos, int range, std::string action, nlohmann::json data, std::string msg, 
-        std::vector<char> slip_handlers = {});
+        std::shared_ptr<Data> data, std::vector<char> slip_handlers = {});
+    void SwitchToFieldContext(position_t pos, int range, std::string action, std::shared_ptr<Data>data, 
+        std::string msg, std::vector<char> slip_handlers = {});
     void SwitchToResourceContext(std::string msg = "");
-    void SwitchToSynapseContext(nlohmann::json data = nlohmann::json());
+    void SwitchToSynapseContext(std::shared_ptr<Data> data = std::make_shared<Data>());
+
     /**
      * Either resets synape-context, or goes back to resource-context, depending
      * on setting.
@@ -262,7 +258,7 @@ class ClientGame {
     void FinalSynapseContextAction(position_t synapse_pos);
     void RemovePickContext(int new_context=-1);
 
-    static std::map<int, std::map<char, void(ClientGame::*)(nlohmann::json&)>> handlers_;
+    static std::map<int, std::map<char, void(ClientGame::*)(std::shared_ptr<Data> data)>> handlers_;
 
     void WrapUp();
     bool SendSong();

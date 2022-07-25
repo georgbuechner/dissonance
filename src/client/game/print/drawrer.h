@@ -1,9 +1,7 @@
 #ifndef SRC_PRINT_DRAWER_H_
 #define SRC_PRINT_DRAWER_H_
 
-#include "server/game/player/statistics.h"
-#include "share/objects/lobby.h"
-#include "spdlog/spdlog.h"
+#include <memory>
 #include <set>
 #include <vector>
 #define NCURSES_NOMACROS
@@ -12,12 +10,13 @@
 #include <shared_mutex>
 #include <string>
 
-#include "nlohmann/json.hpp"
+#include "spdlog/spdlog.h"
 
+#include "client/game/print/view_point.h"
+#include "share/shemes/data.h"
 #include "share/constants/codes.h"
 #include "share/constants/costs.h"
 #include "share/constants/texts.h"
-#include "share/objects/transfer.h"
 #include "share/tools/utils/utils.h"
 #include "share/defines.h"
 
@@ -41,13 +40,13 @@ class Drawrer {
     void set_viewpoint(int viewpoint);
     void inc_cur_sidebar_elem(int value); 
     void set_msg(std::string msg);
-    void set_transfer(nlohmann::json& data);
+    void set_transfer(std::shared_ptr<Data> init);
     void set_stop_render(bool stop);
     void set_field_start_pos(position_t pos);
     void set_range(std::pair<position_t, int> range);
     void set_topline(t_topline topline);
     void set_mode(int mode);
-    void set_statistics(nlohmann::json json);
+    void set_statistics(std::vector<std::shared_ptr<Statictics>> statistics);
 
     bool InGraph(position_t);
     bool Free(position_t);
@@ -60,19 +59,21 @@ class Drawrer {
      * @param[in] pos
      * @param[in] unit
      */
-    void AddNewUnitToPos(position_t pos, int unit, int color);
+    void AddNewUnitToPos(position_t pos, short unit, short color);
+
+    void AddTechnology(short technology);
 
     /**
      * Updates transfer object with new infos.
      * @param[in] transfer_json
      */
-    void UpdateTranser(nlohmann::json& transfer_json);
+    void UpdateTranser(std::shared_ptr<Data> update);
 
     /**
      * Updates lobby (Locks mutex: unique)
      * param[in] lobby_json
      */
-    void UpdateLobby(nlohmann::json& lobby_json, bool init=false);
+    void UpdateLobby(std::shared_ptr<Data>, bool init=false);
 
     /**
      * Move viewpoint to next viewpoint
@@ -100,7 +101,47 @@ class Drawrer {
      */
     void PrintOnlyCenteredLine(int l, std::string line) const;
 
+    /**
+     * Prints all statistics.
+     */
     void PrintStatistics() const;
+
+    /**
+     * Prints single statistics-entry (with multiple/ map of infos)
+     * @param[in] heading printed (f.e. "Neurons Built")
+     * @param[in] s (start-line)
+     * @param[in] i (current line)
+     * @param[in] infos to print (f.e. map with all neurons built neuron-type -> num)
+     * @return new current line (i)
+     */
+    int PrintStatisticEntry(std::string heading, int s, int i, std::map<unsigned short, unsigned short> infos) const;
+    /**
+     * Prints single statistics-entry (with single information)
+     * @param[in] heading printed (f.e. "Neurons Built")
+     * @param[in] s (start-line)
+     * @param[in] i (current line)
+     * @param[in] infos to print (f.e. number of enemy epsps swallowed)
+     * @return new current line (i)
+     */
+    int PrintStatisticEntry(std::string heading, int s, int i, unsigned short info) const;
+
+    /**
+     * Prints resource-statistics
+     * @param[in] start_line
+     * @param[in] i (current line)
+     * @param[in] resources 
+     * @return new current line (i)
+     */
+    int PrintStatisticsResources(int start_line, int i, std::map<int, std::map<std::string, double>> resources) const;
+
+    /**
+     * Prints technology-statistics
+     * @param[in] start_line
+     * @param[in] i (current line)
+     * @param[in] technologies
+     * @return new current line (i)
+     */
+    int PrintStatisticsTechnology(int start_line, int i, std::map<int, tech_of_t> technologies) const;
 
     /**
      * Prints a single line centered, but here the line is splitted into parts,
@@ -141,106 +182,26 @@ class Drawrer {
     int lines_;
     int cols_;
     int mode_;
-    Transfer transfer_;
-    Lobby lobby_;
-    std::vector<std::vector<Transfer::Symbol>> field_;
-    std::set<position_t> graph_positions_;
-    std::map<position_t, Transfer::Symbol> temp_symbols_;
+
+    // transfer data
+    bool initialized_;
+    std::shared_ptr<Update> update_;
+    std::shared_ptr<std::map<int, Data::Resource>> resources_;
+    std::shared_ptr<std::map<int, tech_of_t>> technologies_;
+
+    std::vector<std::vector<Data::Symbol>> field_;
+    std::shared_ptr<std::set<position_t>> graph_positions_;
+    std::shared_ptr<Lobby> lobby_;
+    std::vector<std::shared_ptr<Statictics>> statistics_;
+
+    // other data
+    std::map<position_t, Data::Symbol> temp_symbols_;
     std::map<int, std::map<position_t, std::pair<std::string, int>>> markers_;
     t_topline topline_;
     std::shared_mutex mutex_print_field_;  ///< mutex locked, when printing field.
     bool stop_render_;
-    std::map<std::string, Statictics> statistics_;
-    std::map<std::string, std::vector<std::vector<Transfer::Symbol>>> mini_fields_;
+    std::map<std::string, std::vector<std::vector<Data::Symbol>>> mini_fields_;
 
-    // Selection
-    struct ViewPoint {
-      public: 
-        ViewPoint() {};
-        ViewPoint(int x, int y, void(ViewPoint::*f_inc)(int val), std::string(ViewPoint::*f_ts)(const Transfer&)) 
-          : x_(x), y_(y), inc_(f_inc), to_string_(f_ts) {
-            spdlog::get(LOGGER)->info("Created new ViewPoint with x={} and y={}", x_, y_);
-          }
-
-        // member
-        int x_;
-        int y_;
-        std::pair<position_t, int> range_; // start, range
-        std::set<position_t> graph_positions_;
-
-        // methods
-        void inc(int val) { (this->*inc_)(val); }
-        std::string to_string(const Transfer& transfer) { return(this->*to_string_)(transfer); }
-
-        void inc_resource(int val) { x_= utils::Mod(x_+val, SEROTONIN+1); }
-        void inc_tech(int val) { x_= utils::Mod(x_+val, NUCLEUS_RANGE+1, WAY); }
-        void inc_stats(int val) { x_ = utils::Mod(x_+val, y_); }
-        void inc_field(int val) { 
-          spdlog::get(LOGGER)->debug("ViewPoint::inc_field: Changing field selection: {}|{}", y_, x_);
-          int old_x = x_;
-          int old_y = y_;
-
-          position_t next_diag;
-          if (val == 1) {
-            y_++;
-            next_diag = {y_, x_+1};
-          }
-          else if (val == -1) {
-            y_--;
-            next_diag = {y_, x_-1};
-          }
-          else if (val == 2) {
-            x_++;
-            next_diag = {y_-1, x_};
-          }
-          else if (val == -2) {
-            x_--;
-            next_diag = {y_+1, x_};
-          }
-
-          position_t pos = {y_, x_};
-          // If not full field range: check if next position is a) still in range and b) valid graph positions
-          if (range_.second < 999 && 
-              (utils::Dist(range_.first, pos) > range_.second || graph_positions_.count(pos) == 0)) {
-            // If diagonal position possible, do that.
-            if (graph_positions_.count(next_diag) > 0 && utils::Dist(range_.first, next_diag) <= range_.second) {
-              y_ = next_diag.first;
-              x_ = next_diag.second;
-            }
-            // Otherwise, revert changes.
-            else {
-              x_ = old_x;
-              y_ = old_y;
-            }
-          }
-        }
-
-        std::string to_string_resource(const Transfer& transfer) {   
-          Transfer::Resource resource = transfer.resources().at(x_);
-          return resources_name_mapping.at(x_) + ": " + resource.value_ + "+" 
-            + resource.bound_ + "/" + resource.limit_ + " ++" + resource.iron_
-            + "$" + resource_description_mapping.at(x_);
-        }
-
-        std::string to_string_tech(const Transfer& transfer) {
-          Transfer::Technology tech = transfer.technologies().at(x_);
-          std::string costs = "costs: ";
-          for (const auto& it : costs::units_costs_.at(x_)) {
-            if (it.second > 0)
-              costs += resources_name_mapping.at(it.first) + ": " + utils::Dtos(it.second) + ", ";
-          }
-          return units_tech_name_mapping.at(x_) + ": " + tech.cur_ + "/" + tech.max_ 
-            + "$" + units_tech_description_mapping.at(x_) + "$" + costs;
-        }
-
-        std::string to_string_field(const Transfer& transfer) {
-          return std::to_string(x_) + "|" + std::to_string(y_);
-        }
-
-      private:
-        void(ViewPoint::*inc_)(int val);
-        std::string(ViewPoint::*to_string_)(const Transfer&);
-    };
     std::map<int, ViewPoint> cur_selection_; // 0: map, 1: resource, 2: tech
     int cur_view_point_;
 
@@ -267,8 +228,7 @@ class Drawrer {
     void PrintHeader(float audio_played, const t_topline& players);
     void PrintTopline(std::vector<bool> availible_options);
     void PrintTechnologies(const std::string& players);
-    void PrintSideColumn(const std::map<int, Transfer::Resource>& resources, 
-        const std::map<int, Transfer::Technology>& technologies);
+    void PrintSideColumn();
     void PrintMessage();
     void PrintFooter(std::string str);
     void ClearLine(int line, int start_col=0);

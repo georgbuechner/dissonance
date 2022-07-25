@@ -8,9 +8,9 @@
 #include "share/constants/codes.h"
 #include "share/constants/texts.h"
 #include "share/defines.h"
-#include "share/objects/dtos.h"
 #include "share/objects/units.h"
-#include "share/objects/transfer.h"
+#include "share/shemes/commands.h"
+#include "share/shemes/data.h"
 #include "share/tools/context.h"
 #include "share/tools/eventmanager.h"
 #include "share/tools/utils/utils.h"
@@ -21,6 +21,7 @@
 #include <filesystem>
 #include <iterator>
 #include <math.h>
+#include <memory>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -34,7 +35,7 @@
 #define CONTEXT_TECHNOLOGIES_MSG "Research technology by pressing [enter]"
 #define CONTEXT_SYNAPSE_MSG "Select instructions for this synapse"
 
-std::map<int, std::map<char, void(ClientGame::*)(nlohmann::json&)>> ClientGame::handlers_ = {};
+std::map<int, std::map<char, void(ClientGame::*)(std::shared_ptr<Data>)>> ClientGame::handlers_ = {};
 
 void ClientGame::init(){
   handlers_ = {
@@ -162,6 +163,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   eventmanager_.AddHandler("preparing", &ClientGame::m_Preparing);
   eventmanager_.AddHandler("select_mode", &ClientGame::m_SelectMode);
   eventmanager_.AddHandler("select_audio", &ClientGame::m_SelectAudio);
+  eventmanager_.AddHandler("send_audio_data", &ClientGame::m_GetAudioData);
   eventmanager_.AddHandler("audio_exists", &ClientGame::m_SongExists);
   eventmanager_.AddHandler("send_audio_info", &ClientGame::m_SendAudioInfo);
   eventmanager_.AddHandler("print_msg", &ClientGame::m_PrintMsg);
@@ -172,11 +174,12 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   eventmanager_.AddHandler("game_end", &ClientGame::m_GameEnd);
   eventmanager_.AddHandler("set_unit", &ClientGame::m_SetUnit);
   eventmanager_.AddHandler("set_units", &ClientGame::m_SetUnits);
+  eventmanager_.AddHandler("add_technology", &ClientGame::h_AddTechnology);
   eventmanager_.AddHandler("build_neuron", &ClientGame::h_BuildNeuron);
   eventmanager_.AddHandler("build_potential", &ClientGame::h_BuildPotential);
   eventmanager_.AddHandler("select_synapse", &ClientGame::h_SendSelectSynapse);
   eventmanager_.AddHandler("set_wps", &ClientGame::h_SetWPs);
-  eventmanager_.AddHandler("target", &ClientGame::h_SetTarget);
+  eventmanager_.AddHandler("set_target", &ClientGame::h_SetTarget);
 
   eventmanager_tutorial_.AddHandler("init_game", &ClientGame::h_TutorialGetOxygen);
   eventmanager_tutorial_.AddHandler("set_unit", &ClientGame::h_TutorialSetUnit);
@@ -189,26 +192,17 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   drawrer_.CreateMiniFields((username_.front() > 'A') ? COLOR_P3 : COLOR_P2);
 }
 
-void ClientGame::HandleAction(nlohmann::json msg) {
-  std::string command = msg["command"];
-  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: {}", command);
-
-  nlohmann::json original_message = msg;
+void ClientGame::HandleAction(Command cmd) {
+  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: command: {}, context: {}", 
+      cmd.command(), current_context_);
 
   // Get event from event-manager
-  if (eventmanager_.handlers().count(command))
-    (this->*eventmanager_.handlers().at(command))(msg);
-  else 
-    msg = nlohmann::json(); // if no matching event set return-message to empty.
-  if (mode_ == TUTORIAL && eventmanager_tutorial_.handlers().count(command) > 0) {
-    (this->*eventmanager_tutorial_.handlers().at(command))(original_message);
-  }
-  
-  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: response {}", msg.dump());
-  if (!msg.contains("username"))
-    msg["username"] = username_;
-  if (msg.contains("command"))
-    ws_srv_->SendMessage(msg.dump());
+  if (eventmanager_.handlers().count(cmd.command()))
+    (this->*eventmanager_.handlers().at(cmd.command()))(cmd.data());
+  spdlog::get(LOGGER)->debug("ClientGame::HandleAction (2): command: {}, context: {}", 
+      cmd.command(), current_context_);
+  if (mode_ == TUTORIAL && eventmanager_tutorial_.handlers().count(cmd.command()) > 0)
+    (this->*eventmanager_tutorial_.handlers().at(cmd.command()))(cmd.data());
 }
 
 void ClientGame::GetAction() {
@@ -219,7 +213,8 @@ void ClientGame::GetAction() {
     if (status_ == WAITING) continue; // Skip as long as not active.
     char choice = getch();
     history_.push_back(choice);
-    spdlog::get(LOGGER)->info("ClientGame::GetAction action_ {}, in: {}", status_, choice);
+    spdlog::get(LOGGER)->info("ClientGame::GetAction action_ status: {}, choice: {}, context: {}", 
+        status_, choice, current_context_);
     if (status_ == WAITING)
       continue; // Skip as long as not active. 
 
@@ -230,14 +225,13 @@ void ClientGame::GetAction() {
     std::shared_lock sl(mutex_context_);
     if (contexts_.at(current_context_).eventmanager().handlers().count(choice) > 0) {
       spdlog::get(LOGGER)->debug("ClientGame::GetAction: calling handler.");
-      nlohmann::json data = contexts_.at(current_context_).data();
+      auto data = contexts_.at(current_context_).data();
       contexts_.at(current_context_).set_cmd(choice);
       sl.unlock();
       (this->*contexts_.at(current_context_).eventmanager().handlers().at(choice))(data);
     }
     else if (mode_ == TUTORIAL && tutorial_.action_active_ && choice == 'y') {
-      nlohmann::json data;
-      h_TutorialAction(data);
+      h_TutorialAction(std::make_shared<Data>());
     }
     // If event not in context-event-manager print availible options.
     else {
@@ -263,18 +257,17 @@ void ClientGame::GetAction() {
   WrapUp();
 }
 
-void ClientGame::h_Kill(nlohmann::json& msg) {
+void ClientGame::h_Kill(std::shared_ptr<Data> data) {
   drawrer_.set_stop_render(true);
   drawrer_.ClearField();
-  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"].get<std::string>() 
-      + " [Press any key to leave game]");
+  drawrer_.PrintCenteredLine(LINES/2, data->msg() + " [Press any key to leave game]");
   refresh();
   getch();
   // Wrap up and exit.
   WrapUp();
 }
 
-void ClientGame::h_Help(nlohmann::json&) {
+void ClientGame::h_Help(std::shared_ptr<Data>) {
   if (mode_ == TUTORIAL || mode_ == SINGLE_PLAYER)
     Pause();
   drawrer_.set_stop_render(true);
@@ -284,7 +277,7 @@ void ClientGame::h_Help(nlohmann::json&) {
     UnPause();
 }
 
-void ClientGame::h_Quit(nlohmann::json&) {
+void ClientGame::h_Quit(std::shared_ptr<Data>) {
   spdlog::get(LOGGER)->debug("ClientGame::h_Quit");
   drawrer_.ClearField();
   drawrer_.set_stop_render(true);
@@ -299,40 +292,39 @@ void ClientGame::h_Quit(nlohmann::json&) {
   }
 }
 
-void ClientGame::h_PauseAndUnPause(nlohmann::json&) {
+void ClientGame::h_PauseAndUnPause(std::shared_ptr<Data>) {
   if (pause_)
     UnPause();
   else 
     Pause();
 }
 
-void ClientGame::h_MoveSelectionUp(nlohmann::json&) {
+void ClientGame::h_MoveSelectionUp(std::shared_ptr<Data>) {
   drawrer_.inc_cur_sidebar_elem(1);
 }
 
-void ClientGame::h_MoveSelectionDown(nlohmann::json&) {
+void ClientGame::h_MoveSelectionDown(std::shared_ptr<Data>) {
   drawrer_.inc_cur_sidebar_elem(-1);
 }
 
-void ClientGame::h_MoveSelectionLeft(nlohmann::json&) {
+void ClientGame::h_MoveSelectionLeft(std::shared_ptr<Data>) {
   drawrer_.inc_cur_sidebar_elem(-2);
 }
 
-void ClientGame::h_MoveSelectionRight(nlohmann::json&) {
+void ClientGame::h_MoveSelectionRight(std::shared_ptr<Data>) {
   drawrer_.inc_cur_sidebar_elem(2);
 }
 
-void ClientGame::h_SelectGame(nlohmann::json&) {
+void ClientGame::h_SelectGame(std::shared_ptr<Data>) {
   spdlog::get(LOGGER)->info("ClientGame::h_SelectGame");
   nlohmann::json msg;
-  msg["username"] = username_;
-  msg["command"] = "init_game";
-  msg["data"] = {{"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}, {"mode", MULTI_PLAYER_CLIENT}};
+  std::shared_ptr<Data> data = std::make_shared<InitNewGame>(MULTI_PLAYER_CLIENT, drawrer_.field_height(), 
+      drawrer_.field_width());
+
   std::string game_id = drawrer_.game_id_from_lobby();
   if (game_id != "") {
-    msg["data"]["game_id"] = drawrer_.game_id_from_lobby();
-    spdlog::get(LOGGER)->info("ClientGame::h_SelectGame: {}", msg.dump());
-    ws_srv_->SendMessage(msg.dump());
+    data->set_game_id(game_id);
+    ws_srv_->SendMessage("setup_new_game", data);
     current_context_ = CONTEXT_RESOURCES;
     drawrer_.set_viewpoint(current_context_);
   }
@@ -341,266 +333,227 @@ void ClientGame::h_SelectGame(nlohmann::json&) {
   }
 }
 
-void ClientGame::h_ChangeViewPoint(nlohmann::json&) {
+void ClientGame::h_ChangeViewPoint(std::shared_ptr<Data>) {
   drawrer_.ClearMarkers();
   current_context_ = drawrer_.next_viewpoint();
   drawrer_.set_msg(contexts_.at(current_context_).msg());
   drawrer_.set_topline(contexts_.at(current_context_).topline());
 }
 
-void ClientGame::h_AddIron(nlohmann::json&) {
-  int resource = drawrer_.GetResource();
-  nlohmann::json response = {{"command", "add_iron"}, {"username", username_}, {"data", 
-    {{"resource", resource}} }};
-  ws_srv_->SendMessage(response.dump());
+void ClientGame::h_AddIron(std::shared_ptr<Data>) {
+  ws_srv_->SendMessage("add_iron", std::make_shared<DistributeIron>(drawrer_.GetResource()));
 }
 
-void ClientGame::h_RemoveIron(nlohmann::json&) {
-  int resource = drawrer_.GetResource();
-  nlohmann::json response = {{"command", "remove_iron"}, {"username", username_}, {"data", 
-    {{"resource", resource}} }};
-  ws_srv_->SendMessage(response.dump());
+void ClientGame::h_RemoveIron(std::shared_ptr<Data>) {
+  ws_srv_->SendMessage("remove_iron", std::make_shared<DistributeIron>(drawrer_.GetResource()));
 }
 
-void ClientGame::h_AddTech(nlohmann::json&) {
-  int technology = drawrer_.GetTech();
-  nlohmann::json response = {{"command", "add_technology"}, {"username", username_}, {"data", 
-    {{"technology", technology}} }};
-  ws_srv_->SendMessage(response.dump());
+void ClientGame::h_AddTech(std::shared_ptr<Data> data) {
+  ws_srv_->SendMessage("add_technology", std::make_shared<AddTechnology>(drawrer_.GetTech()));
 }
 
-void ClientGame::h_BuildPotential(nlohmann::json& msg) {
-  spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: {}", msg.dump());
-  // If first call: send message to server, checking wether neuron can be build.
-  if (msg.size() == 0) {
-    spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 1");
-    char cmd = contexts_.at(current_context_).cmd();
-    int num = (history_.size() > 1 && std::isdigit(history_[history_.size()-2])) ? history_[history_.size()-2] - '0' : 1;
-    int unit = (cmd == 'e') ? EPSP : (cmd == 'i') ? IPSP : MACRO;
-    nlohmann::json response = {{"command", "check_build_potential"}, {"username", username_}, {"data",
-      {{"unit", unit}, {"num", num}} }};
-    ws_srv_->SendMessage(response.dump());
-  }
-  else if (msg["data"].contains("start_pos")) {
+void ClientGame::h_BuildPotential(std::shared_ptr<Data> data) {
+  // final call: send request to create potentials
+  if (data->synapse_pos() != DEFAULT_POS) {
     spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 3");
     RemovePickContext(CONTEXT_RESOURCES);
-    nlohmann::json response = {{"command", "check_build_potential"}, {"username", username_}, {"data",
-      {{"unit", msg["data"]["unit"]}, {"num", msg["data"]["num"]}, {"start_pos", msg["data"]["start_pos"]}} }};
-    ws_srv_->SendMessage(response.dump());
+    ws_srv_->SendMessage("check_build_potential", data);
   }
-  else if (msg["data"].contains("positions")) {
+  // second call: select synapse
+  else if (data->positions().size() > 0) {
     spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 2");
-    SwitchToPickContext(msg["data"]["positions"], "Select synapse", "build_potential", msg);
+    SwitchToPickContext(data->positions(), "Select synapse", "build_potential", data);
   }
-  msg = nlohmann::json();
+  // first call: set potential-type and number of potentials to build
+  else {
+    spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 1");
+    int num = (history_.size() > 1 && std::isdigit(history_[history_.size()-2])) 
+      ? history_[history_.size()-2] - '0' : 1;
+    int unit = char_unit_mapping.at(contexts_.at(current_context_).cmd());
+    ws_srv_->SendMessage("check_build_potential", std::make_shared<BuildPotential>(unit, num));
+  }
 }
-void ClientGame::h_ToResourceContext(nlohmann::json&) {
+
+void ClientGame::h_ToResourceContext(std::shared_ptr<Data>) {
   SwitchToResourceContext("Aborted adding neuron/ potential");
 }
 
-void ClientGame::h_BuildNeuron(nlohmann::json& msg) {
-  char cmd = contexts_.at(current_context_).cmd();
-  spdlog::get(LOGGER)->debug("ClientGame::m_BuildNeuron: {}", msg.dump());
-  // If first call: send message to server, checking wether neuron can be build.
-  if (msg.size() == 0) {
-    int unit = (cmd == 'A') ? ACTIVATEDNEURON : (cmd == 'S') ? SYNAPSE : NUCLEUS;
-    nlohmann::json response = {{"command", "check_build_neuron"}, {"username", username_}, {"data",
-      {{"unit", unit}} }};
-    ws_srv_->SendMessage(response.dump());
+void ClientGame::h_BuildNeuron(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron");
+  spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron pos: {}", utils::PositionToString(data->pos()));  
+  // final call: send message to server to build neuron.
+  if (data->pos() != DEFAULT_POS) {
+    spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron: final call: send request");
+    ws_srv_->SendMessage("build_neuron", data);
   }
-  // Final call with position: send message to server to build neuron.
-  else if (msg["data"].contains("pos")) {
-    nlohmann::json response = {{"command", "build_neuron"}, {"username", username_}, {"data",
-      {{"unit", msg["data"]["unit"]}, {"pos", utils::PositionFromVector(msg["data"]["pos"])}} }};
-    ws_srv_->SendMessage(response.dump());
-  }
-  // Second call no start-position: Add Pick-Context to select start position
-  else if (!msg["data"].contains("start_pos")) {
-    if (msg["data"]["unit"] == NUCLEUS)
-      SwitchToPickContext(msg["data"]["positions"], "Select start-position", "build_neuron", msg);
-    else
-      SwitchToPickContext(msg["data"]["positions"], "Select nucleus", "build_neuron", msg);
-  }
-  // Second call with start-position, or third call with start position from marker: select pos from field
-  else if (msg["data"].contains("start_pos")) {
+  // second call with start-position, or third call with start position from marker: select pos from field
+  else if (data->start_pos() != DEFAULT_POS) {
+    spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron: start-pos: select field-pos");
     RemovePickContext();
-    int range = (msg["data"]["unit"] == NUCLEUS) ? 999 : msg["data"]["range"].get<int>();
-    SwitchToFieldContext(msg["data"]["start_pos"], range, "build_neuron", msg,
-      "Select position to build " + units_tech_name_mapping.at(msg["data"]["unit"]));
+    SwitchToFieldContext(data->start_pos(), (data->unit() == NUCLEUS) ? 999 : data->range(),
+        "build_neuron", data, "Select position to build " + units_tech_name_mapping.at(data->unit()));
   }
-  msg = nlohmann::json();
+  // second call no start-position: Add Pick-Context to select start position
+  else if (data->positions().size() > 0) {
+    spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron: positions: pick nucleus");
+    std::string msg = (data->unit() == NUCLEUS) ? "Select start-position" : "Select nucleus";
+    SwitchToPickContext(data->positions(), msg, "build_neuron", data);
+  }
+  // first call: send message to server, checking wether neuron can be build.
+  else {
+    spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron: otherwise: init");
+    int unit = char_unit_mapping.at(contexts_.at(current_context_).cmd());
+    ws_srv_->SendMessage("check_build_neuron", std::make_shared<BuildNeuron>(unit));
+  }
 }
 
-void ClientGame::h_SendSelectSynapse(nlohmann::json& msg) {
-  spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: {}", msg.dump());
-  // If first call: initalize synape-context
-  if (msg.size() == 0) {
-    spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: sending initial request...");
-    SwitchToSynapseContext();
-    GetPosition req(username_, "select_synapse", {{PLAYER, GetPositionInfo(SYNAPSE)}});
-    ws_srv_->SendMessage(req.json().dump());
+void ClientGame::h_SendSelectSynapse(std::shared_ptr<Data> data) {
+  if (data->synapse_pos() != DEFAULT_POS) {
+    spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: back to synapse-context...");
+    RemovePickContext();
+    SwitchToSynapseContext(data);
+    drawrer_.set_msg("Choose what to do.");
+    drawrer_.AddMarker(SYNAPSE_MARKER, data->synapse_pos(), COLOR_MARKED);
   }
-  // If no start-pos selected, select start-pos (synapse)
-  else if (!msg["data"].contains("start_pos")) {
-    spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: setting up pick context...");
-    std::vector<position_t> positions = msg["data"]["positions"][0];
-    if (positions.size() == 0) {
-      spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: no synapse!");
+  // second call: select synapse-pos from positions (or print error, if zero positions)
+  // (not checking `positions == 1` as in this case synapse-pos is automatically set)
+  else if (data->player_units().size() > 0) {
+    spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: to pick-context...");
+    if (data->player_units().size() == 0) {
       drawrer_.set_msg("No synapse.");
       SwitchToResourceContext();
     }
-    else if (positions.size() == 1) {
-      spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: only one synapse...");
-      SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", positions.front()}} }}));
-      drawrer_.set_msg("Choose what to do.");
-      drawrer_.AddMarker(SYNAPSE_MARKER, positions.front(), COLOR_MARKED);
-    }
-    else {
-      spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: switching to pick context...");
-      SwitchToPickContext(positions, "Select synapse", "select_synapse", msg);
-    }
+    else
+      SwitchToPickContext(data->player_units(), "Select synapse", "select_synapse", data);
   }
-  // If start-pos selected, go back to synapse-context, and set initial data.
-  else if (msg["data"].contains("start_pos")) {
-    spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: back to synapse-context...");
-    RemovePickContext();
-    position_t synapse_pos = utils::PositionFromVector(msg["data"]["start_pos"]);
-    SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", synapse_pos}} }}));
-    drawrer_.set_msg("Choose what to do.");
-    drawrer_.AddMarker(SYNAPSE_MARKER, synapse_pos, COLOR_MARKED);
+  // first call: initalize synapse-context
+  else {
+    spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: sending initial request...");
+    SwitchToSynapseContext();
+    std::map<short, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
+    ws_srv_->SendMessage("get_positions", 
+        std::make_shared<GetPositions>("select_synapse", position_requests, std::make_shared<SelectSynapse>()));
   }
-  msg = nlohmann::json();
 }
 
-void ClientGame::h_SetWPs(nlohmann::json& msg) {
-  spdlog::get(LOGGER)->debug("Calling set-wp with data: {}", msg.dump());
-  // Final call (set new way point)
-  if (msg["data"].contains("pos")) {
-    spdlog::get(LOGGER)->debug("h_SetWPs: Setting new wp! context: {}", current_context_);
-    // Send request to set way-point.
-    nlohmann::json response = {{"command", "set_way_point"}, {"username", username_}, {"data",
-      {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}, {"num", msg["data"]["num"]}} }};
-    ws_srv_->SendMessage(response.dump());
-    spdlog::get(LOGGER)->debug("h_SetWPs: done. Current context: {}", current_context_);
+void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
+  // Technology not researched
+  if (!drawrer_.synapse_options().at(0)) {
+    FinalSynapseContextAction(data->synapse_pos());
+    drawrer_.set_msg("Technology \"choose way\" not researched");
+    return;
   }
-  // Thirst call (select field position)
-  else if (msg["data"].contains("start_pos")) {
+  // Final call: Send request to set way-point.
+  if (data->way_point() != DEFAULT_POS) {
+    spdlog::get(LOGGER)->debug("h_SetWPs: Setting new wp (final)! synapse-pos: {}", 
+        utils::PositionToString(data->synapse_pos()));
+    spdlog::get(LOGGER)->debug("h_SetWPs: Setting new wp! way-point: {}", 
+        utils::PositionToString(data->way_point()));
+    spdlog::get(LOGGER)->debug("h_SetWPs (final): num: {}", data->num());
+    ws_srv_->SendMessage("set_way_point", data);
+  }
+  // third call: select field position
+  else if (data->start_pos() != DEFAULT_POS) {
     RemovePickContext(CONTEXT_SYNAPSE);
-    SwitchToFieldContext(msg["data"]["start_pos"], 1000, "set_wps", msg, "Select new way-point position.", {'q'});
+    spdlog::get(LOGGER)->debug("h_SetWPs (third): synapse-pos: {}", 
+        utils::PositionToString(data->synapse_pos()));
+    spdlog::get(LOGGER)->debug("h_SetWPs (third): start-pos: {}", 
+        utils::PositionToString(data->start_pos()));
+    spdlog::get(LOGGER)->debug("h_SetWPs (third): num: {}", data->num());
+    SwitchToFieldContext(data->start_pos(), 1000, "set_wps", data, "Select new way-point position.", {'q'});
   }
-  // Second call (select start position)
-  else if (msg["data"].contains("positions")) {
-    // Set synapse-position.
-    msg["data"]["synapse_pos"] = contexts_.at(current_context_).data()["data"]["synapse_pos"];
-    msg["data"]["num"] = contexts_.at(current_context_).data()["data"]["num"];
-    // Print ways
-    std::vector<position_t> way = msg["data"]["positions"][1];
-    for (const auto& it : way)
+  // second call: select start position
+  else if (data->centered_positions().size() > 0) {
+    spdlog::get(LOGGER)->debug("h_SetWPs (second): synapse-pos: {}", 
+        utils::PositionToString(data->synapse_pos()));
+    spdlog::get(LOGGER)->debug("h_SetWPs (second): num: {}", data->num());
+    // print ways:
+    for (const auto& it : data->current_way())
       drawrer_.AddMarker(WAY_MARKER, it, COLOR_MARKED);
-    std::vector<position_t> way_points = msg["data"]["positions"][2];
-    for (unsigned int i=0; i<way_points.size(); i++)
-      drawrer_.AddMarker(WAY_MARKER, way_points[i], COLOR_MARKED, utils::CharToString('1', i));
-    // Set up pick-context
-    std::vector<position_t> center_positions = msg["data"]["positions"][0];
-    SwitchToPickContext(center_positions, "select start position", "set_wps", msg, {'q'});
+    // print current-waypoints 
+    for (unsigned int i=0; i<data->current_waypoints().size(); i++)
+      drawrer_.AddMarker(WAY_MARKER, data->current_waypoints()[i], COLOR_MARKED, 
+          utils::CharToString('1', i));
+    // set up pick-context:
+    SwitchToPickContext(data->centered_positions(), "select start position", "set_wps", data, {'q'});
   }
   // First call (request positions)
-  else if (!drawrer_.synapse_options().at(0)) {
-    FinalSynapseContextAction(msg["data"]["synapse_pos"]);
-    drawrer_.set_msg("Technology \"choose way\" not researched");
-  }
   else {
+    spdlog::get(LOGGER)->debug("h_SetWPs (first): synapse-pos: {}", 
+        utils::PositionToString(data->synapse_pos()));
+    spdlog::get(LOGGER)->debug("h_SetWPs (first): num: {}", data->num());
     // If "msg" is contained, print message
-    if (msg["data"].contains("msg"))
-      drawrer_.set_msg(msg["data"]["msg"]);
-    // Set "1" as number (indicating first way-point) if num is not given.
-    if (!msg["data"].contains("num"))
-      msg["data"]["num"] = 1;
+    if (data->msg() != "")
+      drawrer_.set_msg(data->msg());
+    // If num is not set (-1), turn data into a SetWayPoints object.
+    if (data->num() == -1) {
+      data = std::make_shared<SetWayPoints>(data->synapse_pos());
+    }
     // If num is -1, this indicates, that no more way-point can be set: switch
     // to resource-context or stay at synapse-context depending on settings.
-    if (msg["data"]["num"] == -1)
-      FinalSynapseContextAction(msg["data"]["synapse_pos"]);
+    if (data->num() == 0xFFF)
+      FinalSynapseContextAction(data->synapse_pos());
     // Otherwise, request inital data.
     else {
-      // Memorize number.
-      nlohmann::json data = contexts_.at(current_context_).data();
-      data["data"]["num"] = msg["data"]["num"];
-      contexts_.at(current_context_).set_data(data);
+      spdlog::get(LOGGER)->debug("h_SetWPs (first - sending req): num: {}", data->num());
       // Request inital data.
-      position_t synapse_pos = utils::PositionFromVector(msg["data"]["synapse_pos"]);
-      GetPosition req(username_, "set_wps", {{CURRENT_WAY, GetPositionInfo(synapse_pos)}, 
-          {CURRENT_WAY_POINTS, GetPositionInfo(synapse_pos)}, {CENTER, GetPositionInfo()}});
-      ws_srv_->SendMessage(req.json().dump());
+      std::map<short, Data::PositionInfo> position_requests = {
+        {CURRENT_WAY, Data::PositionInfo(data->synapse_pos())}, 
+        {CURRENT_WAY_POINTS, Data::PositionInfo(data->synapse_pos())}, {CENTER, Data::PositionInfo()}
+      };
+      ws_srv_->SendMessage("get_positions", std::make_shared<GetPositions>("set_wps", position_requests, 
+            data));
     }
   }
-  msg = nlohmann::json();
 }
 
-void ClientGame::h_SetTarget(nlohmann::json& msg) {
-  spdlog::get(LOGGER)->debug("Calling target with data: {}", msg.dump());
-  // final call (set target and reset to synapse-context)
-  if (msg["data"].contains("pos")) {
-    // Reset synapse-context or go back to resource (standard)-context.
-    FinalSynapseContextAction(msg["data"]["synapse_pos"]);
-    // Send request to server.
-    nlohmann::json response = {{"command", "set_target"}, {"username", username_}, {"data",
-      {{"pos", msg["data"]["pos"]}, {"synapse_pos", msg["data"]["synapse_pos"]}, {"unit", msg["data"]["unit"]}} }};
-    ws_srv_->SendMessage(response.dump());
+void ClientGame::h_SetTarget(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("h_SetTarget");
+  // final call: send request to server, setting target and reset to synapse-context
+  if (data->target() != DEFAULT_POS) {
+    FinalSynapseContextAction(data->synapse_pos());
+    ws_srv_->SendMessage("set_target", data);
   }
-  // third call (select field position)
-  else if (msg["data"].contains("start_pos")) {
+  // third call: select field position
+  else if (data->start_pos() != DEFAULT_POS) {
     RemovePickContext(CONTEXT_SYNAPSE);
-    SwitchToFieldContext(msg["data"]["start_pos"], 1000, "target", msg, "Select target position.", {'q'});
+    SwitchToFieldContext(data->start_pos(), 1000, "target", data, "Select target position.", {'q'});
   }
-  // Second call (select start position)
-  else if (msg["data"].contains("positions")) {
-    // Set synapse-position.
-    msg["data"]["synapse_pos"] = contexts_.at(current_context_).data()["data"]["synapse_pos"];
-    std::vector<position_t> enemy_nucleus_positions = msg["data"]["positions"][0];
-    // If only one enemy nucleus, set-up field-select and add start-pos to message-json.
-    if (enemy_nucleus_positions.size() == 1) {
-      msg["data"]["start_pos"] = enemy_nucleus_positions.front();
-      SwitchToFieldContext(enemy_nucleus_positions.front(), 1000, "target", msg, "Select target position.", 
-          {'q'});
-    }
-    // Create pick-context to select synapse (add quit-handler to return to normal context).
-    else {
-      SwitchToPickContext(msg["data"]["positions"][0], "Select select enemy base", "target", msg, {'q'});
-    }
-    // Display current target on field.
-    std::vector<std::vector<int>> target_positions = msg["data"]["positions"][1];
-    if (target_positions.size() > 0)
-      drawrer_.AddMarker(TARGETS_MARKER, utils::PositionFromVector(target_positions.front()), COLOR_MARKED, "T");
+  // Second call: select start position (first pos, or via pick-context) and show current-targets.
+  else if (data->enemy_units().size() > 0 || data->target_positions().size()) {
+    // Only go into pick-context if more than 1 enemy-nucleus.
+    if (data->enemy_units().size() > 1)
+      SwitchToPickContext(data->enemy_units(), "Select select enemy base", "target", data, {'q'});
+    // Only mark target-positions on map if target-positions are included.
+    if (data->target_positions().size() > 0)
+      drawrer_.AddMarker(TARGETS_MARKER, data->target_positions().front(), COLOR_MARKED, "T");
   }
-  // First call (request positions)
+  // First call: request positions
   else {
     auto cmd = contexts_.at(current_context_).cmd();
-    int unit = (cmd == 'e') ? EPSP : (cmd == 'i') ? IPSP : MACRO;
-    GetPosition req(username_, "target", {{ENEMY, GetPositionInfo(NUCLEUS)}, 
-        {TARGETS, GetPositionInfo(unit, msg["data"]["synapse_pos"].get<position_t>())}});
-    ws_srv_->SendMessage(req.json().dump());
+    short unit = (cmd == 'e') ? EPSP : (cmd == 'i') ? IPSP : MACRO;
+    std::map<short, Data::PositionInfo> position_requests = {{ENEMY, Data::PositionInfo(NUCLEUS)}, 
+        {TARGETS, Data::PositionInfo(unit, data->synapse_pos())}};
+    std::shared_ptr<Data> inital_set_target = std::make_shared<SetTarget>(data->synapse_pos(), unit);
+    ws_srv_->SendMessage("get_positions", 
+        std::make_shared<GetPositions>("set_target", position_requests, inital_set_target));
   }
-  msg = nlohmann::json();
 }
 
-void ClientGame::h_SwarmAttack(nlohmann::json& msg) {
-  // Depending on setting: switch to resource context
-  FinalSynapseContextAction(msg["data"]["synapse_pos"]);
-  // Send request to server toggling swarm-attack.
-  nlohmann::json response = {{"command", "toggle_swarm_attack"}, {"username", username_}, {"data",
-    {{"pos", msg["data"]["synapse_pos"] }} }};
-  ws_srv_->SendMessage(response.dump());
+void ClientGame::h_SwarmAttack(std::shared_ptr<Data> data) {
+  // Depending on setting: switch to resource context, then send message
+  FinalSynapseContextAction(data->synapse_pos());
+  ws_srv_->SendMessage("toggle_swarm_attack", data);
 }
 
-void ClientGame::h_ResetOrQuitSynapseContext(nlohmann::json& msg) {
-  spdlog::get(LOGGER)->debug("ClientGame::h_ResetOrQuitSynapseContext: {}", msg.dump());
-  nlohmann::json data = contexts_.at(current_context_).data()["data"];
-  if (data.size() > 1) {
-    position_t synapse_pos = utils::PositionFromVector(data.value("synapse_pos", data["start_pos"]));
-    SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", synapse_pos}} }}));
+void ClientGame::h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("ClientGame::h_ResetOrQuitSynapseContext");
+  // if current context if not already synapse-context: switch to synapse-context.
+  if (current_context_ != CONTEXT_SYNAPSE) {
+    SwitchToSynapseContext(data);
     drawrer_.set_viewpoint(CONTEXT_RESOURCES);
     drawrer_.ClearMarkers();
-    drawrer_.AddMarker(SYNAPSE_MARKER, synapse_pos, COLOR_MARKED);
+    drawrer_.AddMarker(SYNAPSE_MARKER, data->synapse_pos(), COLOR_MARKED);
   }
   else {
     drawrer_.ClearMarkers();
@@ -608,44 +561,42 @@ void ClientGame::h_ResetOrQuitSynapseContext(nlohmann::json& msg) {
   }
 }
 
-void ClientGame::h_AddPosition(nlohmann::json&) {
+void ClientGame::h_AddPosition(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::AddPosition: action: {}", contexts_.at(current_context_).action());
-  position_t pos = drawrer_.field_pos();
+  spdlog::get(LOGGER)->debug("ClientGame::AddPosition: synapse_pos: {}", utils::PositionToString(data->synapse_pos()));
   std::string action = contexts_.at(current_context_).action();
-  if (!drawrer_.InGraph(pos)) {
+  if (!drawrer_.InGraph(drawrer_.field_pos())) {
     drawrer_.set_msg("Position not reachable!");
     return;
   }
-  if (action == "build_neuron" && !drawrer_.Free(pos)) {
+  if (action == "build_neuron" && !drawrer_.Free(drawrer_.field_pos())) {
     drawrer_.set_msg("Position not free!");
     return;
   }
 
-  nlohmann::json msg = contexts_.at(current_context_).data();
-  msg["data"]["pos"] = pos;
+  data->SetPickedPosition(drawrer_.field_pos());
   if (action == "build_neuron")
-      h_BuildNeuron(msg);
+    h_BuildNeuron(data);
   else if (action == "set_wps") 
-    h_SetWPs(msg);
+    h_SetWPs(data);
   else if (action == "target") 
-    h_SetTarget(msg);
+    h_SetTarget(data);
 }
 
-void ClientGame::h_AddStartPosition(nlohmann::json&) {
+void ClientGame::h_AddStartPosition(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::AddStartPosition: action: {}", contexts_.at(current_context_).action());
-  nlohmann::json msg = contexts_.at(current_context_).data();
-  msg["data"]["start_pos"] = drawrer_.GetMarkerPos(PICK_MARKER, utils::CharToString(history_.back(), 0));
+  data->SetPickedPosition(drawrer_.GetMarkerPos(PICK_MARKER, utils::CharToString(history_.back(), 0)));
   std::string action = contexts_.at(current_context_).action();
   if (action == "build_potential")
-    h_BuildPotential(msg);
+    h_BuildPotential(data);
   else if (action == "build_neuron")
-    h_BuildNeuron(msg);
+    h_BuildNeuron(data);
   else if (action == "select_synapse") 
-    h_SendSelectSynapse(msg);
+    h_SendSelectSynapse(data);
   else if (action == "set_wps") 
-    h_SetWPs(msg);
+    h_SetWPs(data);
   else if (action == "target") 
-    h_SetTarget(msg);
+    h_SetTarget(data);
 }
 
 void ClientGame::SwitchToResourceContext(std::string msg) {
@@ -658,11 +609,12 @@ void ClientGame::SwitchToResourceContext(std::string msg) {
     drawrer_.set_msg(msg);
 }
 
-void ClientGame::SwitchToSynapseContext(nlohmann::json msg) {
-  spdlog::get(LOGGER)->debug("ClientGame::SwitchToSynapseContext");
+void ClientGame::SwitchToSynapseContext(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("ClientGame::SwitchToSynapseContext: pos: {}", 
+      utils::PositionToString(data->synapse_pos()));
   std::shared_lock sl(mutex_context_);
   current_context_ = CONTEXT_SYNAPSE;
-  contexts_.at(current_context_).set_data(msg);
+  contexts_.at(current_context_).set_data(data);
   drawrer_.set_topline(contexts_.at(current_context_).topline());
 }
 
@@ -670,7 +622,7 @@ void ClientGame::FinalSynapseContextAction(position_t synapse_pos) {
   spdlog::get(LOGGER)->debug("ClientGame::FinalSynapseContextAction");
   // Switch (back) to synapse-context (clear only target-markers, leave synapse marked)
   if (stay_in_synapse_menu_) {
-    SwitchToSynapseContext(nlohmann::json({{"data", {{"synapse_pos", synapse_pos}} }}));
+    SwitchToSynapseContext(std::make_shared<SelectSynapse>(synapse_pos));
     drawrer_.ClearMarkers(TARGETS_MARKER);
     drawrer_.ClearMarkers(WAY_MARKER);
   }
@@ -682,13 +634,14 @@ void ClientGame::FinalSynapseContextAction(position_t synapse_pos) {
   drawrer_.set_viewpoint(CONTEXT_RESOURCES);
 }
 
-void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::string msg, std::string action, 
-    nlohmann::json data, std::vector<char> slip_handlers) {
-  spdlog::get(LOGGER)->info("ClientGame::CreatePickContext: switched to pick context.");
+void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::string msg, 
+    std::string action, std::shared_ptr<Data> data, std::vector<char> slip_handlers) {
+  spdlog::get(LOGGER)->info("ClientGame::CreatePickContext: switched to pick context: {} positions",
+      positions.size());
   std::shared_lock sl(mutex_context_);
   // Get all handlers and add markers to drawrer.
   drawrer_.ClearMarkers(PICK_MARKER);
-  std::map<char, void(ClientGame::*)(nlohmann::json&)> new_handlers = {{'t', &ClientGame::h_ChangeViewPoint}};
+  std::map<char, void(ClientGame::*)(std::shared_ptr<Data>)> new_handlers = {{'t', &ClientGame::h_ChangeViewPoint}};
   for (unsigned int i=0; i<positions.size(); i++) {
     new_handlers['a'+i] = &ClientGame::h_AddStartPosition;
     drawrer_.AddMarker(PICK_MARKER, positions[i], COLOR_AVAILIBLE, utils::CharToString('a', i));
@@ -708,21 +661,14 @@ void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::str
   drawrer_.set_topline(contexts_.at(current_context_).topline());
 }
 
-void ClientGame::SwitchToFieldContext(position_t pos, int range, std::string action, nlohmann::json data,
+void ClientGame::SwitchToFieldContext(position_t pos, int range, std::string action, std::shared_ptr<Data> data,
     std::string msg, std::vector<char> slip_handlers) {
   spdlog::get(LOGGER)->debug("ClientGame::SwitchToFieldContext: switching...");
   std::shared_lock sl(mutex_context_);
   // Set data for field-context and empy old positions.
   contexts_.at(CONTEXT_FIELD).set_action(action);
   contexts_.at(CONTEXT_FIELD).set_data(data);
-  // Clear potential sliped handlers
-  std::vector<char> handlers_to_remove;
-  for (const auto& it : contexts_.at(CONTEXT_FIELD).eventmanager().handlers()) {
-    if (handlers_[CONTEXT_FIELD].count(it.first) == 0)
-      handlers_to_remove.push_back(it.first);
-  }
-  for (const auto& it : handlers_to_remove) 
-    contexts_.at(CONTEXT_FIELD).eventmanager().handlers().erase(it);
+  contexts_.at(CONTEXT_FIELD).set_handlers(handlers_[CONTEXT_FIELD]);
   // Let handlers slip through.
   for (const auto& it : slip_handlers) {
     if (contexts_.at(current_context_).eventmanager().handlers().count(it) > 0)
@@ -754,25 +700,21 @@ void ClientGame::RemovePickContext(int new_context) {
   }
 }
 
-void ClientGame::m_Preparing(nlohmann::json& msg) {
+void ClientGame::m_Preparing(std::shared_ptr<Data> data) {
   // Waiting is only to overwrite ugly debug-output from aubio (only single-player).
   if (!muliplayer_availible_)
     std::this_thread::sleep_for(std::chrono::milliseconds(15));
   drawrer_.PrintOnlyCenteredLine(LINES/2, "Analyzing audio...");
 }
 
-void ClientGame::m_SelectMode(nlohmann::json& msg) {
-  spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode: {}", msg.dump());
+void ClientGame::m_SelectMode(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode");
   // Print welcome text.
   if (show_full_welcome_text_)
     drawrer_.PrintCenteredParagraphs(texts::welcome);
   else 
     drawrer_.PrintCenteredParagraphs(texts::welcome_reduced);
   
-  // Update msg
-  msg["command"] = "init_game";
-  msg["data"] = {{"lines", drawrer_.field_height()}, {"cols", drawrer_.field_width()}};
- 
   // Select single-player, mulit-player (host/ client), observer.
   choice_mapping_t mapping = {
     {SINGLE_PLAYER, {"singe-player", (!muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, // only in sp
@@ -785,10 +727,10 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
   mode_ = SelectInteger("Select mode", true, mapping, {mapping.size()+1}, "Mode not available");
   if (mode_ == SETTINGS) {
     EditSettings();
-    m_SelectMode(msg);
+    m_SelectMode(data);
   }
   drawrer_.set_mode(mode_);
-  msg["data"]["mode"] = mode_;
+  auto new_data = std::make_shared<InitNewGame>(mode_, drawrer_.field_height(), drawrer_.field_width());
   // Tutorial: show first tutorial message, then change mode (in request) to normal singe-player.
   if (mode_ == TUTORIAL) {
     drawrer_.PrintCenteredParagraphs(texts::tutorial_start);
@@ -800,82 +742,89 @@ void ClientGame::m_SelectMode(nlohmann::json& msg) {
       {1, {"3 players", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
       {2, {"4 players", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     };
-    msg["data"]["num_players"] = 2 + SelectInteger("Select number of players", true, 
-        mapping, {mapping.size()+1}, "Max 4 players!");
+    int num_players = 2 + SelectInteger("Select number of players", true, mapping, {mapping.size()+1}, "Max 4 players!");
+    spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode: num_players: {}", num_players);
+    new_data->set_num_players(num_players);
   }
+  ws_srv_->SendMessage("setup_new_game", new_data);
 }
 
-void ClientGame::m_SelectAudio(nlohmann::json& msg) {
-  msg["command"] = "audio_map";
-  msg["data"] = nlohmann::json::object();
-
+void ClientGame::m_SelectAudio(std::shared_ptr<Data> data) {
   // Load map-audio.
   audio_file_path_ = SelectAudio("select map");
+  std::shared_ptr<CheckSendAudio> new_data = nullptr;
   if (mode_ != MULTI_PLAYER) {
-    msg["data"]["map_path_same_device"] = audio_file_path_;
+    new_data = std::make_shared<CheckSendAudio>(audio_file_path_);
   }
   else {
     std::filesystem::path p = audio_file_path_;
-    msg["data"]["map_path"] = username_ + "/" + p.filename().string();
-    msg["data"]["song_name"] = p.filename().string();
+    new_data = std::make_shared<CheckSendAudio>(username_ + "/" + p.filename().string(), p.filename().string());
+  }
+  ws_srv_->SendMessage("audio_map", new_data);
+}
+
+void ClientGame::m_GetAudioData(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data size");
+  std::string path = base_path_ + "data/user-files/" + username_ ;
+  if (!std::filesystem::exists(path))
+    std::filesystem::create_directory(path);
+  path += "/" + data->songname();
+  audio_data_ += data->content();
+  drawrer_.PrintOnlyCenteredLine(LINES/2, "Receiving audio part " + std::to_string(data->part()) + " of " 
+        + std::to_string(data->parts()));
+  if (data->part() == data->parts()) {
+    spdlog::get(LOGGER)->debug("Websocket::on_message: storing binary data to: {}", path);
+    utils::StoreMedia(path, audio_data_);
+    audio_file_path_ = path;
+    ws_srv_->SendMessage("ready", std::make_shared<Data>());
   }
 }
 
-void ClientGame::m_SongExists(nlohmann::json& msg) {
-  std::string path = base_path_ + "data/user-files/"+msg["data"]["map_path"].get<std::string>();
-  spdlog::get(LOGGER)->info("{} checking if file at path {} exists: {}: ", username_, path, 
-      std::filesystem::exists(path));
-  if (!std::filesystem::exists(path))
-     ws_srv_->SendMessage(nlohmann::json({{"command", "send_audio"}, {"username", username_}, {"data", {}}}).dump());
-  else
-    ws_srv_->SendMessage(nlohmann::json({{"command", "ready"}, {"username", username_}, {"data", {}}}).dump());
-  msg = nlohmann::json();
+void ClientGame::m_SongExists(std::shared_ptr<Data> data) {
+  std::string path = base_path_ + "data/user-files/" + data->map_path();
+  ws_srv_->SendMessage((!std::filesystem::exists(path)) ? "send_audio" : "ready", std::make_shared<Data>());
 }
 
-void ClientGame::m_SendAudioInfo(nlohmann::json& msg) {
-  bool send_audio = msg["data"]["send_song"];
-  msg["command"] = "initialize_game";
-  msg["data"] = nlohmann::json::object();
-
+void ClientGame::m_SendAudioInfo(std::shared_ptr<Data> data) {
   // If server does not have song, then send song.
-  if (send_audio) {
+  if (data->send_audio()) {
     SendSong();
   }
   // Add map-file name.
   std::filesystem::path p = audio_file_path_;
-  msg["data"]["map_name"] = p.filename().string();
+  auto new_data = std::make_shared<InitializeGame>(p.filename().string());
 
   // If observer load audio for two ai-files (no need to send audi-file: only analysed data)
-  if (mode_ == OBSERVER) {
-    msg["data"]["ais"] = nlohmann::json::object();
+  if (data->send_ai_audios()) {
     for (unsigned int i = 0; i<2; i++) {
       std::string source_path = SelectAudio("select ai sound " + std::to_string(i+1));
       Audio audio(base_path_);
       audio.set_source_path(source_path);
       audio.Analyze();
-      msg["data"]["ais"][source_path] = audio.GetAnalyzedData();
+      new_data->AddAiAudioData(source_path, audio.GetAnalyzedData());
     }
   }
+  ws_srv_->SendMessage("initialize_game", new_data);
 }
 
 bool ClientGame::SendSong() {
   // Create initial data
   std::filesystem::path p = audio_file_path_;
-  AudioTransferData data((std::string)username_, (std::string)p.filename().string());
+  auto data = std::make_shared<AudioTransferData>(username_, p.filename().string());
 
   // Get content.
   std::string content = utils::GetMedia(audio_file_path_);
   std::map<int, std::string> contents;
   utils::SplitLargeData(contents, content, pow(2, 12));
   spdlog::get(LOGGER)->info("Made {} parts of {} bits data", contents.size(), content.size());
-  data.set_parts(contents.size()-1);
+  data->set_parts(contents.size()-1);
   for (const auto& it : contents) {
-    data.set_part(it.first);
-    data.set_content(it.second);
+    data->set_part(it.first);
+    data->set_content(it.second);
     try {
       drawrer_.PrintOnlyCenteredLine(LINES/2, "Sending audio part " + std::to_string(it.first+1) + " of " 
           + std::to_string(contents.size()) + "...");
-      ws_srv_->SendMessageBinary(data.string());
+      ws_srv_->SendMessage("send_audio_data", data);
     } catch(...) {
       drawrer_.ClearField();
       drawrer_.PrintCenteredLine(LINES/2, "File size too big! (press any key to continue.)");
@@ -886,33 +835,37 @@ bool ClientGame::SendSong() {
   return true;
 }
 
-void ClientGame::m_PrintMsg(nlohmann::json& msg) {
-  drawrer_.PrintOnlyCenteredLine(LINES/2, msg["data"]["msg"]);
-  msg = nlohmann::json();
+void ClientGame::m_PrintMsg(std::shared_ptr<Data> data) {
+  drawrer_.PrintOnlyCenteredLine(LINES/2, data->msg());
 }
 
-void ClientGame::m_InitGame(nlohmann::json& msg) {
+void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("ClientGame::m_InitGame");
   drawrer_.ClearField();
-  drawrer_.set_transfer(msg["data"]);
+  spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: setting transfer...");
+  drawrer_.set_transfer(data);
+  spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: printing game...");
   drawrer_.PrintGame(false, false, current_context_);
   status_ = RUNNING;
   current_context_ = CONTEXT_RESOURCES;
   drawrer_.set_msg(contexts_.at(current_context_).msg());
   drawrer_.set_topline(contexts_.at(current_context_).topline());
   
+  spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: handling audio..."); 
   audio_.set_source_path(audio_file_path_);
   if (music_on_)
     audio_.play();
-  msg = nlohmann::json();
+  spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: done");
 }
 
-void ClientGame::m_UpdateGame(nlohmann::json& msg) {
-  drawrer_.UpdateTranser(msg["data"]);
+void ClientGame::m_UpdateGame(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("ClientGame::m_UpdateGame");
+  drawrer_.UpdateTranser(data);
+  spdlog::get(LOGGER)->debug("ClientGame::m_UpdateGame: done. Now printing game.");
   drawrer_.PrintGame(false, false, current_context_);
-  msg = nlohmann::json();
 }
 
-void ClientGame::m_UpdateLobby(nlohmann::json& msg) {
+void ClientGame::m_UpdateLobby(std::shared_ptr<Data> data) {
   // Set
   if (current_context_ != VP_LOBBY) {
     status_ = RUNNING;
@@ -920,20 +873,18 @@ void ClientGame::m_UpdateLobby(nlohmann::json& msg) {
     drawrer_.set_viewpoint(current_context_);
   }
   // Update Lobby
-  drawrer_.UpdateLobby(msg["data"]);
+  drawrer_.UpdateLobby(data);
   drawrer_.PrintLobby();
-  msg = nlohmann::json();
 }
 
-void ClientGame::m_SetMsg(nlohmann::json& msg) {
-  drawrer_.set_msg(msg["data"]["msg"]);
-  msg = nlohmann::json();
+void ClientGame::m_SetMsg(std::shared_ptr<Data> data) {
+  drawrer_.set_msg(data->msg());
 }
 
-void ClientGame::m_GameEnd(nlohmann::json& msg) {
+void ClientGame::m_GameEnd(std::shared_ptr<Data> data) {
   drawrer_.set_stop_render(true);
   drawrer_.ClearField();
-  drawrer_.PrintCenteredLine(LINES/2, msg["data"]["msg"].get<std::string>());
+  drawrer_.PrintCenteredLine(LINES/2, data->msg());
   int counter = 2;
   if (mode_ == TUTORIAL) {
     drawrer_.PrintCenteredLine(LINES/2+counter, "You finished the tutorial! You may want to replay to "
@@ -941,37 +892,36 @@ void ClientGame::m_GameEnd(nlohmann::json& msg) {
     counter +=2;
   }
   drawrer_.PrintCenteredLine(LINES/2+counter, " [Press 'q' to leave game and 'h'/'l' to cycle statistics]");
-  drawrer_.set_statistics(msg["data"]["statistics"]);
+  drawrer_.set_statistics(data->statistics());
   refresh();
   ws_srv_->Stop();
   std::unique_lock ul(mutex_context_);
   current_context_ = CONTEXT_POST_GAME;
   drawrer_.set_viewpoint(VP_POST_GAME);
-  msg = nlohmann::json();
 }
 
-void ClientGame::m_SetUnit(nlohmann::json& msg) {
-  drawrer_.AddNewUnitToPos(msg["data"]["pos"], msg["data"]["unit"], msg["data"]["color"]);
+void ClientGame::m_SetUnit(std::shared_ptr<Data> data) {
+  drawrer_.AddNewUnitToPos(data->pos(), data->unit(), data->color());
   SwitchToResourceContext("Success!");
   drawrer_.PrintGame(false, false, current_context_);
-  msg = nlohmann::json();
 }
 
-void ClientGame::m_SetUnits(nlohmann::json& msg) {
+void ClientGame::m_SetUnits(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->info("ClientGame::m_SetUnits");
-  std::map<position_t, int> neurons = msg["data"]["neurons"];
-  int color = msg["data"]["color"];
-  for (const auto& it : neurons) 
-    drawrer_.AddNewUnitToPos(it.first, it.second, color);
-  spdlog::get(LOGGER)->debug("ClientGame::m_SetUnits. Done. Printing field...");
+  for (const auto& it : data->units()) 
+    drawrer_.AddNewUnitToPos(it.pos(), it.unit(), it.color());
+  spdlog::get(LOGGER)->info("ClientGame::m_SetUnits: done, printing game.");
   drawrer_.PrintGame(false, false, current_context_);
-  spdlog::get(LOGGER)->debug("ClientGame::m_SetUnits. Done.");
-  msg = nlohmann::json();
+}
+
+void ClientGame::h_AddTechnology(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->info("ClientGame::m_SetUnits");
+  drawrer_.AddTechnology(data->technology());
 }
 
 // tutorial 
 
-void ClientGame::h_TutorialGetOxygen(nlohmann::json& msg) {
+void ClientGame::h_TutorialGetOxygen(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->info("h_TutorialGetOxygen");
   Pause();
   contexts_.at(CONTEXT_TEXT).init_text(texts::tutorial_get_oxygen, current_context_);
@@ -980,27 +930,30 @@ void ClientGame::h_TutorialGetOxygen(nlohmann::json& msg) {
   eventmanager_tutorial_.RemoveHandler("init_game");
 }
 
-void ClientGame::h_TutorialSetUnit(nlohmann::json& original_message) {
-  nlohmann::json data = original_message["data"];
+void ClientGame::h_TutorialSetUnit(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("ClientGame::h_TutorialSetUnit. unit: {}", data->unit());
+  spdlog::get(LOGGER)->debug("ClientGame::h_TutorialSetUnit. resource: {}", data->resource());
+  spdlog::get(LOGGER)->debug("ClientGame::h_TutorialSetUnit. oxygen?: {}", tutorial_.oxygen_);
   std::vector<texts::paragraphs_field_t> texts;
   // Get text ad do potential other actions
-  if (data["unit"] == RESOURCENEURON && data["resource"] == OXYGEN && !tutorial_.oxygen_) {
+  if (data->unit() == RESOURCENEURON && data->resource() == OXYGEN && !tutorial_.oxygen_) {
+    spdlog::get(LOGGER)->debug("ClientGame::h_TutorialSetUnit. Got oxygen!");
     texts.push_back(texts::tutorial_get_glutamat);
     tutorial_.oxygen_ = true;
   }
-  else if (data["unit"] == RESOURCENEURON && data["resource"] == GLUTAMATE && !tutorial_.glutamate_) {
+  else if (data->unit() == RESOURCENEURON && data->resource() == GLUTAMATE && !tutorial_.glutamate_) {
     texts.push_back(texts::tutorial_build_activated_neurons);
     tutorial_.glutamate_ = true;
   }
-  else if (data["unit"] == RESOURCENEURON && data["resource"] == POTASSIUM && !tutorial_.potassium_) {
+  else if (data->unit() == RESOURCENEURON && data->resource() == POTASSIUM && !tutorial_.potassium_) {
     texts.push_back(texts::tutorial_build_synapse);
     tutorial_.potassium_ = true;
   }
-  else if (data["unit"] == RESOURCENEURON && data["resource"] == CHLORIDE && !tutorial_.chloride_) {
+  else if (data->unit() == RESOURCENEURON && data->resource() == CHLORIDE && !tutorial_.chloride_) {
     texts.push_back(texts::tutorial_build_ipsp);
     tutorial_.chloride_ = true;
   }
-  else if (data["unit"] == RESOURCENEURON && data["resource"] == DOPAMINE && !tutorial_.dopamine_) {
+  else if (data->unit() == RESOURCENEURON && data->resource() == DOPAMINE && !tutorial_.dopamine_) {
     texts.push_back(texts::tutorial_technologies_dopamine);
     tutorial_.dopamine_ = true;
     if (tutorial_.serotonin_)
@@ -1008,7 +961,7 @@ void ClientGame::h_TutorialSetUnit(nlohmann::json& original_message) {
     // Always add how-to
     texts.push_back(texts::tutorial_technologies_how_to);
   }
-  else if (data["unit"] == RESOURCENEURON && data["resource"] == SEROTONIN && !tutorial_.serotonin_) {
+  else if (data->unit() == RESOURCENEURON && data->resource() == SEROTONIN && !tutorial_.serotonin_) {
     texts.push_back(texts::tutorial_technologies_seretonin);
     tutorial_.serotonin_ = true;
     if (tutorial_.dopamine_) {
@@ -1016,18 +969,19 @@ void ClientGame::h_TutorialSetUnit(nlohmann::json& original_message) {
       texts.push_back(texts::tutorial_technologies_how_to);
     }
   }
-  else if (data["unit"] == ACTIVATEDNEURON && tutorial_.activated_neurons_ == 3) {
+  else if (data->unit() == ACTIVATEDNEURON && tutorial_.activated_neurons_ == 3) {
     texts.push_back(texts::tutorial_get_potassium);
   }
-  else if (data["unit"] == ACTIVATEDNEURON && tutorial_.activated_neurons_ == 4) {
+  else if (data->unit() == ACTIVATEDNEURON && tutorial_.activated_neurons_ == 4) {
     texts.push_back(texts::tutorial_bound_resources);
   }
-  else if (data["unit"] == SYNAPSE && tutorial_.synapses_ == 0) {
+  else if (data->unit() == SYNAPSE && tutorial_.synapses_ == 0) {
     texts.push_back(texts::tutorial_build_potential);
     tutorial_.synapses_++;
   }
   // If text was set, print text:
   if (texts.size() > 0) {
+    spdlog::get(LOGGER)->debug("ClientGame::h_TutorialSetUnit. Printing Text!");
     Pause();
     // Add all texts.
     auto final_text = texts[0];
@@ -1042,7 +996,8 @@ void ClientGame::h_TutorialSetUnit(nlohmann::json& original_message) {
   }
 }
 
-void ClientGame::h_TutorialScouted(nlohmann::json& original_message) {
+void ClientGame::h_TutorialScouted(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("ClientGame::h_TutorialScouted. ENEMY revield? {}", tutorial_.discovered_);
   texts::paragraphs_field_t text;
   // On first discoring enemy terretoris: tutorial for selecting targets.
   if (!tutorial_.discovered_) {
@@ -1053,8 +1008,11 @@ void ClientGame::h_TutorialScouted(nlohmann::json& original_message) {
   else {
     // Check number 
     int counter = 0;
-    for (const auto& it : original_message["data"]["neurons"].get<std::map<position_t, int>>()) 
-      if (it.second == ACTIVATEDNEURON) counter++;
+    spdlog::get(LOGGER)->debug("ClientGame::h_TutorialScouted. num units: {}", data->units().size());
+    for (const auto& it : data->units()) {
+      spdlog::get(LOGGER)->debug("ClientGame::h_TutorialScouted. - unit-type: {}", it.unit());
+      if (it.unit() == ACTIVATEDNEURON) counter++;
+    }
     if (counter >= 2 && tutorial_.chloride_ && tutorial_.dopamine_)  {
       text = texts::tutorial_final_attack;
       tutorial_.action_active_ = true;
@@ -1072,14 +1030,14 @@ void ClientGame::h_TutorialScouted(nlohmann::json& original_message) {
   }
 }
 
-void ClientGame::h_TutorialBuildNeuron(nlohmann::json& original_message) {
+void ClientGame::h_TutorialBuildNeuron(std::shared_ptr<Data> data) {
   texts::paragraphs_field_t text;
   // Get text ad do potential other actions
-  if (original_message["data"]["unit"] == ACTIVATEDNEURON && tutorial_.activated_neurons_ == 0) {
+  if (data->unit() == ACTIVATEDNEURON && tutorial_.activated_neurons_ == 0) {
     text = texts::tutorial_first_build;
     tutorial_.activated_neurons_++;
   }
-  else if (original_message["data"]["unit"] == ACTIVATEDNEURON)
+  else if (data->unit() == ACTIVATEDNEURON)
     tutorial_.activated_neurons_++;
  
   // If text was set, print text:
@@ -1092,7 +1050,7 @@ void ClientGame::h_TutorialBuildNeuron(nlohmann::json& original_message) {
   }
 }
 
-void ClientGame::h_TutorialAction(nlohmann::json&) {
+void ClientGame::h_TutorialAction(std::shared_ptr<Data> data) {
   texts::paragraphs_field_t text;
   // set ways
   if (tutorial_.action_ == 0) {
@@ -1121,10 +1079,10 @@ void ClientGame::h_TutorialAction(nlohmann::json&) {
   }
 }
 
-void ClientGame::h_TutorialSetMessage(nlohmann::json& original_message) {
+void ClientGame::h_TutorialSetMessage(std::shared_ptr<Data> data) {
   texts::paragraphs_field_t text;
   // Get text ad do potential other actions
-  if (original_message["data"]["msg"] == "Epsp target for this synapse set" && !tutorial_.epsp_target_set_) {
+  if (data->msg() == "Target for this synapse set" && !tutorial_.epsp_target_set_) {
     text = texts::tutorial_strong_attack;
     tutorial_.epsp_target_set_ = true;
   }
@@ -1139,17 +1097,16 @@ void ClientGame::h_TutorialSetMessage(nlohmann::json& original_message) {
   }
 }
 
-void ClientGame::h_TutorialUpdateGame(nlohmann::json& original_message) {
+void ClientGame::h_TutorialUpdateGame(std::shared_ptr<Data> data) {
   texts::paragraphs_field_t text;
-  Transfer t(original_message["data"]);
   
   // first enemy attack-launch
-  if (t.potentials().size() > 0 && tutorial_.first_attack_) {
+  if (data->potentials().size() > 0 && tutorial_.first_attack_) {
     text = texts::tutorial_first_attack;
     tutorial_.first_attack_ = false;
   }
 
-  if (t.players().at(username_).first.front() != '0' && tutorial_.first_damage_) {
+  if (data->players().at(username_).first.front() != '0' && tutorial_.first_damage_) {
     text = texts::tutorial_first_damage;
     tutorial_.first_damage_ = false;
   }
@@ -1167,21 +1124,19 @@ void ClientGame::h_TutorialUpdateGame(nlohmann::json& original_message) {
 void ClientGame::Pause() {
   pause_ = true;
   drawrer_.set_stop_render(true);
-  nlohmann::json msg = {{"command", "set_pause_on"}, {"username", username_}, {"data", nlohmann::json()}};
-  ws_srv_->SendMessage(msg.dump());
+  ws_srv_->SendMessage("set_pause_on", std::make_shared<Data>());
   audio_.Pause();
 }
 
 void ClientGame::UnPause() {
   pause_ = false;
-  nlohmann::json msg = {{"command", "set_pause_off"}, {"username", username_}, {"data", nlohmann::json()}};
-  ws_srv_->SendMessage(msg.dump());
+  ws_srv_->SendMessage("set_pause_off", std::make_shared<Data>());
   audio_.Unpause();
   drawrer_.set_stop_render(false);
 }
 
 // text
-void ClientGame::h_TextNext(nlohmann::json& msg) {
+void ClientGame::h_TextNext(std::shared_ptr<Data>) {
   // Check if last text was reached.
   if (contexts_.at(current_context_).last_text())
     h_TextQuit();
@@ -1193,7 +1148,7 @@ void ClientGame::h_TextNext(nlohmann::json& msg) {
   }
 }
 
-void ClientGame::h_TextPrev(nlohmann::json&) {
+void ClientGame::h_TextPrev(std::shared_ptr<Data>) {
   unsigned int num = contexts_.at(CONTEXT_TEXT).num();
   if (num == 0) 
     return;
@@ -1201,7 +1156,7 @@ void ClientGame::h_TextPrev(nlohmann::json&) {
   h_TextPrint();
 }
 
-void ClientGame::h_TextQuit(nlohmann::json&) {
+void ClientGame::h_TextQuit(std::shared_ptr<Data>) {
   h_TextQuit();
 }
 void ClientGame::h_TextQuit() {

@@ -44,22 +44,30 @@ struct Neuron : Unit {
   public:
     Neuron();
     Neuron(position_t pos, int lp, int type);
+    Neuron(const Neuron& neuron);
     virtual ~Neuron() {}
 
     // getter 
-    int voltage();
-    int max_voltage();
-    bool blocked();
-    virtual int movement() { return 999; };
-    virtual int potential_slowdown() { return -1; };
-    virtual std::vector<position_t> ways_points() {return {}; }
-    virtual bool swarm() { return false; }
-    virtual unsigned int num_availible_ways() { return 0; }
-    virtual unsigned int max_stored() { return 0; }
-    virtual size_t resource() { return 9999; }
-    virtual position_t target(int unit) { return {-1, -1}; }
-    virtual position_t target() { return {-1, -1}; }
-    virtual std::chrono::time_point<std::chrono::steady_clock> created_at() { return std::chrono::steady_clock::now(); }
+    int voltage() const;
+    int max_voltage() const;
+    bool blocked() const;
+    virtual int cur_movement() const { return 999; };
+    virtual std::pair<int, int> movement() const { return DEFAULT_POS; };
+    virtual int potential_slowdown() const { return -1; };
+    virtual std::vector<position_t> ways_points() const { return {}; }
+    virtual bool swarm() const { return false; }
+    virtual unsigned int num_availible_ways() const { return 0; }
+    virtual unsigned int max_stored() const { return 0; }
+    virtual unsigned int stored() const { return 0; }
+    virtual position_t epsp_target() const { return DEFAULT_POS; }
+    virtual position_t ipsp_target() const { return DEFAULT_POS; }
+    virtual position_t macro_target() const { return DEFAULT_POS; }
+    virtual size_t resource() const { return 9999; }
+    virtual position_t target(int unit) const { return {-1, -1}; }
+    virtual position_t target() const { return {-1, -1}; }
+    virtual std::chrono::time_point<std::chrono::steady_clock> created_at() const { 
+      return std::chrono::steady_clock::now(); 
+    }
 
     // setter
     void set_blocked(bool blocked);
@@ -105,13 +113,19 @@ struct Synapse : Neuron {
   public: 
     Synapse();
     Synapse(position_t pos, int max_stored, int num_availible_ways, position_t epsp_target, position_t ipsp_target);
+    Synapse(const Neuron& neuron);
 
     // getter: 
-    std::vector<position_t> ways_points();
-    bool swarm();
-    unsigned int num_availible_ways();
-    unsigned int max_stored();
-    position_t target(int unit) { 
+    std::vector<position_t> ways_points() const;
+    bool swarm() const;
+    unsigned int num_availible_ways() const;
+    unsigned int max_stored() const;
+    unsigned int stored() const;
+    position_t epsp_target() const { return epsp_target_; }
+    position_t ipsp_target() const { return ipsp_target_; }
+    position_t macro_target() const { return macro_target_; }
+
+    position_t target(int unit)  const { 
       if (unit == IPSP) return ipsp_target_;
       if (unit == EPSP) return epsp_target_;
       if (unit == MACRO) return macro_target_;
@@ -156,16 +170,18 @@ struct ActivatedNeuron : Neuron {
   public:
     ActivatedNeuron();
     ActivatedNeuron(position_t pos, int slowdown_boast, int speed_boast);
+    ActivatedNeuron(const Neuron& neuron);
 
     // getter 
-    int movement();
-    int potential_slowdown();
+    int cur_movement() const;
+    std::pair<int, int> movement() const;
+    int potential_slowdown() const;
     
     void decrease_cooldown();
     void reset_movement();
 
   private:
-    std::pair<int, int>movement_;  ///< lower number means higher speed.
+    std::pair<int, int> movement_;  ///< lower number means higher speed.
     int potential_slowdown_;
 };
 
@@ -176,9 +192,10 @@ struct ResourceNeuron : Neuron {
   public: 
     ResourceNeuron();
     ResourceNeuron(position_t, size_t resource);
+    ResourceNeuron(const Neuron& neuron);
 
     // getter 
-    size_t resource();
+    size_t resource() const;
 
   private:
     const size_t resource_;
@@ -194,6 +211,9 @@ struct ResourceNeuron : Neuron {
 struct Nucleus : Neuron {
   Nucleus() : Neuron() {}
   Nucleus(position_t pos) : Neuron(pos, 9, UnitsTech::NUCLEUS) {}
+  Nucleus(const Neuron& neuron) : Neuron(neuron) {
+    spdlog::get(LOGGER)->debug("Added Nucleus. type: {}", type_);
+  }
 };
 
 struct Loophole : Neuron {
@@ -201,9 +221,9 @@ struct Loophole : Neuron {
     Loophole() : Neuron(), target_({-1, -1}), created_at_(std::chrono::steady_clock::now()) {}
     Loophole(position_t pos, position_t target) : Neuron(pos, 9, UnitsTech::LOOPHOLE), target_(target) {}
 
-    // getter
-    position_t target() { return target_; }
-    std::chrono::time_point<std::chrono::steady_clock> created_at() { return created_at_; }
+    // getteconst r
+    position_t target() const { return target_; }
+    std::chrono::time_point<std::chrono::steady_clock> created_at() const { return created_at_; }
 
     // setter
     void set_target(position_t pos) { target_ = pos; }
@@ -217,7 +237,7 @@ struct Loophole : Neuron {
  * Abstrackt class for all potentials.
  * Attributes:
  * - pos (derived from Unit)
- * - movement (int cooldown, int speed)
+ * - cur_movement (int cooldown, int speed)
  */
 struct Potential : Unit {
   int potential_;

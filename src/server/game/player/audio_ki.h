@@ -2,6 +2,8 @@
 #define SRC_PLAYER_AUDIOKI_H_
 
 #include <cstddef>
+#include <deque>
+#include <queue>
 #include <vector>
 
 #include "share/audio/audio.h"
@@ -15,18 +17,16 @@ class AudioKi : public Player {
     ~AudioKi() {};
 
     // getter 
-    std::list<AudioDataTimePoint> data_per_beat();
+    std::deque<AudioDataTimePoint> data_per_beat() const;
     
-    // setter
-    void set_last_time_point(const AudioDataTimePoint& data_at_beat);
-
     void SetUpTactics(bool economy_tactics);
-    void DoAction(const AudioDataTimePoint& data_at_beat);
+    bool DoAction();
     void HandleIron(const AudioDataTimePoint& data_at_beat);
 
   private:
     // members
     Audio* audio_;
+    std::deque<AudioDataTimePoint> data_per_beat_;
     const float average_bpm_;
     const float average_level_;
     size_t max_activated_neurons_;
@@ -47,6 +47,8 @@ class AudioKi : public Player {
     std::map<unsigned int, unsigned int> extra_activated_neurons_;
 
     // functions 
+    bool DoAction(const AudioDataTimePoint& data_at_beat);
+
     void LaunchAttack(const AudioDataTimePoint& data_at_beat);
 
     // Create potental/ neurons. Add technology

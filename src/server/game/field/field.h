@@ -2,6 +2,7 @@
 #define SRC_FIELD_H_
 
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <shared_mutex>
@@ -11,8 +12,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "nlohmann/json_fwd.hpp"
-#include "share/objects/transfer.h"
 #include "share/objects/units.h"
 #include "server/game/player/player.h"
 #include "share/tools/graph.h"
@@ -26,11 +25,14 @@ class Field {
      * @param[in] cols availible cols
      */
     Field(int lines, int cols, RandomGenerator* ran_gen);
+    Field(const Field& field);
 
     // getter 
     unsigned int lines();
     unsigned int cols();
-    Graph& graph() { return graph_; }
+    std::shared_ptr<Graph> graph();
+    std::map<position_t, std::map<int, position_t>>& resource_neurons();
+    std::map<position_t, std::vector<std::pair<std::string, Player*>>>& epsps();
 
     // methods:
     
@@ -48,7 +50,7 @@ class Field {
      * Adds resources ([G]old, [S]ilver, [B]ronze) near given position.
      * @param start_pos position near which to create resources.
      */
-    std::map<int, position_t> AddResources(position_t start_pos);
+    void AddResources(position_t start_pos);
 
     /**
      * Adds position for player nucleus.
@@ -71,7 +73,11 @@ class Field {
      * @param pos position of new defence tower.
      * @param unit integer to identify unit.
      */
-    void AddNewUnitToPos(position_t pos, int unit);
+    void AddNewUnitToPos(position_t pos, std::shared_ptr<Neuron> neuron, Player* p);
+    void RemoveUnitFromPos(position_t pos);
+    std::pair<short, Player*> GetNeuronTypeAtPosition(position_t pos);
+    void ClearNeurons();
+    
 
     /**
      * Gets way to a soldiers target.
@@ -79,7 +85,7 @@ class Field {
      * @param target_pos target position.
      * @return list of positions.
      */ 
-    std::list<position_t> GetWayForSoldier(position_t start_pos, std::vector<position_t> way_points);
+    std::list<position_t> GetWay(position_t start_pos, std::vector<position_t> way_points);
 
     /** 
      * Finds the next free position near a given position with min and max
@@ -128,16 +134,22 @@ class Field {
      * @param[in] players
      * @return two-dimensional array with Symbol (string, color) as value.
      */
-    std::vector<std::vector<Transfer::Symbol>> Export(std::vector<Player*> players);
+    std::vector<std::vector<Data::Symbol>> Export(std::vector<Player*> players);
+    std::vector<std::vector<Data::Symbol>> Export(std::map<std::string, Player*> players);
+
+    void GetEpsps(std::map<std::string, Player*> players);
 
   private: 
     // members
     int lines_;
     int cols_;
     RandomGenerator* ran_gen_;
-    Graph graph_;
+    std::shared_ptr<Graph> graph_;
     std::vector<std::vector<std::string>> field_;
+    std::map<position_t, std::pair<std::shared_ptr<Neuron>, Player*>> neurons_;
     std::shared_mutex mutex_field_;
+    std::map<position_t, std::map<int, position_t>> resource_neurons_;
+    std::map<position_t, std::vector<std::pair<std::string, Player*>>> epsps_;
 
     // functions
     

@@ -1,19 +1,20 @@
-#include "client/game/print/drawrer.h"
-#include "curses.h"
-#include "drawrer.h"
-#include "server/game/field/field.h"
-#include "server/game/player/statistics.h"
-#include "share/constants/codes.h"
-#include "share/defines.h"
-#include "share/objects/transfer.h"
-#include "share/objects/units.h"
-#include "share/tools/random/random.h"
-#include "share/tools/utils/utils.h"
-#include "spdlog/spdlog.h"
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unistd.h>
 #include <utility>
+#include "curses.h"
+#include "spdlog/spdlog.h"
+
+#include "client/game/print/drawrer.h"
+#include "client/game/print/view_point.h"
+#include "server/game/field/field.h"
+#include "share/constants/codes.h"
+#include "share/defines.h"
+#include "share/objects/units.h"
+#include "share/shemes/data.h"
+#include "share/tools/random/random.h"
+#include "share/tools/utils/utils.h"
 
 #define SIDE_COLUMN_WIDTH 30
 #define BORDER_LINES 2 
@@ -21,12 +22,13 @@
 Drawrer::Drawrer() {
   cur_view_point_ = VP_RESOURCE;
   cur_selection_ = {
-    {VP_FIELD, {-1, -1, &ViewPoint::inc_field, &ViewPoint::to_string_field}},
-    {VP_RESOURCE, {IRON, -1, &ViewPoint::inc_resource, &ViewPoint::to_string_resource}},
-    {VP_TECH, {WAY, -1, &ViewPoint::inc_tech, &ViewPoint::to_string_tech}},
-    {VP_TECH, {WAY, -1, &ViewPoint::inc_tech, &ViewPoint::to_string_tech}},
-    {VP_POST_GAME, {WAY, -1, &ViewPoint::inc_resource, &ViewPoint::to_string_tech}},
+    {VP_FIELD, ViewPoint(-1, -1, &ViewPoint::inc_field, &ViewPoint::to_string_field)},
+    {VP_RESOURCE, ViewPoint(IRON, -1, &ViewPoint::inc_resource, &ViewPoint::to_string_resource)},
+    {VP_TECH, ViewPoint(WAY, -1, &ViewPoint::inc_tech, &ViewPoint::to_string_tech)},
+    {VP_TECH, ViewPoint(WAY, -1, &ViewPoint::inc_tech, &ViewPoint::to_string_tech)},
+    {VP_POST_GAME, ViewPoint(WAY, -1, &ViewPoint::inc_resource, &ViewPoint::to_string_tech)},
   };
+  graph_positions_ = std::make_shared<std::set<position_t>>();
   stop_render_ = false;
 }
 
@@ -39,30 +41,30 @@ int Drawrer::field_width() {
 }
 
 position_t Drawrer::field_pos() {
-  return {cur_selection_.at(VP_FIELD).y_, cur_selection_.at(VP_FIELD).x_};
+  return {cur_selection_.at(VP_FIELD).y(), cur_selection_.at(VP_FIELD).x()};
 }
 
 std::string Drawrer::game_id_from_lobby() {
   std::unique_lock ul(mutex_print_field_);
-  if (cur_view_point_ == VP_LOBBY && (unsigned int)cur_selection_.at(VP_LOBBY).x_ < lobby_.lobby().size())
-    return lobby_.lobby()[cur_selection_.at(VP_LOBBY).x_]._game_id;
+  if (cur_view_point_ == VP_LOBBY && (unsigned int)cur_selection_.at(VP_LOBBY).x() < lobby_->lobby().size())
+    return lobby_->lobby()[cur_selection_.at(VP_LOBBY).x()]._game_id;
   return "";
 }
 
 std::vector<bool> Drawrer::synapse_options() {
-  return transfer_.synapse_options();
+  return update_->synapse_options();
 }
 
 int Drawrer::GetResource() {
   if (cur_view_point_ != VP_RESOURCE)
     return -1;
-  return cur_selection_.at(VP_RESOURCE).x_;
+  return cur_selection_.at(VP_RESOURCE).x();
 }
 
 int Drawrer::GetTech() {
   if (cur_view_point_ != VP_TECH)
     return -1;
-  return cur_selection_.at(VP_TECH).x_;
+  return cur_selection_.at(VP_TECH).x();
 }
 
 void Drawrer::set_viewpoint(int viewpoint) {
@@ -76,21 +78,19 @@ void Drawrer::set_viewpoint(int viewpoint) {
     cur_view_point_ = VP_LOBBY;
     cur_selection_[VP_LOBBY] = ViewPoint(0, 0, &ViewPoint::inc_stats, &ViewPoint::to_string_tech);
   }
-  spdlog::get(LOGGER)->info("Set current viewpoint to {}", cur_view_point_);
 }
 
 void Drawrer::inc_cur_sidebar_elem(int value) {
-  spdlog::get(LOGGER)->debug("Drawrer::inc_cur_sidebar_elem: {}", value);
   cur_selection_.at(cur_view_point_).inc(value);
 }
 
 void Drawrer::set_field_start_pos(position_t pos) {
-  cur_selection_.at(VP_FIELD).y_ = pos.first;
-  cur_selection_.at(VP_FIELD).x_ = pos.second;
+  cur_selection_.at(VP_FIELD).set_y(pos.first);
+  cur_selection_.at(VP_FIELD).set_x(pos.second);
 }
 
 void Drawrer::set_range(std::pair<position_t, int> range) {
-  cur_selection_.at(VP_FIELD).range_ = range;
+  cur_selection_.at(VP_FIELD).set_range(range);
 }
 
 void Drawrer::set_topline(t_topline topline) {
@@ -105,15 +105,14 @@ void Drawrer::set_mode(int mode) {
   }
 }
 
-void Drawrer::set_statistics(nlohmann::json json) {
-  spdlog::get(LOGGER)->info("Stet statistics: {}", json.dump());
-  for (const auto& it : json.get<std::map<std::string, nlohmann::json>>())
-    statistics_[it.first] = Statictics(it.second);
+void Drawrer::set_statistics(std::vector<std::shared_ptr<Statictics>> statistics) {
+  statistics_ = statistics;
 }
 
 bool Drawrer::InGraph(position_t pos) {
-  return graph_positions_.count(pos) > 0;
+  return graph_positions_->count(pos) > 0;
 }
+
 bool Drawrer::Free(position_t pos) {
   return field_[pos.first][pos.second].symbol_ == SYMBOL_FREE;
 }
@@ -127,27 +126,50 @@ void Drawrer::set_msg(std::string msg) {
   msg_ = msg;
 }
 
-void Drawrer::set_transfer(nlohmann::json& data) {
-  transfer_ = Transfer(data);
-  field_ = transfer_.field();
-
-  set_stop_render(true);
-  std::string macro = (transfer_.macro() == 0) ? "chained-potential" : "loophols";
-  std::string msg = "You are playing with \"" + macro + "\" as your macro!";
-  ClearField();
-  PrintCenteredLine(LINES/2, msg);
-  PrintCenteredLine(LINES/2+2, "[Press any key to continue]");
-  getch();
-  set_stop_render(false);
+void Drawrer::set_transfer(std::shared_ptr<Data> init) {
+  field_ = init->field();
 
   // Adjust start-point of field if game size is smaller than resolution suggests.
+  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: setting height and width.");
   unsigned int cur_height = field_height();
   unsigned int cur_width = field_width();
   extra_height_ = (cur_height > field_.size()) ? (cur_height-field_.size())/2 : 0;
   extra_width_ = (cur_width > field_[0].size()) ? cur_width-field_[0].size() : 0;
-  for (const auto& it : transfer_.graph_positions())
-    graph_positions_.insert(it);
-  cur_selection_.at(VP_FIELD).graph_positions_ = graph_positions_;
+  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: setting graph_positions.");
+  for (const auto& it : init->graph_positions())
+    graph_positions_->insert(it);
+  cur_selection_.at(VP_FIELD).set_graph_positions(graph_positions_);
+  
+  // set update
+  update_ = std::dynamic_pointer_cast<Update>(init->update());
+  // set resources and pointer to resources of resouce-viewpoint
+  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: setting resources.");
+  resources_ = std::make_shared<std::map<int, Data::Resource>>(init->update()->resources());
+  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: set {} resources", resources_->size());
+  cur_selection_.at(VP_RESOURCE).set_resources(resources_);
+  // set technologies and pointer to technologies of tech-viewpoint
+  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: setting technologies.");
+  technologies_ = std::make_shared<std::map<int, tech_of_t>>(init->technologies());
+  cur_selection_.at(VP_TECH).set_technologies(technologies_);
+
+  initialized_ = true;
+  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: done");
+
+  // Show player which macro they play with
+  if (mode_ != OBSERVER) {
+    set_stop_render(true);
+    std::string macro = (init->macro() == 0) ? "chained-potential" : "loophols";
+    std::string msg = "You are playing with \"" + macro + "\" as your macro!";
+    ClearField();
+    PrintCenteredLine(LINES/2, msg);
+    PrintCenteredLine(LINES/2+2, "[Press any key to continue]");
+    std::unique_lock ul(mutex_print_field_);
+    getch();
+    ul.unlock();
+    set_stop_render(false);
+    ul.lock();
+  }
+  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: done");
 }
 
 void Drawrer::set_stop_render(bool stop) {
@@ -181,52 +203,70 @@ void Drawrer::ClearMarkers(int type) {
     markers_[type].clear();
 }
 
-void Drawrer::AddNewUnitToPos(position_t pos, int unit, int color) {
+void Drawrer::AddNewUnitToPos(position_t pos, short unit, short color) {
+  spdlog::get(LOGGER)->debug("Drawrer::AddNewUnitToPos: pos: {}, unit: {}, color: {}", 
+      utils::PositionToString(pos), unit, color);
   std::unique_lock ul(mutex_print_field_);
-  if (unit == UnitsTech::RESOURCENEURON)
-    field_[pos.first][pos.second] = {field_[pos.first][pos.second].symbol_, COLOR_RESOURCES};
+  // If resource-neuron deactivated, set color to default
+  if (unit == UnitsTech::RESOURCENEURON && color == COLOR_DEFAULT)
+    field_[pos.first][pos.second] = Data::Symbol({field_[pos.first][pos.second].symbol_, COLOR_DEFAULT});
+  // If resource-neuron activated, set color to resource-color
+  else if (unit == UnitsTech::RESOURCENEURON)
+    field_[pos.first][pos.second] = Data::Symbol({field_[pos.first][pos.second].symbol_, COLOR_RESOURCES});
+  // If loophole destroyed, set symbol to free.
+  else if (unit == UnitsTech::LOOPHOLE && color == COLOR_DEFAULT)
+    field_[pos.first][pos.second] = Data::Symbol({SYMBOL_FREE, COLOR_DEFAULT});
+  // Otherwise add neuron with player-color.
   else if (unit_symbol_mapping.count(unit) > 0)
-    field_[pos.first][pos.second] = {unit_symbol_mapping.at(unit), color};
+    field_[pos.first][pos.second] = Data::Symbol({unit_symbol_mapping.at(unit), color});
 }
 
-void Drawrer::UpdateTranser(nlohmann::json &transfer_json) {
+void Drawrer::AddTechnology(short technology) {
+  if (technologies_->count(technology) && technologies_->at(technology).first < technologies_->at(technology).second) 
+    technologies_->at(technology).first++;
+}
+
+void Drawrer::UpdateTranser(std::shared_ptr<Data> update) {
+  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser");
   std::unique_lock ul(mutex_print_field_);
-  Transfer t(transfer_json);
-  transfer_.set_resources(t.resources());
-  transfer_.set_technologies(t.technologies());
-  transfer_.set_audio_played(t.audio_played());
-  transfer_.set_players(t.players());
-  transfer_.set_build_options(t.build_options());
-  transfer_.set_synapse_options(t.synapse_options());
+  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating resources...");
+  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating {} resources", update->resources().size());
+  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating {} resources", resources_->size());
+  *resources_ = update_->resources();
+  update_ = std::dynamic_pointer_cast<Update>(update);
 
   // Remove temp fields.
+  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating resetting temp-fields...");
   for (const auto& it : temp_symbols_)
     field_[it.first.first][it.first.second] = it.second;
   temp_symbols_.clear();
   
   // Update dead neurons
+  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating new-dead-neurons...");
   ul.unlock();
-  for (const auto & it : t.new_dead_neurons())
+  for (const auto & it : update->new_dead_neurons())
     AddNewUnitToPos(it.first, it.second, COLOR_DEFAULT);
 
   // Add potentials
-  for (const auto& it : t.potentials()) {
+  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating potentials...");
+  for (const auto& it : update->potentials()) {
     // Add potential to field as temporary.
     temp_symbols_[it.first] = field_[it.first.first][it.first.second];
-    field_[it.first.first][it.first.second] = {it.second.first, it.second.second};
+    field_[it.first.first][it.first.second] = Data::Symbol({it.second.first, it.second.second});
   }
+  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: done");
 }
 
-void Drawrer::UpdateLobby(nlohmann::json& lobby_json, bool init) {
+void Drawrer::UpdateLobby(std::shared_ptr<Data> lobby_json, bool init) {
   std::unique_lock ul(mutex_print_field_);
-  if (lobby_json.contains("lobby") && !lobby_json["lobby"].is_null()) {
-    lobby_ = Lobby(lobby_json["lobby"]);
-    cur_selection_.at(VP_LOBBY).y_ = lobby_.lobby().size();
+  if (lobby_json->lobby().size() > 0) {
+    lobby_ = std::dynamic_pointer_cast<Lobby>(lobby_json);
+    cur_selection_.at(VP_LOBBY).set_y(lobby_->lobby().size());
   }
   else {
-    lobby_ = Lobby();
-    cur_selection_.at(VP_LOBBY).y_ = 0;
-    cur_selection_.at(VP_LOBBY).x_ = 0;
+    lobby_ = std::make_shared<Lobby>();
+    cur_selection_.at(VP_LOBBY).set_y(0);
+    cur_selection_.at(VP_LOBBY).set_x(0);
   }
 }
 
@@ -344,31 +384,38 @@ void Drawrer::PrintCenteredParagraphs(texts::paragraphs_t paragraphs, bool skip_
 }
 
 void Drawrer::PrintGame(bool only_field, bool only_side_column, int context) {
+  spdlog::get(LOGGER)->debug("Drawrer::PrintGame");
   std::unique_lock ul(mutex_print_field_);
-  if (stop_render_ || !transfer_.initialized()) 
+  if (stop_render_ || !initialized_) 
     return;
   // Print headline
-  PrintHeader(transfer_.audio_played(), transfer_.PlayersToPrint());
+  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: PrintHeader");
+  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: audio-played: {}", update_->audio_played());
+  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: players: {}", update_->PlayersToPrint().size());
+  PrintHeader(update_->audio_played(), update_->PlayersToPrint());
   // Print topline.
+  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: PrintTopline");
   std::vector<bool> topline_colors; 
   if (context == CONTEXT_RESOURCES || context == CONTEXT_TECHNOLOGIES) 
-    topline_colors = transfer_.build_options();
+    topline_colors = update_->build_options();
   else if (context == CONTEXT_SYNAPSE) 
-    topline_colors = transfer_.synapse_options();
+    topline_colors = update_->synapse_options();
 
   if (mode_ != OBSERVER)
     PrintTopline(topline_colors);
 
+  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: PrintField");
   // Print field and/or side-column
   if (!only_side_column)
     PrintField();
   if (!only_field && mode_ != OBSERVER)
-    PrintSideColumn(transfer_.resources(), transfer_.technologies());
+    PrintSideColumn();
 
+  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: PrintFooter");
   // Print footer and message
   if (mode_ != OBSERVER) {
     PrintMessage();
-    PrintFooter(cur_selection_.at(cur_view_point_).to_string(transfer_));
+    PrintFooter(cur_selection_.at(cur_view_point_).to_string());
   }
   refresh();
 }
@@ -398,7 +445,7 @@ void Drawrer::PrintTopline(std::vector<bool> availible_options) {
 void Drawrer::PrintField() {
   spdlog::get(LOGGER)->info("Drawrer::PrintField");
   position_t sel = field_pos();
-  auto range = cur_selection_.at(VP_FIELD).range_;
+  auto range = cur_selection_.at(VP_FIELD).range();
 
   for (unsigned int l=0; l<field_.size(); l++) {
     for (unsigned int c=0; c<field_[l].size(); c++) {
@@ -410,7 +457,7 @@ void Drawrer::PrintField() {
       }
       // If field-view, mark when availible.
       else if (cur_view_point_ == VP_FIELD && utils::Dist(cur, range.first) <= range.second && 
-          graph_positions_.count(cur) > 0)
+          graph_positions_->count(cur) > 0)
         attron(COLOR_PAIR(COLOR_SUCCESS));
       else {
         int color = field_[l][c].color_;
@@ -445,16 +492,15 @@ std::pair<std::string, int> Drawrer::GetReplaceMentFromMarker(position_t pos) {
   return symbol;
 }
 
-void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources,
-    const std::map<int, Transfer::Technology>& technologies) {
+void Drawrer::PrintSideColumn() {
   attron(WA_BOLD);
   mvaddstr(l_main_, c_resources_, "RESOURCES");
   attroff(WA_BOLD);
-  int inc = (static_cast<int>(resources.size()*2 + technologies.size()*2+4) > field_height()) ? 1 : 2;
+  int inc = (static_cast<int>(resources_->size()*2 + technologies_->size()*2+4) > field_height()) ? 1 : 2;
   unsigned int counter = 2;
-  for (const auto& it : resources) {
+  for (const auto& it : *resources_) {
     // Mark selected resource/ technology
-    if (cur_selection_.at(VP_RESOURCE).x_ == it.first) {
+    if (cur_selection_.at(VP_RESOURCE).x() == it.first) {
       attron(WA_BOLD);
       attron(COLOR_PAIR(COLOR_AVAILIBLE));
     }
@@ -476,14 +522,15 @@ void Drawrer::PrintSideColumn(const std::map<int, Transfer::Resource>& resources
   mvaddstr(l_main_ + counter, c_resources_, "TECHNOLOGIES");
   attroff(WA_BOLD);
   counter += 2;
-  for (const auto& it : technologies) {
-    if (cur_selection_.at(VP_TECH).x_ == it.first) {
+  for (const auto& it : *technologies_) {
+    if (cur_selection_.at(VP_TECH).x() == it.first) {
       attron(WA_BOLD);
       attron(COLOR_PAIR(COLOR_AVAILIBLE));
     }
-    else if (it.second.active_)
+    else if (it.second.first == it.second.second)
       attron(COLOR_PAIR(COLOR_SUCCESS));
-    std::string str = units_tech_name_mapping.at(it.first) + " (" + it.second.cur_ + "/" + it.second.max_ + ")";
+    std::string str = units_tech_name_mapping.at(it.first) + " (" + std::to_string(it.second.first) 
+      + "/" + std::to_string(it.second.second) + ")";
     mvaddstr(l_main_ + counter, c_resources_, str.c_str());
     attron(COLOR_PAIR(COLOR_DEFAULT));
     attroff(WA_BOLD);
@@ -505,59 +552,69 @@ void Drawrer::PrintFooter(std::string str) {
 }
 
 void Drawrer::PrintStatistics() const {
-  spdlog::get(LOGGER)->info("Printing statistics: {} {}", statistics_.size(), cur_selection_.at(VP_POST_GAME).x_);
+  spdlog::get(LOGGER)->info("Printing statistics: {} {}", statistics_.size(), cur_selection_.at(VP_POST_GAME).x());
   clear();
   refresh();
   int start_line = LINES/15;
   int counter = 0;
   for (const auto& it : statistics_) {
-    if (counter++ == cur_selection_.at(VP_POST_GAME).x_) {
+    if (counter++ == cur_selection_.at(VP_POST_GAME).x()) {
       // Print player name and "headings" bold. Print only player name in player-color.
-      attron(COLOR_PAIR(it.second.player_color()));
+      attron(COLOR_PAIR(it->player_color()));
       // Player name.
-      PrintCenteredLineBold(start_line, utils::ToUpper(it.first));
-      attroff(COLOR_PAIR(it.second.player_color()));
+      PrintCenteredLineBold(start_line, utils::ToUpper(it->player_name()));
+      attroff(COLOR_PAIR(it->player_color()));
       int i=2;
-      spdlog::get(LOGGER)->info("Printing statistics: neurons");
-      PrintCenteredLineBold(start_line+(++i), "Neurons Built");
-      for (const auto& it : it.second.neurons_build()) 
-        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
-      i++;
-      spdlog::get(LOGGER)->info("Printing statistics: potentials");
-      PrintCenteredLineBold(start_line+(++i), "Potentials Built");
-      for (const auto& it : it.second.potentials_build()) 
-        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
-      i++;
-      PrintCenteredLineBold(start_line+(++i), "Potentials Killed");
-      for (const auto& it : it.second.potentials_killed()) 
-        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
-      i++;
-      PrintCenteredLineBold(start_line+(++i), "Potentials Lost");
-      for (const auto& it : it.second.potentials_lost()) 
-        PrintCenteredLine(start_line+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
-      i++;
-      PrintCenteredLineBold(start_line+(++i), "Enemy Epsps Swallowed By Ipsp");
-      PrintCenteredLine(start_line+(++i), std::to_string(it.second.epsp_swallowed()));
-      i++;
-      PrintCenteredLineBold(start_line+(++i), "Resources");
-      for (const auto& it : it.second.resources()) {
-        PrintCenteredLine(start_line+(++i), resources_name_mapping.at(it.first));
-        std::string info = "";
-        for (const auto& jt : it.second)
-          info += jt.first + ": " + utils::Dtos(jt.second) + ", ";
-        info.substr(0, info.length()-2);
-        PrintCenteredLine(start_line+(++i), info);
-      }
-      i++;
-      PrintCenteredLineBold(start_line+(++i), "Technologies");
-      for (const auto& it : it.second.technologies()) {
-        std::string info = units_tech_name_mapping.at(it.first) + ": " 
-          + utils::PositionToString(it.second);
-        PrintCenteredLine(start_line+(++i), info);
-      }
+      i = PrintStatisticEntry("Neurons Built", start_line, i, it->neurons_build());
+      i = PrintStatisticEntry("Potentials Built", start_line, i, it->potentials_build());
+      i = PrintStatisticEntry("Potentials Killed", start_line, i, it->potentials_killed());
+      i = PrintStatisticEntry("Potentials Lost", start_line, i, it->potentials_lost());
+      i = PrintStatisticEntry("Enemy Epsps Swallowed By Ipsp", start_line, i, it->epsp_swallowed());
+      i = PrintStatisticsResources(start_line, i, it->stats_resources());
+      i = PrintStatisticsTechnology(start_line, i, it->stats_technologies());
       PrintCenteredLine(start_line+2+(++i), "(press 'q' to quit.)");
     }
   }
+}
+int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, 
+    std::map<unsigned short, unsigned short> infos) const {
+  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticEntry: {}, {}", heading, infos.size());
+  PrintCenteredLineBold(s+(++i), "Neurons Built");
+  for (const auto& it : infos) 
+    PrintCenteredLine(s+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
+  return ++i;
+}
+
+int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, unsigned short info) const {
+  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticEntry: {}, {}", heading, info);
+  PrintCenteredLineBold(s+(++i), heading);
+  PrintCenteredLine(s+(++i), std::to_string(info));
+  return ++i;
+}
+
+int Drawrer::PrintStatisticsResources(int start_line, int i, 
+    std::map<int, std::map<std::string, double>> resources) const {
+  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticsResources: {} resource-entries", resources.size());
+  PrintCenteredLineBold(start_line+(++i), "Resources");
+  for (const auto& resource : resources) {
+    PrintCenteredLine(start_line+(++i), resources_name_mapping.at(resource.first));
+    std::string info = "";
+    for (const auto& jt : resource.second)
+      info += jt.first + ": " + utils::Dtos(jt.second) + ", ";
+    info.substr(0, info.length()-2);
+    PrintCenteredLine(start_line+(++i), info);
+  }
+  return ++i;
+}
+
+int Drawrer::PrintStatisticsTechnology(int start_line, int i, std::map<int, tech_of_t> technologies) const {
+  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticsTechnology: {} technology-entries", technologies.size());
+  PrintCenteredLineBold(start_line+(++i), "Technologies");
+  for (const auto& it : technologies) {
+    std::string info = units_tech_name_mapping.at(it.first) + ": " + utils::PositionToString(it.second);
+    PrintCenteredLine(start_line+(++i), info);
+  }
+  return i;
 }
 
 void Drawrer::ClearLine(int line, int start_col) {
@@ -572,16 +629,16 @@ void Drawrer::PrintLobby() {
   PrintCenteredLine(LINES/4+1, "use 'j'/'k' to cycle selection. Hit '[enter]' to join game.");
   PrintCenteredLine(LINES/4+2, msg_);
   // Check if lobby is empty
-  if (lobby_.lobby().size() == 0) {
+  if (lobby_->lobby().size() == 0) {
     PrintCenteredLine(LINES/4+5, "lobby is empty!");
   }
   // Otherwise print lobby
   else {
     unsigned int counter = 0;
-    for (const auto& it : lobby_.lobby()) {
+    for (const auto& it : lobby_->lobby()) {
       std::string lobby_line = it._audio_map_name + ": " + std::to_string(it._cur_players) + "/" 
         + std::to_string(it._max_players);
-      if ((unsigned int)cur_selection_.at(VP_LOBBY).x_ == counter/2)
+      if ((unsigned int)cur_selection_.at(VP_LOBBY).x() == counter/2)
         attron(COLOR_PAIR(COLOR_AVAILIBLE));
       PrintCenteredLine(LINES/4+5+counter, lobby_line);
       attron(COLOR_PAIR(COLOR_DEFAULT));
@@ -649,7 +706,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   mini_fields_["field_player_oxygen_potassium_glutamat_activated"] = exported_field;
 
   // Simple map showing how to select position on map.
-  spdlog::get(LOGGER)->debug("Simple map with showing highlighted range.");
+  spdlog::get(LOGGER)->debug("MAP: Simple map with showing highlighted range.");
   auto positions = field->GetAllInRange(nucleus.front(), 4, 0);
   for (const auto& pos : positions) {
     spdlog::get(LOGGER)->debug("pos: {}", utils::PositionToString(pos));
@@ -664,6 +721,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   spdlog::get(LOGGER)->debug("done creating highliting-map");
 
   // Move selection on map.
+  spdlog::get(LOGGER)->debug("MAP: Move selection on map");
   exported_field[nucleus.front().first][nucleus.front().second].color_ = player_color;
   exported_field[nucleus.front().first][nucleus.front().second].symbol_ = SYMBOL_DEN;
   auto pos = field->GetAllInRange(nucleus.front(), 2, 1.5, true).front();
@@ -672,6 +730,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   mini_fields_["field_select_neuron_position_2"] = exported_field;
 
   // Add activated neuron.
+  spdlog::get(LOGGER)->debug("MAP: Add activated neuron.");
   positions = field->GetAllInRange(nucleus.front(), 3, 2, true);
   exported_field[pos.first][pos.second].color_ = COLOR_SUCCESS; // mark position as free
   exported_field[pos.first][pos.second].symbol_ = SYMBOL_FREE; // mark position as free
@@ -681,6 +740,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   exported_field = mini_fields_["field_player_oxygen_potassium_glutamat_activated"];
   
   // Simple map with player nucleus and resources (not activated)
+  spdlog::get(LOGGER)->debug("MAP: Simple map with player nucleus and resources (not activated)");
   spdlog::get(LOGGER)->info("Enemy map with advancing potentials");
   Field* field_enemy = new Field(10, 10, ran_gen);
   field_enemy->BuildGraph();
@@ -704,7 +764,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   exported_field_enemy[pos.first][pos.second].color_ = enemy_color;
   exported_field_enemy[pos.first][pos.second].symbol_ = SYMBOL_BARACK;
   // Add some epsp on enemy's way.
-  auto way = field_enemy->GetWayForSoldier(nucleus_pos_enemy, {{9, 9}});
+  auto way = field_enemy->GetWay(nucleus_pos_enemy, {{9, 9}});
   std::vector<position_t> way_vec(way.begin(), way.end());
   for (unsigned int i=1; i<way_vec.size(); i+=3) {
     exported_field_enemy[way_vec[i].first][way_vec[i].second].color_ = enemy_color;
@@ -714,7 +774,8 @@ void Drawrer::CreateMiniFields(int player_color) {
   mini_fields_["field_attack"] = exported_field_enemy;
 
   // Simple map showing enemy's epsp reaching your nucleus.
-  way = field_enemy->GetWayForSoldier(nucleus.front(), {{9, 9}});
+  spdlog::get(LOGGER)->debug("MAP: Simple map showing enemy's epsp reaching your nucleus.");
+  way = field_enemy->GetWay(nucleus.front(), {{9, 9}});
   std::vector<position_t> way_vec_2(way.begin(), way.end());
   for (unsigned int i=1; i<way_vec_2.size(); i+=2) {
     exported_field[way_vec_2[i].first][way_vec_2[i].second].color_ = enemy_color;
@@ -724,6 +785,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   mini_fields_["field_attack_2"] = exported_field;
   
   // Map showing how to select between multiple synapses.
+  spdlog::get(LOGGER)->debug("MAP: showing how to select between multiple synapses.");
   exported_field = mini_fields_["field_player_oxygen_potassium_glutamat_activated"];
   auto synapse_a = field->GetAllInRange(nucleus.front(), 2, 1.5, true).front();
   auto synapse_b = field->GetAllInRange(nucleus.front(), 3, 2, true).front();

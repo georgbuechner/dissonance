@@ -38,14 +38,13 @@ int main(int argc, const char** argv) {
   // Command line arguments 
   bool show_help = false;
   bool keep_log = false;
-  std::string log_level = "warn";
+  std::string log_level = "error";
   std::string base_path = getenv("HOME");
   base_path += "/.dissonance/";
   int server_port = 4444;
   bool multiplayer = false;
   std::string server_address = "ws://localhost:4444";
   bool standalone = false;
-  bool only_ai = false;
   std::string path_sound_map = "dissonance/data/examples/Hear_My_Call-coffeeshoppers.mp3";
   std::string path_sound_ai_1 = "dissonance/data/examples/airtone_-_blackSnow_1.mp3";
   std::string path_sound_ai_2 = "dissonance/data/examples/Karstenholymoly_-_The_night_is_calling.mp3";
@@ -64,7 +63,6 @@ int main(int argc, const char** argv) {
     | lyra::opt(server_address, "format [ws://<url>:<port> | wss://<url>:<port>], default: wss://kava-i.de:4444") 
         ["-z"]["--connect"]("specify address which to connect to.")
 
-    | lyra::opt(only_ai) ["--only-ai"]("If set, starts game between to ais.")
     | lyra::opt(path_sound_map, "for ai games: map sound input") ["--map_sound"]("")
     | lyra::opt(path_sound_ai_1, "for ai games: ai-1 sound input") ["--ai1_sound"]("")
     | lyra::opt(path_sound_ai_2, "for ai games: ai-2 sound input") ["--ai2_sound"]("");
@@ -85,14 +83,9 @@ int main(int argc, const char** argv) {
   srand (time(NULL));
   Audio::Initialize();
 
-  // Audio* test_audio= new Audio(base_path);
-  // test_audio->set_source_path(path_sound_ai_2);
-  // test_audio->Analyze();
-  // return 0;
-
   // Enter-username (omitted for standalone server or only-ai)
   std::string username = "";
-  if (!standalone && !only_ai) {
+  if (!standalone) {
     std::cout << "Using base-path: " << base_path << std::endl;
     std::cout << "Enter your username: ";
     std::getline(std::cin, username);
@@ -100,25 +93,15 @@ int main(int argc, const char** argv) {
 
   /* 
    * Start games: 
-   * 1. only-ai-game (no websockets)
-   * 2. websocket-server (for single-player and standalone)
-   * 3. client (for multi-player)
+   * 1. websocket-server (for single-player and standalone)
+   * 2. client (for multi-player)
    *
-   * 1. depens on `--only_ai`.
-   * 2. and 3. depend on `--standalone` and `--multiplayer`. 
+   * 1. and 2. depend on `--standalone` and `--multiplayer`. 
    * If a) both are set, start websocket-server (localhost) and client.
    * If b) only `--standalone` is set, start only server at given adress.
    * If c) only `--multiplayer` is set, start only client.
   */
 
-  // only ai-game
-  if (only_ai) {
-    ServerGame* game = new ServerGame(50, 50, AI_GAME, 2, base_path, nullptr);
-    game->InitAiGame(base_path, path_sound_map, path_sound_ai_1, path_sound_ai_2);
-    utils::WaitABit(100);
-    return 0;
-  }
-  
   // websocket server.
   WebsocketServer* srv = new WebsocketServer(standalone, base_path);
   std::thread thread_server([srv, server_port, multiplayer, standalone]() { 
@@ -162,7 +145,9 @@ void SetupLogger(bool keep_log, std::string base_path, std::string log_level) {
   std::string logger_file = "logs/" + utils::GetFormatedDatetime() + "_logfile.txt";
   auto logger = spdlog::basic_logger_mt("logger", base_path + logger_file);
   spdlog::flush_on(spdlog::level::warn);
-  if (log_level == "warn")
+  if (log_level == "error")
+    spdlog::set_level(spdlog::level::err);
+  else if (log_level == "warn")
     spdlog::set_level(spdlog::level::warn);
   else if (log_level == "info") {
     spdlog::set_level(spdlog::level::info);

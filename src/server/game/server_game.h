@@ -1,9 +1,9 @@
 #ifndef SRC_SERVER_GAME_H_
 #define SRC_SERVER_GAME_H_
 
-#include "nlohmann/json_fwd.hpp"
-#include "share/defines.h"
 #include <cstddef>
+#include <deque>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <stdio.h>
@@ -11,17 +11,19 @@
 #include <shared_mutex>
 #include <vector>
 
+#include "share/defines.h"
 #include "share/audio/audio.h"
 #include "share/constants/texts.h"
 #include "server/game/field/field.h"
 #include "server/game/player/audio_ki.h"
 #include "server/game/player/player.h"
 #include "share/objects/units.h"
+#include "share/shemes/commands.h"
+#include "share/shemes/data.h"
 #include "share/tools/random/random.h"
 #include "share/tools/eventmanager.h"
 
 class WebsocketServer;
-class AudioTransferData;
 
 class ServerGame {
   public:
@@ -34,11 +36,11 @@ class ServerGame {
     ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, WebsocketServer* srv);
 
     // getter 
-    int status();
-    int mode();
-    int max_players();
-    int cur_players();
-    std::string audio_map_name();
+    int status() const;
+    int mode() const;
+    int max_players() const;
+    int cur_players() const;
+    std::string audio_map_name() const;
 
     // setter 
     void set_status(int status);
@@ -46,113 +48,137 @@ class ServerGame {
     // methods.
     
     /**
-     *
+     * Sends message to all other players that player has lost (resigned).
+     * @param[in] username
      */
     void PlayerResigned(std::string username);
 
     /**
-     *
-     */
-    void InitAiGame(std::string base_path, std::string path_audio_map, std::string path_audio_a, 
-        std::string path_audio_b);
-
-    /**
      * Prints statistics to stdout for all players.
      */
-    void PrintStatistics();
+    void PrintStatistics() const;
 
     /**
      * Adds new players and checks if game is ready to start.
      * @param[in] username 
+     * @param[in] lines (availible lines of new player)
+     * @param[in] cols (availible columns of new player)
      */
     void AddPlayer(std::string username, int lines, int cols);
 
+    /**
+     * Starts game once all players are ready.
+     * @param[in] username
+     */
     void PlayerReady(std::string username);
 
     /**
      * Handles input.
      * @param[in] command
-     * @param[in] msg
-     * @return json to forward to user, if "command" is contained.
+     * @param[in] data
      */
-    nlohmann::json HandleInput(std::string command, nlohmann::json msg);
+    void HandleInput(std::string command, std::shared_ptr<Data> data);
     
-    // Threads
-
-    /**
-     * Updates game status at every beat.
-     */
-    void Thread_RenderField();
-
-    /**
-     * Handles AI actions at every beat.
-     */
-    void Thread_Ai(std::string username);
-
-    bool RunAiGame();
-
-    void AddAudioPart(AudioTransferData& data);
-
   private: 
+    // field
     Field* field_;  ///< field 
-    std::shared_mutex mutex_players_;
-    std::map<std::string, Player*> players_;
-    std::map<std::string, Player*> human_players_;
-
-    std::vector<std::string> observers_;
-    std::set<std::string> dead_players_;
-    const unsigned int max_players_;
-    unsigned int cur_players_;
-    Audio audio_;
-    std::string audio_data_;
-    std::string audio_file_name_;
-    std::string base_path_;
-
-    WebsocketServer* ws_server_;
-    EventManager<std::string, ServerGame, nlohmann::json&> eventmanager_;
-
-    std::shared_mutex mutex_status_;  ///< mutex locked, when printing field.
-    int status_;
-    std::shared_mutex mutex_pause_;
-    int pause_;
-    std::chrono::time_point<std::chrono::steady_clock> pause_start_;
-    double time_in_pause_;
-
-    const int mode_; ///< SINGLE_PLAYER | MULTI_PLAYER | OBSERVER
     int lines_; 
     int cols_;
-    bool tutorial_;
 
-    std::string host_;
+    // players
+    std::shared_mutex mutex_players_;
+    std::map<std::string, Player*> players_;
+    std::map<std::string, Player*> human_players_;  ///< easy acces for only human-players
+    std::string host_;  ///< host player.
+    std::vector<std::string> observers_;  ///< vector with usernames of observers
+    std::set<std::string> dead_players_;  ///< keeps track of dead players.
+    const unsigned int max_players_;
+
+    // audio
+    Audio audio_;  ///< main-audio (f.e. map and in single-player: ai)
+    std::string audio_data_buffer_;  ///< audio data (used as buffer when receiving audio-data)
+    std::string audio_file_name_;  ///< audio-file-name.
+    std::string base_path_;
+
+    // meta 
+    WebsocketServer* ws_server_;
+    EventManager<std::string, ServerGame, std::shared_ptr<Data>> eventmanager_;
+    const int mode_; ///< (see: codes.h: Mode)
+    std::shared_mutex mutex_status_;  ///< mutex locked, when printing field.
+    int status_;  ///< current game status (see: codes.h: GameStatus)
+    std::shared_mutex mutex_pause_;
+    int pause_;  //< indicates whether game is currently paused (only availible in single-player-mode)
+    std::chrono::time_point<std::chrono::steady_clock> pause_start_;  ///< start-time of pause
+    double time_in_pause_;  ///< time in pause (used for finding next audio-beat correctly after pause)
+
+    struct TimeAnalysis {
+      long double total_time_in_game_;
+      long double time_ai_action_;
+      long double time_ai_ran_;
+      long double time_ai_mc_;
+      long double time_game_;
+      long double time_setup_;
+      TimeAnalysis() : total_time_in_game_(0), time_ai_action_(0), time_ai_mc_(0), time_game_(0), time_setup_(0) {}
+      void print() { 
+        std::cout << "- total time: " << total_time_in_game_/1000000 << std::endl;
+        std::cout << "- ai action: " << time_ai_action_/1000000 << std::endl;
+        std::cout << "  - ran action: " << time_ai_ran_/1000000 << std::endl;
+        std::cout << "  - mc action: " << time_ai_mc_/1000000 << std::endl;
+        std::cout << "- game: " << time_game_/1000000 << std::endl;
+        std::cout << "- setup mc game: " << time_setup_/1000000 << std::endl;
+      }
+    };
+    TimeAnalysis time_analysis_;
 
     // methods
 
+    // getter 
+    
     /**
-     * Starts game, sending start-game info with initial game data to all
-     * players.
+     * Gets vector of enemies fort given player.
+     * @param[in] players 
+     * @param[in] player
+     * @return vector of enemies fort given player.
      */
-    void StartGame(std::vector<Audio*> audios);
-    std::vector<position_t> SetUpField(RandomGenerator* ran_gen);
+    std::vector<Player*> enemies(std::map<std::string, Player*>& players, std::string player) const;
 
     /**
      * Gets map of all potentials in stacked format (ipsp: 1-9, epsp a-z) and
      * "swallows" epsp if enemy ipsp is on same field.
      * @return map of potentials in stacked format.
      */
-    std::map<position_t, std::pair<std::string, int>> GetAndUpdatePotentials();
+    std::map<position_t, std::pair<std::string, short>> GetAndUpdatePotentials();
 
     /**
-     * Create transfer data and sends it to all online players.
+     * Create player-agnostic transfer-data.
      * @param[in] audio_played between 0 and 1 indicating song progress.
-     * @param[in] update indicating whether to send update or inital data. (default true)
+     * @return player-agnostic transfer-data.
      */
-    void CreateAndSendTransferToAllPlayers(float audio_played, bool update=true);
+    std::shared_ptr<Update> CreateBaseUpdate(float audio_played);
+
+    /**
+     * Creates transfer-data and sends it to all online players.
+     * @param[in] audio_played between 0 and 1 indicating song progress.
+     */
+    void SendUpdate(float audio_played);
+
+    /**
+     * Creates initial transfer-data (includeing field and graph_positions) and sends 
+     * it to all online players.
+     */
+    void SendInitialData();
 
     /**
      * Checks if new players have died. Eventually sends messages or finally closes game, 
      * when all players except of one have died.
      */
     void HandlePlayersLost();
+
+    /**
+     * Checks if player has loophols and sends loophol-field-positions to
+     * player.
+     */ 
+    void SendLoopHols(std::string username, Player* player);
 
     /**
      * Checks if for any (human) player a potential has scouted new enemy
@@ -171,7 +197,7 @@ class ServerGame {
      * @param[in] message
      * @param[in] ignore_username if set, this user is ignored (default: not set)
      */
-    void SendMessageToAllPlayers(nlohmann::json msg, std::string ignore_username="");
+    void SendMessageToAllPlayers(Command cmd, std::string ignore_username="");
 
     /**
      * Creates string of missing costs.
@@ -180,101 +206,149 @@ class ServerGame {
      */
     static std::string GetMissingResourceStr(Costs missing_costs);
 
-    /**
-     * If a enemy epsp is on same field as given ipsp, increase ipsp potential and decrease epsp 
-     * potential by one.
-     * @param[in] ipsp_pos position of ipsp in question.
-     * @param[in] player who "owns" ipsp.
-     * @param[in] list of enemies of given player.
-     */
-    static void IpspSwallow(position_t ipsp_pos, Player* player, std::vector<Player*> enemies);
-
     // command methods
 
-    void m_SendAudioMap(nlohmann::json& data);
-    void m_SendSong(nlohmann::json& msg);
+    /**
+     * Either loads audios from disc (if same-device or audio already exists) or
+     * requests audio-data from host.
+     * @param[in] data (CheckSendAudio)
+     */
+    void m_SendAudioMap(std::shared_ptr<Data> data);
+
+    /**
+     * Sends audio-data to player.
+     * @param[in] data (used only to get player's username).
+     */
+    void m_SendSong(std::shared_ptr<Data> data);
+
+    /**
+     * Adds new audio-data-part to audio-buffer.
+     * @param[in] data (AudioTransferData)
+     */
+    void m_AddAudioPart(std::shared_ptr<Data> data);
 
     /**
      * Analyzes audio and initialize game.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_InitializeGame(nlohmann::json& data);
+    void m_InitializeGame(std::shared_ptr<Data> data);
 
     /**
      * Adds iron
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_AddIron(nlohmann::json& msg);
+    void m_AddIron(std::shared_ptr<Data> data);
 
     /**
      * Removes iron
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_RemoveIron(nlohmann::json& msg);
+    void m_RemoveIron(std::shared_ptr<Data> data);
 
     /**
      * Adds technology
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_AddTechnology(nlohmann::json& msg);
-
-    /**
-     * Handles if a player resignes
-     * @param[in, out] msg
-     */
-    void m_Resign(nlohmann::json& msg);
+    void m_AddTechnology(std::shared_ptr<Data> data);
 
     /**
      * Checks if resources (or other criteria) are met for building neuron.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_CheckBuildNeuron(nlohmann::json& msg);
+    void m_CheckBuildNeuron(std::shared_ptr<Data> data);
 
     /**
      * Checks if resources (or other criteria) are met for building potential.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_CheckBuildPotential(nlohmann::json& msg);
+    void m_CheckBuildPotential(std::shared_ptr<Data> data);
 
     /**
      * Build neuron.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_BuildNeurons(nlohmann::json& msg);
+    void m_BuildNeurons(std::shared_ptr<Data> data);
 
     /**
      * Gets all requested positions: might be of own- or enemy-units. Sends command given command
-     * at msg["data"]["return_cmd"]
-     * @param[in, out] msg
+     * at data["data"]["return_cmd"]
+     * @param[in, out] data
      */
-    void m_GetPositions(nlohmann::json& msg);
+    void m_GetPositions(std::shared_ptr<Data> data);
 
     /**
      * Toggles swarm-attack.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_ToggleSwarmAttack(nlohmann::json& msg);
+    void m_ToggleSwarmAttack(std::shared_ptr<Data> data);
 
     /**
      * Set Way Point
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_SetWayPoint(nlohmann::json& msg);
+    void m_SetWayPoint(std::shared_ptr<Data> data);
 
     /**
      * Set Ipsp target.
-     * @param[in, out] msg
+     * @param[in, out] data
      */
-    void m_SetTarget(nlohmann::json& msg);
+    void m_SetTarget(std::shared_ptr<Data> data);
 
-    void m_SetPauseOn(nlohmann::json& msg);
-    void m_SetPauseOff(nlohmann::json& msg);
+    /**
+     * Activates pause.
+     */
+    void m_SetPauseOn(std::shared_ptr<Data>);
+
+    /**
+     * Deactivates pause.
+     */
+    void m_SetPauseOff(std::shared_ptr<Data>);
 
     /**
      * Build potential.
      * @param[in, out] msg
      */
     void BuildPotentials(int unit, position_t pos, int num_potenials_to_build, std::string username, Player* player);
+
+    /** 
+     * Returns pointer to player from username.
+     * Throws if player not found.
+     */
+    Player* GetPlayer(std::string username);
+
+    /**
+     * Sets up game.
+     * Calls SetUpField and creates players.
+     * @param[in] audios.
+     */
+    void SetUpGame(std::vector<Audio*> audios);
+    /**
+     * Sets up field.
+     * @param[in] ran_gen (random generator used for game).
+     * @return list of nucleus-positions of players.
+     */
+    std::vector<position_t> SetUpField(RandomGenerator* ran_gen);
+
+    /**
+     * Runs game.
+     * - sends start-game info with initial game data to all and players.
+     * - starts main- and ai-thread(s)
+     * @param[in] audios (audios-used for multiple ais. Default empty).
+     */
+    void RunGame(std::vector<Audio*> audios = {});
+
+    // Threads
+
+    /**
+     * Updates game status at every beat. (THREAD)
+     */
+    void Thread_RenderField();
+
+    /**
+     * Handles AI actions at every beat.
+     * @param[in] username of ai handled by this thread.
+     */
+    void Thread_Ai(std::string username);
 };
 
 #endif

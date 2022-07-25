@@ -7,15 +7,17 @@
 #include <exception>
 #include <iostream>
 #include <locale>
+#include <memory>
 #include <random>
 #include <stdexcept>
 #include <vector>
 
 #include "share/defines.h"
+#include "share/shemes/data.h"
+#include "share/tools/graph.h"
 #include "spdlog/spdlog.h"
 
 #include "server/game/field/field.h"
-#include "share/objects/transfer.h"
 #include "share/objects/units.h"
 #include "share/constants/codes.h"
 #include "server/game/player/player.h"
@@ -29,6 +31,7 @@ Field::Field(int lines, int cols, RandomGenerator* ran_gen) {
   lines_ = lines;
   cols_ = cols;
   ran_gen_ = ran_gen;
+  graph_ = std::make_shared<Graph>();
 
   // initialize empty field.
   for (int l=0; l<=lines_; l++) {
@@ -38,13 +41,25 @@ Field::Field(int lines, int cols, RandomGenerator* ran_gen) {
   }
 }
 
+Field::Field(const Field& field) {
+  lines_ = field.lines_;
+  cols_ = field.cols_;
+  ran_gen_ = field.ran_gen_; // check deep-copy
+  graph_ = field.graph_; 
+  field_ = field.field_; 
+  // neurons are added when player's neurons are added.
+}
+
 // getter 
 unsigned int Field::lines() { return lines_; }
 unsigned int Field::cols() { return cols_; }
+std::shared_ptr<Graph> Field::graph() { return graph_; }
+std::map<position_t, std::map<int, position_t>>& Field::resource_neurons() { return resource_neurons_; }
+std::map<position_t, std::vector<std::pair<std::string, Player*>>>& Field::epsps() { return epsps_; }
 
 std::vector<position_t> Field::GraphPositions() {
   std::vector<position_t> graph_positions;
-  for (const auto& it : graph_.nodes())
+  for (const auto& it : graph_->nodes())
     graph_positions.push_back(it.second->pos_);
   return graph_positions;
 }
@@ -57,7 +72,7 @@ std::vector<position_t> Field::AddNucleus(unsigned int num_players) {
     unsigned int free_positions = 0;
     auto positions_in_section = GetAllPositionsOfSection(i);
     for (const auto& it : positions_in_section) {
-      if (graph_.InGraph(it)) 
+      if (graph_->InGraph(it)) 
         free_positions++;
     }
     if (free_positions > positions_in_section.size()/4)
@@ -72,21 +87,22 @@ std::vector<position_t> Field::AddNucleus(unsigned int num_players) {
     // Get random section and then erase retreived section from availible sections
     int section = ran_gen_->RandomInt(0, availible_sections.size()-1);
     auto positions_in_section = GetAllPositionsOfSection(availible_sections[section], true);
-    availible_sections.erase(availible_sections.begin() + section);
-    // Make sure no other nucleus is too near.
+    // availible_sections.erase(availible_sections.begin() + section);
+    // Make sure no other nucleus is too near and enough free fields
     position_t pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size()-1)];
-    while (NucleusInRange(pos, 8))
+    while (NucleusInRange(pos, 8) || GetAllInRange(pos, 1.5, 0, true).size() < 8)
       pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size())];
     // Add to field and nucleus positions.
     field_[pos.first][pos.second] = SYMBOL_DEN;
     nucleus_positions.push_back(pos);
+    AddResources(pos);
     spdlog::get(LOGGER)->info("Adding nucleus at position: {}", utils::PositionToString(pos));
   }
   spdlog::get(LOGGER)->info("Field::AddNucleus: done");
   return nucleus_positions;
 }
 
-std::map<int, position_t> Field::AddResources(position_t start_pos) {
+void Field::AddResources(position_t start_pos) {
   spdlog::get(LOGGER)->info("Field::AddResources {}", utils::PositionToString(start_pos));
   std::map<int, position_t> resource_positions;
 
@@ -110,8 +126,8 @@ std::map<int, position_t> Field::AddResources(position_t start_pos) {
     field_[pos.first][pos.second] = it.first;
     resource_positions[it.second] = pos;
   }
+  resource_neurons_[start_pos] = resource_positions;
   spdlog::get(LOGGER)->info("Field::AddResources: done");
-  return resource_positions;
 }
 
 void Field::BuildGraph() {
@@ -121,46 +137,24 @@ void Field::BuildGraph() {
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
       if (field_[l][c] != SYMBOL_HILL)
-        graph_.AddNode(l, c);
+        graph_->AddNode(l, c);
     }
   }
   // For each node, add edges.
   spdlog::get(LOGGER)->debug("Field::BuildGraph: Adding edged...");
-  for (auto node : graph_.nodes()) {
+  for (auto node : graph_->nodes()) {
     for (const auto& pos : GetAllInRange(node.second->pos_, 1.5, 1)) {
-      if (InField(pos) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_.InGraph(pos))
-        graph_.AddEdge(node.second, graph_.GetNode(pos));
+      if (InField(pos) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_->InGraph(pos))
+        graph_->AddEdge(node.second, graph_->GetNode(pos));
     }
   }
   // Remove all nodes not in main circle
   spdlog::get(LOGGER)->debug("Field::BuildGraph: reducing to greates component...");
-  int num_positions_before = graph_.nodes().size();
-  graph_.ReduceToGreatestComponent();
-  spdlog::get(LOGGER)->info("Field::BuildGraph: Done. {}/{} positions left!", graph_.nodes().size(), 
+  int num_positions_before = graph_->nodes().size();
+  graph_->ReduceToGreatestComponent();
+  spdlog::get(LOGGER)->info("Field::BuildGraph: Done. {}/{} positions left!", graph_->nodes().size(), 
       num_positions_before);
 }
-
-// void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned short denceness) {
-//   spdlog::get(LOGGER)->info("Field::AddHills: denceness={}", denceness);
-//   for (int l=0; l<lines_; l++) {
-//     for (int c=0; c<cols_; c++) {
-//       // Check random 50% chance for building a mountain.
-//       if (gen_1->RandomInt(0, 1) == 1) {
-//         spdlog::get(LOGGER)->debug("Creating muntain: {}|{}", l, c);
-//         field_[l][c] = SYMBOL_HILL;
-//         // Get size of mountain (0-5)
-//         int level = gen_2->RandomInt(0, 5)-999;
-//         if (level < 1)
-//           continue;
-//         spdlog::get(LOGGER)->debug("Creating {} hills", level);
-//         auto positions = GetAllInRange({l, c}, level - denceness, 1);
-//         for (const auto& pos : positions)
-//           field_[pos.first][pos.second] = SYMBOL_HILL;
-//       }
-//     }
-//   }
-//   spdlog::get(LOGGER)->debug("Field::AddHills: done");
-// }
 
 void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned short denceness) {
   auto pitches = gen_1->analysed_data().EveryXPitch(lines_*cols_);
@@ -194,7 +188,7 @@ void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned sh
 }
 
 
-std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<position_t> way_points) {
+std::list<position_t> Field::GetWay(position_t start_pos, std::vector<position_t> way_points) {
   spdlog::get(LOGGER)->debug("Field::GetWayForSoldier: pos={}", utils::PositionToString(start_pos));
   if (way_points.size() < 1)
     return {};
@@ -203,7 +197,7 @@ std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<
   for (unsigned int i=0; i<way_points.size(); i++) {
     try {
       // Get new way-part
-      auto new_part = graph_.DijkstrasWay(way.back(), way_points[i]);
+      auto new_part = graph_->DijkstrasWay(way.back(), way_points[i]);
       new_part.pop_front(); // Remove first element (start-position).
       way.insert(way.end(), new_part.begin(), new_part.end());
       // set start-pos as current way-point
@@ -216,18 +210,40 @@ std::list<position_t> Field::GetWayForSoldier(position_t start_pos, std::vector<
   return way;
 }
 
-void Field::AddNewUnitToPos(position_t pos, int unit) {
+void Field::AddNewUnitToPos(position_t pos, std::shared_ptr<Neuron> neuron, Player* p) {
+  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos({})", utils::PositionToString(pos));
+  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos() x-size: {}", field_.size());
+  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos() y-size: {}", field_[0].size());
   std::unique_lock ul_field(mutex_field_);
-  if (unit == UnitsTech::ACTIVATEDNEURON)
+  if (neuron->type_ == UnitsTech::ACTIVATEDNEURON)
     field_[pos.first][pos.second] = SYMBOL_DEF;
-  else if (unit == UnitsTech::SYNAPSE)
+  else if (neuron->type_== UnitsTech::SYNAPSE)
     field_[pos.first][pos.second] = SYMBOL_BARACK;
-  else if (unit == UnitsTech::NUCLEUS)
+  else if (neuron->type_ == UnitsTech::NUCLEUS)
     field_[pos.first][pos.second] = SYMBOL_DEN;
+  neurons_[pos] = {neuron, p};
+  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos() done.");
+}
+
+void Field::RemoveUnitFromPos(position_t pos) {
+  if (neurons_.count(pos) > 0)
+    neurons_.erase(pos);
+}
+
+std::pair<short, Player*> Field::GetNeuronTypeAtPosition(position_t pos) {
+  if (neurons_.count(pos) > 0)
+    return {neurons_.at(pos).first->type_, neurons_.at(pos).second};
+  return {-1, nullptr};
 }
 
 bool Field::InField(position_t pos) {
   return (pos.first >= 0 && pos.first <= lines_ && pos.second >= 0 && pos.second <= cols_);
+}
+
+void Field::ClearNeurons() {
+  for (const auto& it : neurons_)
+    field_[it.first.first][it.first.second] = SYMBOL_FREE;
+  neurons_.clear();
 }
 
 position_t Field::FindFree(position_t pos, int min, int max) {
@@ -252,13 +268,10 @@ std::vector<position_t> Field::GetAllInRange(position_t start, double max_dist, 
       position_t pos = {upper_corner.first+i, upper_corner.second+j};
       if (InField(pos) && utils::InRange(start, pos, min_dist, max_dist)
           && (!free || field_[pos.first][pos.second] == SYMBOL_FREE)
-          && (!free || graph_.InGraph(pos)))
+          && (!free || graph_->InGraph(pos)))
         positions_in_range.push_back(pos);
     }
   }
-  std::string pos_str = "";
-  for (const auto& position : positions_in_range) 
-    pos_str += utils::PositionToString(position) + ", ";
   return positions_in_range;
 }
 
@@ -278,22 +291,29 @@ std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval,
   int c = (interval < (SECTIONS/2)+1) ? 0 : lines_/2;
   for (int i=l; i<l+cols_/4; i++) {
     for (int j=c; j<c+lines_/2; j++) {
-      if (!in_graph || graph_.InGraph({j, i}))
+      if (!in_graph || graph_->InGraph({j, i}))
         positions.push_back({j, i});
     }
   }
   return positions;
 }
 
-std::vector<std::vector<Transfer::Symbol>> Field::Export(std::vector<Player*> players) {
+std::vector<std::vector<Data::Symbol>> Field::Export(std::map<std::string, Player*> players) {
+  std::vector<Player*> vec_players;
+  for (const auto& it : players)
+    vec_players.push_back(it.second);
+  return Export(vec_players);
+}
+
+std::vector<std::vector<Data::Symbol>> Field::Export(std::vector<Player*> players) {
   std::shared_lock sl_field(mutex_field_);
-  std::vector<std::vector<Transfer::Symbol>> t_field;
+  std::vector<std::vector<Data::Symbol>> t_field;
   // Create transfer-type field.
   for (int l=0; l<lines_; l++) {
-    t_field.push_back(std::vector<Transfer::Symbol>());
+    t_field.push_back(std::vector<Data::Symbol>());
     for (int c=0; c<cols_; c++) {
       position_t cur = {l, c};
-      int color = COLOR_DEFAULT;
+      short color = COLOR_DEFAULT;
       // Check if belongs to either player, is blocked or is resource-neuron
       for (unsigned int i=0; i<players.size(); i++) {
         auto new_color = players[i]->GetColorForPos(cur);
@@ -301,7 +321,7 @@ std::vector<std::vector<Transfer::Symbol>> Field::Export(std::vector<Player*> pl
           color = new_color;
       }
       // Add to json field.
-      t_field[l].push_back({field_[l][c], color});
+      t_field[l].push_back(Data::Symbol({field_[l][c], color}));
     }
   }
   return t_field;
@@ -312,4 +332,14 @@ bool Field::NucleusInRange(position_t pos, unsigned int range) {
     if (field_[it.first][it.second] == SYMBOL_DEN)
       return true;
   return false; 
+}
+
+void Field::GetEpsps( std::map<std::string, Player*> players) {
+  epsps_.clear();
+  for (const auto& p : players) {
+    for (const auto& potential : p.second->potential()) {
+      if (potential.first.find("epsp") != std::string::npos || potential.first.find("macro_1") != std::string::npos)
+        epsps_[potential.second.pos_].push_back({potential.first, p.second});
+    }
+  }
 }
