@@ -655,8 +655,7 @@ void ServerGame::Thread_Ai(std::string username) {
         audio_start_time = std::chrono::steady_clock::now();
       // Increase reasources twice every beat.
       ai->IncreaseResources(audio_.MoreOffNotes(ai->data_per_beat().front()));
-      // if (!tutorial_) 
-      ai->IncreaseResources(audio_.MoreOffNotes(ai->data_per_beat().front()));
+      ai->IncreaseResources(false);
     }
   }
   spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");
@@ -724,9 +723,18 @@ void ServerGame::SendInitialData() {
   auto update = CreateBaseUpdate(0);
   std::shared_ptr<Init> init = std::make_shared<Init>(update, field_->Export(players_), 
       field_->GraphPositions(), players_.begin()->second->technologies());
+
+  std::map<std::string, size_t> ai_strategies;
+  if (mode_ == SINGLE_PLAYER) {
+    for (const auto& it : players_) {
+      if (IsAi(it.first))
+        ai_strategies = it.second->strategies();
+    }
+  }
   // Add player-specific data
   for (const auto& it : human_players_) {
     init->set_macro(it.second->macro());
+    init->set_ai_strategies(ai_strategies);
     init->update()->set_resources(it.second->t_resources());
     init->update()->set_build_options(it.second->GetBuildingOptions());
     init->update()->set_synapse_options(it.second->GetSynapseOptions());

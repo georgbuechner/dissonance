@@ -247,6 +247,8 @@ Init::Init(const char* payload, size_t len, size_t& offset) : Data() {
   technologies_ = result->as<std::map<int, tech_of_t>>();
   unpack(result, payload, len, offset);
   macro_ = result->as<short>();
+  unpack(result, payload, len, offset);
+  ai_strategies_ = result->as<std::map<std::string, size_t>>();
 
   // Create update-object
   update_ = std::make_shared<Update>(payload, len, offset);
@@ -258,9 +260,11 @@ std::vector<position_t> Init::graph_positions() { return graph_positions_; }
 std::map<int, tech_of_t> Init::technologies() { return technologies_; }
 std::shared_ptr<Update> Init::update() { return update_; }
 short Init::macro() { return macro_; }
+std::map<std::string, size_t> Init::ai_strategies() { return ai_strategies_; }
 
 // setter 
 void Init::set_macro(short macro) { macro_ = macro; }
+void Init::set_ai_strategies(std::map<std::string, size_t> def_strategies) { ai_strategies_ = def_strategies; }
 
 // methods 
 void Init::binary(std::stringstream& buffer) { 
@@ -276,6 +280,7 @@ void Init::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, graph_positions_);
   msgpack::pack(buffer, technologies_);
   msgpack::pack(buffer, macro_);
+  msgpack::pack(buffer, ai_strategies_);
   update_->binary(buffer);
 }
 

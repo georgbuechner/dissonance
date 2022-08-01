@@ -8,6 +8,7 @@
 
 #include "share/audio/audio.h"
 #include "server/game/field/field.h"
+#include "share/defines.h"
 #include "share/objects/units.h"
 #include "server/game/player/player.h"
 
@@ -18,6 +19,14 @@ class AudioKi : public Player {
 
     // getter 
     std::deque<AudioDataTimePoint> data_per_beat() const;
+    std::map<std::string, size_t> strategies() const {
+      std::map<std::string, size_t> strategies;
+      strategies["Epsp target strategy: "] = epsp_target_strategy_;
+      strategies["Ipsp target strategy: "] = ipsp_target_strategy_;
+      strategies["Activated neuron strategy: "] = activated_neuron_strategy_;
+      strategies["Main defence strategy: "] = activated_neuron_strategy_;
+      return strategies;
+    }
     
     void SetUpTactics(bool economy_tactics);
     bool DoAction();
@@ -44,6 +53,8 @@ class AudioKi : public Player {
     std::map<size_t, size_t> building_tactics_;
     size_t epsp_target_strategy_;
     size_t ipsp_target_strategy_;
+    size_t activated_neuron_strategy_;
+    size_t main_def_strategy_;
     std::map<unsigned int, unsigned int> extra_activated_neurons_;
 
     // functions 
@@ -76,12 +87,33 @@ class AudioKi : public Player {
      * If for any resource the limit is above 80%, try to research TOTAL_RESOURCE. TODO (fux): or build nucleus.
      */
     void CheckResourceLimit();
-    void CreateExtraActivatedNeurons();
+    /**
+     * Gets called to add defencive structures, if enemy has potentals.
+     * Calls `IpspDef` or `CreateExtraActivatedNeurons`, depending on
+     * strategies.
+     */
+    void Defend();
+
+    /**
+     * Launches Ipsp in the direction of enemy potentials.
+     * @param[in] enemy_potentials (number of incoming enemy epsps)
+     * @param[in] way (way of random enemy incoming epsp)
+     * @return false if defence-strategy could not be applied, true otherwise.
+     */
+    bool IpspDef(unsigned int enemy_potentials, std::list<position_t> way, int diff);
+
+    /**
+     * Creates extra activated neuerons based on enemies attack-strength.
+     * @param[in] enemy_potentials (number of incoming enemy epsps)
+     * @param[in] way (way of random enemy incoming epsp)
+     * @return false if defence-strategy could not be applied, true otherwise.
+     */
+    bool CreateExtraActivatedNeurons(unsigned int enemy_potentials, std::list<position_t> way, int diff);
 
     // helpers
     typedef std::list<std::pair<size_t, size_t>> sorted_stragety;
     sorted_stragety SortStrategy(std::map<size_t, size_t> strategy);
-    std::vector<position_t> GetAllActivatedNeuronsOnWay(std::list<position_t> way);
+    std::vector<position_t> GetAllActivatedNeuronsOnWay(std::vector<position_t> neurons, std::list<position_t> way);
     std::vector<position_t> SortPositionsByDistance(position_t start, std::vector<position_t> positions, bool reverse=false);
     std::vector<position_t> GetEnemySynapsesSortedByLeastDef(position_t start);
     size_t GetMaxLevelExeedance() const;

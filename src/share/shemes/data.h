@@ -3,6 +3,7 @@
 
 #include "nlohmann/json.hpp"
 #include "share/defines.h"
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -101,6 +102,7 @@ class Data {
     virtual std::vector<position_t> target_positions() { return {}; }
     virtual std::shared_ptr<Update> update() { return nullptr; }
     virtual short macro() { return 0; }
+    virtual std::map<std::string, size_t> ai_strategies() { return {}; }
 
     virtual const std::vector<LobbyEntry> lobby() { return {}; }
 
@@ -154,6 +156,7 @@ class Data {
     virtual void set_build_options(std::vector<bool> build_options) {}
     virtual void set_synapse_options(std::vector<bool> synapse_options) {}
     virtual void set_macro(short macro) {}
+    virtual void set_ai_strategies(std::map<std::string, size_t> def_strategies) {}
     virtual void set_pos(position_t pos) {}
     virtual void set_start_pos(position_t pos) {}
     virtual void set_positions(std::vector<position_t> positions) {}
@@ -307,9 +310,11 @@ class Init : public Data {
     std::map<int, tech_of_t> technologies();
     std::shared_ptr<Update> update();
     short macro();
+    std::map<std::string, size_t> ai_strategies();
 
     // setter 
     void set_macro(short macro);
+    void set_ai_strategies(std::map<std::string, size_t> def_strategies);
     
     // methods 
     void binary(std::stringstream& buffer);
@@ -320,6 +325,7 @@ class Init : public Data {
     std::vector<position_t> graph_positions_;
     std::map<int, tech_of_t> technologies_;
     std::shared_ptr<Update> update_;
+    std::map<std::string, size_t> ai_strategies_;
     
     // player-specific-data
     short macro_;

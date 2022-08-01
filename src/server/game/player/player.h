@@ -90,6 +90,7 @@ class Player {
     std::vector<Player*> enemies();
     int color();
     virtual std::deque<AudioDataTimePoint> data_per_beat() const { return {}; }
+    virtual std::map<std::string, size_t> strategies() const { return {}; }
 
     position_t GetSynapesTarget(position_t synapse_pos, int unit);
     std::vector<position_t> GetSynapesWayPoints(position_t synapse_pos, int unit=-1);

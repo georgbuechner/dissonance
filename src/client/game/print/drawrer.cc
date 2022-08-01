@@ -161,8 +161,14 @@ void Drawrer::set_transfer(std::shared_ptr<Data> init) {
     std::string macro = (init->macro() == 0) ? "chained-potential" : "loophols";
     std::string msg = "You are playing with \"" + macro + "\" as your macro!";
     ClearField();
-    PrintCenteredLine(LINES/2, msg);
-    PrintCenteredLine(LINES/2+2, "[Press any key to continue]");
+    PrintCenteredLineBold(LINES/2, msg);
+    PrintCenteredLine(LINES/2+2, "AI strategies");
+    // Print ai strategies
+    int counter=4;
+    for (const auto& it : init->ai_strategies()) {
+      PrintCenteredLine(LINES/2+counter++, it.first + tactics_mapping.at(it.second));
+    }
+    PrintCenteredLine(LINES/2+counter+1, "[Press any key to continue]");
     std::unique_lock ul(mutex_print_field_);
     getch();
     ul.unlock();
