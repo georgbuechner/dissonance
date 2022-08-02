@@ -166,7 +166,10 @@ void Drawrer::set_transfer(std::shared_ptr<Data> init) {
     // Print ai strategies
     int counter=4;
     for (const auto& it : init->ai_strategies()) {
-      PrintCenteredLine(LINES/2+counter++, it.first + tactics_mapping.at(it.second));
+      if (it.second == 0xFFF)
+        PrintCenteredLine(LINES/2+counter++, it.first);
+      else 
+        PrintCenteredLine(LINES/2+counter++, it.first + tactics_mapping.at(it.second));
     }
     PrintCenteredLine(LINES/2+counter+1, "[Press any key to continue]");
     std::unique_lock ul(mutex_print_field_);

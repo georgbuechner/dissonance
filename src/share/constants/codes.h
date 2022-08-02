@@ -101,6 +101,7 @@ enum Tactics {
   DESTROY_SYNAPSES,
   BLOCK_ACTIVATED_NEURON,
   BLOCK_SYNAPSES,
+  BLOCK_RESOURCES,
   DEF_FRONT_FOCUS,
   DEF_SURROUNG_FOCUS,
   DEF_IPSP_BLOCK,
@@ -109,7 +110,7 @@ enum Tactics {
 enum Signitue {
   UNSIGNED = 0,
   SHARP = 1,
-  FLAT = 0,
+  FLAT = 2,
 };
 
 enum AudioInterval {

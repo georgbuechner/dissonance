@@ -19,14 +19,7 @@ class AudioKi : public Player {
 
     // getter 
     std::deque<AudioDataTimePoint> data_per_beat() const;
-    std::map<std::string, size_t> strategies() const {
-      std::map<std::string, size_t> strategies;
-      strategies["Epsp target strategy: "] = epsp_target_strategy_;
-      strategies["Ipsp target strategy: "] = ipsp_target_strategy_;
-      strategies["Activated neuron strategy: "] = activated_neuron_strategy_;
-      strategies["Main defence strategy: "] = activated_neuron_strategy_;
-      return strategies;
-    }
+    std::map<std::string, size_t> strategies() const;
     
     void SetUpTactics(bool economy_tactics);
     bool DoAction();
@@ -51,6 +44,7 @@ class AudioKi : public Player {
     std::set<size_t> resources_activated_;
     std::vector<size_t> technology_tactics_;
     std::map<size_t, size_t> building_tactics_;
+    float ipsp_focus_;
     size_t epsp_target_strategy_;
     size_t ipsp_target_strategy_;
     size_t activated_neuron_strategy_;

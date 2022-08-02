@@ -36,6 +36,19 @@ std::deque<AudioDataTimePoint> AudioKi::data_per_beat() const {
   return data_per_beat_;
 }
 
+std::map<std::string, size_t> AudioKi::strategies() const {
+  std::map<std::string, size_t> strategies;
+  strategies["Epsp target strategy: "] = epsp_target_strategy_;
+  strategies["Ipsp target strategy: "] = ipsp_target_strategy_;
+  strategies["Activated neuron strategy: "] = activated_neuron_strategy_;
+  strategies["Main defence strategy: "] = activated_neuron_strategy_;
+  if (cur_interval_.major_)
+    strategies["Defence based"] = 0xFFF;
+  else 
+    strategies["Attack based"] = 0xFFF;
+  return strategies;
+}
+
 void AudioKi::SetUpTactics(bool inital_setup) {
   spdlog::get(LOGGER)->info("AudioKi::SetUpTactics");
   // Setup tactics.
@@ -54,41 +67,40 @@ void AudioKi::SetUpTactics(bool inital_setup) {
 }
 
 void AudioKi::SetBattleTactics() {
-
   spdlog::get(LOGGER)->info("AudioKi::SetBattleTactics");
-  // Major: defence
-  if (cur_interval_.major_) {
-    // Additionally increase depending on signature.
-    if (cur_interval_.signature_ == Signitue::SHARP)
-      defence_strategies_[Tactics::DEF_FRONT_FOCUS] += 2;
-    else if (cur_interval_.signature_ == Signitue::FLAT)
-      defence_strategies_[Tactics::DEF_SURROUNG_FOCUS] += 2;
-    else
-      defence_strategies_[Tactics::DEF_IPSP_BLOCK] += 2;
-  }
-  // Minor: attack
+  
+  // IPSP/EPSP Focus (darkness)
+  if (cur_interval_.darkness_ > 4)
+    attack_strategies_[Tactics::EPSP_FOCUSED] += 2;
   else {
-    building_tactics_[SYNAPSE] += 5;
-    // Epsp/ ipsp depending on signature
-    if (cur_interval_.signature_ == Signitue::UNSIGNED)
-      attack_strategies_[Tactics::EPSP_FOCUSED] += 2;
-    else
-      attack_strategies_[Tactics::IPSP_FOCUSED] += 2;
-    // targets/ brute force/ intelligent way depending on signature
-    if (cur_interval_.signature_ == Signitue::FLAT) {  // targets
-      if (cur_interval_.darkness_ > 4)
-        attack_strategies_[DESTROY_ACTIVATED_NEURONS] += 2;
-      else if (cur_interval_.darkness_ < 4) 
-        attack_strategies_[DESTROY_ACTIVATED_NEURONS] += 2;
-      if (cur_interval_.notes_out_key_ > 4)
-        attack_strategies_[BLOCK_ACTIVATED_NEURON] += 2;
-      else 
-        attack_strategies_[BLOCK_SYNAPSES] += 2;
-    }
-    else if (cur_interval_.signature_ == Signitue::UNSIGNED) // brute force
-      attack_strategies_[AIM_NUCLEUS] += 3;
-    // TODO (fux): intelligent way.
+    attack_strategies_[Tactics::IPSP_FOCUSED] += 2;
+    defence_strategies_[Tactics::DEF_IPSP_BLOCK] += 4;
   }
+  // Find EPSP/IPSP-TARGET strategies based on signature:
+  // FLAT: destroy activated neurons
+  if (cur_interval_.signature_ == FLAT)
+    attack_strategies_[DESTROY_ACTIVATED_NEURONS] += 2;
+  // SHARP: destroy synapses
+  else if (cur_interval_.signature_ == SHARP)
+    attack_strategies_[DESTROY_SYNAPSES] += 2;
+  // UNSIGNED: destroy nucleus
+  else if (cur_interval_.signature_ == UNSIGNED) {
+    attack_strategies_[AIM_NUCLEUS] += 4;
+    attack_strategies_[BLOCK_ACTIVATED_NEURON] += 3;
+  }
+  // Find EPSP/IPSP-TARGET strategies based on :
+  attack_strategies_[BLOCK_ACTIVATED_NEURON+(cur_interval_.darkness_%3)] += 2;
+
+  // ACTIVATED NEURONS-strategy
+  if (cur_interval_.notes_out_key_ > 4)
+    defence_strategies_[Tactics::DEF_FRONT_FOCUS] += 2;
+  else 
+    defence_strategies_[Tactics::DEF_SURROUNG_FOCUS] += 2;
+  // BUILDING TACTICS:
+  if (cur_interval_.major_)
+    building_tactics_[ACTIVATEDNEURON] += 10;
+  else
+    building_tactics_[SYNAPSE] += 4;
 
   // Add more random factors: key_note, darkness and notes outside of key.
   for (const auto& factor : {cur_interval_.key_note_, cur_interval_.darkness_, cur_interval_.notes_out_key_}) {
@@ -119,6 +131,7 @@ void AudioKi::SetBattleTactics() {
   ipsp_target_strategy_ = BLOCK_ACTIVATED_NEURON; // default.
   if (attack_strategies_.at(BLOCK_SYNAPSES) > attack_strategies_.at(BLOCK_ACTIVATED_NEURON))
     ipsp_target_strategy_ = BLOCK_SYNAPSES;
+  ipsp_focus_ = (float)attack_strategies_.at(IPSP_FOCUSED)/(float)attack_strategies_.at(EPSP_FOCUSED);
 
   // Log results for this interval.
   spdlog::get(LOGGER)->debug("key {}, darkness {}, notes_out_key {}", cur_interval_.key_, cur_interval_.darkness_, 
@@ -133,31 +146,24 @@ void AudioKi::SetBattleTactics() {
 
 void AudioKi::SetEconomyTactics() {
   spdlog::get(LOGGER)->info("AudioKi::SetEconomyTactics");
-  std::map<size_t, size_t> resource_tactics;
   std::map<size_t, size_t> technology_tactics;
 
-  // Resources direct
-  unsigned atk_boast = (cur_interval_.major_) ? 0 : 10;
-  resource_tactics[CHLORIDE] = attack_strategies_[IPSP_FOCUSED] + defence_strategies_[DEF_IPSP_BLOCK]
-    + attack_strategies_[BLOCK_ACTIVATED_NEURON] + attack_strategies_[BLOCK_SYNAPSES];
-  resource_tactics[POTASSIUM] = atk_boast + attack_strategies_[EPSP_FOCUSED] + attack_strategies_[DESTROY_SYNAPSES]
-    + attack_strategies_[DESTROY_ACTIVATED_NEURONS];
-  unsigned def_boast = (cur_interval_.major_) ? 10 : 0;
-  resource_tactics[GLUTAMATE] = 4 + def_boast + (defence_strategies_[DEF_FRONT_FOCUS] 
-      + defence_strategies_[DEF_SURROUNG_FOCUS])/2;
-  if (main_def_strategy_ == DEF_IPSP_BLOCK)
-    resource_tactics[CHLORIDE]+=5;
-  else 
-    resource_tactics[GLUTAMATE]+=5;
-  resource_tactics[DOPAMINE] = atk_boast/2 + defence_strategies_[DEF_IPSP_BLOCK];
-    resource_tactics[SEROTONIN] = 1;
-  if (def_boast > atk_boast) {
-    resource_tactics[DOPAMINE] = resource_tactics[GLUTAMATE]-1;
-    resource_tactics[SEROTONIN] = resource_tactics[GLUTAMATE]-2;
+  // Resources
+  if (cur_interval_.major_) {
+    if (main_def_strategy_ == DEF_IPSP_BLOCK)
+      resource_tactics_ = {CHLORIDE, GLUTAMATE, POTASSIUM};
+    else
+      resource_tactics_ = {GLUTAMATE, POTASSIUM, CHLORIDE};
+    resource_tactics_.insert(resource_tactics_.end(), {SEROTONIN, DOPAMINE});
   }
-  // Get sorted list of resource_tactics and add resources in sorted order.
-  for (const auto& it : SortStrategy(resource_tactics)) 
-    resource_tactics_.push_back(it.second);
+  else {
+    resource_tactics_.push_back(POTASSIUM);
+    if (main_def_strategy_ == DEF_IPSP_BLOCK)
+      resource_tactics_.insert(resource_tactics_.end(), {CHLORIDE, GLUTAMATE});
+    else
+      resource_tactics_.insert(resource_tactics_.end(), {GLUTAMATE, CHLORIDE});
+    resource_tactics_.insert(resource_tactics_.end(), {DOPAMINE, SEROTONIN});
+  }
   // Distribute extra iron +3 top resources, +2 second resource, +1 third resource.
   for (unsigned int i : {0, 0, 0, 1, 1, 2})
     resource_tactics_.push_back(resource_tactics_[i]);
@@ -187,11 +193,6 @@ void AudioKi::SetEconomyTactics() {
   for (const auto& it : technology_tactics_)
     spdlog::get(LOGGER)->debug("technology: {}", units_tech_name_mapping.at(it));
 
-  // building tactics.
-  if (cur_interval_.major_)
-    building_tactics_[ACTIVATEDNEURON] += 10;
-  else
-    building_tactics_[SYNAPSE] += 4;
 }
 
 bool AudioKi::DoAction() {
@@ -493,8 +494,9 @@ size_t AudioKi::AvailibleIpsps() {
   auto costs = units_costs_.at(UnitsTech::IPSP);
   size_t res = std::min(resources_.at(POTASSIUM).cur() / costs[POTASSIUM], 
       resources_.at(CHLORIDE).cur() / costs[CHLORIDE]);
-  if (attack_strategies_.at(EPSP_FOCUSED) > attack_strategies_.at(IPSP_FOCUSED))
-    res *= attack_strategies_.at(IPSP_FOCUSED)/attack_strategies_.at(EPSP_FOCUSED);
+  // If no ipsp-focus, reduce availible ipsps
+  if (ipsp_focus_ < 0.5)
+    res *= ipsp_focus_;
   return res;
 }
 
