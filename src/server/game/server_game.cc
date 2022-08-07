@@ -327,12 +327,8 @@ void ServerGame::m_SetWayPoint(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ServerGame::m_SetWayPoint. num={}", data->num());
   Player* player = GetPlayer(data->u());
   int tech = player->technologies().at(WAY).first; // number of availible way points to add.
-  // If first way-point, reset waypoints with new way-point.
-  if (data->num() == 1) 
-    player->ResetWayForSynapse(data->synapse_pos(), data->way_point());
-  // Otherwise add waypoint.
-  else 
-    player->AddWayPosForSynapse(data->synapse_pos(), data->way_point());
+  // If first way-point, reset waypoints with new way-point. Otherwise add waypoint.
+  player->AddWayPosForSynapse(data->synapse_pos(), data->way_point(), data->num() == 1);
   // Create new SetWayPoints-Object with same synapse-pos, but updated number and message.
   auto new_data = std::make_shared<SetWayPoints>(data->synapse_pos());
   new_data->set_msg("New way-point added: " + std::to_string(data->num()) + "/" + std::to_string(tech));

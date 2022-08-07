@@ -168,20 +168,12 @@ class Player {
     position_t GetOneNucleus();
 
     /**
-     * Resets way-points for synapse at given position to contain only given way-point.
-     * @param[in] pos position of synapse.
-     * @param[in] way_point
-     * @return new number of way-points.
-     */
-    int ResetWayForSynapse(position_t pos, position_t way_point);
-
-    /**
      * Adds a way point to way_points of a synapse.
      * @param[in] pos position of synapse.
      * @param[in] way_point
      * @return new number of way-points.
      */
-    int AddWayPosForSynapse(position_t pos, position_t way_position);
+    int AddWayPosForSynapse(position_t pos, position_t way_position, bool reset=false);
 
     /**
      * Switch swarm-attack on/ off.

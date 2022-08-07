@@ -588,7 +588,7 @@ void Drawrer::PrintStatistics() const {
 int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, 
     std::map<unsigned short, unsigned short> infos) const {
   spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticEntry: {}, {}", heading, infos.size());
-  PrintCenteredLineBold(s+(++i), "Neurons Built");
+  PrintCenteredLineBold(s+(++i), heading);
   for (const auto& it : infos) 
     PrintCenteredLine(s+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
   return ++i;

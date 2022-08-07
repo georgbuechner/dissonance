@@ -112,6 +112,7 @@ class AudioKi : public Player {
     std::vector<position_t> GetEnemySynapsesSortedByLeastDef(position_t start);
     size_t GetMaxLevelExeedance() const;
     int SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length);
+    int GetVoltageOfAttackedNucleus(position_t enemy_target_pos);
 
     void SetBattleTactics();
     void SetEconomyTactics();

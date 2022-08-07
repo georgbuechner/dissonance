@@ -155,12 +155,12 @@ TEST_CASE("test_ipsp_takes_epsp_potential", "[test_player]") {
     
     // Check invalid
     REQUIRE(player->AddWayPosForSynapse({-1, -1}, {0, 0}) == -1);  // invalids returns -1
-    REQUIRE(player->ResetWayForSynapse({-1, -1}, {0, 0}) == -1);  // invalids returns -1
+    REQUIRE(player->AddWayPosForSynapse({-1, -1}, {0, 0}, true) == -1);  // invalids returns -1
 
     REQUIRE(player->AddWayPosForSynapse(pos, {pos.first+1, pos.second+1}) == 1);  // Adding first way-point returns 1
     REQUIRE(player->AddWayPosForSynapse(pos, {pos.first+1, pos.second+1}) == 2);  // Adding second way-point returns 1
     REQUIRE(player->AddWayPosForSynapse(pos, {pos.first+1, pos.second+1}) == 3);  // Adding third way-point returns 3
-    REQUIRE(player->ResetWayForSynapse(pos, {pos.first+1, pos.second+1}) == 1);  // Reseting returns 1
+    REQUIRE(player->AddWayPosForSynapse(pos, {pos.first+1, pos.second+1}, true) == 1);  // Reseting returns 1
   }
 }
 

@@ -344,28 +344,17 @@ position_t Player::GetRandomNeuron(std::vector<int>) {
   return activated_neuron_postions[ran];
 }
 
-int Player::ResetWayForSynapse(position_t pos, position_t way_position) {
-  spdlog::get(LOGGER)->debug("Player::ResetWayForSynapse");
-  if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE) {
-    neurons_.at(pos)->set_way_points({way_position});
-    spdlog::get(LOGGER)->debug("Player::ResetWayForSynapse: successfully");
-    return neurons_.at(pos)->ways_points().size();
-  }
-  else {
-    spdlog::get(LOGGER)->warn("Player::ResetWayForSynapse: neuron not found or wrong type");
-    return -1;
-  }
-}
-
-int Player::AddWayPosForSynapse(position_t synapse_pos, position_t way_position) {
-  spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse. synape: {}", 
-      utils::PositionToString(synapse_pos));
+int Player::AddWayPosForSynapse(position_t synapse_pos, position_t way_position, bool reset) {
+  spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse. synapse: {}, target: {}", 
+      utils::PositionToString(synapse_pos), utils::PositionToString(way_position));
   if (neurons_.count(synapse_pos) && neurons_.at(synapse_pos)->type_ == UnitsTech::SYNAPSE) {
-    auto cur_way = neurons_.at(synapse_pos)->ways_points();
-    cur_way.push_back(way_position);
-    neurons_.at(synapse_pos)->set_way_points(cur_way);
+    auto cur_waypoints = neurons_.at(synapse_pos)->ways_points();
+    if (reset)
+      cur_waypoints.clear();
+    cur_waypoints.push_back(way_position);
+    neurons_.at(synapse_pos)->set_way_points(cur_waypoints);
     spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse: successfully");
-    return cur_way.size();
+    return cur_waypoints.size();
   }
   else {
     spdlog::get(LOGGER)->warn("Player::AddWayPosForSynapse: neuron not found or wrong type");
