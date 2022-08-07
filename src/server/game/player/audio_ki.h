@@ -29,7 +29,6 @@ class AudioKi : public Player {
     // members
     Audio* audio_;
     std::deque<AudioDataTimePoint> data_per_beat_;
-    const float average_bpm_;
     const float average_level_;
     size_t max_activated_neurons_;
     position_t nucleus_pos_;
@@ -38,18 +37,16 @@ class AudioKi : public Player {
     Interval cur_interval_;
     std::vector<AudioDataTimePoint> last_data_points_above_average_level_;
 
-    std::map<size_t, size_t> attack_strategies_;
-    std::map<size_t, size_t> defence_strategies_;
+    std::map<size_t, size_t> epsp_target_strategies_;  // DESTROY nucleus/activatedneurons/synapses/resources
+    std::map<size_t, size_t> ipsp_target_strategies_;  // BLOCK activatedneurons/synapses/resources
+    std::map<size_t, size_t> ipsp_epsp_strategies_; // front-/ surround-focus
+    std::map<size_t, size_t> activated_neuron_strategies_; // front-/ surround-focus
+    std::map<size_t, size_t> def_strategies_; // front-/ surround-focus
+                                                      
     std::vector<size_t> resource_tactics_;
     std::set<size_t> resources_activated_;
     std::vector<size_t> technology_tactics_;
     std::map<size_t, size_t> building_tactics_;
-    float ipsp_focus_;
-    size_t epsp_target_strategy_;
-    size_t ipsp_target_strategy_;
-    size_t activated_neuron_strategy_;
-    size_t main_def_strategy_;
-    std::map<unsigned int, unsigned int> extra_activated_neurons_;
 
     // functions 
     bool DoAction(const AudioDataTimePoint& data_at_beat);
@@ -105,11 +102,19 @@ class AudioKi : public Player {
     bool CreateExtraActivatedNeurons(unsigned int enemy_potentials, std::list<position_t> way, int diff);
 
     // helpers
-    typedef std::list<std::pair<size_t, size_t>> sorted_stragety;
-    sorted_stragety SortStrategy(std::map<size_t, size_t> strategy);
+    typedef std::list<std::pair<size_t, size_t>> sorted_stragety; ///< value -> strategy
+    sorted_stragety SortStrategy(std::map<size_t, size_t> strategy) const;
+    size_t GetTopStrategy(std::map<size_t, size_t> strategy) const;
     std::vector<position_t> GetAllActivatedNeuronsOnWay(std::vector<position_t> neurons, std::list<position_t> way);
     std::vector<position_t> SortPositionsByDistance(position_t start, std::vector<position_t> positions, bool reverse=false);
-    std::vector<position_t> GetEnemySynapsesSortedByLeastDef(position_t start);
+    /**
+     * Gets enemy neurons of given type by how strongly defended by activated
+     * neurons.
+     * Should be used on either SYNAPSE, or RESOURCENEURON.
+     * @param[in] start (position from which potential starts)
+     * @param[in] neuron_type 
+     */
+    std::vector<position_t> GetEnemyNeuronsSortedByLeastDef(position_t start, int neuron_type);
     size_t GetMaxLevelExeedance() const;
     int SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length);
     int GetVoltageOfAttackedNucleus(position_t enemy_target_pos);

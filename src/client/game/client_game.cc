@@ -225,7 +225,6 @@ void ClientGame::GetAction() {
     // Throw event
     std::shared_lock sl(mutex_context_);
     if (contexts_.at(current_context_).eventmanager().handlers().count(choice) > 0) {
-      spdlog::get(LOGGER)->debug("ClientGame::GetAction: calling handler.");
       auto data = contexts_.at(current_context_).data();
       contexts_.at(current_context_).set_cmd(choice);
       sl.unlock();
@@ -448,9 +447,6 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
   if (data->way_point() != DEFAULT_POS) {
     spdlog::get(LOGGER)->debug("h_SetWPs: Setting new wp (final)! synapse-pos: {}", 
         utils::PositionToString(data->synapse_pos()));
-    spdlog::get(LOGGER)->debug("h_SetWPs: Setting new wp! way-point: {}", 
-        utils::PositionToString(data->way_point()));
-    spdlog::get(LOGGER)->debug("h_SetWPs (final): num: {}", data->num());
     ws_srv_->SendMessage("set_way_point", data);
   }
   // third call: select field position
@@ -458,16 +454,12 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
     RemovePickContext(CONTEXT_SYNAPSE);
     spdlog::get(LOGGER)->debug("h_SetWPs (third): synapse-pos: {}", 
         utils::PositionToString(data->synapse_pos()));
-    spdlog::get(LOGGER)->debug("h_SetWPs (third): start-pos: {}", 
-        utils::PositionToString(data->start_pos()));
-    spdlog::get(LOGGER)->debug("h_SetWPs (third): num: {}", data->num());
     SwitchToFieldContext(data->start_pos(), 1000, "set_wps", data, "Select new way-point position.", {'q'});
   }
   // second call: select start position
   else if (data->centered_positions().size() > 0) {
     spdlog::get(LOGGER)->debug("h_SetWPs (second): synapse-pos: {}", 
         utils::PositionToString(data->synapse_pos()));
-    spdlog::get(LOGGER)->debug("h_SetWPs (second): num: {}", data->num());
     // print ways:
     for (const auto& it : data->current_way())
       drawrer_.AddMarker(WAY_MARKER, it, COLOR_MARKED);
@@ -480,9 +472,7 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
   }
   // First call (request positions)
   else {
-    spdlog::get(LOGGER)->debug("h_SetWPs (first): synapse-pos: {}", 
-        utils::PositionToString(data->synapse_pos()));
-    spdlog::get(LOGGER)->debug("h_SetWPs (first): num: {}", data->num());
+    spdlog::get(LOGGER)->debug("h_SetWPs (first): synapse-pos: {}", utils::PositionToString(data->synapse_pos()));
     // If "msg" is contained, print message
     if (data->msg() != "")
       drawrer_.set_msg(data->msg());
@@ -637,8 +627,7 @@ void ClientGame::FinalSynapseContextAction(position_t synapse_pos) {
 
 void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::string msg, 
     std::string action, std::shared_ptr<Data> data, std::vector<char> slip_handlers) {
-  spdlog::get(LOGGER)->info("ClientGame::CreatePickContext: switched to pick context: {} positions",
-      positions.size());
+  spdlog::get(LOGGER)->info("ClientGame::CreatePickContext: switched to pick context: {} positions", positions.size());
   std::shared_lock sl(mutex_context_);
   // Get all handlers and add markers to drawrer.
   drawrer_.ClearMarkers(PICK_MARKER);
@@ -862,7 +851,6 @@ void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
 void ClientGame::m_UpdateGame(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::m_UpdateGame");
   drawrer_.UpdateTranser(data);
-  spdlog::get(LOGGER)->debug("ClientGame::m_UpdateGame: done. Now printing game.");
   drawrer_.PrintGame(false, false, current_context_);
 }
 
