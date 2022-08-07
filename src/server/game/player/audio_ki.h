@@ -119,6 +119,15 @@ class AudioKi : public Player {
     int SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length);
     int GetVoltageOfAttackedNucleus(position_t enemy_target_pos);
 
+    /**
+     * Extraordinarily increases next resource, if iron is low, but an active resource is plentiful.
+     * Deactives highest resource (>40) and uses iron, to active next resource. 
+     * Put's deactivated resource as next in line. 
+     * Does not do anything if next resource is also plentiful.
+     * @return true took action, false otherwise.
+     */
+    bool LowIronResourceDistribution();
+
     void SetBattleTactics();
     void SetEconomyTactics();
 };

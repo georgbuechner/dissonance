@@ -58,8 +58,8 @@ void ClientGame::init(){
     { CONTEXT_RESOURCES, {{'+', &ClientGame::h_AddIron}, {'-', &ClientGame::h_RemoveIron}} },
     { CONTEXT_TECHNOLOGIES, {{'\n', &ClientGame::h_AddTech}} },
     { CONTEXT_SYNAPSE, {
-        {'s', &ClientGame::h_SetWPs}, {'i', &ClientGame::h_SetTarget}, {'e', &ClientGame::h_SetTarget}, 
-        {'m', &ClientGame::h_SetTarget}, {'w', &ClientGame::h_SwarmAttack}, {'t', &ClientGame::h_ChangeViewPoint}, 
+        {'w', &ClientGame::h_SetWPs}, {'i', &ClientGame::h_SetTarget}, {'e', &ClientGame::h_SetTarget}, 
+        {'m', &ClientGame::h_SetTarget}, {'s', &ClientGame::h_SwarmAttack}, {'t', &ClientGame::h_ChangeViewPoint}, 
         {'q', &ClientGame::h_ResetOrQuitSynapseContext}
       }
     },
@@ -89,9 +89,9 @@ t_topline std_topline = {{"[i]psp (a..z)  ", COLOR_DEFAULT}, {"[e]psp (1..9)  ",
 t_topline field_topline = {{" [h, j, k, l] to navigate field " " [t]oggle-navigation ", 
   COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}};
 
-t_topline synapse_topline = {{" [s]et way-points ", COLOR_DEFAULT}, {" [i]psp-target ", 
+t_topline synapse_topline = {{" set [w]ay-points ", COLOR_DEFAULT}, {" [i]psp-target ", 
   COLOR_DEFAULT}, { " [e]psp-target ", COLOR_DEFAULT}, { " [m]acro-target ", COLOR_DEFAULT}, 
-  { " toggle s[w]arm-attack ", COLOR_DEFAULT}, {" [t]oggle-navigation ", COLOR_DEFAULT}, 
+  { " toggle [s]warm-attack ", COLOR_DEFAULT}, {" [t]oggle-navigation ", COLOR_DEFAULT}, 
   {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}
 };
 

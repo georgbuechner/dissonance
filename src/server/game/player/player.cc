@@ -440,9 +440,7 @@ bool Player::RemoveIron(int resource) {
     spdlog::get(LOGGER)->error("Player::RemoveIron: no iron distributed to this resource!");
     return false;
   }
-  //int active_before = resources_.at(resource).Active();
   resources_.at(resource).set_distribited_iron(resources_.at(resource).distributed_iron()-1);
-  //int active_after = resources_.at(resource).Active();
   if (resources_.at(resource).distributed_iron() == 1) {
     AddPotentialToNeuron(resources_.at(resource).pos(), 100);  // Remove resource neuron.
     // Add the second iron too.
