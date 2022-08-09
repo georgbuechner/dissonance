@@ -197,6 +197,32 @@ TEST_CASE("test graph", "[graph]") {
     REQUIRE(new_way.back() == target);
   }
 
+  SECTION("way is siminar for both directions") {
+    Field* field = new Field(100, 100, ran_gen);
+    field->BuildGraph();
+    position_t target = {2, 0};
+    position_t start = {99, 99};
+    auto way_a = field->graph()->DijkstrasWay(start, target);
+    auto way_b = field->graph()->DijkstrasWay(target, start);
+    way_b.reverse();
+    std::vector<position_t> way_a_vec{std::begin(way_a), std::end(way_a)};
+    std::vector<position_t> way_b_vec{std::begin(way_b), std::end(way_b)};
+    REQUIRE(way_a.size() == way_a_vec.size());
+    REQUIRE(way_b.size() == way_b_vec.size());
+    REQUIRE(way_a.size() == way_b.size());
+    for (unsigned int i=0; i<way_a_vec.size(); i++)
+      REQUIRE(way_a_vec[i] == way_b_vec[i]);
+    // Get new way-bs using shifted start
+    for (unsigned int shift=1; shift<way_a.size()-1; shift++) {
+      start = way_a_vec[shift];
+      way_b = field->graph()->DijkstrasWay(target, start);
+      way_b.reverse();
+      std::vector<position_t> way_b_vec_2{std::begin(way_b), std::end(way_b)};
+      for (unsigned int i=shift; i<way_b_vec.size(); i++)
+        REQUIRE(way_a_vec[i+shift] != way_b_vec[i]);
+    }
+  }
+
   SECTION("test speed") {
     auto start_time = std::chrono::steady_clock::now();
     Field* field = new Field(100, 100, ran_gen);

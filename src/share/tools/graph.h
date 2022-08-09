@@ -10,6 +10,7 @@
 #include <iterator>
 #include <mutex>
 #include <queue>
+#include <random>
 #include <shared_mutex>
 #include <sys/types.h>
 #include <unordered_map>
@@ -71,7 +72,8 @@ struct QueueF {
 struct Node {
   int i_pos_;
   position_t pos_;
-  std::list<std::pair<Node*, double>> nodes_; // TODO (fux): concider implementing map[dist] -> Node*. Also do we need Node*?
+  std::list<std::pair<Node*, double>> nodes_; // TODO (fux): concider implementing map[dist] -> Node*. 
+                                              // Also do we need Node*?
 };
 
 class Graph {
@@ -205,14 +207,20 @@ class Graph {
     std::list<position_t> DijkstrasWay(position_t s, position_t t) {
       if (s == t)
         return {s};
-       int i_pos_a = to_int(s);
-       int i_pos_b = to_int(t);
+      int i_pos_a = to_int(s);
+      int i_pos_b = to_int(t);
 
       // Check cache
       t_s_e_tuple start_end_tuple = {s, t};
       std::shared_lock sl(mutex_cache_);
-      if (chache_.count(start_end_tuple) > 0) {
+      if (chache_.count(start_end_tuple) > 0)
         return chache_.at(start_end_tuple);
+      t_s_e_tuple end_start_tuple = {t, s};
+      // If other direction is in cache, returned reversed.
+      if (chache_.count(end_start_tuple) > 0) {
+        auto way = chache_.at(end_start_tuple);
+        way.reverse();
+        return way;
       }
       sl.unlock();
 
@@ -261,7 +269,12 @@ class Graph {
         way.push_front(s);
         // Add way to cache
         std::unique_lock ul(mutex_cache_);
-        chache_[start_end_tuple] = way;
+        std::vector<position_t> way_vec{std::begin(way), std::end(way)};
+        for (unsigned int i=0;i<way_vec.size(); i++) {
+          t_s_e_tuple part_tuple = {way_vec[i], start_end_tuple.second};
+          std::list<position_t> way_part(way_vec.begin()+i, way_vec.end());
+          chache_[part_tuple] = way_part;
+        }
         return way;
       }
       spdlog::get(LOGGER)->debug("Could not find way: " + utils::PositionToString(s) + " to " + utils::PositionToString(t));
@@ -275,6 +288,8 @@ class Graph {
     static position_t get_pos(int c) {
       return {c>>16, c & 0xFFFF};
     }
+
+    std::map<t_s_e_tuple, std::list<position_t>> chache() { return chache_; }
 
   private:
     std::unordered_map<int, Node*> nodes_;

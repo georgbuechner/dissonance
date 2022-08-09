@@ -148,7 +148,7 @@ const std::map<int, std::string> tactics_mapping = {
   {DEF_FRONT_FOCUS,"DEF FRONT FOCUS"},
   {DEF_SURROUNG_FOCUS,"DEF SURROUNG FOCUS"},
   {DEF_IPSP_BLOCK,"DEF IPSP BLOCK"},
-  {DEF_AN_BLOCK, "DEF ACTIVATED NEURON FOCUSED"}
+  {DEF_AN_BLOCK, "DEF ACTIVATED NEURON BLOCK"}
 };
 
 const std::map<int, std::string> resources_name_mapping = {

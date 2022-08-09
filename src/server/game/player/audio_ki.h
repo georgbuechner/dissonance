@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <deque>
 #include <queue>
+#include <shared_mutex>
 #include <vector>
 
 #include "share/audio/audio.h"
@@ -54,9 +55,8 @@ class AudioKi : public Player {
     void LaunchAttack(const AudioDataTimePoint& data_at_beat);
 
     // Create potental/ neurons. Add technology
-    void CreateEpsps(position_t synapse_pos, position_t target_pos, int inital_speed_decrease);
+    void CreateEpsps(position_t synapse_pos, position_t target_pos, int num_epsps_to_create, int speed_decrease);
     void CreateIpsps(position_t synapse_pos, position_t target_pos, int num_ipsp_to_create);
-    void CreateIpspThenEpsp(const AudioDataTimePoint& data_at_beat);
     void CreateSynapses(bool force=false);
     void CreateActivatedNeuron(bool force=false);
     void NewTechnology(const AudioDataTimePoint& data_at_beat);
@@ -127,6 +127,7 @@ class AudioKi : public Player {
      * @return true took action, false otherwise.
      */
     bool LowIronResourceDistribution();
+    std::vector<position_t> FindBestWayPoints(position_t synapse, position_t target);
 
     void SetBattleTactics();
     void SetEconomyTactics();
