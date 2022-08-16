@@ -389,6 +389,10 @@ Statictics::Statictics(const char* payload, size_t len, size_t& offset) : Data()
   resources_ = result->as<std::map<int, std::map<std::string, double>>>();
   unpack(result, payload, len, offset);
   technologies_ = result->as<std::map<int, tech_of_t>>();
+  unpack(result, payload, len, offset);
+  size_t graph_size = result->as<size_t>();
+  for (size_t i=0; i<graph_size; i++) 
+    graph_.push_back(StaticticsEntry(payload, len, offset));
 }
 Statictics::Statictics(const Statictics& statistics) {
   player_name_ = statistics.player_name_;
@@ -413,7 +417,7 @@ unsigned short Statictics::epsp_swallowed() const { return epsp_swallowed_; }
 std::map<int, std::map<std::string, double>> Statictics::stats_resources() const { return resources_; }
 std::map<int, tech_of_t> Statictics::stats_technologies() const { return technologies_; }
 std::map<int, std::map<std::string, double>>& Statictics::stats_resources_ref() { return resources_; }
-
+std::vector<StaticticsEntry> Statictics::graph() const { return graph_; }
 // setter
 void Statictics::set_player_name(std::string player_name) { player_name_ = player_name; }
 void Statictics::set_color(short color) { player_color_ = color; }
@@ -422,6 +426,7 @@ void Statictics::set_technologies(std::map<int, tech_of_t> technologies) { techn
 // methods
 void Statictics::AddNewNeuron(int unit) {
   neurons_build_[unit]++;
+  tmp_neurons_built_.push_back(unit); // add neuron built to tmp neurons, so it can be added to graph.
 }
 void Statictics::AddNewPotential(int unit) {
   potentials_build_[unit]++;
@@ -436,6 +441,10 @@ void Statictics::AddLostPotential(std::string id) {
 }
 void Statictics::AddEpspSwallowed() {
   epsp_swallowed_++;
+}
+void Statictics::AddStatisticsEntry(double oxygen, double potassium, double glutamate) {
+  graph_.push_back(StaticticsEntry(oxygen, potassium, glutamate, tmp_neurons_built_));
+  tmp_neurons_built_.clear(); // clear tmp neurons.
 }
 
 void Statictics::print() {
@@ -464,6 +473,43 @@ void Statictics::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, epsp_swallowed_);
   msgpack::pack(buffer, resources_);
   msgpack::pack(buffer, technologies_);
+  msgpack::pack(buffer, graph_.size());
+  for (auto& it : graph_) 
+    it.binary(buffer);
+}
+
+StaticticsEntry::StaticticsEntry(const char* payload, size_t len, size_t& offset) : Data() {
+  msgpack::object_handle result;
+  unpack(result, payload, len, offset);
+  oxygen_ = result->as<double>();
+  unpack(result, payload, len, offset);
+  potassium_= result->as<double>();
+  unpack(result, payload, len, offset);
+  glutamate_ = result->as<double>();
+  unpack(result, payload, len, offset);
+  neurons_built_ = result->as<std::vector<int>>();
+}
+
+StaticticsEntry::StaticticsEntry(double oxygen, double potassium, double glutamate, 
+    std::vector<int> neurons_built) : Data() {
+  oxygen_ = oxygen;
+  potassium_ = potassium;
+  glutamate_ = glutamate;
+  neurons_built_ = neurons_built;
+}
+
+// getter 
+double StaticticsEntry::oxygen() { return oxygen_; }
+double StaticticsEntry::potassium() { return potassium_; }
+double StaticticsEntry::glutamate() { return glutamate_; }
+std::vector<int> StaticticsEntry::neurons_built() { return neurons_built_; }
+
+// methods 
+void StaticticsEntry::binary(std::stringstream& buffer) {
+  msgpack::pack(buffer, oxygen_);
+  msgpack::pack(buffer, potassium_);
+  msgpack::pack(buffer, glutamate_);
+  msgpack::pack(buffer, neurons_built_);
 }
 
 GameEnd::GameEnd(std::string msg) : Data(), msg_(msg) {}

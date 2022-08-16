@@ -102,6 +102,7 @@ class Player {
 
     // methods:
     
+    void UpdateStatisticsGraph();
     std::shared_ptr<Statictics> GetFinalStatistics(std::string username);
     std::map<position_t, int> GetEpspAtPosition();
     std::map<position_t, int> GetIpspAtPosition();

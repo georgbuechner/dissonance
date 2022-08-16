@@ -12,6 +12,7 @@
 
 class FieldPosition;
 class Update;
+class StaticticsEntry;
 class Statictics;
 
 /**
@@ -115,6 +116,7 @@ class Data {
     virtual unsigned short epsp_swallowed() const { return 0; }
     virtual std::map<int, std::map<std::string, double>> stats_resources() const { return {}; }
     virtual std::map<int, tech_of_t> stats_technologies() const { return {}; }
+    virtual std::vector<StaticticsEntry> graph() const { return {}; }
 
     virtual std::vector<std::shared_ptr<Statictics>> statistics() { return {}; }
 
@@ -411,6 +413,7 @@ class Statictics : public Data {
     std::map<int, std::map<std::string, double>> stats_resources() const;
     std::map<int, tech_of_t> stats_technologies() const;
     std::map<int, std::map<std::string, double>>& stats_resources_ref();
+    std::vector<StaticticsEntry> graph() const;
 
     // setter (no virtual, as called directly from player
     void set_player_name(std::string player_name);
@@ -423,6 +426,7 @@ class Statictics : public Data {
     void AddKillderPotential(std::string id);
     void AddLostPotential(std::string id);
     void AddEpspSwallowed();
+    void AddStatisticsEntry(double oxygen, double potassium, double glutamate);
 
     void print();
     void binary(std::stringstream& buffer);
@@ -437,6 +441,30 @@ class Statictics : public Data {
     unsigned short epsp_swallowed_;
     std::map<int, std::map<std::string, double>> resources_;
     std::map<int, tech_of_t> technologies_;
+    std::vector<StaticticsEntry> graph_;
+
+    std::vector<int> tmp_neurons_built_; ///< not included when packing
+};
+
+class StaticticsEntry : public Data {
+  public: 
+    StaticticsEntry(const char* payload, size_t len, size_t& offset);
+    StaticticsEntry(double oxygen, double potassium, double glutamate, std::vector<int> neurons_built);
+
+    // getter 
+    double oxygen();
+    double potassium();
+    double glutamate();
+    std::vector<int> neurons_built();
+
+    // methods 
+    void binary(std::stringstream& buffer);
+
+  private:
+    double oxygen_;
+    double potassium_;
+    double glutamate_;
+    std::vector<int> neurons_built_;
 };
 
 /**

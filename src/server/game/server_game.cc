@@ -595,6 +595,9 @@ void ServerGame::Thread_RenderField() {
       std::unique_lock ul(mutex_players_);
       for (const auto& it : human_players_)
         it.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      // Update statistics-graph for each player
+      for (const auto& it : players_) 
+        it.second->UpdateStatisticsGraph();
     }
     // Move potential
     if (utils::GetElapsed(last_update, cur_time) > render_frequency) {

@@ -52,7 +52,9 @@ double Resource::average_neg_factor() const {
   if (average_neg_factor_.size() == 0)
     return 0;
   return std::accumulate(average_neg_factor_.begin(), average_neg_factor_.end(), 0.0) / average_neg_factor_.size();
-
+}
+double Resource::active_percent() const {
+  return (double)active_percent_.first/(double)active_percent_.second;
 }
 
 // setter 
@@ -81,6 +83,12 @@ bool Resource::Active() const {
 
 std::string Resource::Print() const {
   return utils::Dtos(cur()) + "+" + utils::Dtos(bound_) + "/" + utils::Dtos(limit_);
+}
+
+
+void Resource::call() {
+  active_percent_.second++;
+  active_percent_.first += (Active()) ? 1 : 0;
 }
 
 void Resource::Increase(double gain, double slowdown) {

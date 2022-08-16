@@ -63,7 +63,10 @@ void ClientGame::init(){
         {'q', &ClientGame::h_ResetOrQuitSynapseContext}
       }
     },
-    { CONTEXT_POST_GAME, {{'h', &ClientGame::h_MoveSelectionUp}, {'l', &ClientGame::h_MoveSelectionDown}}},
+    { CONTEXT_POST_GAME, {
+        {'h', &ClientGame::h_MoveSelectionUp}, {'l', &ClientGame::h_MoveSelectionDown},
+        {'g', &ClientGame::h_ToggleGraphView}}
+    },
     { CONTEXT_LOBBY, 
       {
         {'k', &ClientGame::h_MoveSelectionUp}, {'j', &ClientGame::h_MoveSelectionDown},
@@ -552,6 +555,10 @@ void ClientGame::h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data) {
   }
 }
 
+void ClientGame::h_ToggleGraphView(std::shared_ptr<Data>) {
+  drawrer_.ToggleGraphView();
+}
+
 void ClientGame::h_AddPosition(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::AddPosition: action: {}", contexts_.at(current_context_).action());
   spdlog::get(LOGGER)->debug("ClientGame::AddPosition: synapse_pos: {}", utils::PositionToString(data->synapse_pos()));
@@ -833,7 +840,7 @@ void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame");
   drawrer_.ClearField();
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: setting transfer...");
-  drawrer_.set_transfer(data);
+  drawrer_.set_transfer(data, show_ai_tactics_);
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: printing game...");
   drawrer_.PrintGame(false, false, current_context_);
   status_ = RUNNING;
@@ -1354,7 +1361,7 @@ void ClientGame::EditSettings() {
   auto settings = LoadSettingsJson();
   int cur_selection = 0;
   std::map<int, std::string> settings_mapping = {{0, "stay_in_synapse_menu"}, {1, "show_full_welcome"},
-    {2, "music_on"}};
+    {2, "music_on"}, {3, "show_ai_tactics"}};
   while(true) {
     if (cur_selection == 0) attron(COLOR_PAIR(COLOR_AVAILIBLE));
     drawrer_.PrintCenteredLine(LINES/4+10, "Stay in synapse-menu when setting applied");
@@ -1370,6 +1377,11 @@ void ClientGame::EditSettings() {
     drawrer_.PrintCenteredLine(LINES/4+16, "Music on");
     attron(COLOR_PAIR(COLOR_DEFAULT));
     drawrer_.PrintCenteredLine(LINES/4+17, (settings["music_on"]) ? "yes" : "no");
+
+    if (cur_selection == 3) attron(COLOR_PAIR(COLOR_AVAILIBLE));
+    drawrer_.PrintCenteredLine(LINES/4+19, "Show AI Tactics before game-start.");
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+    drawrer_.PrintCenteredLine(LINES/4+20, (settings["show_ai_tactics"]) ? "yes" : "no");
 
     char c = getch();
     if (c == 'q')
@@ -1387,6 +1399,7 @@ void ClientGame::EditSettings() {
   }
   utils::WriteJsonFromDisc(base_path_ + "settings/settings.json", settings);
   LoadSettings();
+  drawrer_.ClearField();
 }
 
 nlohmann::json ClientGame::LoadSettingsJson() {
@@ -1397,6 +1410,7 @@ void ClientGame::LoadSettings() {
   stay_in_synapse_menu_ = settings["stay_in_synapse_menu"];
   show_full_welcome_text_ = settings["show_full_welcome"];
   music_on_ = settings["music_on"];
+  show_ai_tactics_ = settings["show_ai_tactics"];
 }
 
 ClientGame::AudioSelector ClientGame::SetupAudioSelector(std::string path, std::string title, 

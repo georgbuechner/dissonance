@@ -223,8 +223,8 @@ bool AudioKi::DoAction(const AudioDataTimePoint& data_at_beat) {
       DistributeIron(it);
     }
   }
-
   // Technologies and iron distribution:
+  HandleHighBound();
   if (audio_->MoreOffNotes(data_at_beat, false))
     NewTechnology(data_at_beat);
   else 
@@ -372,7 +372,7 @@ std::vector<position_t> AudioKi::GetIpspTargets(std::list<position_t> way, std::
 }
 
 void AudioKi::CreateEpsps(position_t synapse_pos, position_t target_pos, int num_epsp_to_create, int speed_decrease) {
-  spdlog::get(LOGGER)->debug("AudioKi::CreateEpsps");
+  spdlog::get(LOGGER)->debug("AudioKi::CreateEpsps: speed_decrease: {}", speed_decrease);
   ChangeEpspTargetForSynapse(synapse_pos, target_pos);
   // Calculate update number of epsps to create and update interval
   for (int i=0; i<num_epsp_to_create; i++) {
@@ -393,31 +393,47 @@ void AudioKi::CreateIpsps(position_t synapse_pos, position_t target_pos, int num
 
 void AudioKi::CreateSynapses(bool force) {
   spdlog::get(LOGGER)->debug("AudioKi::CreateSynapses.");
-  unsigned int availible_oxygen = resources_.at(OXYGEN).limit() - resources_.at(OXYGEN).bound();
-  unsigned int num_existing_synapses = GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size();
-  if (num_existing_synapses <= building_tactics_[SYNAPSE] && availible_oxygen > 25 + num_existing_synapses*2) {
-    auto pos = field_->FindFree(nucleus_pos_, 1, 5);
-    // If no more free positions are availible, try to extend range.
-    if (pos.first == -1 && pos.second == -1)
-      AddTechnology(UnitsTech::NUCLEUS_RANGE);
-    // Otherwise build neuron.
-    else if (AddNeuron(pos, UnitsTech::SYNAPSE, enemies_.front()->GetOneNucleus())) {
-      CheckResourceLimit();
+  if (!force) {
+    size_t num_synapses = GetAllPositionsOfNeurons(SYNAPSE).size();
+    // Don't add def, if curent activated neurons exeed num specified in building tactics.
+    if (num_synapses >= building_tactics_[SYNAPSE])
+      return;
+    // Don't add def, out of concern for high resource bounds
+    for (const auto& it : {OXYGEN, POTASSIUM}) {
+      int diff_to_limit = resources_.at(it).limit()-(resources_.at(it).bound()+units_costs_.at(SYNAPSE).at(it));
+      // Don't add if not enough of given resource, or to high bound.
+      if (diff_to_limit < 25 || resources_.at(it).cur() < 25)
+        return;
     }
-    else
-      spdlog::get(LOGGER)->debug("AudioKi::CreateSynapses: not enough resources");
   }
+
+  auto pos = field_->FindFree(nucleus_pos_, 1, 5);
+  // If no more free positions are availible, try to extend range.
+  if (pos.first == -1 && pos.second == -1)
+    AddTechnology(UnitsTech::NUCLEUS_RANGE);
+  // Otherwise build neuron.
+  if (!AddNeuron(pos, UnitsTech::SYNAPSE, enemies_.front()->GetOneNucleus()))
+    spdlog::get(LOGGER)->debug("AudioKi::CreateSynapses: not enough resources");
 }
 
 void AudioKi::CreateActivatedNeuron(bool force) {
   spdlog::get(LOGGER)->debug("AudioKi::CreateActivatedNeuron.");
-  size_t num_activated_neurons = GetAllPositionsOfNeurons(ACTIVATEDNEURON).size();
-  int availible_oxygen = resources_.at(OXYGEN).limit() - resources_.at(OXYGEN).bound();
-  if (!force && (num_activated_neurons >= building_tactics_[ACTIVATEDNEURON] || availible_oxygen < 25))
-    return;
-  // Don't add def, if no synapses already exists and atleast one def already exists.
-  if (!force && num_activated_neurons > 0 && GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() == 0)
-    return;
+  if (!force) {
+    size_t num_activated_neurons = GetAllPositionsOfNeurons(ACTIVATEDNEURON).size();
+    // Don't add def, if no synapses exists and atleast one def already exists.
+    if (num_activated_neurons > 0 && GetAllPositionsOfNeurons(UnitsTech::SYNAPSE).size() == 0)
+      return;
+    // Don't add def, if curent activated neurons exeed num specified in building tactics.
+    if (num_activated_neurons >= building_tactics_[ACTIVATEDNEURON])
+      return;
+    // Don't add def, out of concern for high resource bounds
+    for (const auto& it : {OXYGEN, GLUTAMATE}) {
+      int diff_to_limit = resources_.at(it).limit()-(resources_.at(it).bound()+units_costs_.at(ACTIVATEDNEURON).at(it));
+      // Don't add if not enough of given resource, or to high bound.
+      if (diff_to_limit < 25 || resources_.at(it).cur() < 25)
+        return;
+    }
+  }
 
   // Find position to place neuron coresponding to tactics.
   position_t pos = {-1, -1};
@@ -458,10 +474,7 @@ void AudioKi::CreateActivatedNeuron(bool force) {
     AddTechnology(UnitsTech::NUCLEUS_RANGE);
   }
   // Otherwise build neuron.
-  else if (AddNeuron(pos, UnitsTech::ACTIVATEDNEURON)) {
-    CheckResourceLimit();
-  }
-  else
+  else if (!AddNeuron(pos, UnitsTech::ACTIVATEDNEURON))
     spdlog::get(LOGGER)->debug("AudioKi::CreateActivatedNeuron: not enough resources");
 }
 
@@ -672,17 +685,11 @@ int AudioKi::SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length) {
   int speed_boast = 50*technologies_.at(UnitsTech::ATK_POTENIAL).first;
   size_t ipsp_duration = ipsp_way_length*(IPSP_SPEED-speed_boast);
   size_t epsp_duration = epsp_way_length*(EPSP_SPEED-speed_boast);
-  return (ipsp_duration-epsp_duration)+(IPSP_DURATION/2);
-}
-
-void AudioKi::CheckResourceLimit() {
-  for (const auto& it : resources_) {
-    double procent_full = (it.second.cur()+it.second.bound())/it.second.limit();
-    if (procent_full >= 0.8) {
-      AddTechnology(UnitsTech::TOTAL_RESOURCE);
-      break;
-    }
-  }
+  if (ipsp_duration < epsp_duration)
+    spdlog::get(LOGGER)->warn("AudioKi::SynchAttacks: ipsp_way: {}, epsp_way: {}, speed_boast: {}, ipsp_speed: {}"
+        "epsp_speed: {}, ipsp_duration: {}, epsp_duration: {}", ipsp_way_length, epsp_way_length, speed_boast, 
+        IPSP_SPEED, EPSP_SPEED, ipsp_duration, epsp_duration);
+  return (ipsp_duration < epsp_duration) ? 0 : (ipsp_duration-epsp_duration)+(IPSP_DURATION/2);
 }
 
 void AudioKi::Defend() {
@@ -703,7 +710,7 @@ void AudioKi::Defend() {
       return;
     }
     auto activated_neurons_on_way = GetAllActivatedNeuronsOnWay(GetAllPositionsOfNeurons(ACTIVATEDNEURON), way).size();
-    int diff = enemy_potentials-((float)activated_neurons_on_way*1.5);
+    int diff = enemy_potentials-(activated_neurons_on_way);
     // Get voltage of ai's nucleus closest to enemy target.
     int voltage = GetVoltageOfAttackedNucleus(way.back());
     if (diff > 0) {
@@ -715,6 +722,9 @@ void AudioKi::Defend() {
         if (!CreateExtraActivatedNeurons(enemy_potentials, way, diff) && voltage+diff*2 > 9)
           IpspDef(enemy_potentials, way, diff);
       }
+    }
+    else {
+      spdlog::get(LOGGER)->debug("AudioKi::Defend. ommited since all enemies can be defended: diff: {}", diff);
     }
   }
 }
@@ -761,9 +771,55 @@ bool AudioKi::CreateExtraActivatedNeurons(unsigned int enemy_potentials, std::li
   return true;
 }
 
+void AudioKi::HandleHighBound() {
+  // Finid resouce with highest bound
+  int highest_bound = 70;
+  int resouce = -1;
+  for (const auto& it : resources_) {
+    if (it.second.bound() > highest_bound) {
+      highest_bound = it.second.bound();
+      resouce = it.first;
+    }
+    if (it.first == OXYGEN && it.second.bound() > 65) {
+      resouce = OXYGEN;
+      break;
+    }
+  }
+  // If no resouce with high bound found, return.
+  if (resouce == -1)
+    return;
+  spdlog::get(LOGGER)->info("AudioKi::HandleHighBound. Using fixes on {}", resources_name_mapping.at(resouce));
+  // First, try to increase resouce bounds
+  if (AddTechnology(TOTAL_RESOURCE)) {
+    spdlog::get(LOGGER)->info("AudioKi::HandleHighBound. Successfully increased resouce bounds.");
+    return;
+  }
+  // Second, try adding iron to resouce
+  unsigned int iron = resources_.at(IRON).cur();
+  if (iron > 2 && resources_activated_.size() >= SEROTONIN) {
+    // Distribute all iron but the last to resource with highest bound
+    for (unsigned int i=1; i<iron; i++) DistributeIron(resouce);
+    spdlog::get(LOGGER)->info("AudioKi::HandleHighBound. Successfully distributed {} iron to resouce.", iron-1);
+    return;
+  }
+  // Last option (only for oxygen and only if oxygen is low): destroy synapse
+  if (resouce == OXYGEN && resources_.at(resouce).cur() < 10) {
+    auto synapse_positions = GetAllPositionsOfNeurons(SYNAPSE);
+    if (synapse_positions.size() > 2) {
+      // Make sure way does not lead through enemy teritories, by setting first
+      // way-point to target.
+      AddWayPosForSynapse(synapse_positions.front(), synapse_positions.back(), true);
+      CreateEpsps(synapse_positions.front(), synapse_positions.back(), 3, 0);
+    }
+    spdlog::get(LOGGER)->info("AudioKi::HandleHighBound. Tring to destroy synapse...");
+  }
+}
+
 int AudioKi::GetVoltageOfAttackedNucleus(position_t enemy_target_pos) {
-  auto sorted_nucleus = SortPositionsByDistance(enemy_target_pos, GetAllPositionsOfNeurons(NUCLEUS));
-  if (sorted_nucleus.size() > 1) {
+  auto nucleus = GetAllPositionsOfNeurons(NUCLEUS);
+  spdlog::get(LOGGER)->info("AudioKi::GetVoltageOfAttackedNucleus: number of nucleus' {}", nucleus.size());
+  auto sorted_nucleus = SortPositionsByDistance(enemy_target_pos, nucleus);
+  if (sorted_nucleus.size() > 0) {
     try {
       return neurons_.at(sorted_nucleus.front())->voltage();
     } catch (std::exception& e) {
@@ -783,7 +839,7 @@ std::vector<position_t> AudioKi::FindBestWayPoints(position_t synapse, position_
   // Find best waypoint for each possible way-point to set (based on technology WAY)
   for (size_t i=0; i<technologies_.at(WAY).first; i++) {
     // Get All possible way with distance 5-6, 11-12, ...
-    std::vector<position_t> possible_way_points = field_->GetAllInRange(target, 6*(i+1), 6*(i+1)-1);
+    std::vector<position_t> possible_way_points = field_->GetAllInRange(target, 6*(i+1), 6*(i+1)-1, true);
     // Find way with least activated neurons on way.
     size_t min = 999;
     position_t waypoint = DEFAULT_POS;

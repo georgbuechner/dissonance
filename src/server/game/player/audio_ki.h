@@ -74,11 +74,6 @@ class AudioKi : public Player {
     // Other stretegies
 
     /**
-     * Checks if resource limit is reached.
-     * If for any resource the limit is above 80%, try to research TOTAL_RESOURCE. TODO (fux): or build nucleus.
-     */
-    void CheckResourceLimit();
-    /**
      * Gets called to add defencive structures, if enemy has potentals.
      * Calls `IpspDef` or `CreateExtraActivatedNeurons`, depending on
      * strategies.
@@ -100,6 +95,15 @@ class AudioKi : public Player {
      * @return false if defence-strategy could not be applied, true otherwise.
      */
     bool CreateExtraActivatedNeurons(unsigned int enemy_potentials, std::list<position_t> way, int diff);
+
+    /**
+     * Fixes high bounds on resources.
+     * Finds resource with highest bound (>70), while prioritising oxygen (>65).
+     * First solution: increase resource-bounds.
+     * Second solution: distribute all iron but on to given resource.
+     * Last solution: try to destroy synapse.
+     */
+    void HandleHighBound();
 
     // helpers
     typedef std::list<std::pair<size_t, size_t>> sorted_stragety; ///< value -> strategy

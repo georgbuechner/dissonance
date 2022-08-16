@@ -297,6 +297,9 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
   // Create statistics
   std::shared_ptr<Statictics> statistics_1 = std::make_shared<Statictics>();
   statistics_1->set_color(1);
+  std::vector<int> neurons_1 = {ACTIVATEDNEURON, ACTIVATEDNEURON, SYNAPSE, ACTIVATEDNEURON};
+  for (const auto& it : neurons_1)
+    statistics_1->AddNewNeuron(it);
   for (unsigned int i=0; i<10; i++)
     statistics_1->AddEpspSwallowed();
   for (unsigned int i=0; i<100; i++)
@@ -311,10 +314,20 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
   statistics_1->stats_resources_ref()[1] = {{"1", 3.5}, {"3", 7.6}};
   statistics_1->stats_resources_ref()[2] = {{"5", 1.5}, {"8", 3.6}};
   statistics_1->set_technologies({{1, {0,3}}, {2, {2,3}}});
+  statistics_1->AddStatisticsEntry(10, 0, 0); // Add first data point
+  statistics_1->AddNewNeuron(ACTIVATEDNEURON);
+  statistics_1->AddStatisticsEntry(12, 4, 0); // Add second data point
+  REQUIRE(statistics_1->graph()[0].oxygen() == 10);
+  REQUIRE(statistics_1->graph()[0].neurons_built() == neurons_1);
+  REQUIRE(statistics_1->graph()[1].oxygen() == 12);
+  REQUIRE(statistics_1->graph()[1].neurons_built().front() == ACTIVATEDNEURON);
   data->AddStatistics(statistics_1);
 
   std::shared_ptr<Statictics> statistics_2 = std::make_shared<Statictics>();
   statistics_2->set_color(1);
+  std::vector<int> neurons_2 = {SYNAPSE, ACTIVATEDNEURON, SYNAPSE, SYNAPSE};
+  for (const auto& it : neurons_2)
+    statistics_2->AddNewNeuron(it);
   for (unsigned int i=0; i<11; i++)
     statistics_2->AddEpspSwallowed();
   for (unsigned int i=0; i<120; i++)
@@ -329,6 +342,13 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
   statistics_2->stats_resources_ref()[3] = {{"1", 3.5}, {"3", 7.6}};
   statistics_2->stats_resources_ref()[1] = {{"5", 1.5}, {"8", 3.6}};
   statistics_2->set_technologies({{1, {0,3}}, {2, {2,3}}});
+  statistics_2->AddStatisticsEntry(12, 0, 0); // Add first data-point
+  statistics_2->AddNewNeuron(SYNAPSE); // Add second data-point
+  statistics_2->AddStatisticsEntry(11, 0, 5);
+  REQUIRE(statistics_2->graph()[0].oxygen() == 12);
+  REQUIRE(statistics_2->graph()[0].neurons_built() == neurons_2);
+  REQUIRE(statistics_2->graph()[1].oxygen() == 11);
+  REQUIRE(statistics_2->graph()[1].neurons_built().front() == SYNAPSE);
   data->AddStatistics(statistics_2);
 
   Command cmd(command, data);
@@ -336,6 +356,12 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
   REQUIRE(cmd.data()->msg() == msg);
   REQUIRE(cmd.data()->statistics()[0]->epsp_swallowed() == statistics_1->epsp_swallowed());
   REQUIRE(cmd.data()->statistics()[1]->epsp_swallowed() == statistics_2->epsp_swallowed());
+  REQUIRE(cmd.data()->statistics()[0]->neurons_build().size() == statistics_1->neurons_build().size());
+  REQUIRE(cmd.data()->statistics()[1]->neurons_build().size() == statistics_2->neurons_build().size());
+  REQUIRE(cmd.data()->statistics()[0]->graph()[1].oxygen() == 12);
+  REQUIRE(cmd.data()->statistics()[0]->graph()[1].neurons_built().front() == ACTIVATEDNEURON);
+  REQUIRE(cmd.data()->statistics()[1]->graph()[1].oxygen() == 11);
+  REQUIRE(cmd.data()->statistics()[1]->graph()[1].neurons_built().front() == SYNAPSE);
   auto payload = cmd.bytes();
 
   Command cmd_from_bytes(payload.c_str(), payload.size());
@@ -343,6 +369,12 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
   REQUIRE(cmd_from_bytes.data()->msg() == msg);
   REQUIRE(cmd_from_bytes.data()->statistics()[0]->epsp_swallowed() == statistics_1->epsp_swallowed());
   REQUIRE(cmd_from_bytes.data()->statistics()[1]->epsp_swallowed() == statistics_2->epsp_swallowed());
+  REQUIRE(cmd_from_bytes.data()->statistics()[0]->neurons_build().size() == statistics_1->neurons_build().size());
+  REQUIRE(cmd_from_bytes.data()->statistics()[1]->neurons_build().size() == statistics_2->neurons_build().size());
+  REQUIRE(cmd_from_bytes.data()->statistics()[0]->graph()[1].oxygen() == 12);
+  REQUIRE(cmd_from_bytes.data()->statistics()[0]->graph()[1].neurons_built().front() == ACTIVATEDNEURON);
+  REQUIRE(cmd_from_bytes.data()->statistics()[1]->graph()[1].oxygen() == 11);
+  REQUIRE(cmd_from_bytes.data()->statistics()[1]->graph()[1].neurons_built().front() == SYNAPSE);
 }
 
 TEST_CASE("Test creating build_potential-dto", "[msgpack]") {
