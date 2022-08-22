@@ -442,8 +442,9 @@ void Statictics::AddLostPotential(std::string id) {
 void Statictics::AddEpspSwallowed() {
   epsp_swallowed_++;
 }
-void Statictics::AddStatisticsEntry(double oxygen, double potassium, double glutamate) {
-  graph_.push_back(StaticticsEntry(oxygen, potassium, glutamate, tmp_neurons_built_));
+void Statictics::AddStatisticsEntry(double oxygen, double potassium, double chloride, double glutamate, 
+        double dopamine, double serotonin) {
+  graph_.push_back(StaticticsEntry(oxygen, potassium, chloride, glutamate, dopamine, serotonin, tmp_neurons_built_));
   tmp_neurons_built_.clear(); // clear tmp neurons.
 }
 
@@ -485,30 +486,45 @@ StaticticsEntry::StaticticsEntry(const char* payload, size_t len, size_t& offset
   unpack(result, payload, len, offset);
   potassium_= result->as<double>();
   unpack(result, payload, len, offset);
+  chloride_ = result->as<double>();
+  unpack(result, payload, len, offset);
   glutamate_ = result->as<double>();
+  unpack(result, payload, len, offset);
+  dopamine_ = result->as<double>();
+  unpack(result, payload, len, offset);
+  serotonin_ = result->as<double>();
   unpack(result, payload, len, offset);
   neurons_built_ = result->as<std::vector<int>>();
 }
 
-StaticticsEntry::StaticticsEntry(double oxygen, double potassium, double glutamate, 
-    std::vector<int> neurons_built) : Data() {
+StaticticsEntry::StaticticsEntry(double oxygen, double potassium, double chloride, double glutamate, 
+    double dopamine, double serotonin, std::vector<int> neurons_built) : Data() {
   oxygen_ = oxygen;
   potassium_ = potassium;
+  chloride_ = chloride;
   glutamate_ = glutamate;
+  dopamine_ = dopamine;
+  serotonin_ = serotonin;
   neurons_built_ = neurons_built;
 }
 
 // getter 
 double StaticticsEntry::oxygen() { return oxygen_; }
 double StaticticsEntry::potassium() { return potassium_; }
+double StaticticsEntry::chloride() { return chloride_; }
 double StaticticsEntry::glutamate() { return glutamate_; }
+double StaticticsEntry::dopamine() { return dopamine_; }
+double StaticticsEntry::serotonin() { return serotonin_; }
 std::vector<int> StaticticsEntry::neurons_built() { return neurons_built_; }
 
 // methods 
 void StaticticsEntry::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, oxygen_);
   msgpack::pack(buffer, potassium_);
+  msgpack::pack(buffer, chloride_);
   msgpack::pack(buffer, glutamate_);
+  msgpack::pack(buffer, dopamine_);
+  msgpack::pack(buffer, serotonin_);
   msgpack::pack(buffer, neurons_built_);
 }
 

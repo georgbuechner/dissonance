@@ -426,7 +426,8 @@ class Statictics : public Data {
     void AddKillderPotential(std::string id);
     void AddLostPotential(std::string id);
     void AddEpspSwallowed();
-    void AddStatisticsEntry(double oxygen, double potassium, double glutamate);
+    void AddStatisticsEntry(double oxygen, double potassium, double chloride, double glutamate, 
+        double dopamine, double serotonin);
 
     void print();
     void binary(std::stringstream& buffer);
@@ -449,12 +450,16 @@ class Statictics : public Data {
 class StaticticsEntry : public Data {
   public: 
     StaticticsEntry(const char* payload, size_t len, size_t& offset);
-    StaticticsEntry(double oxygen, double potassium, double glutamate, std::vector<int> neurons_built);
+    StaticticsEntry(double oxygen, double potassium, double chloride, double glutamate, double dopamine, double serotonin,
+        std::vector<int> neurons_built);
 
     // getter 
     double oxygen();
     double potassium();
+    double chloride();
     double glutamate();
+    double dopamine();
+    double serotonin();
     std::vector<int> neurons_built();
 
     // methods 
@@ -463,7 +468,10 @@ class StaticticsEntry : public Data {
   private:
     double oxygen_;
     double potassium_;
+    double chloride_;
     double glutamate_;
+    double dopamine_;
+    double serotonin_;
     std::vector<int> neurons_built_;
 };
 

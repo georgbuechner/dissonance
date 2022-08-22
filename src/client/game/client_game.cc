@@ -65,7 +65,11 @@ void ClientGame::init(){
     },
     { CONTEXT_POST_GAME, {
         {'h', &ClientGame::h_MoveSelectionUp}, {'l', &ClientGame::h_MoveSelectionDown},
-        {'g', &ClientGame::h_ToggleGraphView}}
+        {'1', &ClientGame::h_ToggleShowResource}, {'2', &ClientGame::h_ToggleShowResource}, 
+        {'3', &ClientGame::h_ToggleShowResource}, {'4', &ClientGame::h_ToggleShowResource}, 
+        {'5', &ClientGame::h_ToggleShowResource}, {'6', &ClientGame::h_ToggleShowResource}, 
+        {'g', &ClientGame::h_ToggleGraphView}
+      }
     },
     { CONTEXT_LOBBY, 
       {
@@ -118,12 +122,13 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   use_default_colors();
   start_color();
   // init_pair(COLOR_AVAILIBLE, COLOR_BLUE, -1);
-  init_pair(COLOR_AVAILIBLE, COLOR_BLUE, -1);
-  init_pair(COLOR_ERROR, COLOR_RED, -1);
   init_pair(COLOR_DEFAULT, -1, -1);
-  init_pair(COLOR_MSG, COLOR_CYAN, -1);
-  init_pair(COLOR_SUCCESS, COLOR_GREEN, -1);
-  init_pair(COLOR_MARKED, COLOR_MAGENTA, -1);
+  init_pair(COLOR_PAIR_BLUE, COLOR_BLUE, -1);
+  init_pair(COLOR_PAIR_GREEN, COLOR_GREEN, -1);
+  init_pair(COLOR_PAIR_CYAN, COLOR_CYAN, -1);
+  init_pair(COLOR_PAIR_RED, COLOR_RED, -1);
+  init_pair(COLOR_PAIR_MAGENTA, COLOR_MAGENTA, -1);
+  init_pair(COLOR_PAIR_BROWN, COLOR_PAIR_BROWN, -1);
 
   init_pair(COLOR_P2, 10, -1); // player 
   init_pair(COLOR_P3, 11, -1); // player 
@@ -221,7 +226,7 @@ void ClientGame::GetAction() {
         status_, choice, current_context_);
     if (status_ == WAITING)
       continue; // Skip as long as not active. 
-
+    // End Postgame
     if (current_context_ == CONTEXT_POST_GAME && choice == 'q')
       break;
 
@@ -557,6 +562,14 @@ void ClientGame::h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data) {
 
 void ClientGame::h_ToggleGraphView(std::shared_ptr<Data>) {
   drawrer_.ToggleGraphView();
+}
+void ClientGame::h_ToggleShowResource(std::shared_ptr<Data>) {
+  spdlog::get(LOGGER)->debug("ClientGame::h_ToggleShowResource");
+  char cmd = contexts_.at(current_context_).cmd();
+  spdlog::get(LOGGER)->debug("ClientGame::h_ToggleShowResource. cmd={}", cmd);
+  int resouce = cmd - '0';
+  spdlog::get(LOGGER)->debug("ClientGame::h_ToggleShowResource. resouce={}", resouce);
+  drawrer_.ToggleShowResource(resouce);
 }
 
 void ClientGame::h_AddPosition(std::shared_ptr<Data> data) {
@@ -1400,6 +1413,10 @@ void ClientGame::EditSettings() {
   utils::WriteJsonFromDisc(base_path_ + "settings/settings.json", settings);
   LoadSettings();
   drawrer_.ClearField();
+  drawrer_.PrintCenteredLine(LINES/2, "Settings saved. Restarting game.");
+  drawrer_.PrintCenteredLine(LINES/2+2, "[Press any key to close game]");
+  getch();
+  WrapUp();
 }
 
 nlohmann::json ClientGame::LoadSettingsJson() {

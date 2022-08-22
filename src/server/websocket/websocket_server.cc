@@ -281,7 +281,7 @@ void WebsocketServer::h_InGameAction(connection_id id, Command cmd) {
     }
   }
   else
-    spdlog::get(LOGGER)->warn("Server: message with unkown command or username.");
+    spdlog::get(LOGGER)->warn("Server: message with unkown command ({}) or username ({})", cmd.username(), cmd.command());
 }
 
 void WebsocketServer::CloseGames() {

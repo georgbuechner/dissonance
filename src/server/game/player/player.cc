@@ -179,7 +179,8 @@ void Player::set_lost(bool lost) {
 
 void Player::UpdateStatisticsGraph() {
   statistics_->AddStatisticsEntry(resources_.at(OXYGEN).cur(), resources_.at(POTASSIUM).cur(), 
-      resources_.at(GLUTAMATE).cur());
+      resources_.at(CHLORIDE).cur(), resources_.at(GLUTAMATE).cur(), resources_.at(DOPAMINE).cur(),
+      resources_.at(SEROTONIN).cur());
 }
 
 std::shared_ptr<Statictics> Player::GetFinalStatistics(std::string username) {

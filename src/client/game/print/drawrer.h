@@ -54,6 +54,7 @@ class Drawrer {
     position_t GetMarkerPos(int type, std::string symbol);
     void ClearMarkers(int type = -1);
     void ToggleGraphView();
+    void ToggleShowResource(int resouce);
 
     /**
      * Adds a new neuron to given position.
@@ -113,6 +114,8 @@ class Drawrer {
      * @param[in] statistic for this player.
      */
     void PrintStatisticsGraph(std::shared_ptr<Statictics> statistic) const;
+    void PrintLegend() const;
+    void PrintResource(int resource, int line, int column) const;
 
     /**
      * Prints statistics-graph for selected player
@@ -209,6 +212,7 @@ class Drawrer {
     std::shared_ptr<Lobby> lobby_;
     std::vector<std::shared_ptr<Statictics>> statistics_;
     bool show_graph_;
+    std::map<int, bool> show_resources_;
 
     // other data
     std::map<position_t, Data::Symbol> temp_symbols_;

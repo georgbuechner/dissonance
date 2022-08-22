@@ -314,9 +314,9 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
   statistics_1->stats_resources_ref()[1] = {{"1", 3.5}, {"3", 7.6}};
   statistics_1->stats_resources_ref()[2] = {{"5", 1.5}, {"8", 3.6}};
   statistics_1->set_technologies({{1, {0,3}}, {2, {2,3}}});
-  statistics_1->AddStatisticsEntry(10, 0, 0); // Add first data point
+  statistics_1->AddStatisticsEntry(10, 0, 0, 0, 0, 0); // Add first data point
   statistics_1->AddNewNeuron(ACTIVATEDNEURON);
-  statistics_1->AddStatisticsEntry(12, 4, 0); // Add second data point
+  statistics_1->AddStatisticsEntry(12, 4, 0, 0, 0, 0); // Add second data point
   REQUIRE(statistics_1->graph()[0].oxygen() == 10);
   REQUIRE(statistics_1->graph()[0].neurons_built() == neurons_1);
   REQUIRE(statistics_1->graph()[1].oxygen() == 12);
@@ -342,9 +342,9 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
   statistics_2->stats_resources_ref()[3] = {{"1", 3.5}, {"3", 7.6}};
   statistics_2->stats_resources_ref()[1] = {{"5", 1.5}, {"8", 3.6}};
   statistics_2->set_technologies({{1, {0,3}}, {2, {2,3}}});
-  statistics_2->AddStatisticsEntry(12, 0, 0); // Add first data-point
+  statistics_2->AddStatisticsEntry(12, 0, 0, 0, 0, 0); // Add first data-point
   statistics_2->AddNewNeuron(SYNAPSE); // Add second data-point
-  statistics_2->AddStatisticsEntry(11, 0, 5);
+  statistics_2->AddStatisticsEntry(11, 0, 0, 5, 0, 0);
   REQUIRE(statistics_2->graph()[0].oxygen() == 12);
   REQUIRE(statistics_2->graph()[0].neurons_built() == neurons_2);
   REQUIRE(statistics_2->graph()[1].oxygen() == 11);

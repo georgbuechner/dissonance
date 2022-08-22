@@ -34,6 +34,8 @@ Drawrer::Drawrer() {
   graph_positions_ = std::make_shared<std::set<position_t>>();
   stop_render_ = false;
   show_graph_ = false;
+  show_resources_ = {{OXYGEN, true}, {POTASSIUM, true}, {CHLORIDE, false}, {GLUTAMATE, true}, 
+    {DOPAMINE, false}, {SEROTONIN, false}};
 }
 
 int Drawrer::field_height() {
@@ -220,6 +222,11 @@ void Drawrer::ClearMarkers(int type) {
 
 void Drawrer::ToggleGraphView() {
   show_graph_ = !show_graph_;
+}
+
+void Drawrer::ToggleShowResource(int resource) {
+  if (show_resources_.count(resource) > 0)
+    show_resources_[resource] = !show_resources_.at(resource);
 }
 
 void Drawrer::AddNewUnitToPos(position_t pos, short unit, short color) {
@@ -610,27 +617,22 @@ void Drawrer::PrintStatisticsGraph(std::shared_ptr<Statictics> statistic) const 
   mvaddstr(LINES-6, cols_offset-cols_init_offset+1, "   (time) ");
   mvaddstr(7, cols_offset-cols_init_offset+1, "(neurons) ");
   // Print legend:
-  attron(COLOR_PAIR(13));
-  mvaddstr(LINES-3, cols_offset, SYMBOL_OXYGEN " oxygen");
-  attron(COLOR_PAIR(12));
-  mvaddstr(LINES-3, cols_offset+15, SYMBOL_POTASSIUM " potassium");
-  attron(COLOR_PAIR(11));
-  mvaddstr(LINES-3, cols_offset+30, SYMBOL_GLUTAMATE " glutamate");
-  attron(COLOR_PAIR(COLOR_DEFAULT));
+  PrintLegend();
 
   // draw graph-outlines:
   for (unsigned int i=0; i<graph.size() && i<(size_t)(COLS-(cols_offset*2)); i++) {
-    // Graph outlines:
+    // y-numbering:
     if (i%10 == 0)
       mvaddstr(LINES-6, i+12+cols_offset, std::to_string(i).c_str());
+    // x-numbering:
     if (i%5 == 0 && i<(size_t)(LINES-16)) {
-      int oxygen = i/fak;
-      mvaddstr(LINES-lines_offset-i, cols_offset, std::to_string(oxygen).c_str());
+      int line_val = i/fak;
+      mvaddstr(LINES-lines_offset-i, cols_offset, std::to_string(line_val).c_str());
     }
     else if (i<(size_t)(LINES-16))
       mvaddstr(LINES-lines_offset-i, cols_offset, "|");
     mvaddstr(LINES-lines_offset, i+cols_offset, "-");
-    // Skip if graph must be reduced.
+    // Skip printing resource if graph must be reduced.
     if (cols_init_offset == cols_offset) {
       int mod = 1+graph.size()/(size_t)(COLS-(cols_offset*2));
       if (i%mod != 0 && graph[i].neurons_built().size() == 0)
@@ -649,16 +651,30 @@ void Drawrer::PrintStatisticsGraph(std::shared_ptr<Statictics> statistic) const 
         spdlog::get(LOGGER)->debug("Drawrer::PrintStatistics: neuron: {} printed", neuron);
       }
     }
-    // Resources:
-    attron(COLOR_PAIR(11));
-    int l = LINES-graph[i].glutamate()*fak;
-    mvaddstr(l-lines_offset, i+5+cols_offset, SYMBOL_FREE);
-    attron(COLOR_PAIR(12));
-    l = LINES-graph[i].potassium()*fak;
-    mvaddstr(l-lines_offset, i+5+cols_offset, SYMBOL_FREE);
-    attron(COLOR_PAIR(13));
-    l = LINES-graph[i].oxygen()*fak;
-    mvaddstr(l-lines_offset, i+5+cols_offset, SYMBOL_FREE);
+    // Resources (most relevant last):
+    PrintResource(SEROTONIN, (LINES-graph[i].serotonin()*fak)-lines_offset, i+5+cols_offset);
+    PrintResource(DOPAMINE, (LINES-graph[i].dopamine()*fak)-lines_offset, i+5+cols_offset);
+    PrintResource(CHLORIDE, (LINES-graph[i].chloride()*fak)-lines_offset, i+5+cols_offset);
+    PrintResource(GLUTAMATE, (LINES-graph[i].glutamate()*fak)-lines_offset, i+5+cols_offset);
+    PrintResource(POTASSIUM, (LINES-graph[i].potassium()*fak)-lines_offset, i+5+cols_offset);
+    PrintResource(OXYGEN, (LINES-graph[i].oxygen()*fak)-lines_offset, i+5+cols_offset);
+  }
+}
+
+void Drawrer::PrintLegend() const {
+  for (const auto& it : show_resources_) {
+    attron(COLOR_PAIR((it.second) ? it.first : COLOR_DEFAULT));
+    std::string msg = std::to_string(it.first) + ": " + resources_name_mapping.at(it.first) 
+      + "(" + resource_symbol_mapping.at(it.first) + ")";
+    mvaddstr(LINES-3, 10+(it.first-1)*17, msg.c_str());
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+  }
+}
+
+void Drawrer::PrintResource(int resource, int line, int column) const {
+  if (show_resources_.at(resource)) {
+    attron(COLOR_PAIR(resource));
+    mvaddstr(line, column, SYMBOL_FREE);
     attron(COLOR_PAIR(COLOR_DEFAULT));
   }
 }

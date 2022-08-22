@@ -170,6 +170,7 @@ class ClientGame {
     void h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data);
 
     void h_ToggleGraphView(std::shared_ptr<Data> data);
+    void h_ToggleShowResource(std::shared_ptr<Data> data);
 
     // tutorial
     void h_TutorialGetOxygen(std::shared_ptr<Data> data);
