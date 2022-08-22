@@ -97,6 +97,7 @@ class ClientGame {
     bool stay_in_synapse_menu_;
     bool show_full_welcome_text_;
     bool music_on_;
+    bool show_ai_tactics_;
 
 
     // Selection methods
@@ -167,6 +168,9 @@ class ClientGame {
     void h_SetTarget(std::shared_ptr<Data> data);
     void h_SwarmAttack(std::shared_ptr<Data> data);
     void h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data);
+
+    void h_ToggleGraphView(std::shared_ptr<Data> data);
+    void h_ToggleShowResource(std::shared_ptr<Data> data);
 
     // tutorial
     void h_TutorialGetOxygen(std::shared_ptr<Data> data);

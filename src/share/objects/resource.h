@@ -27,6 +27,7 @@ class Resource {
     double average_boost() const;
     double average_bound() const;
     double average_neg_factor() const;
+    double active_percent() const;
 
     // setter 
     void set_cur(double value);
@@ -58,6 +59,7 @@ class Resource {
      */
     void Increase(double gain, double slowdown);
     void Decrease(double val, bool bind);
+    void call();
 
   private:
     // members
@@ -75,6 +77,7 @@ class Resource {
     std::vector<int> average_boost_;
     std::vector<int> average_bound_;
     std::vector<double> average_neg_factor_;
+    std::pair<int, int> active_percent_;
 };
 
 #endif

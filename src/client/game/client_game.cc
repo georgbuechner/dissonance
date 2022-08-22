@@ -58,12 +58,19 @@ void ClientGame::init(){
     { CONTEXT_RESOURCES, {{'+', &ClientGame::h_AddIron}, {'-', &ClientGame::h_RemoveIron}} },
     { CONTEXT_TECHNOLOGIES, {{'\n', &ClientGame::h_AddTech}} },
     { CONTEXT_SYNAPSE, {
-        {'s', &ClientGame::h_SetWPs}, {'i', &ClientGame::h_SetTarget}, {'e', &ClientGame::h_SetTarget}, 
-        {'m', &ClientGame::h_SetTarget}, {'w', &ClientGame::h_SwarmAttack}, {'t', &ClientGame::h_ChangeViewPoint}, 
+        {'w', &ClientGame::h_SetWPs}, {'i', &ClientGame::h_SetTarget}, {'e', &ClientGame::h_SetTarget}, 
+        {'m', &ClientGame::h_SetTarget}, {'s', &ClientGame::h_SwarmAttack}, {'t', &ClientGame::h_ChangeViewPoint}, 
         {'q', &ClientGame::h_ResetOrQuitSynapseContext}
       }
     },
-    { CONTEXT_POST_GAME, {{'h', &ClientGame::h_MoveSelectionUp}, {'l', &ClientGame::h_MoveSelectionDown}}},
+    { CONTEXT_POST_GAME, {
+        {'h', &ClientGame::h_MoveSelectionUp}, {'l', &ClientGame::h_MoveSelectionDown},
+        {'1', &ClientGame::h_ToggleShowResource}, {'2', &ClientGame::h_ToggleShowResource}, 
+        {'3', &ClientGame::h_ToggleShowResource}, {'4', &ClientGame::h_ToggleShowResource}, 
+        {'5', &ClientGame::h_ToggleShowResource}, {'6', &ClientGame::h_ToggleShowResource}, 
+        {'g', &ClientGame::h_ToggleGraphView}
+      }
+    },
     { CONTEXT_LOBBY, 
       {
         {'k', &ClientGame::h_MoveSelectionUp}, {'j', &ClientGame::h_MoveSelectionDown},
@@ -89,9 +96,9 @@ t_topline std_topline = {{"[i]psp (a..z)  ", COLOR_DEFAULT}, {"[e]psp (1..9)  ",
 t_topline field_topline = {{" [h, j, k, l] to navigate field " " [t]oggle-navigation ", 
   COLOR_DEFAULT}, {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}};
 
-t_topline synapse_topline = {{" [s]et way-points ", COLOR_DEFAULT}, {" [i]psp-target ", 
+t_topline synapse_topline = {{" set [w]ay-points ", COLOR_DEFAULT}, {" [i]psp-target ", 
   COLOR_DEFAULT}, { " [e]psp-target ", COLOR_DEFAULT}, { " [m]acro-target ", COLOR_DEFAULT}, 
-  { " toggle s[w]arm-attack ", COLOR_DEFAULT}, {" [t]oggle-navigation ", COLOR_DEFAULT}, 
+  { " toggle [s]warm-attack ", COLOR_DEFAULT}, {" [t]oggle-navigation ", COLOR_DEFAULT}, 
   {" [h]elp ", COLOR_DEFAULT}, {" [q]uit ", COLOR_DEFAULT}
 };
 
@@ -115,12 +122,13 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   use_default_colors();
   start_color();
   // init_pair(COLOR_AVAILIBLE, COLOR_BLUE, -1);
-  init_pair(COLOR_AVAILIBLE, COLOR_BLUE, -1);
-  init_pair(COLOR_ERROR, COLOR_RED, -1);
   init_pair(COLOR_DEFAULT, -1, -1);
-  init_pair(COLOR_MSG, COLOR_CYAN, -1);
-  init_pair(COLOR_SUCCESS, COLOR_GREEN, -1);
-  init_pair(COLOR_MARKED, COLOR_MAGENTA, -1);
+  init_pair(COLOR_PAIR_BLUE, COLOR_BLUE, -1);
+  init_pair(COLOR_PAIR_GREEN, COLOR_GREEN, -1);
+  init_pair(COLOR_PAIR_CYAN, COLOR_CYAN, -1);
+  init_pair(COLOR_PAIR_RED, COLOR_RED, -1);
+  init_pair(COLOR_PAIR_MAGENTA, COLOR_MAGENTA, -1);
+  init_pair(COLOR_PAIR_BROWN, COLOR_PAIR_BROWN, -1);
 
   init_pair(COLOR_P2, 10, -1); // player 
   init_pair(COLOR_P3, 11, -1); // player 
@@ -218,14 +226,13 @@ void ClientGame::GetAction() {
         status_, choice, current_context_);
     if (status_ == WAITING)
       continue; // Skip as long as not active. 
-
+    // End Postgame
     if (current_context_ == CONTEXT_POST_GAME && choice == 'q')
       break;
 
     // Throw event
     std::shared_lock sl(mutex_context_);
     if (contexts_.at(current_context_).eventmanager().handlers().count(choice) > 0) {
-      spdlog::get(LOGGER)->debug("ClientGame::GetAction: calling handler.");
       auto data = contexts_.at(current_context_).data();
       contexts_.at(current_context_).set_cmd(choice);
       sl.unlock();
@@ -448,9 +455,6 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
   if (data->way_point() != DEFAULT_POS) {
     spdlog::get(LOGGER)->debug("h_SetWPs: Setting new wp (final)! synapse-pos: {}", 
         utils::PositionToString(data->synapse_pos()));
-    spdlog::get(LOGGER)->debug("h_SetWPs: Setting new wp! way-point: {}", 
-        utils::PositionToString(data->way_point()));
-    spdlog::get(LOGGER)->debug("h_SetWPs (final): num: {}", data->num());
     ws_srv_->SendMessage("set_way_point", data);
   }
   // third call: select field position
@@ -458,16 +462,12 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
     RemovePickContext(CONTEXT_SYNAPSE);
     spdlog::get(LOGGER)->debug("h_SetWPs (third): synapse-pos: {}", 
         utils::PositionToString(data->synapse_pos()));
-    spdlog::get(LOGGER)->debug("h_SetWPs (third): start-pos: {}", 
-        utils::PositionToString(data->start_pos()));
-    spdlog::get(LOGGER)->debug("h_SetWPs (third): num: {}", data->num());
     SwitchToFieldContext(data->start_pos(), 1000, "set_wps", data, "Select new way-point position.", {'q'});
   }
   // second call: select start position
   else if (data->centered_positions().size() > 0) {
     spdlog::get(LOGGER)->debug("h_SetWPs (second): synapse-pos: {}", 
         utils::PositionToString(data->synapse_pos()));
-    spdlog::get(LOGGER)->debug("h_SetWPs (second): num: {}", data->num());
     // print ways:
     for (const auto& it : data->current_way())
       drawrer_.AddMarker(WAY_MARKER, it, COLOR_MARKED);
@@ -480,9 +480,7 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
   }
   // First call (request positions)
   else {
-    spdlog::get(LOGGER)->debug("h_SetWPs (first): synapse-pos: {}", 
-        utils::PositionToString(data->synapse_pos()));
-    spdlog::get(LOGGER)->debug("h_SetWPs (first): num: {}", data->num());
+    spdlog::get(LOGGER)->debug("h_SetWPs (first): synapse-pos: {}", utils::PositionToString(data->synapse_pos()));
     // If "msg" is contained, print message
     if (data->msg() != "")
       drawrer_.set_msg(data->msg());
@@ -562,6 +560,18 @@ void ClientGame::h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data) {
   }
 }
 
+void ClientGame::h_ToggleGraphView(std::shared_ptr<Data>) {
+  drawrer_.ToggleGraphView();
+}
+void ClientGame::h_ToggleShowResource(std::shared_ptr<Data>) {
+  spdlog::get(LOGGER)->debug("ClientGame::h_ToggleShowResource");
+  char cmd = contexts_.at(current_context_).cmd();
+  spdlog::get(LOGGER)->debug("ClientGame::h_ToggleShowResource. cmd={}", cmd);
+  int resouce = cmd - '0';
+  spdlog::get(LOGGER)->debug("ClientGame::h_ToggleShowResource. resouce={}", resouce);
+  drawrer_.ToggleShowResource(resouce);
+}
+
 void ClientGame::h_AddPosition(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::AddPosition: action: {}", contexts_.at(current_context_).action());
   spdlog::get(LOGGER)->debug("ClientGame::AddPosition: synapse_pos: {}", utils::PositionToString(data->synapse_pos()));
@@ -637,8 +647,7 @@ void ClientGame::FinalSynapseContextAction(position_t synapse_pos) {
 
 void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::string msg, 
     std::string action, std::shared_ptr<Data> data, std::vector<char> slip_handlers) {
-  spdlog::get(LOGGER)->info("ClientGame::CreatePickContext: switched to pick context: {} positions",
-      positions.size());
+  spdlog::get(LOGGER)->info("ClientGame::CreatePickContext: switched to pick context: {} positions", positions.size());
   std::shared_lock sl(mutex_context_);
   // Get all handlers and add markers to drawrer.
   drawrer_.ClearMarkers(PICK_MARKER);
@@ -844,7 +853,7 @@ void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame");
   drawrer_.ClearField();
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: setting transfer...");
-  drawrer_.set_transfer(data);
+  drawrer_.set_transfer(data, show_ai_tactics_);
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: printing game...");
   drawrer_.PrintGame(false, false, current_context_);
   status_ = RUNNING;
@@ -862,7 +871,6 @@ void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
 void ClientGame::m_UpdateGame(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::m_UpdateGame");
   drawrer_.UpdateTranser(data);
-  spdlog::get(LOGGER)->debug("ClientGame::m_UpdateGame: done. Now printing game.");
   drawrer_.PrintGame(false, false, current_context_);
 }
 
@@ -1366,7 +1374,7 @@ void ClientGame::EditSettings() {
   auto settings = LoadSettingsJson();
   int cur_selection = 0;
   std::map<int, std::string> settings_mapping = {{0, "stay_in_synapse_menu"}, {1, "show_full_welcome"},
-    {2, "music_on"}};
+    {2, "music_on"}, {3, "show_ai_tactics"}};
   while(true) {
     if (cur_selection == 0) attron(COLOR_PAIR(COLOR_AVAILIBLE));
     drawrer_.PrintCenteredLine(LINES/4+10, "Stay in synapse-menu when setting applied");
@@ -1382,6 +1390,11 @@ void ClientGame::EditSettings() {
     drawrer_.PrintCenteredLine(LINES/4+16, "Music on");
     attron(COLOR_PAIR(COLOR_DEFAULT));
     drawrer_.PrintCenteredLine(LINES/4+17, (settings["music_on"]) ? "yes" : "no");
+
+    if (cur_selection == 3) attron(COLOR_PAIR(COLOR_AVAILIBLE));
+    drawrer_.PrintCenteredLine(LINES/4+19, "Show AI Tactics before game-start.");
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+    drawrer_.PrintCenteredLine(LINES/4+20, (settings["show_ai_tactics"]) ? "yes" : "no");
 
     char c = getch();
     if (c == 'q')
@@ -1399,6 +1412,11 @@ void ClientGame::EditSettings() {
   }
   utils::WriteJsonFromDisc(base_path_ + "settings/settings.json", settings);
   LoadSettings();
+  drawrer_.ClearField();
+  drawrer_.PrintCenteredLine(LINES/2, "Settings saved. Restarting game.");
+  drawrer_.PrintCenteredLine(LINES/2+2, "[Press any key to close game]");
+  getch();
+  WrapUp();
 }
 
 nlohmann::json ClientGame::LoadSettingsJson() {
@@ -1409,6 +1427,7 @@ void ClientGame::LoadSettings() {
   stay_in_synapse_menu_ = settings["stay_in_synapse_menu"];
   show_full_welcome_text_ = settings["show_full_welcome"];
   music_on_ = settings["music_on"];
+  show_ai_tactics_ = settings["show_ai_tactics"];
 }
 
 ClientGame::AudioSelector ClientGame::SetupAudioSelector(std::string path, std::string title, 

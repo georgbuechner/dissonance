@@ -16,7 +16,7 @@
 #define IPSP_SPEED 8 
 #define MACRO_SPEED 10
 #define ACTIVATEDNEURON_SPEED 6
-#define IPSP_DURATION 24
+#define IPSP_DURATION 30
 
 
 /**

@@ -39,7 +39,7 @@ struct Interval {
   std::string key_;
   size_t key_note_;
   size_t signature_;  ///< 0=unsigned, 1=sharp, 2=flat
-  bool major_;  ///< 0=unsigned, 1=sharp, 2=flat
+  bool major_;  
   size_t notes_in_key_;
   size_t notes_out_key_;
   size_t darkness_;
@@ -65,6 +65,8 @@ struct AudioData {
       pitches.push_back(pitches_[i]);
     return pitches;
   }
+
+  bool Allegro() { return average_bpm_ >= 120; }
 };
 
 class Audio {

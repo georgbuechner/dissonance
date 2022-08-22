@@ -277,7 +277,7 @@ namespace texts {
     {{
       "TUTORIAL",
       "",
-      "Nice, now that your resource-production has started you should start gathering GLUTAMATE",
+      "Nice, now that your resource-production has started you should begin gathering GLUTAMATE",
       "to build up a defensive layer of activated neurons blocking incoming enemy potential: ",
       "distribute at least 2 iron to GLUTAMATE.",
     }, {}}
@@ -318,7 +318,7 @@ namespace texts {
       "",
       "Place THREE activated neurons.",
       "HINT: Activated neurons can decrease potential of incoming potentials in a certain range.",
-      "this range. If you place you activated neurons to close to your nucleus, they won't affect",
+      "If you place you activated neurons to close to your nucleus, they won't affect",
       "incoming potentials *behind* the activated neurons."
      }, {}}
   };
@@ -511,7 +511,7 @@ namespace texts {
       "Select a synapse with 's' and then the synapse you want to change the way for, with a, b, ...",
       "(all your synapses should be marked on the map with a, b, ...)",
       "",
-      "Select 's' for '[s]elect way points'. You can now set as many way points as your research-level allows (1-3).",
+      "Select 'w' for 'set [w]ay points'. You can now set as many way points as your research-level allows (1-3).",
       "Try to select the way-points so that your potentials pass the least amount of enemy activated neurons.",
       "After each way-point is selected you can see the current way of your epsp marked in purple.",
       "Applied ways are used for epsp AND ipsp (of course their targets might be different).",
@@ -538,7 +538,8 @@ namespace texts {
       "",
       "Finally make sure to set the epsp target of one synapse to the enemy's nucleus: ",
       "'s' followed by 'a' to select first synapse, then 'e' (for '[e]psp target') and select the enemy's nucleus.",
-      "if you have researched SWARM ATTACK, you should toggle swarm attack on for this synapse.",
+      "if you have researched SWARM ATTACK, you should toggle swarm attack on for this synapse, by",
+      "again first selecting your synapse ('s') and then pressing 's' for 'toggle [s]warm attack'",
       "",
     }, {}},
     {{

@@ -106,7 +106,7 @@ class ViewPoint {
     }
 
     std::string to_string_field() {
-      return std::to_string(x_) + "|" + std::to_string(y_);
+      return std::to_string(y_) + "|" + std::to_string(x_);
     }
 
   private:

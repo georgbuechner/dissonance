@@ -3,6 +3,7 @@
 
 #include "nlohmann/json.hpp"
 #include "share/defines.h"
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -11,6 +12,7 @@
 
 class FieldPosition;
 class Update;
+class StaticticsEntry;
 class Statictics;
 
 /**
@@ -101,6 +103,7 @@ class Data {
     virtual std::vector<position_t> target_positions() { return {}; }
     virtual std::shared_ptr<Update> update() { return nullptr; }
     virtual short macro() { return 0; }
+    virtual std::map<std::string, size_t> ai_strategies() { return {}; }
 
     virtual const std::vector<LobbyEntry> lobby() { return {}; }
 
@@ -113,6 +116,7 @@ class Data {
     virtual unsigned short epsp_swallowed() const { return 0; }
     virtual std::map<int, std::map<std::string, double>> stats_resources() const { return {}; }
     virtual std::map<int, tech_of_t> stats_technologies() const { return {}; }
+    virtual std::vector<StaticticsEntry> graph() const { return {}; }
 
     virtual std::vector<std::shared_ptr<Statictics>> statistics() { return {}; }
 
@@ -154,6 +158,7 @@ class Data {
     virtual void set_build_options(std::vector<bool> build_options) {}
     virtual void set_synapse_options(std::vector<bool> synapse_options) {}
     virtual void set_macro(short macro) {}
+    virtual void set_ai_strategies(std::map<std::string, size_t> def_strategies) {}
     virtual void set_pos(position_t pos) {}
     virtual void set_start_pos(position_t pos) {}
     virtual void set_positions(std::vector<position_t> positions) {}
@@ -307,9 +312,11 @@ class Init : public Data {
     std::map<int, tech_of_t> technologies();
     std::shared_ptr<Update> update();
     short macro();
+    std::map<std::string, size_t> ai_strategies();
 
     // setter 
     void set_macro(short macro);
+    void set_ai_strategies(std::map<std::string, size_t> def_strategies);
     
     // methods 
     void binary(std::stringstream& buffer);
@@ -320,6 +327,7 @@ class Init : public Data {
     std::vector<position_t> graph_positions_;
     std::map<int, tech_of_t> technologies_;
     std::shared_ptr<Update> update_;
+    std::map<std::string, size_t> ai_strategies_;
     
     // player-specific-data
     short macro_;
@@ -405,6 +413,7 @@ class Statictics : public Data {
     std::map<int, std::map<std::string, double>> stats_resources() const;
     std::map<int, tech_of_t> stats_technologies() const;
     std::map<int, std::map<std::string, double>>& stats_resources_ref();
+    std::vector<StaticticsEntry> graph() const;
 
     // setter (no virtual, as called directly from player
     void set_player_name(std::string player_name);
@@ -417,6 +426,8 @@ class Statictics : public Data {
     void AddKillderPotential(std::string id);
     void AddLostPotential(std::string id);
     void AddEpspSwallowed();
+    void AddStatisticsEntry(double oxygen, double potassium, double chloride, double glutamate, 
+        double dopamine, double serotonin);
 
     void print();
     void binary(std::stringstream& buffer);
@@ -431,6 +442,37 @@ class Statictics : public Data {
     unsigned short epsp_swallowed_;
     std::map<int, std::map<std::string, double>> resources_;
     std::map<int, tech_of_t> technologies_;
+    std::vector<StaticticsEntry> graph_;
+
+    std::vector<int> tmp_neurons_built_; ///< not included when packing
+};
+
+class StaticticsEntry : public Data {
+  public: 
+    StaticticsEntry(const char* payload, size_t len, size_t& offset);
+    StaticticsEntry(double oxygen, double potassium, double chloride, double glutamate, double dopamine, double serotonin,
+        std::vector<int> neurons_built);
+
+    // getter 
+    double oxygen();
+    double potassium();
+    double chloride();
+    double glutamate();
+    double dopamine();
+    double serotonin();
+    std::vector<int> neurons_built();
+
+    // methods 
+    void binary(std::stringstream& buffer);
+
+  private:
+    double oxygen_;
+    double potassium_;
+    double chloride_;
+    double glutamate_;
+    double dopamine_;
+    double serotonin_;
+    std::vector<int> neurons_built_;
 };
 
 /**

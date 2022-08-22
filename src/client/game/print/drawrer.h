@@ -40,7 +40,7 @@ class Drawrer {
     void set_viewpoint(int viewpoint);
     void inc_cur_sidebar_elem(int value); 
     void set_msg(std::string msg);
-    void set_transfer(std::shared_ptr<Data> init);
+    void set_transfer(std::shared_ptr<Data> init, bool show_ai_tactics);
     void set_stop_render(bool stop);
     void set_field_start_pos(position_t pos);
     void set_range(std::pair<position_t, int> range);
@@ -53,6 +53,8 @@ class Drawrer {
     void AddMarker(int type, position_t pos, int color, std::string symbol = "");
     position_t GetMarkerPos(int type, std::string symbol);
     void ClearMarkers(int type = -1);
+    void ToggleGraphView();
+    void ToggleShowResource(int resouce);
 
     /**
      * Adds a new neuron to given position.
@@ -102,9 +104,24 @@ class Drawrer {
     void PrintOnlyCenteredLine(int l, std::string line) const;
 
     /**
-     * Prints all statistics.
+     * Prints statistics for current selected player.
+     * Prints either graph, or table.
      */
     void PrintStatistics() const;
+
+    /**
+     * Prints statistics-graph for selected player
+     * @param[in] statistic for this player.
+     */
+    void PrintStatisticsGraph(std::shared_ptr<Statictics> statistic) const;
+    void PrintLegend() const;
+    void PrintResource(int resource, int line, int column) const;
+
+    /**
+     * Prints statistics-graph for selected player
+     * @param[in] statistic for this player.
+     */
+    void PrintStatisticsTable(std::shared_ptr<Statictics> statistic) const;
 
     /**
      * Prints single statistics-entry (with multiple/ map of infos)
@@ -115,6 +132,7 @@ class Drawrer {
      * @return new current line (i)
      */
     int PrintStatisticEntry(std::string heading, int s, int i, std::map<unsigned short, unsigned short> infos) const;
+
     /**
      * Prints single statistics-entry (with single information)
      * @param[in] heading printed (f.e. "Neurons Built")
@@ -193,6 +211,8 @@ class Drawrer {
     std::shared_ptr<std::set<position_t>> graph_positions_;
     std::shared_ptr<Lobby> lobby_;
     std::vector<std::shared_ptr<Statictics>> statistics_;
+    bool show_graph_;
+    std::map<int, bool> show_resources_;
 
     // other data
     std::map<position_t, Data::Symbol> temp_symbols_;

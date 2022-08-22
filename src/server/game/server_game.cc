@@ -327,12 +327,8 @@ void ServerGame::m_SetWayPoint(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ServerGame::m_SetWayPoint. num={}", data->num());
   Player* player = GetPlayer(data->u());
   int tech = player->technologies().at(WAY).first; // number of availible way points to add.
-  // If first way-point, reset waypoints with new way-point.
-  if (data->num() == 1) 
-    player->ResetWayForSynapse(data->synapse_pos(), data->way_point());
-  // Otherwise add waypoint.
-  else 
-    player->AddWayPosForSynapse(data->synapse_pos(), data->way_point());
+  // If first way-point, reset waypoints with new way-point. Otherwise add waypoint.
+  player->AddWayPosForSynapse(data->synapse_pos(), data->way_point(), data->num() == 1);
   // Create new SetWayPoints-Object with same synapse-pos, but updated number and message.
   auto new_data = std::make_shared<SetWayPoints>(data->synapse_pos());
   new_data->set_msg("New way-point added: " + std::to_string(data->num()) + "/" + std::to_string(tech));
@@ -599,6 +595,9 @@ void ServerGame::Thread_RenderField() {
       std::unique_lock ul(mutex_players_);
       for (const auto& it : human_players_)
         it.second->IncreaseResources(audio_.MoreOffNotes(data_at_beat));
+      // Update statistics-graph for each player
+      for (const auto& it : players_) 
+        it.second->UpdateStatisticsGraph();
     }
     // Move potential
     if (utils::GetElapsed(last_update, cur_time) > render_frequency) {
@@ -655,8 +654,7 @@ void ServerGame::Thread_Ai(std::string username) {
         audio_start_time = std::chrono::steady_clock::now();
       // Increase reasources twice every beat.
       ai->IncreaseResources(audio_.MoreOffNotes(ai->data_per_beat().front()));
-      // if (!tutorial_) 
-      ai->IncreaseResources(audio_.MoreOffNotes(ai->data_per_beat().front()));
+      ai->IncreaseResources(false);
     }
   }
   spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");
@@ -724,9 +722,18 @@ void ServerGame::SendInitialData() {
   auto update = CreateBaseUpdate(0);
   std::shared_ptr<Init> init = std::make_shared<Init>(update, field_->Export(players_), 
       field_->GraphPositions(), players_.begin()->second->technologies());
+
+  std::map<std::string, size_t> ai_strategies;
+  if (mode_ == SINGLE_PLAYER) {
+    for (const auto& it : players_) {
+      if (IsAi(it.first))
+        ai_strategies = it.second->strategies();
+    }
+  }
   // Add player-specific data
   for (const auto& it : human_players_) {
     init->set_macro(it.second->macro());
+    init->set_ai_strategies(ai_strategies);
     init->update()->set_resources(it.second->t_resources());
     init->update()->set_build_options(it.second->GetBuildingOptions());
     init->update()->set_synapse_options(it.second->GetSynapseOptions());

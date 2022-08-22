@@ -342,7 +342,7 @@ void Audio::CalcLevel(size_t interval, std::map<std::string, int> notes_by_frequ
   sorted_notes_by_frequency.sort();
   sorted_notes_by_frequency.reverse();
 
-  // Get note with highest frequency.
+  // Get note with most frequent frequency.
   std::string key = sorted_notes_by_frequency.front().second; 
   auto it = std::find(note_names_.begin(), note_names_.end(), key);
   size_t key_note = it - note_names_.begin();

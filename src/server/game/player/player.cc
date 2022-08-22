@@ -177,6 +177,12 @@ void Player::set_lost(bool lost) {
 
 // methods 
 
+void Player::UpdateStatisticsGraph() {
+  statistics_->AddStatisticsEntry(resources_.at(OXYGEN).cur(), resources_.at(POTASSIUM).cur(), 
+      resources_.at(CHLORIDE).cur(), resources_.at(GLUTAMATE).cur(), resources_.at(DOPAMINE).cur(),
+      resources_.at(SEROTONIN).cur());
+}
+
 std::shared_ptr<Statictics> Player::GetFinalStatistics(std::string username) {
   statistics_->set_player_name(username);
   for (const auto& it : resources_) {
@@ -187,6 +193,7 @@ std::shared_ptr<Statictics> Player::GetFinalStatistics(std::string username) {
       res_stats["ø boost"] = it.second.average_boost();
       res_stats["ø bound"] = it.second.average_bound();
       res_stats["ø neg.-faktor"] = 1-it.second.average_neg_factor();
+      res_stats["% active"] = it.second.active_percent();
       statistics_->stats_resources_ref()[it.first] = res_stats;
     }
   }
@@ -344,28 +351,21 @@ position_t Player::GetRandomNeuron(std::vector<int>) {
   return activated_neuron_postions[ran];
 }
 
-int Player::ResetWayForSynapse(position_t pos, position_t way_position) {
-  spdlog::get(LOGGER)->debug("Player::ResetWayForSynapse");
-  if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE) {
-    neurons_.at(pos)->set_way_points({way_position});
-    spdlog::get(LOGGER)->debug("Player::ResetWayForSynapse: successfully");
-    return neurons_.at(pos)->ways_points().size();
-  }
-  else {
-    spdlog::get(LOGGER)->warn("Player::ResetWayForSynapse: neuron not found or wrong type");
+int Player::AddWayPosForSynapse(position_t synapse_pos, position_t way_position, bool reset) {
+  spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse. synapse: {}, target: {}", 
+      utils::PositionToString(synapse_pos), utils::PositionToString(way_position));
+  if (technologies_.at(WAY).first < 1) {
+    spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse. Not researched.");
     return -1;
   }
-}
-
-int Player::AddWayPosForSynapse(position_t synapse_pos, position_t way_position) {
-  spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse. synape: {}", 
-      utils::PositionToString(synapse_pos));
   if (neurons_.count(synapse_pos) && neurons_.at(synapse_pos)->type_ == UnitsTech::SYNAPSE) {
-    auto cur_way = neurons_.at(synapse_pos)->ways_points();
-    cur_way.push_back(way_position);
-    neurons_.at(synapse_pos)->set_way_points(cur_way);
+    auto cur_waypoints = neurons_.at(synapse_pos)->ways_points();
+    if (reset)
+      cur_waypoints.clear();
+    cur_waypoints.push_back(way_position);
+    neurons_.at(synapse_pos)->set_way_points(cur_waypoints);
     spdlog::get(LOGGER)->debug("Player::AddWayPosForSynapse: successfully");
-    return cur_way.size();
+    return cur_waypoints.size();
   }
   else {
     spdlog::get(LOGGER)->warn("Player::AddWayPosForSynapse: neuron not found or wrong type");
@@ -409,6 +409,7 @@ void Player::IncreaseResources(bool inc_iron) {
       resources_.at(IRON).bound());
   double gain = std::abs(log(resources_.at(Resources::OXYGEN).cur()+0.5));
   for (auto& it : resources_) {
+    it.second.call();
     // Inc only if min 2 iron is distributed, inc iron only depending on audio.
     if (it.first == IRON && inc_iron && it.second.cur()+it.second.bound()<it.second.limit())
       it.second.set_cur(it.second.cur()+1);
@@ -451,9 +452,7 @@ bool Player::RemoveIron(int resource) {
     spdlog::get(LOGGER)->error("Player::RemoveIron: no iron distributed to this resource!");
     return false;
   }
-  //int active_before = resources_.at(resource).Active();
   resources_.at(resource).set_distribited_iron(resources_.at(resource).distributed_iron()-1);
-  //int active_after = resources_.at(resource).Active();
   if (resources_.at(resource).distributed_iron() == 1) {
     AddPotentialToNeuron(resources_.at(resource).pos(), 100);  // Remove resource neuron.
     // Add the second iron too.
@@ -801,7 +800,7 @@ bool Player::HandleIpsp(Potential& potential, std::string id) {
   else if (potential.way_.size() == 0 && !potential.target_blocked_) {
     potential.movement_.first = potential.duration_;
     potential.target_blocked_ = true;
-    spdlog::get(LOGGER)->warn("IPSP reached target, set movement to {}", potential.movement_.first);
+    spdlog::get(LOGGER)->debug("IPSP reached target, set movement to {}", potential.movement_.first);
     auto res = field_->GetNeuronTypeAtPosition(potential.pos_);
     if (res.first != -1)
       res.second->SetBlockForNeuron(potential.pos_, true);  // block target

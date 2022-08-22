@@ -1,8 +1,11 @@
+#include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <unistd.h>
 #include <utility>
+#include <vector>
 #include "curses.h"
 #include "spdlog/spdlog.h"
 
@@ -30,6 +33,9 @@ Drawrer::Drawrer() {
   };
   graph_positions_ = std::make_shared<std::set<position_t>>();
   stop_render_ = false;
+  show_graph_ = false;
+  show_resources_ = {{OXYGEN, true}, {POTASSIUM, true}, {CHLORIDE, false}, {GLUTAMATE, true}, 
+    {DOPAMINE, false}, {SEROTONIN, false}};
 }
 
 int Drawrer::field_height() {
@@ -126,7 +132,7 @@ void Drawrer::set_msg(std::string msg) {
   msg_ = msg;
 }
 
-void Drawrer::set_transfer(std::shared_ptr<Data> init) {
+void Drawrer::set_transfer(std::shared_ptr<Data> init, bool show_ai_tactics) {
   field_ = init->field();
 
   // Adjust start-point of field if game size is smaller than resolution suggests.
@@ -161,8 +167,19 @@ void Drawrer::set_transfer(std::shared_ptr<Data> init) {
     std::string macro = (init->macro() == 0) ? "chained-potential" : "loophols";
     std::string msg = "You are playing with \"" + macro + "\" as your macro!";
     ClearField();
-    PrintCenteredLine(LINES/2, msg);
-    PrintCenteredLine(LINES/2+2, "[Press any key to continue]");
+    PrintCenteredLineBold(LINES/2, msg);
+    int counter=4;
+    if (show_ai_tactics) {
+      PrintCenteredLine(LINES/2+2, "AI strategies");
+      // Print ai strategies
+      for (const auto& it : init->ai_strategies()) {
+        if (it.second == 0xFFF)
+          PrintCenteredLine(LINES/2+counter++, it.first);
+        else 
+          PrintCenteredLine(LINES/2+counter++, it.first + tactics_mapping.at(it.second));
+      }
+    }
+    PrintCenteredLine(LINES/2+counter+1, "[Press any key to continue]");
     std::unique_lock ul(mutex_print_field_);
     getch();
     ul.unlock();
@@ -201,6 +218,15 @@ void Drawrer::ClearMarkers(int type) {
     markers_.clear();
   else if (markers_.count(type) > 0)
     markers_[type].clear();
+}
+
+void Drawrer::ToggleGraphView() {
+  show_graph_ = !show_graph_;
+}
+
+void Drawrer::ToggleShowResource(int resource) {
+  if (show_resources_.count(resource) > 0)
+    show_resources_[resource] = !show_resources_.at(resource);
 }
 
 void Drawrer::AddNewUnitToPos(position_t pos, short unit, short color) {
@@ -552,34 +578,129 @@ void Drawrer::PrintFooter(std::string str) {
 }
 
 void Drawrer::PrintStatistics() const {
-  spdlog::get(LOGGER)->info("Printing statistics: {} {}", statistics_.size(), cur_selection_.at(VP_POST_GAME).x());
+  spdlog::get(LOGGER)->info("Drawrer::PrintStatistics: {} {}", statistics_.size(), cur_selection_.at(VP_POST_GAME).x());
   clear();
   refresh();
-  int start_line = LINES/15;
-  int counter = 0;
-  for (const auto& it : statistics_) {
-    if (counter++ == cur_selection_.at(VP_POST_GAME).x()) {
-      // Print player name and "headings" bold. Print only player name in player-color.
-      attron(COLOR_PAIR(it->player_color()));
-      // Player name.
-      PrintCenteredLineBold(start_line, utils::ToUpper(it->player_name()));
-      attroff(COLOR_PAIR(it->player_color()));
-      int i=2;
-      i = PrintStatisticEntry("Neurons Built", start_line, i, it->neurons_build());
-      i = PrintStatisticEntry("Potentials Built", start_line, i, it->potentials_build());
-      i = PrintStatisticEntry("Potentials Killed", start_line, i, it->potentials_killed());
-      i = PrintStatisticEntry("Potentials Lost", start_line, i, it->potentials_lost());
-      i = PrintStatisticEntry("Enemy Epsps Swallowed By Ipsp", start_line, i, it->epsp_swallowed());
-      i = PrintStatisticsResources(start_line, i, it->stats_resources());
-      i = PrintStatisticsTechnology(start_line, i, it->stats_technologies());
-      PrintCenteredLine(start_line+2+(++i), "(press 'q' to quit.)");
+  if (show_graph_)
+    PrintStatisticsGraph(statistics_[cur_selection_.at(VP_POST_GAME).x()]);
+  else
+    PrintStatisticsTable(statistics_[cur_selection_.at(VP_POST_GAME).x()]);
+}
+
+void Drawrer::PrintStatisticsGraph(std::shared_ptr<Statictics> statistic) const {
+  // get most importand infos
+  std::vector<StaticticsEntry> graph = statistic->graph();
+  
+  // Print basic infos
+  attron(COLOR_PAIR(statistic->player_color()));
+  PrintCenteredLineBold(4, utils::ToUpper("graph " + statistic->player_name()));
+  attroff(COLOR_PAIR(statistic->player_color()));
+  PrintCenteredLine(5, "('h'/'l' to cycle trough statistics, 'g' for graph, 'q' to quit.)");
+
+  // Get max value, to calculate compression
+  int max = 0;
+  for (unsigned int i=0; i<graph.size(); i++) {
+    int cur = std::max(std::max(graph[i].oxygen(), graph[i].potassium()), graph[i].glutamate());
+    if (cur > max)
+      max = cur;
+  }
+  spdlog::get(LOGGER)->info("PrintStatistics: max: {}, lines: {}", max, LINES);
+  double fak = (double)(LINES-15)/max; // -10 = 5 spaces top and 5 spaces bottom
+  // calculate cols-offset, or reduce graph
+  int lines_offset = 7;
+  int cols_init_offset = 13;
+  int cols_offset = cols_init_offset;
+  spdlog::get(LOGGER)->info("PrintStatistics: printing first {} of {} entries", COLS-(cols_offset*2), graph.size());
+  if ((size_t)(COLS-(cols_offset*2)) > graph.size()) 
+    cols_offset += ((COLS-cols_init_offset)-graph.size())/2;
+  // Print column discriptions (bottom: time / top: neurons, 
+  mvaddstr(LINES-6, cols_offset-cols_init_offset+1, "   (time) ");
+  mvaddstr(7, cols_offset-cols_init_offset+1, "(neurons) ");
+  // Print legend:
+  PrintLegend();
+
+  // draw graph-outlines:
+  for (unsigned int i=0; i<graph.size() && i<(size_t)(COLS-(cols_offset*2)); i++) {
+    // y-numbering:
+    if (i%10 == 0)
+      mvaddstr(LINES-6, i+12+cols_offset, std::to_string(i).c_str());
+    // x-numbering:
+    if (i%5 == 0 && i<(size_t)(LINES-16)) {
+      int line_val = i/fak;
+      mvaddstr(LINES-lines_offset-i, cols_offset, std::to_string(line_val).c_str());
     }
+    else if (i<(size_t)(LINES-16))
+      mvaddstr(LINES-lines_offset-i, cols_offset, "|");
+    mvaddstr(LINES-lines_offset, i+cols_offset, "-");
+    // Skip printing resource if graph must be reduced.
+    if (cols_init_offset == cols_offset) {
+      int mod = 1+graph.size()/(size_t)(COLS-(cols_offset*2));
+      if (i%mod != 0 && graph[i].neurons_built().size() == 0)
+        continue;
+    }
+    // Neurons built:
+    if (graph[i].neurons_built().size() > 0) {
+      size_t size = graph[i].neurons_built().size();
+      for (unsigned int j=0; j<size; j++) {
+        size_t neuron = graph[i].neurons_built()[j];
+        spdlog::get(LOGGER)->debug("Drawrer::PrintStatistics: neuron: {}", neuron);
+        if (neuron == RESOURCENEURON)
+          mvaddstr(7, i+cols_offset-(size-j), "R");
+        else 
+          mvaddstr(7, i+cols_offset-(size-j), unit_symbol_mapping.at(neuron).c_str());
+        spdlog::get(LOGGER)->debug("Drawrer::PrintStatistics: neuron: {} printed", neuron);
+      }
+    }
+    // Resources (most relevant last):
+    PrintResource(SEROTONIN, (LINES-graph[i].serotonin()*fak)-lines_offset, i+5+cols_offset);
+    PrintResource(DOPAMINE, (LINES-graph[i].dopamine()*fak)-lines_offset, i+5+cols_offset);
+    PrintResource(CHLORIDE, (LINES-graph[i].chloride()*fak)-lines_offset, i+5+cols_offset);
+    PrintResource(GLUTAMATE, (LINES-graph[i].glutamate()*fak)-lines_offset, i+5+cols_offset);
+    PrintResource(POTASSIUM, (LINES-graph[i].potassium()*fak)-lines_offset, i+5+cols_offset);
+    PrintResource(OXYGEN, (LINES-graph[i].oxygen()*fak)-lines_offset, i+5+cols_offset);
   }
 }
+
+void Drawrer::PrintLegend() const {
+  for (const auto& it : show_resources_) {
+    attron(COLOR_PAIR((it.second) ? it.first : COLOR_DEFAULT));
+    std::string msg = std::to_string(it.first) + ": " + resources_name_mapping.at(it.first) 
+      + "(" + resource_symbol_mapping.at(it.first) + ")";
+    mvaddstr(LINES-3, 10+(it.first-1)*17, msg.c_str());
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+  }
+}
+
+void Drawrer::PrintResource(int resource, int line, int column) const {
+  if (show_resources_.at(resource)) {
+    attron(COLOR_PAIR(resource));
+    mvaddstr(line, column, SYMBOL_FREE);
+    attron(COLOR_PAIR(COLOR_DEFAULT));
+  }
+}
+
+void Drawrer::PrintStatisticsTable(std::shared_ptr<Statictics> statistic) const {
+  int start_line = LINES/15;
+  // Print player name and "headings" bold. Print only player name in player-color.
+  attron(COLOR_PAIR(statistic->player_color()));
+  // Player name.
+  PrintCenteredLineBold(start_line, utils::ToUpper(statistic->player_name()));
+  attroff(COLOR_PAIR(statistic->player_color()));
+  PrintCenteredLine(start_line+1, "('h'/'l' to cycle trough statistics, 'g' for graph, 'q' to quit.)");
+  int i=3;
+  i = PrintStatisticEntry("Neurons Built", start_line, i, statistic->neurons_build());
+  i = PrintStatisticEntry("Potentials Built", start_line, i, statistic->potentials_build());
+  i = PrintStatisticEntry("Potentials Killed", start_line, i, statistic->potentials_killed());
+  i = PrintStatisticEntry("Potentials Lost", start_line, i, statistic->potentials_lost());
+  i = PrintStatisticEntry("Enemy Epsps Swallowed By Ipsp", start_line, i, statistic->epsp_swallowed());
+  i = PrintStatisticsResources(start_line, i, statistic->stats_resources());
+  i = PrintStatisticsTechnology(start_line, i, statistic->stats_technologies());
+}
+
 int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, 
     std::map<unsigned short, unsigned short> infos) const {
   spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticEntry: {}, {}", heading, infos.size());
-  PrintCenteredLineBold(s+(++i), "Neurons Built");
+  PrintCenteredLineBold(s+(++i), heading);
   for (const auto& it : infos) 
     PrintCenteredLine(s+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
   return ++i;
