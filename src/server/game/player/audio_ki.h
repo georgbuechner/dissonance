@@ -36,14 +36,14 @@ class AudioKi : public Player {
 
     AudioDataTimePoint last_data_point_;
     Interval cur_interval_;
-    std::vector<AudioDataTimePoint> last_data_points_above_average_level_;
+    std::vector<size_t> last_level_peaks_;
 
+    // tactics
     std::map<size_t, size_t> epsp_target_strategies_;  // DESTROY nucleus/activatedneurons/synapses/resources
     std::map<size_t, size_t> ipsp_target_strategies_;  // BLOCK activatedneurons/synapses/resources
     std::map<size_t, size_t> ipsp_epsp_strategies_; // front-/ surround-focus
     std::map<size_t, size_t> activated_neuron_strategies_; // front-/ surround-focus
     std::map<size_t, size_t> def_strategies_; // front-/ surround-focus
-                                                      
     std::vector<size_t> resource_tactics_;
     std::set<size_t> resources_activated_;
     std::vector<size_t> technology_tactics_;
@@ -52,6 +52,9 @@ class AudioKi : public Player {
     // functions 
     bool DoAction(const AudioDataTimePoint& data_at_beat);
 
+    /**
+     * Coordinates attack.
+     */
     void LaunchAttack(const AudioDataTimePoint& data_at_beat);
 
     // Create potental/ neurons. Add technology
@@ -64,8 +67,8 @@ class AudioKi : public Player {
 
     size_t AvailibleIpsps();
     size_t AvailibleEpsps(size_t ipsps_to_create);
-    std::vector<position_t> AvailibleIpspLaunches(std::vector<position_t>& synapses, int min);
-    size_t GetLaunchAttack(const AudioDataTimePoint& data_at_beat, size_t ipsps_to_create);
+    std::vector<position_t> AvailibleIpspLaunches(std::vector<position_t>& synapses, int ipsp_per_synapse);
+    size_t GetLaunchAttack(std::list<position_t> epsp_way, size_t ipsps_to_create);
 
     std::vector<position_t> GetEpspTargets(position_t synapse_pos, std::list<position_t> way, size_t ignore_strategy=-1);
     std::vector<position_t> GetIpspTargets(std::list<position_t> way, std::vector<position_t>& synapses, 
@@ -110,7 +113,9 @@ class AudioKi : public Player {
     sorted_stragety SortStrategy(std::map<size_t, size_t> strategy) const;
     size_t GetTopStrategy(std::map<size_t, size_t> strategy) const;
     std::vector<position_t> GetAllActivatedNeuronsOnWay(std::vector<position_t> neurons, std::list<position_t> way);
-    std::vector<position_t> SortPositionsByDistance(position_t start, std::vector<position_t> positions, bool reverse=false);
+    std::vector<position_t> SortPositionsByDistance(position_t start, std::vector<position_t> positions, 
+        bool reverse=false);
+
     /**
      * Gets enemy neurons of given type by how strongly defended by activated
      * neurons.
@@ -119,7 +124,21 @@ class AudioKi : public Player {
      * @param[in] neuron_type 
      */
     std::vector<position_t> GetEnemyNeuronsSortedByLeastDef(position_t start, int neuron_type);
-    size_t GetMaxLevelExeedance() const;
+
+    /**
+     * Gets percentage of peak above average, since last increase, in relation
+     * to max-peak.
+     * This determines the number of epsp to create.
+     * @return percent (0-1) of `cur_max_peak/max_peak`
+     */
+    double GetMaxLevelExeedance() const;
+
+    /**
+     * Gets number of cycles to delay epsp-launch by to synchronise epsp and ipsp
+     * arrival at target.
+     * @param[in] epsp_way_length
+     * @param[in] ipsp_way_length
+     */
     int SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length);
     int GetVoltageOfAttackedNucleus(position_t enemy_target_pos);
 

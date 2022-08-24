@@ -130,8 +130,7 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
 
   float average_bpm = 0.0f;
   float average_level = 0.0f;
-  float min_level = 100.0f;
-  float max_level = 0.0f;
+  size_t max_level = 0.0f;
   std::vector<Note> last_notes;
   std::vector<int> last_levels;
   std::vector<double> pitches;
@@ -151,15 +150,13 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
     // do something with the beats
     if (out->data[0] != 0) {
       // Get current level and bpm
-      int level = std::accumulate(last_levels.begin(), last_levels.end(), 0.0)/last_levels.size();
+      size_t level = std::accumulate(last_levels.begin(), last_levels.end(), 0.0)/last_levels.size();
       last_levels.clear();
       int bpm = aubio_tempo_get_bpm(bpm_obj);
       average_bpm += bpm;
       average_level += level;
       if (level > max_level)
         max_level = level;
-      if (level < min_level)
-        min_level = level;
       // Add data-point and clear last notes.
       data_per_beat.push_back(AudioDataTimePoint({aubio_tempo_get_last_ms(bpm_obj), bpm, level, last_notes}));
       last_notes.clear();
@@ -181,7 +178,7 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
 
   average_bpm /= data_per_beat.size();
   average_level /= data_per_beat.size();
-  auto analysed_data = AudioData({data_per_beat, average_bpm, average_level, pitches, average_pitch});
+  auto analysed_data = AudioData({data_per_beat, average_bpm, average_level, pitches, average_pitch, max_level});
   Safe(analysed_data, source_path);
   return analysed_data;
 }
@@ -197,6 +194,7 @@ void Audio::Safe(AudioData analysed_data, std::string source_path) {
   }
   data["pitches"] = analysed_data.pitches_;
   data["average_pitch"] = analysed_data.average_pitch_;
+  data["max_level"] = analysed_data.max_level_;
   utils::WriteJsonFromDisc(GetOutPath(source_path), data);
 }
 
@@ -211,6 +209,7 @@ AudioData Audio::Load(nlohmann::json data) {
   audio_data.average_level_ = data["average_level"];
   audio_data.pitches_ = data["pitches"].get<std::vector<double>>();
   audio_data.average_pitch_ = data["average_pitch"];
+  audio_data.max_level_ = data["max_level"];
   std::deque<AudioDataTimePoint> data_per_beat;
   for (const auto& it : data["time_points"]) {
     std::vector<int> midis = it["notes"];

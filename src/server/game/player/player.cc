@@ -384,14 +384,16 @@ bool Player::SwitchSwarmAttack(position_t pos) {
 }
 
 void Player::ChangeIpspTargetForSynapse(position_t pos, position_t target_pos) {
-  spdlog::get(LOGGER)->debug("Player::ChangeIpspTargetForSynapse");
+  spdlog::get(LOGGER)->debug("Player::ChangeIpspTargetForSynapse: synapse: {}, target: {}", 
+      utils::PositionToString(pos), utils::PositionToString(target_pos));
   if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE)
     neurons_.at(pos)->set_ipsp_target_pos(target_pos);
   spdlog::get(LOGGER)->debug("Player::ChangeIpspTargetForSynapse: done");
 }
 
 void Player::ChangeEpspTargetForSynapse(position_t pos, position_t target_pos) {
-  spdlog::get(LOGGER)->debug("Player::ChangeEpspTargetForSynapse");
+  spdlog::get(LOGGER)->debug("Player::ChangeEpspTargetForSynapse: synapse: {}, target: {}", 
+      utils::PositionToString(pos), utils::PositionToString(target_pos));
   if (neurons_.count(pos) && neurons_.at(pos)->type_ == UnitsTech::SYNAPSE)
     neurons_.at(pos)->set_epsp_target_pos(target_pos);
   spdlog::get(LOGGER)->debug("Player::ChangeEpspTargetForSynapse: done");
@@ -578,9 +580,8 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
   spdlog::get(LOGGER)->debug("Player::AddPotential: get way for potential.");
   neurons_.at(synapes_pos)->UpdateIpspTargetIfNotSet(enemies_.front()->GetRandomNeuron());
   spdlog::get(LOGGER)->debug("Player::AddPotential: way points:");
-  for (const auto& it : neurons_.at(synapes_pos)->GetWayPoints(unit)) {
-    spdlog::get(LOGGER)->debug("Player::AddPotential: {}", utils::PositionToString(it));
-  }
+  for (const auto& it : neurons_.at(synapes_pos)->GetWayPoints(unit))
+    spdlog::get(LOGGER)->debug("  - {}", utils::PositionToString(it));
   auto way = field_->GetWay(synapes_pos, neurons_.at(synapes_pos)->GetWayPoints(unit));
 
   // Add potential.

@@ -595,7 +595,7 @@ void Drawrer::PrintStatisticsGraph(std::shared_ptr<Statictics> statistic) const 
   attron(COLOR_PAIR(statistic->player_color()));
   PrintCenteredLineBold(4, utils::ToUpper("graph " + statistic->player_name()));
   attroff(COLOR_PAIR(statistic->player_color()));
-  PrintCenteredLine(5, "('h'/'l' to cycle trough statistics, 'g' for graph, 'q' to quit.)");
+  PrintCenteredLine(5, "('h'/'l' to cycle trough statistics, 'g' for toggeling graph, 'q' to quit.)");
 
   // Get max value, to calculate compression
   int max = 0;

@@ -202,15 +202,15 @@ bool AudioKi::DoAction(const AudioDataTimePoint& data_at_beat) {
   if (data_at_beat.interval_ > last_data_point_.interval_)
     SetUpTactics(false);
   // Create synapses when switch above average level.
-  if (data_at_beat.level_ > average_level_ && last_data_points_above_average_level_.size() == 0) 
+  if (data_at_beat.level_ > average_level_ && last_level_peaks_.size() == 0) 
     CreateSynapses();
   // Add data_at_beat to list of beats since switching above average.
   if (data_at_beat.level_ > average_level_) 
-    last_data_points_above_average_level_.push_back(data_at_beat);
+    last_level_peaks_.push_back(data_at_beat.level_-average_level_);
   // Launch attack, when above average wave is over.
-  if (data_at_beat.level_ <= average_level_ && last_data_points_above_average_level_.size() > 0) {
+  if (data_at_beat.level_ <= average_level_ && last_level_peaks_.size() > 0) {
     LaunchAttack(data_at_beat);
-    last_data_points_above_average_level_.clear();
+    last_level_peaks_.clear();
   }
   // Create activated neuron if level drops below average.
   if (last_data_point_.level_ >= average_level_ && data_at_beat.level_ < average_level_)
@@ -269,7 +269,7 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
   // Check whether to launch attack.
   spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: check launch");
   size_t available_ipsps = AvailibleIpsps();
-  size_t num_epsps_to_create = GetLaunchAttack(data_at_beat, available_ipsps);
+  size_t num_epsps_to_create = GetLaunchAttack(epsp_way, available_ipsps);
 
   spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: launch! available_ipsps: {}, epsp to create: {}", 
       available_ipsps, num_epsps_to_create);
@@ -301,7 +301,7 @@ void AudioKi::LaunchAttack(const AudioDataTimePoint& data_at_beat) {
     int first = 0;
     for (const auto& waypoint : FindBestWayPoints(sorted_synapses.back(), epsp_target))
       AddWayPosForSynapse(sorted_synapses.back(), waypoint, first++==0);
-    CreateEpsps(sorted_synapses.back(), epsp_target, 25, inital_speed_decrease);
+    CreateEpsps(sorted_synapses.back(), epsp_target, num_epsps_to_create, inital_speed_decrease);
   }
 }
 
@@ -358,8 +358,11 @@ std::vector<position_t> AudioKi::GetIpspTargets(std::list<position_t> way, std::
     auto enemy_synapses = GetEnemyNeuronsSortedByLeastDef(nucleus_pos_, UnitsTech::SYNAPSE);
     if (enemy_synapses.size() == 0)
       return GetIpspTargets(way, synapses, BLOCK_SYNAPSES);
-    for (size_t i=0; i<synapses.size(); i++)
+    spdlog::get(LOGGER)->debug("AudioKi::GetIpspTargets. Adding targets:");
+    for (size_t i=0; i<synapses.size(); i++) {
+      spdlog::get(LOGGER)->debug("   - {}", utils::PositionToString(enemy_synapses[i]));
       ipsp_targets.push_back(enemy_synapses[i]);
+    }
   }
   else if (ipsp_target_strategy == BLOCK_RESOURCES && ignore_strategy != BLOCK_RESOURCES) {
     auto enemy_resources = GetEnemyNeuronsSortedByLeastDef(nucleus_pos_, UnitsTech::RESOURCENEURON);
@@ -589,11 +592,11 @@ size_t AudioKi::AvailibleEpsps(size_t ipsps_to_create) {
 }
 
 
-std::vector<position_t> AudioKi::AvailibleIpspLaunches(std::vector<position_t>& synapses, int min) {
+std::vector<position_t> AudioKi::AvailibleIpspLaunches(std::vector<position_t>& synapses, int ipsp_per_synapse) {
   spdlog::get(LOGGER)->debug("AudioKi::AvailibleIpspLaunches.");
   size_t available_ipsps = AvailibleIpsps();  
   std::vector<position_t> result_positions;
-  for (size_t i=0; i<available_ipsps; i+=min)
+  for (size_t i=0; i<available_ipsps; i+=ipsp_per_synapse)
     result_positions.push_back(synapses[i]);
   return result_positions;
 }
@@ -644,41 +647,30 @@ std::vector<position_t> AudioKi::GetEnemyNeuronsSortedByLeastDef(position_t star
   return result_positions; 
 }
 
-size_t AudioKi::GetMaxLevelExeedance() const {
-  size_t cur_max = 0;
-  std::string log = "average: " + std::to_string(average_level_) + " [";
-  for (const auto& it : last_data_points_above_average_level_) {
-    log += std::to_string(it.level_) + ", ";
-    size_t diff = it.level_ - average_level_;
-    if (diff > cur_max)
-      cur_max = diff;
-  }
-  cur_max *= 2;
-  spdlog::get(LOGGER)->debug("GetMaxLevelExeedance: {}], max: {}", log, cur_max);
-  return (cur_max > 25) ? 25 : cur_max;
+double AudioKi::GetMaxLevelExeedance() const {
+  size_t cur_max = *std::max_element(last_level_peaks_.begin(), last_level_peaks_.end());
+  return (double)cur_max/(audio_->analysed_data().max_level_-average_level_);
 }
 
-size_t AudioKi::GetLaunchAttack(const AudioDataTimePoint& data_at_beat, size_t ipsps_to_create) {
+size_t AudioKi::GetLaunchAttack(std::list<position_t> way, size_t ipsps_to_create) {
   spdlog::get(LOGGER)->debug("AudioKi::GetLaunchAttack. oxygen: {}, potassium: {}, chloride: {}", 
       resources_.at(OXYGEN).cur(), resources_.at(POTASSIUM).cur(), resources_.at(CHLORIDE).cur());
-  size_t num_epsps_to_create = GetMaxLevelExeedance();
   size_t available_epsps = AvailibleEpsps(ipsps_to_create);
-  spdlog::get(LOGGER)->debug("AudioKi::GetLaunchAttack (A). ipsps: {}, availible epsps: {}, epsps: {}, darkness: {}", 
-      ipsps_to_create, available_epsps, num_epsps_to_create, cur_interval_.darkness_);
-
+  size_t num_epsps_to_create = available_epsps*GetMaxLevelExeedance();
+  spdlog::get(LOGGER)->debug("AudioKi::GetLaunchAttack. ipsps: {}, availible epsps: {}, %: {}, epsps to create: {}", 
+      ipsps_to_create, available_epsps, GetMaxLevelExeedance(), num_epsps_to_create);
   // Always launch attack in first interval.
   if (cur_interval_.id_ == 0)
     return num_epsps_to_create;
-
-  // Crop, to not exeed a to high number of potassium:
-  auto costs_epsp = units_costs_.at(UnitsTech::EPSP);
-  double diff = resources_.at(POTASSIUM).limit() * 0.6 - num_epsps_to_create * costs_epsp[POTASSIUM]; 
-  if (diff < 0)
-    num_epsps_to_create += diff/costs_epsp[POTASSIUM]; // + because diff is negative
-  spdlog::get(LOGGER)->debug("AudioKi::GetLaunchAttack (B). ipsps: {}, availible epsps: {}, epsps: {}", 
-      ipsps_to_create, available_epsps, num_epsps_to_create);
-  // Now, only launch, if atleast 75% of target-amount can be reached.
-  return (0.75*(float)num_epsps_to_create < available_epsps) ? num_epsps_to_create : 0;
+  auto enemy_activated_neuerons = enemies_.front()->GetAllPositionsOfNeurons(ACTIVATEDNEURON);
+  int activated_neuerons_on_way = GetAllActivatedNeuronsOnWay(enemy_activated_neuerons, way).size();
+  if ((activated_neuerons_on_way-(int)ipsps_to_create) >= (int)num_epsps_to_create) {
+    spdlog::get(LOGGER)->debug("AudioKi::LaunchAttack: to many activated_neuerons_on_way: {}->{}", 
+        activated_neuerons_on_way, activated_neuerons_on_way-(int)ipsps_to_create);
+    return 0;
+  }
+  else 
+    return num_epsps_to_create;
 }
 
 int AudioKi::SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length) {
@@ -846,10 +838,9 @@ std::vector<position_t> AudioKi::FindBestWayPoints(position_t synapse, position_
     for (const auto& pos : possible_way_points) {
       // Add this possible waypoint position and target to waypoints.
       waypoints.insert(waypoints.end(), {pos, target});
-      size_t num_activated_neurons_on_way = GetAllActivatedNeuronsOnWay(activated_neurons, 
-          field_->GetWay(synapse, waypoints)).size();
-      if (num_activated_neurons_on_way < min) {
-        min = num_activated_neurons_on_way;
+      size_t num_ans_on_way = GetAllActivatedNeuronsOnWay(activated_neurons, field_->GetWay(synapse, waypoints)).size();
+      if (num_ans_on_way < min) {
+        min = num_ans_on_way;
         waypoint = pos;
       }
       // Remove target and waypoint again.

@@ -29,7 +29,7 @@ struct Note {
 struct AudioDataTimePoint {
   double time_;
   int bpm_;
-  int level_;
+  size_t level_;
   std::vector<Note> notes_;
   int interval_;
 };
@@ -52,8 +52,7 @@ struct AudioData {
   std::vector<double> pitches_;
   double average_pitch_;
 
-  float min_level_;
-  float max_level_;
+  size_t max_level_;
   std::string key_;
   std::map<int, Interval> intervals_;
   int max_peak_;
