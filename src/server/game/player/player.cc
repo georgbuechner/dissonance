@@ -512,7 +512,7 @@ bool Player::AddNeuron(position_t pos, int neuron_type, position_t epsp_target, 
     return false;
   if (neuron_type == UnitsTech::ACTIVATEDNEURON) {
     spdlog::get(LOGGER)->debug("Player::AddNeuron: ActivatedNeuron");
-    int speed_boast = technologies_.at(UnitsTech::DEF_SPEED).first * 40;
+    int speed_boast = technologies_.at(UnitsTech::DEF_SPEED).first;
     int potential_boast = technologies_.at(UnitsTech::DEF_POTENTIAL).first;
     neurons_[pos] = std::make_shared<ActivatedNeuron>(pos, potential_boast, speed_boast);
   }

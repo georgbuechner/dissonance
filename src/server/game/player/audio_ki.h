@@ -67,12 +67,31 @@ class AudioKi : public Player {
 
     size_t AvailibleIpsps();
     size_t AvailibleEpsps(size_t ipsps_to_create);
-    std::vector<position_t> AvailibleIpspLaunches(std::vector<position_t>& synapses, int ipsp_per_synapse);
+    std::vector<position_t> AvailibleIpspLaunches(const std::vector<position_t>& synapses, int ipsp_per_synapse);
     size_t GetLaunchAttack(std::list<position_t> epsp_way, size_t ipsps_to_create);
 
+    typedef std::pair<position_t, position_t> launch_target_pair_t;
+
+    /**
+     * Gets epsp-target. 
+     * Favors target, which is not already ipsp-target.
+     * TODO (fux): change way to reference
+     */
+    position_t GetEpspTarget(position_t synapse_pos, std::list<position_t> way, 
+        const std::vector<launch_target_pair_t>& ipsp_launch_target_pairs);
+    /**
+     * Gets list of epsp-targets.
+     * TODO (fux): change way to reference
+     */
     std::vector<position_t> GetEpspTargets(position_t synapse_pos, std::list<position_t> way, size_t ignore_strategy=-1);
-    std::vector<position_t> GetIpspTargets(std::list<position_t> way, std::vector<position_t>& synapses, 
-        size_t ignore_strategy=-1);
+
+    /**
+     * Gets array of ipsp-launch-synapses and ipsp-targets depending on
+     * strategy. Size of array =min(available-ipsps-launch-synapse, num-enemy-neurons-to-target)
+     * @param[in] ignore_strategy
+     */
+    std::vector<launch_target_pair_t> GetIpspLaunchesAndTargets(std::list<position_t> way, 
+        std::vector<position_t>& synapses, size_t ignore_strategy=-1);
 
     // Other stretegies
 
