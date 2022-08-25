@@ -108,7 +108,7 @@ class Player {
     std::map<position_t, int> GetIpspAtPosition();
     std::map<position_t, int> GetMacroAtPosition();
     std::vector<position_t> GetPotentialPositions();
-    std::vector<FieldPosition> GetAllNeuronsInRange(position_t pos);
+    std::vector<FieldPosition> GetAllNeuronsInRange(position_t pos) const;
     position_t GetLoopholeTargetIfExists(position_t pos, bool only_active=false);
     int GetColorForPos(position_t pos);
 
@@ -152,7 +152,7 @@ class Player {
      * @param[in] type (if included, returns only positions of neurons of this type)
      * @return vector of positions
      */
-    std::vector<position_t> GetAllPositionsOfNeurons(int type=-1);
+    std::vector<position_t> GetAllPositionsOfNeurons(int type=-1) const;
 
     /**
      * Gets position of a random activated neuron.
@@ -315,7 +315,7 @@ class Player {
 
     // Audio-ai
     virtual void SetUpTactics(bool) {}
-    virtual void HandleIron(const AudioDataTimePoint&) {}
+    virtual void HandleIron() {}
     virtual bool DoAction() { return false; }
     virtual bool DoAction(const AudioDataTimePoint& data_at_beat) { return false; }
 

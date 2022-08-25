@@ -253,7 +253,7 @@ int Player::GetColorForPos(position_t pos) {
   return COLOR_DEFAULT;
 }
 
-std::vector<FieldPosition> Player::GetAllNeuronsInRange(position_t pos) {
+std::vector<FieldPosition> Player::GetAllNeuronsInRange(position_t pos) const {
   std::vector<FieldPosition> neurons_in_range_;
   for (const auto& it : neurons_) {
     if (utils::Dist(it.first, pos) < cur_range_)
@@ -327,7 +327,7 @@ bool Player::IsNeuronBlocked(position_t pos) {
   return false;
 }
 
-std::vector<position_t> Player::GetAllPositionsOfNeurons(int type) {
+std::vector<position_t> Player::GetAllPositionsOfNeurons(int type) const {
   if (neuron_positions_.count(type) > 0)
     return neuron_positions_.at(type);
   return {};
