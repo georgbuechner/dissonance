@@ -19,7 +19,7 @@ class AudioKi : public Player {
     ~AudioKi() {};
 
     // getter 
-    std::deque<AudioDataTimePoint> data_per_beat() const;
+    std::deque<AudioDataTimePoint> audio_beats() const;
     std::map<std::string, size_t> strategies() const;
     
     /**

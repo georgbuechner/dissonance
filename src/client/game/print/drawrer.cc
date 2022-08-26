@@ -255,26 +255,20 @@ void Drawrer::AddTechnology(short technology) {
 void Drawrer::UpdateTranser(std::shared_ptr<Data> update) {
   spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser");
   std::unique_lock ul(mutex_print_field_);
-  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating resources...");
-  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating {} resources", update->resources().size());
-  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating {} resources", resources_->size());
   *resources_ = update_->resources();
   update_ = std::dynamic_pointer_cast<Update>(update);
 
   // Remove temp fields.
-  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating resetting temp-fields...");
   for (const auto& it : temp_symbols_)
     field_[it.first.first][it.first.second] = it.second;
   temp_symbols_.clear();
   
   // Update dead neurons
-  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating new-dead-neurons...");
   ul.unlock();
   for (const auto & it : update->new_dead_neurons())
     AddNewUnitToPos(it.first, it.second, COLOR_DEFAULT);
 
   // Add potentials
-  spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: updating potentials...");
   for (const auto& it : update->potentials()) {
     // Add potential to field as temporary.
     temp_symbols_[it.first] = field_[it.first.first][it.first.second];
@@ -415,12 +409,8 @@ void Drawrer::PrintGame(bool only_field, bool only_side_column, int context) {
   if (stop_render_ || !initialized_) 
     return;
   // Print headline
-  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: PrintHeader");
-  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: audio-played: {}", update_->audio_played());
-  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: players: {}", update_->PlayersToPrint().size());
   PrintHeader(update_->audio_played(), update_->PlayersToPrint());
   // Print topline.
-  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: PrintTopline");
   std::vector<bool> topline_colors; 
   if (context == CONTEXT_RESOURCES || context == CONTEXT_TECHNOLOGIES) 
     topline_colors = update_->build_options();
@@ -430,14 +420,12 @@ void Drawrer::PrintGame(bool only_field, bool only_side_column, int context) {
   if (mode_ != OBSERVER)
     PrintTopline(topline_colors);
 
-  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: PrintField");
   // Print field and/or side-column
   if (!only_side_column)
     PrintField();
   if (!only_field && mode_ != OBSERVER)
     PrintSideColumn();
 
-  spdlog::get(LOGGER)->debug("Drawrer::PrintGame: PrintFooter");
   // Print footer and message
   if (mode_ != OBSERVER) {
     PrintMessage();

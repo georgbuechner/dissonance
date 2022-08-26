@@ -300,15 +300,15 @@ void ServerGame::m_GetPositions(std::shared_ptr<Data> data) {
     }
     else if (it.first == Positions::CURRENT_WAY) {
       // Add all positions of way to ipsp-target
-      for (const auto& way_pos : field_->GetWay(it.second._pos, player->GetSynapesWayPoints(it.second._pos, IPSP)))
+      for (const auto& way_pos : field_->GetWay(it.second._pos, player->GetSynapesWaypoints(it.second._pos, IPSP)))
         positions.push_back(way_pos);
       // Add all positions of way to epsp-target
-      for (const auto& way_pos : field_->GetWay(it.second._pos, player->GetSynapesWayPoints(it.second._pos, EPSP)))
+      for (const auto& way_pos : field_->GetWay(it.second._pos, player->GetSynapesWaypoints(it.second._pos, EPSP)))
         positions.push_back(way_pos);
       return_data->set_current_way(positions);
     }
     else if (it.first == Positions::CURRENT_WAY_POINTS) {
-      return_data->set_current_waypoints(player->GetSynapesWayPoints(it.second._pos));
+      return_data->set_current_waypoints(player->GetSynapesWaypoints(it.second._pos));
     }
     all_positions.push_back(positions);
   }
@@ -561,9 +561,9 @@ void ServerGame::Thread_RenderField() {
   spdlog::get(LOGGER)->info("Game::Thread_RenderField: started");
   // Set up audio data and initialize render-frequency (8 times per beat).
   auto audio_start_time = std::chrono::steady_clock::now();
-  std::deque<AudioDataTimePoint> data_per_beat = audio_.analysed_data().data_per_beat_;
+  std::deque<AudioDataTimePoint> audio_beats = audio_.analysed_data().data_per_beat_;
   auto last_update = std::chrono::steady_clock::now();
-  auto data_at_beat = data_per_beat.front();
+  auto data_at_beat = audio_beats.front();
   double render_frequency = 60000.0/(data_at_beat.bpm_*8);
 
   // Main loop.
@@ -577,9 +577,9 @@ void ServerGame::Thread_RenderField() {
       sl.unlock();
       // Update render-frequency.
       render_frequency = 60000.0/(data_at_beat.bpm_*8);
-      data_per_beat.pop_front();
+      audio_beats.pop_front();
       // All players lost, because time is up:
-      if (data_per_beat.size() == 0) {
+      if (audio_beats.size() == 0) {
         status_ = CLOSING;
         // If multi player, inform other players.
         std::shared_ptr<Data> data = std::make_shared<GameEnd>("YOU LOST - times up");
@@ -590,7 +590,7 @@ void ServerGame::Thread_RenderField() {
         break; 
       }
       else 
-        data_at_beat = data_per_beat.front();
+        data_at_beat = audio_beats.front();
       // Increase resources for all non-ai players.
       std::unique_lock ul(mutex_players_);
       for (const auto& it : human_players_)
@@ -619,7 +619,7 @@ void ServerGame::Thread_RenderField() {
           it.second->HandleDef();
       }
       // Create player agnostic transfer-data
-      SendUpdate(1-(static_cast<float>(data_per_beat.size()) / audio_.analysed_data().data_per_beat_.size()));
+      SendUpdate(1-(static_cast<float>(audio_beats.size()) / audio_.analysed_data().data_per_beat_.size()));
       // Refresh page
       last_update = cur_time;
     }
@@ -644,8 +644,8 @@ void ServerGame::Thread_Ai(std::string username) {
     auto cur_time = std::chrono::steady_clock::now();
     // Analyze audio data.
     std::shared_lock sl_pause(mutex_pause_);
-    if (utils::GetElapsed(audio_start_time, cur_time)-time_in_pause_ >= ai->data_per_beat().front().time_) {
-      spdlog::get(LOGGER)->debug("ServerGame::Thread_Ai: next action in {}ms", ai->data_per_beat().front().time_);
+    if (utils::GetElapsed(audio_start_time, cur_time)-time_in_pause_ >= ai->audio_beats().front().time_) {
+      spdlog::get(LOGGER)->debug("ServerGame::Thread_Ai: next action in {}ms", ai->audio_beats().front().time_);
       sl_pause.unlock();
       // Do action.
       std::unique_lock ul(mutex_players_);
@@ -653,7 +653,7 @@ void ServerGame::Thread_Ai(std::string username) {
       if (ai->DoAction()) 
         audio_start_time = std::chrono::steady_clock::now();
       // Increase reasources twice every beat.
-      ai->IncreaseResources(audio_.MoreOffNotes(ai->data_per_beat().front()));
+      ai->IncreaseResources(audio_.MoreOffNotes(ai->audio_beats().front()));
       ai->IncreaseResources(false);
     }
   }
@@ -711,7 +711,7 @@ std::shared_ptr<Update> ServerGame::CreateBaseUpdate(float audio_played) {
   std::map<position_t, int> new_dead_neurons;
   for (const auto& it : players_) {
     players_status[it.first] = {it.second->GetNucleusLive(), it.second->color()};
-    for (const auto& it : it.second->new_dead_neurons())
+    for (const auto& it : it.second->GetNewDeadNeurons())
       new_dead_neurons[it.first] = it.second;
   }
   return std::make_shared<Update>(players_status, updated_potentials, new_dead_neurons, audio_played);
@@ -734,7 +734,7 @@ void ServerGame::SendInitialData() {
   for (const auto& it : human_players_) {
     init->set_macro(it.second->macro());
     init->set_ai_strategies(ai_strategies);
-    init->update()->set_resources(it.second->t_resources());
+    init->update()->set_resources(it.second->GetResourcesInDataFormat());
     init->update()->set_build_options(it.second->GetBuildingOptions());
     init->update()->set_synapse_options(it.second->GetSynapseOptions());
     ws_server_->SendMessage(it.first, "init_game", init);
@@ -747,7 +747,7 @@ void ServerGame::SendInitialData() {
 void ServerGame::SendUpdate(float audio_played) {
   auto update = CreateBaseUpdate(audio_played);
   for (const auto& it : human_players_) {
-    update->set_resources(it.second->t_resources());
+    update->set_resources(it.second->GetResourcesInDataFormat());
     update->set_build_options(it.second->GetBuildingOptions());
     update->set_synapse_options(it.second->GetSynapseOptions());
     ws_server_->SendMessage(it.first, "update_game", update);
@@ -825,7 +825,7 @@ void ServerGame::SendNeuronsToObservers() {
   // Iterate through (playing) players and send all new neurons to obersers.
   std::vector<FieldPosition> units;
   for (const auto& it : players_) {
-    for (const auto& neuron : it.second->new_neurons()) 
+    for (const auto& neuron : it.second->GetNewNeurons()) 
       units.push_back(FieldPosition(neuron.first, neuron.second, it.second->color())); 
   }
   for (const auto& it : observers_)

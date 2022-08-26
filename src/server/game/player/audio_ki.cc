@@ -35,7 +35,7 @@ AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGener
   SetUpTactics(true);
 }
 
-std::deque<AudioDataTimePoint> AudioKi::data_per_beat() const {
+std::deque<AudioDataTimePoint> AudioKi::audio_beats() const {
   return audio_beats_;
 }
 
@@ -192,16 +192,18 @@ bool AudioKi::DoAction() {
 }
 
 bool AudioKi::DoAction(const AudioDataTimePoint& beat) {
-  spdlog::get(LOGGER)->debug("AudioKi::DoAction(beat)");
+  spdlog::get(LOGGER)->debug("AudioKi::DoAction(beat): level {}, average_level: {}",
+      beat.level_, average_level_);
   // Change tactics when interval changes:
   if (beat.interval_ > last_beat_.interval_)
     SetUpTactics(false);
-  // Add data_at_beat to list of beats since switching above average.
-  if (beat.level_ > average_level_) 
+  if (beat.level_ > average_level_) {
+    // Create synapses when switch above average level.
+    if (last_level_peaks_.size() == 0) 
+      CreateSynapses();
+    // Add data_at_beat to list of beats since switching above average.
     last_level_peaks_.push_back(beat.level_-average_level_);
-  // Create synapses when switch above average level.
-  if (beat.level_ > average_level_ && last_level_peaks_.size() == 0) 
-    CreateSynapses();
+  }
   // Launch attack, when above average wave is over.
   if (beat.level_ <= average_level_ && last_level_peaks_.size() > 0) {
     LaunchAttack();

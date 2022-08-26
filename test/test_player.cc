@@ -163,28 +163,3 @@ TEST_CASE("test_ipsp_takes_epsp_potential", "[test_player]") {
     REQUIRE(player->AddWayPosForSynapse(pos, {pos.first+1, pos.second+1}, true) == 1);  // Reseting returns 1
   }
 }
-
-TEST_CASE ("test copy-constructor of player and field.", "[monto_carlo]") {
-  auto player_and_field = SetUpPlayer(true); // set up player with lots of resources.
-  Player* player = player_and_field.first;
-  Field* field = player_and_field.second;
- 
-  // create 1 neuron.
-  position_t activated_neuron_pos = {0, 0};
-  player->AddNeuron(activated_neuron_pos, ACTIVATEDNEURON);
-  REQUIRE(player->GetAllPositionsOfNeurons(ACTIVATEDNEURON).size() == 1);
-
-  // Create copy of field
-  Field field_copy(*field);
-  auto exported_field = field_copy.Export({player});
-  REQUIRE(exported_field[activated_neuron_pos.first][activated_neuron_pos.second].color_ == player->color());
-  // Create copy of player.
-  Player* player_copy = new Player(*player, &field_copy);
-  for (const auto& it : player_copy->resources())
-    std::cout << resources_name_mapping.at(it.first) << ": " << it.second.cur() << std::endl;
-  REQUIRE(player_copy->GetAllPositionsOfNeurons(ACTIVATEDNEURON).size() == 1);
-  player_copy->AddPotentialToNeuron(activated_neuron_pos, 900);
-  REQUIRE(player_copy->GetAllPositionsOfNeurons(ACTIVATEDNEURON).size() == 0);
-  REQUIRE(player->GetAllPositionsOfNeurons(ACTIVATEDNEURON).size() == 1);
-}
-
