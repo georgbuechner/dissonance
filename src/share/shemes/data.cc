@@ -217,6 +217,17 @@ void Update::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, synapse_options_);
 }
 
+t_topline Update::PlayersToPrint() {
+  t_topline print;
+  for (const auto& it : players_) {
+    print.push_back({it.first + ": " + it.second.first, it.second.second});
+    print.push_back({" | ", COLOR_DEFAULT});
+  }
+  if (print.size() > 0)
+    print.pop_back();
+  return print;
+}
+
 // INIT 
 Init::Init(std::shared_ptr<Update> update, std::vector<std::vector<Data::Symbol>> field, 
    std::vector<position_t> graph_positions, std::map<int, tech_of_t> technologies) : Data() {
@@ -446,22 +457,6 @@ void Statictics::AddStatisticsEntry(double oxygen, double potassium, double chlo
         double dopamine, double serotonin) {
   graph_.push_back(StaticticsEntry(oxygen, potassium, chloride, glutamate, dopamine, serotonin, tmp_neurons_built_));
   tmp_neurons_built_.clear(); // clear tmp neurons.
-}
-
-void Statictics::print() {
-  std::cout << "Neurons built: " << std::endl;
-  for (const auto& it : neurons_build_) 
-    std::cout << " - " << units_tech_name_mapping.at(it.first) << ": " << it.second << std::endl;
-  std::cout << "Potentials built: " << std::endl;
-  for (const auto& it : potentials_build_) 
-    std::cout << " - " << units_tech_name_mapping.at(it.first) << ": " << it.second << std::endl;
-  std::cout << "Potentials killed: " << std::endl;
-  for (const auto& it : potentials_killed_) 
-    std::cout << " - " << units_tech_name_mapping.at(it.first) << ": " << it.second << std::endl;
-  std::cout << "Potentials lost: " << std::endl;
-  for (const auto& it : potentials_lost_) 
-    std::cout << " - " << units_tech_name_mapping.at(it.first) << ": " << it.second << std::endl;
-  std::cout << "Enemy epsps swallowed by ipsp: " << epsp_swallowed_ << std::endl;
 }
 
 void Statictics::binary(std::stringstream& buffer) {

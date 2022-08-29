@@ -48,15 +48,11 @@ class ServerGame {
     // methods.
     
     /**
-     * Sends message to all other players that player has lost (resigned).
+     * Sends message to all other players that player has lost (resigned) and
+     * set player status to lost.
      * @param[in] username
      */
     void PlayerResigned(std::string username);
-
-    /**
-     * Prints statistics to stdout for all players.
-     */
-    void PrintStatistics() const;
 
     /**
      * Adds new players and checks if game is ready to start.
@@ -111,25 +107,6 @@ class ServerGame {
     std::chrono::time_point<std::chrono::steady_clock> pause_start_;  ///< start-time of pause
     double time_in_pause_;  ///< time in pause (used for finding next audio-beat correctly after pause)
 
-    struct TimeAnalysis {
-      long double total_time_in_game_;
-      long double time_ai_action_;
-      long double time_ai_ran_;
-      long double time_ai_mc_;
-      long double time_game_;
-      long double time_setup_;
-      TimeAnalysis() : total_time_in_game_(0), time_ai_action_(0), time_ai_mc_(0), time_game_(0), time_setup_(0) {}
-      void print() { 
-        std::cout << "- total time: " << total_time_in_game_/1000000 << std::endl;
-        std::cout << "- ai action: " << time_ai_action_/1000000 << std::endl;
-        std::cout << "  - ran action: " << time_ai_ran_/1000000 << std::endl;
-        std::cout << "  - mc action: " << time_ai_mc_/1000000 << std::endl;
-        std::cout << "- game: " << time_game_/1000000 << std::endl;
-        std::cout << "- setup mc game: " << time_setup_/1000000 << std::endl;
-      }
-    };
-    TimeAnalysis time_analysis_;
-
     // methods
 
     // getter 
@@ -140,33 +117,33 @@ class ServerGame {
      * @param[in] player
      * @return vector of enemies fort given player.
      */
-    std::vector<Player*> enemies(std::map<std::string, Player*>& players, std::string player) const;
+    std::vector<Player*> enemies(const std::map<std::string, Player*>& players, std::string player) const;
 
     /**
      * Gets map of all potentials in stacked format (ipsp: 1-9, epsp a-z) and
      * "swallows" epsp if enemy ipsp is on same field.
      * @return map of potentials in stacked format.
      */
-    std::map<position_t, std::pair<std::string, short>> GetAndUpdatePotentials();
+    std::map<position_t, std::pair<std::string, short>> GetAndUpdatePotentials() const;
 
     /**
      * Create player-agnostic transfer-data.
      * @param[in] audio_played between 0 and 1 indicating song progress.
      * @return player-agnostic transfer-data.
      */
-    std::shared_ptr<Update> CreateBaseUpdate(float audio_played);
+    std::shared_ptr<Update> CreateBaseUpdate(float audio_played) const;
 
     /**
      * Creates transfer-data and sends it to all online players.
      * @param[in] audio_played between 0 and 1 indicating song progress.
      */
-    void SendUpdate(float audio_played);
+    void SendUpdate(float audio_played) const;
 
     /**
      * Creates initial transfer-data (includeing field and graph_positions) and sends 
      * it to all online players.
      */
-    void SendInitialData();
+    void SendInitialData() const;
 
     /**
      * Checks if new players have died. Eventually sends messages or finally closes game, 
@@ -178,18 +155,18 @@ class ServerGame {
      * Checks if player has loophols and sends loophol-field-positions to
      * player.
      */ 
-    void SendLoopHols(std::string username, Player* player);
+    void SendLoopHols(std::string username, Player* player) const;
 
     /**
      * Checks if for any (human) player a potential has scouted new enemy
      * neurons. If so, send these to client.
      */
-    void SendScoutedNeurons();
+    void SendScoutedNeurons() const;
 
     /**
      * Sends all new neurons created to all "listening" observers.
      */
-    void SendNeuronsToObservers();
+    void SendNeuronsToObservers() const;
 
     /**
      * Sends given message to all online players (ignoring AI). Possibilt to
@@ -197,7 +174,7 @@ class ServerGame {
      * @param[in] message
      * @param[in] ignore_username if set, this user is ignored (default: not set)
      */
-    void SendMessageToAllPlayers(Command cmd, std::string ignore_username="");
+    void SendMessageToAllPlayers(Command cmd, std::string ignore_username="") const;
 
     /**
      * Creates string of missing costs.
@@ -314,7 +291,7 @@ class ServerGame {
      * Returns pointer to player from username.
      * Throws if player not found.
      */
-    Player* GetPlayer(std::string username);
+    Player* GetPlayer(std::string username) const;
 
     /**
      * Sets up game.
@@ -322,6 +299,7 @@ class ServerGame {
      * @param[in] audios.
      */
     void SetUpGame(std::vector<Audio*> audios);
+
     /**
      * Sets up field.
      * @param[in] ran_gen (random generator used for game).

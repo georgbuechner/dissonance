@@ -273,16 +273,8 @@ class Update : public Data {
     
     // methods 
     void binary(std::stringstream& buffer);
-    t_topline PlayersToPrint() {
-      t_topline print;
-      for (const auto& it : players_) {
-        print.push_back({it.first + ": " + it.second.first, it.second.second});
-        print.push_back({" | ", COLOR_DEFAULT});
-      }
-      if (print.size() > 0)
-        print.pop_back();
-      return print;
-    }
+
+    t_topline PlayersToPrint();
 
   private: 
     // Identical for all players
@@ -429,7 +421,6 @@ class Statictics : public Data {
     void AddStatisticsEntry(double oxygen, double potassium, double chloride, double glutamate, 
         double dopamine, double serotonin);
 
-    void print();
     void binary(std::stringstream& buffer);
 
   private:

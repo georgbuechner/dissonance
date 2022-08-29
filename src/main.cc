@@ -116,7 +116,7 @@ int main(int argc, const char** argv) {
       srv->CloseGames();
   });
 
-  // client and client-game.
+  // client and client-game (only if not standalone)
   ClientGame::init();
   ClientGame* client_game = (standalone) ? nullptr : new ClientGame(base_path, username, multiplayer);
   Client* client = (standalone) ? nullptr : new Client(client_game, username, base_path);

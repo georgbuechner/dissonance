@@ -91,14 +91,6 @@ void ServerGame::set_status(int status) {
   status_ = status;
 }
 
-void ServerGame::PrintStatistics() const {
-  for (const auto& it : players_) {
-    std::string status = (it.second->HasLost()) ? "LOST" : "WON";
-    std::cout << it.first << " (" << status << " " << it.second->GetNucleusLive() << ")" << std::endl;
-    it.second->statistics()->print();
-  }
-}
-
 void ServerGame::AddPlayer(std::string username, int lines, int cols) {
   std::unique_lock ul(mutex_players_);
   spdlog::get(LOGGER)->info("ServerGame::AddPlayer: {}, cur: {}, max: {}", username, players_.size(), max_players_);
@@ -139,7 +131,7 @@ void ServerGame::PlayerReady(std::string username) {
 }
 
 void ServerGame::PlayerResigned(std::string username) {
-  spdlog::get(LOGGER)->debug("ServerGame::PlayerResigned: player {} resigned.", username);
+  spdlog::get(LOGGER)->info("ServerGame::PlayerResigned: player {} resigned.", username);
   if (players_.count(username) > 0 && players_.at(username) != nullptr && dead_players_.count(username) == 0) {
     players_.at(username)->set_lost(true);
     SendMessageToAllPlayers(Command("set_msg", std::make_shared<Msg>(username + " resigned")), username);
@@ -270,8 +262,6 @@ void ServerGame::m_BuildNeurons(std::shared_ptr<Data> data) {
 }
 
 void ServerGame::m_GetPositions(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ServerGame::m_GetPositions. synapse_pos: {}", 
-      utils::PositionToString(data->synapse_pos()));
   Player* player = GetPlayer(data->u());
   auto return_data = data->data();
   std::vector<std::vector<position_t>> all_positions;
@@ -323,7 +313,6 @@ void ServerGame::m_ToggleSwarmAttack(std::shared_ptr<Data> data) {
 }
 
 void ServerGame::m_SetWayPoint(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ServerGame::m_SetWayPoint. num={}", data->num());
   Player* player = GetPlayer(data->u());
   int tech = player->technologies().at(WAY).first; // number of availible way points to add.
   // If first way-point, reset waypoints with new way-point. Otherwise add waypoint.
@@ -349,7 +338,6 @@ void ServerGame::m_SetTarget(std::shared_ptr<Data> data) {
 }
 
 void ServerGame::m_SetPauseOn(std::shared_ptr<Data>) {
-  spdlog::get(LOGGER)->info("Set pause on");
   std::unique_lock ul(mutex_pause_);
   pause_ = true; 
   pause_start_ = std::chrono::steady_clock::now();
@@ -374,7 +362,6 @@ void ServerGame::BuildPotentials(int unit, position_t pos, int num, std::string 
 }
 
 void ServerGame::m_SendAudioMap(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: initializing with user: {} {}", host_, mode_);
   host_ = data->u();
   bool send_song = false;
   // If same device, set path to map-path.
@@ -401,7 +388,6 @@ void ServerGame::m_SendSong(std::shared_ptr<Data> data) {
   std::shared_ptr<Data> audio_data = std::make_shared<AudioTransferData>(host_, audio_file_name_);
   std::map<int, std::string> contents;
   utils::SplitLargeData(contents, audio_data_buffer_, pow(2, 12));
-  spdlog::get(LOGGER)->info("Made {} parts of {} bits data", contents.size(), audio_data_buffer_.size());
   audio_data->set_parts(contents.size()-1);
   for (const auto& it : contents) {
     audio_data->set_part(it.first);
@@ -465,28 +451,25 @@ void ServerGame::m_InitializeGame(std::shared_ptr<Data> data) {
 }
 
 void ServerGame::SetUpGame(std::vector<Audio*> audios) {
+  spdlog::get(LOGGER)->info("ServerGame::SetUpGame");
   // Initialize field.
   RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
   auto nucleus_positions = SetUpField(ran_gen);
   if (!field_)
     return;
+  spdlog::get(LOGGER)->info("ServerGame::SetUpGame: Creating {} players.", max_players_);
 
   // Setup players.
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Creating {} players.", max_players_);
   unsigned int ai_audio_counter = 0;
   unsigned int counter = 0;
   for (const auto& it : players_) {
-    spdlog::get(LOGGER)->debug("Creating player: {}", it.first);
     int color = (counter % 4) + 10; // currently results in four different colors
     auto nucleus_pos = nucleus_positions[counter];
     // Add AI
     if (IsAi(it.first) && audios.size() > 0)
       players_[it.first] = new AudioKi(it.first, nucleus_pos, field_, audios[ai_audio_counter++], ran_gen, color);
-    else if (IsAi(it.first)) {
+    else if (IsAi(it.first))
       players_[it.first] = new AudioKi(it.first, nucleus_pos, field_, &audio_, ran_gen, color);
-      spdlog::get(LOGGER)->debug("Created player: {}", it.first);
-      spdlog::get(LOGGER)->debug("player color: {}", players_[it.first]->color());
-    }
     // Add human player
     else {
       players_[it.first] = new Player(it.first, nucleus_pos, field_, ran_gen, color);
@@ -495,7 +478,6 @@ void ServerGame::SetUpGame(std::vector<Audio*> audios) {
     counter++;
   }
   // Pass all players a vector of all enemies.
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Setting enemies for each player");
   for (const auto& it : players_)
     it.second->set_enemies(enemies(players_, it.first));
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Done setting up game");
@@ -520,7 +502,6 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
       field_ = nullptr;
     }
   }
-  spdlog::get(LOGGER)->info("ServerGame::SetUpField: created map.");
 
   // Delete random generators user for creating map.
   delete ran_gen_1;
@@ -541,7 +522,7 @@ void ServerGame::RunGame(std::vector<Audio*> audios) {
   // Setup game.
   SetUpGame(audios);
   // Start ai-threads for all ai-players.
-  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Starting game (if not ai-game).");
+  spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Starting game.");
   status_ = SETTING_UP;
   if (field_) {
     // Inform players, to start game with initial field included
@@ -663,14 +644,11 @@ void ServerGame::Thread_Ai(std::string username) {
   spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");
 }
 
-std::map<position_t, std::pair<std::string, short>> ServerGame::GetAndUpdatePotentials() {
-  spdlog::get(LOGGER)->debug("Servergame::GetAndUpdatePotentials");
+std::map<position_t, std::pair<std::string, short>> ServerGame::GetAndUpdatePotentials() const {
   std::map<position_t, std::pair<std::string, short>> potential_per_pos;
   std::map<position_t, int> positions;
   // 2: Create map of potentials in stacked format.
   for (const auto& it : players_) {
-    spdlog::get(LOGGER)->debug("Servergame::GetAndUpdatePotentials player {}", it.first);
-    spdlog::get(LOGGER)->debug("Servergame::GetAndUpdatePotentials player-color {}", it.second->color());
     // Add epsp first
     for (const auto& jt : it.second->GetEpspAtPosition()) {
       std::string symbol = utils::CharToString('a', jt.second-1);
@@ -710,8 +688,7 @@ std::map<position_t, std::pair<std::string, short>> ServerGame::GetAndUpdatePote
   return potential_per_pos;
 }
 
-std::shared_ptr<Update> ServerGame::CreateBaseUpdate(float audio_played) {
-  spdlog::get(LOGGER)->debug("Servergame::CreateBaseUpdate");
+std::shared_ptr<Update> ServerGame::CreateBaseUpdate(float audio_played) const {
   auto updated_potentials = GetAndUpdatePotentials();
   // Create player agnostic transfer-data
   std::map<std::string, std::pair<std::string, int>> players_status;
@@ -721,15 +698,13 @@ std::shared_ptr<Update> ServerGame::CreateBaseUpdate(float audio_played) {
     for (const auto& it : it.second->GetNewDeadNeurons())
       new_dead_neurons[it.first] = it.second;
   }
-  spdlog::get(LOGGER)->debug("Servergame::CreateBaseUpdate done");
   return std::make_shared<Update>(players_status, updated_potentials, new_dead_neurons, audio_played);
 }
 
-void ServerGame::SendInitialData() {
+void ServerGame::SendInitialData() const {
   spdlog::get(LOGGER)->debug("Servergame::SendInitialData");
   // Add player-agnostic data.
   auto update = CreateBaseUpdate(0);
-  spdlog::get(LOGGER)->debug("Servergame::SendInitialData base update done.");
   std::shared_ptr<Init> init = std::make_shared<Init>(update, field_->Export(players_), 
       field_->GraphPositions(), players_.begin()->second->technologies());
 
@@ -755,7 +730,7 @@ void ServerGame::SendInitialData() {
   spdlog::get(LOGGER)->debug("Servergame::SendInitialData done");
 }
 
-void ServerGame::SendUpdate(float audio_played) {
+void ServerGame::SendUpdate(float audio_played) const {
   auto update = CreateBaseUpdate(audio_played);
   for (const auto& it : human_players_) {
     update->set_resources(it.second->GetResourcesInDataFormat());
@@ -805,7 +780,7 @@ void ServerGame::HandlePlayersLost() {
   }
 }
 
-void ServerGame::SendLoopHols(std::string username, Player* player) {
+void ServerGame::SendLoopHols(std::string username, Player* player) const {
   auto positions = player->GetAllPositionsOfNeurons(LOOPHOLE);
   if (positions.size() > 0) {
     std::vector<FieldPosition> new_units;
@@ -815,7 +790,7 @@ void ServerGame::SendLoopHols(std::string username, Player* player) {
   }
 }
 
-void ServerGame::SendScoutedNeurons() {
+void ServerGame::SendScoutedNeurons() const {
   for (const auto& it : human_players_) {
     for (const auto& potential : it.second->GetPotentialPositions()) {
       for (const auto& enemy : it.second->enemies()) {
@@ -830,7 +805,7 @@ void ServerGame::SendScoutedNeurons() {
   }
 }
 
-void ServerGame::SendNeuronsToObservers() {
+void ServerGame::SendNeuronsToObservers() const {
   if (observers_.size() == 0)
     return;
   // Iterate through (playing) players and send all new neurons to obersers.
@@ -843,8 +818,7 @@ void ServerGame::SendNeuronsToObservers() {
     ws_server_->SendMessage(it, "set_units", std::make_shared<Units>(units));
 }
 
-void ServerGame::SendMessageToAllPlayers(Command cmd, std::string ignore_username) {
-  spdlog::get(LOGGER)->debug("ServerGame::SendMessageToAllPlayers: num human players: {}", human_players_.size());
+void ServerGame::SendMessageToAllPlayers(Command cmd, std::string ignore_username) const {
   for (const auto& it : human_players_) {
     if (ignore_username == "" || it.first != ignore_username)
       ws_server_->SendMessage(it.first, cmd);
@@ -860,7 +834,7 @@ std::string ServerGame::GetMissingResourceStr(Costs missing_costs) {
   return res;
 }
 
-Player* ServerGame::GetPlayer(std::string username) {
+Player* ServerGame::GetPlayer(std::string username) const {
   if (players_.count(username) == 0)
     throw "ServerGame::GetPlayer: player not found!" + username;
   if (players_.at(username) == nullptr)
@@ -868,7 +842,7 @@ Player* ServerGame::GetPlayer(std::string username) {
   return players_.at(username);
 }
 
-std::vector<Player*> ServerGame::enemies(std::map<std::string, Player*>& players, std::string player) const {
+std::vector<Player*> ServerGame::enemies(const std::map<std::string, Player*>& players, std::string player) const {
   std::vector<Player*> enemies;
   for (const auto& it : players) {
     if (it.first != player)
