@@ -17,8 +17,8 @@ std::pair<Player*, Field*> SetUpPlayer(bool resources) {
   spdlog::get(LOGGER)->info("SetUpPlayer with field cols: {} and lines: {}", field->cols(), field->lines());
   field->BuildGraph();
   auto nucleus_positions = field->AddNucleus(2);
-  Player* player_one_ = new Player(nucleus_positions[0], field, ran_gen, 0);
-  Player* player_two_ = new Player(nucleus_positions[1], field, ran_gen, 1);
+  Player* player_one_ = new Player("p1", nucleus_positions[0], field, ran_gen, 0);
+  Player* player_two_ = new Player("p2", nucleus_positions[1], field, ran_gen, 1);
   player_one_->set_enemies({player_two_});
   player_two_->set_enemies({player_one_});
 

@@ -15,7 +15,8 @@
 
 class AudioKi : public Player {
   public:
-    AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, int color);
+    AudioKi(std::string username, position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, 
+        int color);
     ~AudioKi() {};
 
     // getter 
@@ -35,13 +36,6 @@ class AudioKi : public Player {
      * @returns true if last-beat is reached. Falls otherwise.
      */
     bool DoAction();
-
-    /**
-     * Distributes iron to a resource. 
-     * Uses order defined by tactics. If iron comes in slowly, potentially
-     * forwards non-active resource, if an active resource is plentiful.
-     */
-    void HandleIron();
 
   private:
     // members
@@ -119,10 +113,18 @@ class AudioKi : public Player {
     void CreateActivatedNeuron(bool force=false);
 
     /**
+     * Distributes iron to a resource. 
+     * Uses order defined by tactics. If iron comes in slowly, potentially
+     * forwards non-active resource, if an active resource is plentiful.
+     */
+    void HandleIron();
+
+    /**
      * Researches new technology using order defined by tactics. 
      */
     void NewTechnology();
-    
+
+
     // Additional strategies
 
     /**

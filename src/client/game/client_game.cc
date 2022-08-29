@@ -268,7 +268,8 @@ void ClientGame::GetAction() {
 void ClientGame::h_Kill(std::shared_ptr<Data> data) {
   drawrer_.set_stop_render(true);
   drawrer_.ClearField();
-  drawrer_.PrintCenteredLine(LINES/2, data->msg() + " [Press any key to leave game]");
+  drawrer_.PrintCenteredLine(LINES/2, data->msg());
+  drawrer_.PrintCenteredLine(LINES/2+2, "[Press any key to leave game]");
   refresh();
   getch();
   // Wrap up and exit.

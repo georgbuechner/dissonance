@@ -17,8 +17,11 @@
 #include <string>
 #include <vector>
 
-AudioKi::AudioKi(position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, int color) 
-  : Player(nucleus_pos, field, ran_gen, color), average_level_(audio->analysed_data().average_level_) {
+#define ENEMY_ACTIAVTED_NEURON_THRESHOLD 6
+
+AudioKi::AudioKi(std::string username, position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, 
+    int color) 
+  : Player(username, nucleus_pos, field, ran_gen, color), average_level_(audio->analysed_data().average_level_) {
   audio_ = audio;
   nucleus_pos_ = nucleus_pos;
   cur_interval_ = audio_->analysed_data().intervals_[0];
@@ -82,8 +85,9 @@ void AudioKi::SetBattleTactics() {
     ipsp_epsp_strategies_[Tactics::EPSP_FOCUSED] += 2;
     def_strategies_[Tactics::DEF_AN_BLOCK] += 4;
   }
-  // IPSP-Target-Strategies: UNSIGNED->AIM_NUCLEUS, SHARP->DESTROY_ACTIVATED_NEURONS, FLAT->DESTROY_SYNAPSES
-  //  destroy-resources only relevant for random factors.
+  // IPSP-Target-Strategies: UNSIGNED->AIM_NUCLEUS, SHARP->DESTROY_RESOURCES, FLAT->DESTROY_SYNAPSES
+  //  destroy-activated-neurons only relevant for random factors and added if
+  //  enemy has large amount of activated-neurons
   epsp_target_strategies_[AIM_NUCLEUS + cur_interval_.signature_] += 3;
   // IPSP-Target-Strategies: UNSIGNED->BLOCK_ACTIVATED_NEURON, SHARP->BLOCK_SYNAPSES, FLAT->BLOCK_RESOURCES
   ipsp_target_strategies_[BLOCK_ACTIVATED_NEURON + cur_interval_.signature_] += 3;
@@ -240,6 +244,17 @@ void AudioKi::LaunchAttack() {
   position_t epsp_synapses_pos = sorted_synapses.back();
   // Needed for some aproxiamte calculations of enemies defence.
   auto epsp_way = field_->GetWay(epsp_synapses_pos, neurons_.at(epsp_synapses_pos)->GetWayPoints(UnitsTech::EPSP));
+  auto enemy_activated_neuerons = enemies_.front()->GetAllPositionsOfNeurons(ACTIVATEDNEURON);
+  auto activated_neurons_on_way = GetAllActivatedNeuronsOnWay(enemy_activated_neuerons, epsp_way);
+  // If a lot of activated neurons are on way, make destroying them primary epsp-target-strategy
+  if (activated_neurons_on_way.size() > ENEMY_ACTIAVTED_NEURON_THRESHOLD 
+      && GetTopStrategy(epsp_target_strategies_) != DESTROY_ACTIVATED_NEURONS)
+    epsp_target_strategies_.at(DESTROY_ACTIVATED_NEURONS) += 10;
+  // Otherwise make this least favarobale strategy.
+  else if (enemy_activated_neuerons.size() <= ENEMY_ACTIAVTED_NEURON_THRESHOLD 
+      && GetTopStrategy(epsp_target_strategies_) == DESTROY_ACTIVATED_NEURONS)
+    epsp_target_strategies_.at(DESTROY_ACTIVATED_NEURONS) = 0;
+
   // get ipsp- and epsp-target
   auto ipsp_launch_target_pair = GetIpspLaunchesAndTargets(epsp_way, sorted_synapses);  
   position_t epsp_target = GetEpspTarget(epsp_synapses_pos, epsp_way, ipsp_launch_target_pair);
@@ -648,7 +663,7 @@ int AudioKi::SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length) const 
   int speed_boast = 50*technologies_.at(UnitsTech::ATK_POTENIAL).first;
   size_t ipsp_duration = ipsp_way_length*(IPSP_SPEED-speed_boast);
   size_t epsp_duration = epsp_way_length*(EPSP_SPEED-speed_boast);
-  return (ipsp_duration < epsp_duration) ? 0 : (ipsp_duration-epsp_duration)+(IPSP_DURATION/2);
+  return (ipsp_duration < epsp_duration) ? 0 : (ipsp_duration-epsp_duration)+(IPSP_DURATION*0.75);
 }
 
 void AudioKi::Defend() {

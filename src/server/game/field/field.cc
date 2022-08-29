@@ -65,7 +65,7 @@ std::vector<position_t> Field::GraphPositions() {
 }
 
 std::vector<position_t> Field::AddNucleus(unsigned int num_players) {
-  spdlog::get(LOGGER)->info("Field::AddNucleus");
+  spdlog::get(LOGGER)->info("Field::AddNucleus: num players {}", num_players);
   // Get all availible sections (more than a fourth of the positions of a section exist in graph). 
   std::vector<unsigned int> availible_sections;
   for (unsigned int i=1; i<=8; i++) {
@@ -299,6 +299,7 @@ std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval,
 }
 
 std::vector<std::vector<Data::Symbol>> Field::Export(std::map<std::string, Player*> players) {
+  spdlog::get(LOGGER)->debug("Field::Export");
   std::vector<Player*> vec_players;
   for (const auto& it : players)
     vec_players.push_back(it.second);
@@ -306,6 +307,7 @@ std::vector<std::vector<Data::Symbol>> Field::Export(std::map<std::string, Playe
 }
 
 std::vector<std::vector<Data::Symbol>> Field::Export(std::vector<Player*> players) {
+  spdlog::get(LOGGER)->debug("Field::Export");
   std::shared_lock sl_field(mutex_field_);
   std::vector<std::vector<Data::Symbol>> t_field;
   // Create transfer-type field.
@@ -324,6 +326,7 @@ std::vector<std::vector<Data::Symbol>> Field::Export(std::vector<Player*> player
       t_field[l].push_back(Data::Symbol({field_[l][c], color}));
     }
   }
+  spdlog::get(LOGGER)->debug("Field::Export done");
   return t_field;
 }
 

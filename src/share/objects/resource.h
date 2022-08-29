@@ -32,7 +32,7 @@ class Resource {
     // setter 
     void set_cur(double value);
     void set_bound(double value);
-    void set_distribited_iron(unsigned int value);
+    void set_distributed_iron(unsigned int value);
     void set_limit(unsigned int value);
     void set_blocked(bool value);
 

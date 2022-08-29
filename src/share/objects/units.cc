@@ -138,13 +138,6 @@ unsigned int Synapse::AddEpsp() {
   return 1; 
 };
 
-void Synapse::UpdateIpspTargetIfNotSet(position_t pos) {
-  if (ipsp_target_.first == -1) {
-    ipsp_target_ = pos;
-    spdlog::get(LOGGER)->info("Updated ipsp target to: {}", utils::PositionToString(pos));
-  }
-}
-
 // Activated neurons...
 ActivatedNeuron::ActivatedNeuron() : Neuron() {}
 ActivatedNeuron::ActivatedNeuron(position_t pos, int slowdown_boast, int speed_boast) : 

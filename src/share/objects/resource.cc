@@ -64,7 +64,7 @@ void Resource::set_cur(double value) {
 void Resource::set_bound(double value) {
   bound_ = value;
 }
-void Resource::set_distribited_iron(unsigned int value) {
+void Resource::set_distributed_iron(unsigned int value) {
   distributed_iron_ = value;
 }
 void Resource::set_limit(unsigned int value) {

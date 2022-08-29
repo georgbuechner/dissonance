@@ -30,12 +30,13 @@ class Player {
     /**
      * Constructor initializing all resources and gatherers with defaul values
      * and creates den with given position.
+     * @param[in] username
      * @param[in] nucleus_pos position of player's nucleus.
      * @param[in] field.
      * @param[in] ran_gen (random number generator).
      * @param[in] color (random number generator).
      */
-    Player(position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color);
+    Player(std::string username, position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color);
 
     virtual ~Player() {}
 
@@ -69,15 +70,6 @@ class Player {
     position_t GetSynapesTarget(position_t synapse_pos, int unit) const;
 
     /**
-     * Gets loophole-target if loophole at given position exists. 
-     * If only-active is set, only returns target, if player has at least one macro.
-     * @param[in] pos 
-     * @param[in] only_active (default: false)
-     * @return position of loophole target, DEFAULT_POS otherwise.
-     */
-    position_t GetLoopholeTargetIfExists(position_t pos, bool only_active=false) const;
-
-    /**
      * Gets waypoints of synapse. 
      * If unit (epsp/ ipsp/ macro) is specified, potential-target is added.
      * @param[in] synapse_pos
@@ -93,12 +85,10 @@ class Player {
     std::map<int, Data::Resource> GetResourcesInDataFormat() const;
 
     /**
-     * Adds resource- and technology-statistics and username to statistics then 
-     * returns statistics.
-     * @param[in] username
+     * Adds resource- and technology-statistics to statistics then returns statistics.
      * @return shared pointer to statistics
      */
-    std::shared_ptr<Statictics> GetFinalStatistics(std::string username);
+    std::shared_ptr<Statictics> GetFinalStatistics();
 
      /**
      * Gets new neurons and clears new neurons.
@@ -158,13 +148,6 @@ class Player {
     std::vector<position_t> GetAllPositionsOfNeurons(int type=-1) const;
 
     /**
-     * Gets position of a random activated neuron.
-     * @param[in] type
-     * @return Position of a random activated neuron.
-     */
-    position_t GetRandomNeuron(std::vector<int> type={UnitsTech::ACTIVATEDNEURON});
-
-    /**
      * Gets the position of the first nucleus in unsorted dictionary of all neurons. Thus
      * returned position may change, as number of nucleus of player changes.
      * @return position of first nucleus in unsorted dictionary of all neurons. 
@@ -222,14 +205,15 @@ class Player {
     // player-actions 
     
     /**
-     * Adds a newly create neuron to list of all neurons.
+     * Adds a newly create neuron to list of all neurons. 
+     * For synapses epsp-target is given, ipsp is set to random neuron
+     * (prefering activated neurons).
      * @param[in] pos position of newly added neurons.
      * @param[in] neuron (unit).
      * @param[in] epsp_target (default=DEFAULT_POS)
-     * @param[in] ipsp_target (default=DEFAULT_POS)
      * @return success/ failiure.
      */
-    bool AddNeuron(position_t pos, int neuron, position_t epsp_target=DEFAULT_POS, position_t ipsp_target=DEFAULT_POS);
+    bool AddNeuron(position_t pos, int neuron, position_t epsp_target=DEFAULT_POS);
     
     /**
      * Adds new potential and sets it's current position and the way to it's
@@ -402,6 +386,7 @@ class Player {
 
   protected: 
     // members 
+    std::string username_;
     Field* field_;
     std::shared_ptr<Statictics> statistics_;
     RandomGenerator* ran_gen_;
@@ -471,6 +456,24 @@ class Player {
      * - removes neuron-position from all neuron-positions
      */
     void DeleteNeuron(int type, position_t);
+
+    // helper
+
+    /**
+     * Gets position of a random neuron, prefering activated neurons
+     * @param[in] type
+     * @return Position of a random activated neuron.
+     */
+    position_t GetRandomNeuron();
+
+    /**
+     * Gets loophole-target if loophole at given position exists. 
+     * If only-active is set, only returns target, if player has at least one macro.
+     * @param[in] pos 
+     * @param[in] only_active (default: false)
+     * @return position of loophole target, DEFAULT_POS otherwise.
+     */
+    position_t GetLoopholeTargetIfExists(position_t pos, bool only_active=false) const;
 };
 
 #endif

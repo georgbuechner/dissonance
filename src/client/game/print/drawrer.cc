@@ -766,7 +766,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   Field* field = new Field(10, 10, ran_gen);
   field->BuildGraph();
   auto nucleus_test = field->AddNucleus(1);
-  Player* p = new Player(nucleus_test.front(), field, ran_gen, player_color);
+  Player* p = new Player("p", nucleus_test.front(), field, ran_gen, player_color);
   mini_fields_["test"] = field->Export({p});
   delete field;
 
@@ -789,7 +789,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   nucleus = field->AddNucleus(1);
 
   spdlog::get(LOGGER)->debug("Creating new player");
-  p = new Player(nucleus.front(), field, ran_gen, player_color);
+  p = new Player("p", nucleus.front(), field, ran_gen, player_color);
   // Give player plenty resources (iron):
   for (unsigned int i=0; i<10; i++) 
     p->IncreaseResources(true);
@@ -857,7 +857,7 @@ void Drawrer::CreateMiniFields(int player_color) {
 
   auto nucleus_pos_enemy = nucleus_enemy.front();
   spdlog::get(LOGGER)->debug("Creating new player");
-  Player* p_enemy = new Player(nucleus_pos_enemy, field_enemy, ran_gen, enemy_color);
+  Player* p_enemy = new Player("p", nucleus_pos_enemy, field_enemy, ran_gen, enemy_color);
   // Give enemy plenty resources.
   for (unsigned int i=0; i<10; i++) 
     p_enemy->IncreaseResources(true);
