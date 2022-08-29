@@ -103,7 +103,7 @@ t_topline synapse_topline = {{" set [w]ay-points ", COLOR_DEFAULT}, {" [i]psp-ta
 };
 
 ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : username_(username), 
-    muliplayer_availible_(mp), base_path_(base_path), render_pause_(false), drawrer_(), audio_(base_path) {
+    muliplayer_availible_(mp), base_path_(base_path), drawrer_(), audio_(base_path) {
   status_ = WAITING;
 
   // apply standard settings:
@@ -139,7 +139,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   drawrer_.SetUpBorders(LINES, COLS);
 
   // Set-up audio-paths.
-  std::vector<std::string> paths = utils::LoadJsonFromDisc(base_path_ + "/settings/music_paths.json");
+  std::vector<std::string> paths = utils::LoadJsonFromDisc(base_path_ + MUSIC_PATHS);
   for (const auto& it : paths) {
     if (it.find("$(HOME)") != std::string::npos)
       audio_paths_.push_back(getenv("HOME") + it.substr(it.find("/")));
@@ -199,6 +199,11 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
 
   tutorial_ = Tutorial({0, 0, 0, true, true, false, false, false, false, false, false, false, false, false});
   drawrer_.CreateMiniFields((username_.front() > 'A') ? COLOR_P3 : COLOR_P2);
+}
+
+// setter 
+void ClientGame::set_client(Client* ws_srv) {
+  ws_srv_ = ws_srv;
 }
 
 void ClientGame::HandleAction(Command cmd) {
@@ -776,7 +781,7 @@ void ClientGame::m_SelectAudio(std::shared_ptr<Data> data) {
 
 void ClientGame::m_GetAudioData(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data size");
-  std::string path = base_path_ + "data/user-files/" + username_ ;
+  std::string path = base_path_ + USER_FILES + username_ ;
   if (!std::filesystem::exists(path))
     std::filesystem::create_directory(path);
   path += "/" + data->songname();
@@ -792,7 +797,7 @@ void ClientGame::m_GetAudioData(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::m_SongExists(std::shared_ptr<Data> data) {
-  std::string path = base_path_ + "data/user-files/" + data->map_path();
+  std::string path = base_path_ + USER_FILES + data->map_path();
   ws_srv_->SendMessage((!std::filesystem::exists(path)) ? "send_audio" : "ready", std::make_shared<Data>());
 }
 
@@ -1233,7 +1238,7 @@ std::string ClientGame::SelectAudio(std::string msg) {
   // Create selector and define some variables
   AudioSelector selector = SetupAudioSelector("", "select audio", audio_paths_);
   selector.options_.push_back({"dissonance_recently_played", "recently played"});
-  std::vector<std::string> recently_played = utils::LoadJsonFromDisc(base_path_ + "/settings/recently_played.json");
+  std::vector<std::string> recently_played = utils::LoadJsonFromDisc(base_path_ + RECENTLYPLAYER_PATH);
   std::string error = "";
   std::string help = "(use + to add paths, ENTER to select,  h/l or ←/→ to change directory "
     "and j/k or ↓/↑ to circle through songs,)";
@@ -1336,9 +1341,9 @@ std::string ClientGame::SelectAudio(std::string msg) {
         if (input.back() == '/')
           input.pop_back();
         audio_paths_.push_back(input);
-        nlohmann::json audio_paths = utils::LoadJsonFromDisc(base_path_ + "/settings/music_paths.json");
+        nlohmann::json audio_paths = utils::LoadJsonFromDisc(base_path_ + MUSIC_PATHS);
         audio_paths.push_back(input);
-        utils::WriteJsonFromDisc(base_path_ + "/settings/music_paths.json", audio_paths);
+        utils::WriteJsonToDisc(base_path_ + MUSIC_PATHS, audio_paths);
         selector = SetupAudioSelector("", "select audio", audio_paths_);
       }
       else {
@@ -1362,7 +1367,7 @@ std::string ClientGame::SelectAudio(std::string msg) {
   if (recently_played.size() > 10) 
     recently_played.erase(recently_played.begin());
   nlohmann::json j_recently_played = recently_played;
-  utils::WriteJsonFromDisc(base_path_ + "/settings/recently_played.json", j_recently_played);
+  utils::WriteJsonToDisc(base_path_ + RECENTLYPLAYER_PATH, j_recently_played);
 
   // Return selected path.
   return select_path.string(); 
@@ -1372,7 +1377,7 @@ void ClientGame::EditSettings() {
   drawrer_.ClearField();
   drawrer_.PrintCenteredLine(LINES/4, "SETTINGS");
   drawrer_.PrintCenteredLine(LINES/4+1, "use 'j'/'k' to cycle selection. Hit '[enter]' to toggle setting");
-  auto settings = LoadSettingsJson();
+  auto settings = utils::LoadJsonFromDisc(base_path_ + SETTINGS_PATH);
   int cur_selection = 0;
   std::map<int, std::string> settings_mapping = {{0, "stay_in_synapse_menu"}, {1, "show_full_welcome"},
     {2, "music_on"}, {3, "show_ai_tactics"}};
@@ -1411,8 +1416,7 @@ void ClientGame::EditSettings() {
     }
     refresh();
   }
-  utils::WriteJsonFromDisc(base_path_ + "settings/settings.json", settings);
-  LoadSettings();
+  utils::WriteJsonToDisc(base_path_ + SETTINGS_PATH, settings);
   drawrer_.ClearField();
   drawrer_.PrintCenteredLine(LINES/2, "Settings saved. Restarting game.");
   drawrer_.PrintCenteredLine(LINES/2+2, "[Press any key to close game]");
@@ -1420,11 +1424,8 @@ void ClientGame::EditSettings() {
   WrapUp();
 }
 
-nlohmann::json ClientGame::LoadSettingsJson() {
-  return utils::LoadJsonFromDisc(base_path_ + "/settings/settings.json");
-}
 void ClientGame::LoadSettings() {
-  auto settings = LoadSettingsJson();
+  auto settings = utils::LoadJsonFromDisc(base_path_ + SETTINGS_PATH);
   stay_in_synapse_menu_ = settings["stay_in_synapse_menu"];
   show_full_welcome_text_ = settings["show_full_welcome"];
   music_on_ = settings["music_on"];

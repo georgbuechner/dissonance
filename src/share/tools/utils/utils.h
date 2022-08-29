@@ -132,12 +132,12 @@ namespace utils {
   nlohmann::json LoadJsonFromDisc(std::string path);
 
   /** 
-   * @brief Loads json from disc
+   * Writes json to disc
    * @param[in] path path to json.
    * @param[out] reference to json.
    * @return boolean indicating success.
    */
-  void WriteJsonFromDisc(std::string path, nlohmann::json& json);
+  void WriteJsonToDisc(std::string path, nlohmann::json& json);
 
   std::string GetMedia(std::string path);
 

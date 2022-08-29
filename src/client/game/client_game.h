@@ -33,18 +33,25 @@ class ClientGame {
      */
     ClientGame(std::string base_path, std::string username, bool muliplayer_availible);
 
-    std::string base_path() {
-      return base_path_;
-    }
+    // setter 
+    void set_client(Client* ws_srv);
 
-    void set_client(Client* ws_srv) {
-      ws_srv_ = ws_srv;
-    }
+    // methods 
 
+    /**
+     * Handles action from server.
+     * @param[in] cmd command comming from server.
+     */
     void HandleAction(Command cmd);
 
+    /**
+     * Gets action from player.
+     */
     void GetAction();
 
+    /**
+     * Initializes handlers.
+     */
     static void init();
 
   private: 
@@ -56,6 +63,9 @@ class ClientGame {
     EventManager<std::string, ClientGame, std::shared_ptr<Data>> eventmanager_tutorial_;
     std::string audio_data_;
 
+    /**
+     * Stores "story-points" for tutorial
+     */
     struct Tutorial {
       int activated_neurons_;
       int synapses_;
@@ -77,13 +87,11 @@ class ClientGame {
     int lines_;
     int cols_;
     const std::string base_path_;
-    bool render_pause_;
     bool pause_;
     Drawrer drawrer_;
     int status_;
     int mode_;
     Audio audio_;
-    Lobby lobby_;
 
     std::shared_mutex mutex_context_;  ///< mutex locked, when printing.
     std::map<int, Context> contexts_;
@@ -113,23 +121,27 @@ class ClientGame {
     int SelectInteger(std::string instruction, bool force_selection, choice_mapping_t& mapping, 
         std::vector<size_t> splits, std::string error_msg);
 
+    /**
+     *  Stores infos for directory.
+     */
     struct AudioSelector {
-      std::string path_;
-      std::string title_;
-      std::vector<std::pair<std::string, std::string>> options_;
+      std::string path_; ///< directory path
+      std::string title_;  ///< title shown
+      std::vector<std::pair<std::string, std::string>> options_;  ///< subdirs or files
     };
-
-    AudioSelector SetupAudioSelector(std::string path, std::string title, std::vector<std::string> paths);
+    static AudioSelector SetupAudioSelector(std::string path, std::string title, std::vector<std::string> paths);
 
     /**
-     * Select path to audio-file (Clears field).
+     * Selects path to audio-file (Clears field).
      * @param[in] message to show
      * @return path to audio file.
      */
     std::string SelectAudio(std::string mdg);
 
+    /**
+     * Allows player to edit settings.
+     */
     void EditSettings();
-    nlohmann::json LoadSettingsJson();
     void LoadSettings();
 
     void ShowLobby();

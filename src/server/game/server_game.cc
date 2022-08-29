@@ -111,7 +111,7 @@ void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
   // Set song name if not already set.
   if (audio_file_name_ == "")
     audio_file_name_ = data->songname();
-  std::string path = base_path_ + "data/user-files/" + data->username();
+  std::string path = base_path_ + USER_FILES + data->username();
   // Create directory for this user.
   if (!std::filesystem::exists(path))
     std::filesystem::create_directory(path);
@@ -370,7 +370,7 @@ void ServerGame::m_SendAudioMap(std::shared_ptr<Data> data) {
   }
   // Otherwise check if audio-file already exists, otherwise, request audio-data from host.
   else {
-    std::string path = base_path_ + "/data/user-files/" + data->map_path();
+    std::string path = base_path_ + USER_FILES + data->map_path();
     audio_.set_source_path(path);
     if (std::filesystem::exists(path)) {
       audio_data_buffer_ = utils::GetMedia(path);

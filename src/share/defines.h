@@ -50,6 +50,13 @@
 #define VP_LOBBY CONTEXT_LOBBY
 #define VP_TEXT CONTEXT_TEXT
 
+// paths 
+#define SETTINGS_PATH "settings/settings.json"
+#define RECENTLYPLAYER_PATH "settings/recently_played.json"
+#define MUSIC_PATHS "settings/music_paths.json"
+#define USER_FILES "data/user-files/"
+#define ANALYSIS_PATH "data/analysis/"
+
 // logger
 #define LOGGER "logger"
 

@@ -195,7 +195,7 @@ void Audio::Safe(AudioData analysed_data, std::string source_path) {
   data["pitches"] = analysed_data.pitches_;
   data["average_pitch"] = analysed_data.average_pitch_;
   data["max_level"] = analysed_data.max_level_;
-  utils::WriteJsonFromDisc(GetOutPath(source_path), data);
+  utils::WriteJsonToDisc(GetOutPath(source_path), data);
 }
 
 AudioData Audio::Load(std::string source_path) {
@@ -425,7 +425,7 @@ std::string Audio::GetOutPath(std::filesystem::path source_path) {
   source_path.replace_extension(".json");
   std::hash<std::string> hasher;
   size_t hash = hasher(source_path);
-  std::string out_path = base_path_ + "/data/analysis/" + std::to_string(hash) + source_path.filename().string();
+  std::string out_path = base_path_ + ANALYSIS_PATH + std::to_string(hash) + source_path.filename().string();
   spdlog::get(LOGGER)->info("Audio::GetOutPath: got out_path: {}", out_path);
   return out_path;
 }
