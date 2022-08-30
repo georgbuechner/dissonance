@@ -221,7 +221,6 @@ void ClientGame::HandleAction(Command cmd) {
 
 void ClientGame::GetAction() {
   spdlog::get(LOGGER)->info("ClientGame::GetAction stated");
-
   while(true) {
     // Get Input
     if (status_ == WAITING) continue; // Skip as long as not active.
@@ -331,10 +330,10 @@ void ClientGame::h_MoveSelectionRight(std::shared_ptr<Data>) {
 
 void ClientGame::h_SelectGame(std::shared_ptr<Data>) {
   spdlog::get(LOGGER)->info("ClientGame::h_SelectGame");
-  nlohmann::json msg;
+  // Create data to send.
   std::shared_ptr<Data> data = std::make_shared<InitNewGame>(MULTI_PLAYER_CLIENT, drawrer_.field_height(), 
       drawrer_.field_width());
-
+  // Get and check game-id.
   std::string game_id = drawrer_.game_id_from_lobby();
   if (game_id != "") {
     data->set_game_id(game_id);
@@ -362,25 +361,22 @@ void ClientGame::h_RemoveIron(std::shared_ptr<Data>) {
   ws_srv_->SendMessage("remove_iron", std::make_shared<DistributeIron>(drawrer_.GetResource()));
 }
 
-void ClientGame::h_AddTech(std::shared_ptr<Data> data) {
+void ClientGame::h_AddTech(std::shared_ptr<Data>) {
   ws_srv_->SendMessage("add_technology", std::make_shared<AddTechnology>(drawrer_.GetTech()));
 }
 
 void ClientGame::h_BuildPotential(std::shared_ptr<Data> data) {
   // final call: send request to create potentials
   if (data->synapse_pos() != DEFAULT_POS) {
-    spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 3");
     RemovePickContext(CONTEXT_RESOURCES);
     ws_srv_->SendMessage("check_build_potential", data);
   }
   // second call: select synapse
   else if (data->positions().size() > 0) {
-    spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 2");
     SwitchToPickContext(data->positions(), "Select synapse", "build_potential", data);
   }
   // first call: set potential-type and number of potentials to build
   else {
-    spdlog::get(LOGGER)->debug("ClientGame::m_BuildPotential: 1");
     int num = (history_.size() > 1 && std::isdigit(history_[history_.size()-2])) 
       ? history_[history_.size()-2] - '0' : 1;
     int unit = char_unit_mapping.at(contexts_.at(current_context_).cmd());
@@ -393,29 +389,23 @@ void ClientGame::h_ToResourceContext(std::shared_ptr<Data>) {
 }
 
 void ClientGame::h_BuildNeuron(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron");
-  spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron pos: {}", utils::PositionToString(data->pos()));  
   // final call: send message to server to build neuron.
   if (data->pos() != DEFAULT_POS) {
-    spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron: final call: send request");
     ws_srv_->SendMessage("build_neuron", data);
   }
   // second call with start-position, or third call with start position from marker: select pos from field
   else if (data->start_pos() != DEFAULT_POS) {
-    spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron: start-pos: select field-pos");
     RemovePickContext();
     SwitchToFieldContext(data->start_pos(), (data->unit() == NUCLEUS) ? 999 : data->range(),
         "build_neuron", data, "Select position to build " + units_tech_name_mapping.at(data->unit()));
   }
   // second call no start-position: Add Pick-Context to select start position
   else if (data->positions().size() > 0) {
-    spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron: positions: pick nucleus");
     std::string msg = (data->unit() == NUCLEUS) ? "Select start-position" : "Select nucleus";
     SwitchToPickContext(data->positions(), msg, "build_neuron", data);
   }
   // first call: send message to server, checking wether neuron can be build.
   else {
-    spdlog::get(LOGGER)->debug("ClientGame::h_BuildNeuron: otherwise: init");
     int unit = char_unit_mapping.at(contexts_.at(current_context_).cmd());
     ws_srv_->SendMessage("check_build_neuron", std::make_shared<BuildNeuron>(unit));
   }
@@ -423,7 +413,6 @@ void ClientGame::h_BuildNeuron(std::shared_ptr<Data> data) {
 
 void ClientGame::h_SendSelectSynapse(std::shared_ptr<Data> data) {
   if (data->synapse_pos() != DEFAULT_POS) {
-    spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: back to synapse-context...");
     RemovePickContext();
     SwitchToSynapseContext(data);
     drawrer_.set_msg("Choose what to do.");
@@ -432,7 +421,6 @@ void ClientGame::h_SendSelectSynapse(std::shared_ptr<Data> data) {
   // second call: select synapse-pos from positions (or print error, if zero positions)
   // (not checking `positions == 1` as in this case synapse-pos is automatically set)
   else if (data->player_units().size() > 0) {
-    spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: to pick-context...");
     if (data->player_units().size() == 0) {
       drawrer_.set_msg("No synapse.");
       SwitchToResourceContext();
@@ -442,7 +430,6 @@ void ClientGame::h_SendSelectSynapse(std::shared_ptr<Data> data) {
   }
   // first call: initalize synapse-context
   else {
-    spdlog::get(LOGGER)->debug("ClientGame::h_SendSelectSynapse: sending initial request...");
     SwitchToSynapseContext();
     std::map<short, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
     ws_srv_->SendMessage("get_positions", 
@@ -459,21 +446,15 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
   }
   // Final call: Send request to set way-point.
   if (data->way_point() != DEFAULT_POS) {
-    spdlog::get(LOGGER)->debug("h_SetWPs: Setting new wp (final)! synapse-pos: {}", 
-        utils::PositionToString(data->synapse_pos()));
     ws_srv_->SendMessage("set_way_point", data);
   }
   // third call: select field position
   else if (data->start_pos() != DEFAULT_POS) {
     RemovePickContext(CONTEXT_SYNAPSE);
-    spdlog::get(LOGGER)->debug("h_SetWPs (third): synapse-pos: {}", 
-        utils::PositionToString(data->synapse_pos()));
     SwitchToFieldContext(data->start_pos(), 1000, "set_wps", data, "Select new way-point position.", {'q'});
   }
   // second call: select start position
   else if (data->centered_positions().size() > 0) {
-    spdlog::get(LOGGER)->debug("h_SetWPs (second): synapse-pos: {}", 
-        utils::PositionToString(data->synapse_pos()));
     // print ways:
     for (const auto& it : data->current_way())
       drawrer_.AddMarker(WAY_MARKER, it, COLOR_MARKED);
@@ -486,7 +467,6 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
   }
   // First call (request positions)
   else {
-    spdlog::get(LOGGER)->debug("h_SetWPs (first): synapse-pos: {}", utils::PositionToString(data->synapse_pos()));
     // If "msg" is contained, print message
     if (data->msg() != "")
       drawrer_.set_msg(data->msg());
@@ -500,7 +480,6 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
       FinalSynapseContextAction(data->synapse_pos());
     // Otherwise, request inital data.
     else {
-      spdlog::get(LOGGER)->debug("h_SetWPs (first - sending req): num: {}", data->num());
       // Request inital data.
       std::map<short, Data::PositionInfo> position_requests = {
         {CURRENT_WAY, Data::PositionInfo(data->synapse_pos())}, 
@@ -513,7 +492,6 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::h_SetTarget(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("h_SetTarget");
   // final call: send request to server, setting target and reset to synapse-context
   if (data->target() != DEFAULT_POS) {
     FinalSynapseContextAction(data->synapse_pos());
@@ -552,7 +530,6 @@ void ClientGame::h_SwarmAttack(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ClientGame::h_ResetOrQuitSynapseContext");
   // if current context if not already synapse-context: switch to synapse-context.
   if (current_context_ != CONTEXT_SYNAPSE) {
     SwitchToSynapseContext(data);
@@ -569,18 +546,15 @@ void ClientGame::h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data) {
 void ClientGame::h_ToggleGraphView(std::shared_ptr<Data>) {
   drawrer_.ToggleGraphView();
 }
+
 void ClientGame::h_ToggleShowResource(std::shared_ptr<Data>) {
-  spdlog::get(LOGGER)->debug("ClientGame::h_ToggleShowResource");
   char cmd = contexts_.at(current_context_).cmd();
-  spdlog::get(LOGGER)->debug("ClientGame::h_ToggleShowResource. cmd={}", cmd);
   int resouce = cmd - '0';
-  spdlog::get(LOGGER)->debug("ClientGame::h_ToggleShowResource. resouce={}", resouce);
   drawrer_.ToggleShowResource(resouce);
 }
 
 void ClientGame::h_AddPosition(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ClientGame::AddPosition: action: {}", contexts_.at(current_context_).action());
-  spdlog::get(LOGGER)->debug("ClientGame::AddPosition: synapse_pos: {}", utils::PositionToString(data->synapse_pos()));
+  // Check position and print message if position not free or not in graph.
   std::string action = contexts_.at(current_context_).action();
   if (!drawrer_.InGraph(drawrer_.field_pos())) {
     drawrer_.set_msg("Position not reachable!");
@@ -590,8 +564,9 @@ void ClientGame::h_AddPosition(std::shared_ptr<Data> data) {
     drawrer_.set_msg("Position not free!");
     return;
   }
-
+  // Set position
   data->SetPickedPosition(drawrer_.field_pos());
+  // Call action stored in context.
   if (action == "build_neuron")
     h_BuildNeuron(data);
   else if (action == "set_wps") 
@@ -601,8 +576,9 @@ void ClientGame::h_AddPosition(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::h_AddStartPosition(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ClientGame::AddStartPosition: action: {}", contexts_.at(current_context_).action());
+  // Set position
   data->SetPickedPosition(drawrer_.GetMarkerPos(PICK_MARKER, utils::CharToString(history_.back(), 0)));
+  // Call action 
   std::string action = contexts_.at(current_context_).action();
   if (action == "build_potential")
     h_BuildPotential(data);
@@ -617,7 +593,6 @@ void ClientGame::h_AddStartPosition(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::SwitchToResourceContext(std::string msg) {
-  spdlog::get(LOGGER)->debug("ClientGame::SwitchToResourceContext");
   std::shared_lock sl(mutex_context_);
   current_context_ = CONTEXT_RESOURCES;
   drawrer_.set_topline(contexts_.at(current_context_).topline());
@@ -627,8 +602,6 @@ void ClientGame::SwitchToResourceContext(std::string msg) {
 }
 
 void ClientGame::SwitchToSynapseContext(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ClientGame::SwitchToSynapseContext: pos: {}", 
-      utils::PositionToString(data->synapse_pos()));
   std::shared_lock sl(mutex_context_);
   current_context_ = CONTEXT_SYNAPSE;
   contexts_.at(current_context_).set_data(data);
@@ -636,7 +609,6 @@ void ClientGame::SwitchToSynapseContext(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::FinalSynapseContextAction(position_t synapse_pos) {
-  spdlog::get(LOGGER)->debug("ClientGame::FinalSynapseContextAction");
   // Switch (back) to synapse-context (clear only target-markers, leave synapse marked)
   if (stay_in_synapse_menu_) {
     SwitchToSynapseContext(std::make_shared<SelectSynapse>(synapse_pos));
@@ -653,7 +625,6 @@ void ClientGame::FinalSynapseContextAction(position_t synapse_pos) {
 
 void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::string msg, 
     std::string action, std::shared_ptr<Data> data, std::vector<char> slip_handlers) {
-  spdlog::get(LOGGER)->info("ClientGame::CreatePickContext: switched to pick context: {} positions", positions.size());
   std::shared_lock sl(mutex_context_);
   // Get all handlers and add markers to drawrer.
   drawrer_.ClearMarkers(PICK_MARKER);
@@ -679,7 +650,6 @@ void ClientGame::SwitchToPickContext(std::vector<position_t> positions, std::str
 
 void ClientGame::SwitchToFieldContext(position_t pos, int range, std::string action, std::shared_ptr<Data> data,
     std::string msg, std::vector<char> slip_handlers) {
-  spdlog::get(LOGGER)->debug("ClientGame::SwitchToFieldContext: switching...");
   std::shared_lock sl(mutex_context_);
   // Set data for field-context and empy old positions.
   contexts_.at(CONTEXT_FIELD).set_action(action);
@@ -694,21 +664,21 @@ void ClientGame::SwitchToFieldContext(position_t pos, int range, std::string act
   current_context_ = CONTEXT_FIELD;
 
   // Set up drawrer/
-  spdlog::get(LOGGER)->debug("Drawrer setting for field context.");
   drawrer_.set_field_start_pos(pos);
   drawrer_.set_range({pos, range});
   drawrer_.set_viewpoint(current_context_);
   drawrer_.set_topline(contexts_.at(current_context_).topline());
   drawrer_.set_msg(msg);
-  spdlog::get(LOGGER)->debug("ClientGame::SwitchToFieldContext: done.");
 }
 
 void ClientGame::RemovePickContext(int new_context) {
-  spdlog::get(LOGGER)->debug("Removing pick context...");
   std::shared_lock sl(mutex_context_);
+  // Delete pick-context if exists.
   if (contexts_.count(CONTEXT_PICK) > 0)
     contexts_.erase(CONTEXT_PICK);
+  // Clear all markers 
   drawrer_.ClearMarkers();
+  // If new context is given, switch to given context
   if (new_context != -1) {
     current_context_ = new_context;
     drawrer_.set_viewpoint(current_context_);
@@ -716,14 +686,14 @@ void ClientGame::RemovePickContext(int new_context) {
   }
 }
 
-void ClientGame::m_Preparing(std::shared_ptr<Data> data) {
+void ClientGame::m_Preparing(std::shared_ptr<Data>) {
   // Waiting is only to overwrite ugly debug-output from aubio (only single-player).
   if (!muliplayer_availible_)
     std::this_thread::sleep_for(std::chrono::milliseconds(15));
   drawrer_.PrintOnlyCenteredLine(LINES/2, "Analyzing audio...");
 }
 
-void ClientGame::m_SelectMode(std::shared_ptr<Data> data) {
+void ClientGame::m_SelectMode(std::shared_ptr<Data>) {
   spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode");
   // Print welcome text.
   if (show_full_welcome_text_)
@@ -741,10 +711,11 @@ void ClientGame::m_SelectMode(std::shared_ptr<Data> data) {
     {SETTINGS, {"settings", COLOR_AVAILIBLE}}
   };
   mode_ = SelectInteger("Select mode", true, mapping, {mapping.size()+1}, "Mode not available");
-  if (mode_ == SETTINGS) {
-    EditSettings();
-    m_SelectMode(data);
-  }
+
+  // If mode is settings, let player edit settings (game closed afterwards!!)
+  if (mode_ == SETTINGS)
+    EditSettings(); // closes game!!
+                    
   drawrer_.set_mode(mode_);
   auto new_data = std::make_shared<InitNewGame>(mode_, drawrer_.field_height(), drawrer_.field_width());
   // Tutorial: show first tutorial message, then change mode (in request) to normal singe-player.
@@ -765,7 +736,7 @@ void ClientGame::m_SelectMode(std::shared_ptr<Data> data) {
   ws_srv_->SendMessage("setup_new_game", new_data);
 }
 
-void ClientGame::m_SelectAudio(std::shared_ptr<Data> data) {
+void ClientGame::m_SelectAudio(std::shared_ptr<Data>) {
   // Load map-audio.
   audio_file_path_ = SelectAudio("select map");
   std::shared_ptr<CheckSendAudio> new_data = nullptr;
@@ -803,14 +774,13 @@ void ClientGame::m_SongExists(std::shared_ptr<Data> data) {
 
 void ClientGame::m_SendAudioInfo(std::shared_ptr<Data> data) {
   // If server does not have song, then send song.
-  if (data->send_audio()) {
+  if (data->send_audio())
     SendSong();
-  }
   // Add map-file name.
   std::filesystem::path p = audio_file_path_;
   auto new_data = std::make_shared<InitializeGame>(p.filename().string());
 
-  // If observer load audio for two ai-files (no need to send audi-file: only analysed data)
+  // If observer load audio for two ai-files (no need to send audio-file: only analysed data)
   if (data->send_ai_audios()) {
     for (unsigned int i = 0; i<2; i++) {
       std::string source_path = SelectAudio("select ai sound " + std::to_string(i+1));
@@ -823,16 +793,15 @@ void ClientGame::m_SendAudioInfo(std::shared_ptr<Data> data) {
   ws_srv_->SendMessage("initialize_game", new_data);
 }
 
-bool ClientGame::SendSong() {
+void ClientGame::SendSong() {
   // Create initial data
   std::filesystem::path p = audio_file_path_;
   auto data = std::make_shared<AudioTransferData>(username_, p.filename().string());
-
   // Get content.
   std::string content = utils::GetMedia(audio_file_path_);
   std::map<int, std::string> contents;
   utils::SplitLargeData(contents, content, pow(2, 12));
-  spdlog::get(LOGGER)->info("Made {} parts of {} bits data", contents.size(), content.size());
+  spdlog::get(LOGGER)->debug("Made {} parts of {} bits data", contents.size(), content.size());
   data->set_parts(contents.size()-1);
   for (const auto& it : contents) {
     data->set_part(it.first);
@@ -845,10 +814,9 @@ bool ClientGame::SendSong() {
       drawrer_.ClearField();
       drawrer_.PrintCenteredLine(LINES/2, "File size too big! (press any key to continue.)");
       getch();
-      return false;
+      return;
     }
   }
-  return true;
 }
 
 void ClientGame::m_PrintMsg(std::shared_ptr<Data> data) {
@@ -858,16 +826,13 @@ void ClientGame::m_PrintMsg(std::shared_ptr<Data> data) {
 void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame");
   drawrer_.ClearField();
-  spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: setting transfer...");
   drawrer_.set_transfer(data, show_ai_tactics_);
-  spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: printing game...");
   drawrer_.PrintGame(false, false, current_context_);
   status_ = RUNNING;
   current_context_ = CONTEXT_RESOURCES;
   drawrer_.set_msg(contexts_.at(current_context_).msg());
   drawrer_.set_topline(contexts_.at(current_context_).topline());
   
-  spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: handling audio..."); 
   audio_.set_source_path(audio_file_path_);
   if (music_on_)
     audio_.play();
@@ -875,7 +840,6 @@ void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::m_UpdateGame(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ClientGame::m_UpdateGame");
   drawrer_.UpdateTranser(data);
   drawrer_.PrintGame(false, false, current_context_);
 }
@@ -922,22 +886,18 @@ void ClientGame::m_SetUnit(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::m_SetUnits(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->info("ClientGame::m_SetUnits");
   for (const auto& it : data->units()) 
     drawrer_.AddNewUnitToPos(it.pos(), it.unit(), it.color());
-  spdlog::get(LOGGER)->info("ClientGame::m_SetUnits: done, printing game.");
   drawrer_.PrintGame(false, false, current_context_);
 }
 
 void ClientGame::h_AddTechnology(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->info("ClientGame::m_SetUnits");
   drawrer_.AddTechnology(data->technology());
 }
 
 // tutorial 
 
-void ClientGame::h_TutorialGetOxygen(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->info("h_TutorialGetOxygen");
+void ClientGame::h_TutorialGetOxygen(std::shared_ptr<Data>) {
   Pause();
   contexts_.at(CONTEXT_TEXT).init_text(texts::tutorial_get_oxygen, current_context_);
   current_context_ = CONTEXT_TEXT;
@@ -946,13 +906,9 @@ void ClientGame::h_TutorialGetOxygen(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::h_TutorialSetUnit(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ClientGame::h_TutorialSetUnit. unit: {}", data->unit());
-  spdlog::get(LOGGER)->debug("ClientGame::h_TutorialSetUnit. resource: {}", data->resource());
-  spdlog::get(LOGGER)->debug("ClientGame::h_TutorialSetUnit. oxygen?: {}", tutorial_.oxygen_);
   std::vector<texts::paragraphs_field_t> texts;
   // Get text ad do potential other actions
   if (data->unit() == RESOURCENEURON && data->resource() == OXYGEN && !tutorial_.oxygen_) {
-    spdlog::get(LOGGER)->debug("ClientGame::h_TutorialSetUnit. Got oxygen!");
     texts.push_back(texts::tutorial_get_glutamat);
     tutorial_.oxygen_ = true;
   }
@@ -996,7 +952,6 @@ void ClientGame::h_TutorialSetUnit(std::shared_ptr<Data> data) {
   }
   // If text was set, print text:
   if (texts.size() > 0) {
-    spdlog::get(LOGGER)->debug("ClientGame::h_TutorialSetUnit. Printing Text!");
     Pause();
     // Add all texts.
     auto final_text = texts[0];
@@ -1012,7 +967,6 @@ void ClientGame::h_TutorialSetUnit(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::h_TutorialScouted(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ClientGame::h_TutorialScouted. ENEMY revield? {}", tutorial_.discovered_);
   texts::paragraphs_field_t text;
   // On first discoring enemy terretoris: tutorial for selecting targets.
   if (!tutorial_.discovered_) {
@@ -1023,11 +977,9 @@ void ClientGame::h_TutorialScouted(std::shared_ptr<Data> data) {
   else {
     // Check number 
     int counter = 0;
-    spdlog::get(LOGGER)->debug("ClientGame::h_TutorialScouted. num units: {}", data->units().size());
-    for (const auto& it : data->units()) {
-      spdlog::get(LOGGER)->debug("ClientGame::h_TutorialScouted. - unit-type: {}", it.unit());
-      if (it.unit() == ACTIVATEDNEURON) counter++;
-    }
+    for (const auto& it : data->units())
+      if (it.unit() == ACTIVATEDNEURON) 
+        counter++;
     if (counter >= 2 && tutorial_.chloride_ && tutorial_.dopamine_)  {
       text = texts::tutorial_final_attack;
       tutorial_.action_active_ = true;
@@ -1065,7 +1017,7 @@ void ClientGame::h_TutorialBuildNeuron(std::shared_ptr<Data> data) {
   }
 }
 
-void ClientGame::h_TutorialAction(std::shared_ptr<Data> data) {
+void ClientGame::h_TutorialAction(std::shared_ptr<Data>) {
   texts::paragraphs_field_t text;
   // set ways
   if (tutorial_.action_ == 0) {
@@ -1101,7 +1053,6 @@ void ClientGame::h_TutorialSetMessage(std::shared_ptr<Data> data) {
     text = texts::tutorial_strong_attack;
     tutorial_.epsp_target_set_ = true;
   }
-  
   // If text was set, print text:
   if (text.size() > 0) {
     Pause();
@@ -1114,18 +1065,15 @@ void ClientGame::h_TutorialSetMessage(std::shared_ptr<Data> data) {
 
 void ClientGame::h_TutorialUpdateGame(std::shared_ptr<Data> data) {
   texts::paragraphs_field_t text;
-  
   // first enemy attack-launch
   if (data->potentials().size() > 0 && tutorial_.first_attack_) {
     text = texts::tutorial_first_attack;
     tutorial_.first_attack_ = false;
   }
-
   if (data->players().at(username_).first.front() != '0' && tutorial_.first_damage_) {
     text = texts::tutorial_first_damage;
     tutorial_.first_damage_ = false;
   }
- 
   // If text was set, print text:
   if (text.size() > 0) {
     Pause();
@@ -1134,20 +1082,6 @@ void ClientGame::h_TutorialUpdateGame(std::shared_ptr<Data> data) {
     current_context_ = CONTEXT_TEXT;
     h_TextPrint();
   }
-}
-
-void ClientGame::Pause() {
-  pause_ = true;
-  drawrer_.set_stop_render(true);
-  ws_srv_->SendMessage("set_pause_on", std::make_shared<Data>());
-  audio_.Pause();
-}
-
-void ClientGame::UnPause() {
-  pause_ = false;
-  ws_srv_->SendMessage("set_pause_off", std::make_shared<Data>());
-  audio_.Unpause();
-  drawrer_.set_stop_render(false);
 }
 
 // text
@@ -1169,24 +1103,6 @@ void ClientGame::h_TextPrev(std::shared_ptr<Data>) {
     return;
   contexts_.at(CONTEXT_TEXT).set_num(num-1);
   h_TextPrint();
-}
-
-void ClientGame::h_TextQuit(std::shared_ptr<Data>) {
-  h_TextQuit();
-}
-void ClientGame::h_TextQuit() {
-  std::shared_lock sl(mutex_context_);
-  current_context_ = contexts_.at(CONTEXT_TEXT).last_context();
-  drawrer_.set_topline(contexts_.at(current_context_).topline());
-  drawrer_.set_viewpoint(current_context_);
-  UnPause();
-}
-
-void ClientGame::h_TextPrint() {
-  drawrer_.ClearField();
-  auto paragraph = contexts_.at(current_context_).get_paragraph();
-  drawrer_.PrintCenteredParagraphAndMiniFields(paragraph.first, paragraph.second, true);
-  refresh();
 }
 
 // Selection methods
@@ -1430,6 +1346,40 @@ void ClientGame::LoadSettings() {
   show_full_welcome_text_ = settings["show_full_welcome"];
   music_on_ = settings["music_on"];
   show_ai_tactics_ = settings["show_ai_tactics"];
+}
+
+void ClientGame::h_TextQuit(std::shared_ptr<Data>) {
+  h_TextQuit();
+}
+
+void ClientGame::h_TextQuit() {
+  std::shared_lock sl(mutex_context_);
+  current_context_ = contexts_.at(CONTEXT_TEXT).last_context();
+  drawrer_.set_topline(contexts_.at(current_context_).topline());
+  drawrer_.set_viewpoint(current_context_);
+  UnPause();
+}
+
+void ClientGame::h_TextPrint() {
+  drawrer_.ClearField();
+  auto paragraph = contexts_.at(current_context_).get_paragraph();
+  drawrer_.PrintCenteredParagraphAndMiniFields(paragraph.first, paragraph.second, true);
+  refresh();
+}
+
+
+void ClientGame::Pause() {
+  pause_ = true;
+  drawrer_.set_stop_render(true);
+  ws_srv_->SendMessage("set_pause_on", std::make_shared<Data>());
+  audio_.Pause();
+}
+
+void ClientGame::UnPause() {
+  pause_ = false;
+  ws_srv_->SendMessage("set_pause_off", std::make_shared<Data>());
+  audio_.Unpause();
+  drawrer_.set_stop_render(false);
 }
 
 ClientGame::AudioSelector ClientGame::SetupAudioSelector(std::string path, std::string title, 
