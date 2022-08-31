@@ -485,16 +485,15 @@ void ServerGame::SetUpGame(std::vector<Audio*> audios) {
 }
 
 std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
-  RandomGenerator* ran_gen_1 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_boolean_minor_interval);
-  RandomGenerator* ran_gen_2 = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_level_peaks);
   // Create field.
   field_ = nullptr;
   spdlog::get(LOGGER)->info("ServerGame::SetUpField: creating map. field initialized? {}", field_ != nullptr);
   std::vector<position_t> nucleus_positions;
+  auto reduced_pitches = audio_.analysed_data().EveryXPitch(lines_*cols_);
   int denseness = 0;
   while (!field_ && denseness < 4) {
     field_ = new Field(lines_, cols_, ran_gen);
-    field_->AddHills(ran_gen_1, ran_gen_2, denseness++);
+    field_->AddHills(reduced_pitches, audio_.analysed_data().average_pitch_, denseness++);
     field_->BuildGraph();
     nucleus_positions = field_->AddNucleus(max_players_);
     if (nucleus_positions.size() < max_players_) {
@@ -503,9 +502,6 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
     }
   }
 
-  // Delete random generators user for creating map.
-  delete ran_gen_1;
-  delete ran_gen_2;
   // Check if map is playable (all nucleus-positions could be found)
   if (!field_) {
     std::string msg = "Game cannot be played with this song, as generated map is unplayable. "
@@ -587,7 +583,7 @@ void ServerGame::Thread_RenderField() {
     if (utils::GetElapsed(last_update, cur_time) > render_frequency) {
       // Move potentials of all players.
       std::unique_lock ul(mutex_players_);
-      field_->GetEpsps(players_);
+      field_->GatherEpspsFromPlayers(players_);
       for (const auto& it : players_) {
         it.second->MovePotential();
         // Send newly created loophols to player.

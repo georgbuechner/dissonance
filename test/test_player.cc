@@ -151,14 +151,14 @@ TEST_CASE("test_ipsp_takes_epsp_potential", "[test_player]") {
   
   SECTION ("test ResetWayForSynapse") {
     auto pos = t_utils::GetRandomPositionInField(field, ran_gen);
-    player->AddNeuron(pos, SYNAPSE);
+    player->AddNeuron(pos, SYNAPSE, t_utils::GetRandomPositionInField(field, ran_gen));
     
-    // Check invalid
-    REQUIRE(player->AddWayPosForSynapse({-1, -1}, {0, 0}) == -1);  // invalids returns -1
-    REQUIRE(player->AddWayPosForSynapse({-1, -1}, {0, 0}, true) == -1);  // invalids returns -1
-
+    REQUIRE(player->AddWayPosForSynapse(pos, {0, 0}, true) == -1);  // technology missing returns -1
+    player->AddTechnology(WAY);
+    REQUIRE(player->AddWayPosForSynapse({-1, -1}, {0, 0}) == -1);  // unkown synapse returns -1
+    REQUIRE(player->AddWayPosForSynapse(pos, {-1, -1}) == -1);  // target outside field returns -1
     REQUIRE(player->AddWayPosForSynapse(pos, {pos.first+1, pos.second+1}) == 1);  // Adding first way-point returns 1
-    REQUIRE(player->AddWayPosForSynapse(pos, {pos.first+1, pos.second+1}) == 2);  // Adding second way-point returns 1
+    REQUIRE(player->AddWayPosForSynapse(pos, {pos.first+1, pos.second+1}) == 2);  // Adding second way-point returns 2
     REQUIRE(player->AddWayPosForSynapse(pos, {pos.first+1, pos.second+1}) == 3);  // Adding third way-point returns 3
     REQUIRE(player->AddWayPosForSynapse(pos, {pos.first+1, pos.second+1}, true) == 1);  // Reseting returns 1
   }

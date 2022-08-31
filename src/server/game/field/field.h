@@ -20,7 +20,8 @@
 
 class Field {
   public:
-    /** Constructor initializing field with availible lines and columns
+    /** 
+     * Constructor initializing field with availible lines and columns
      * @param[in] lines availible lines.
      * @param[in] cols availible cols
      */
@@ -31,70 +32,78 @@ class Field {
     unsigned int lines();
     unsigned int cols();
     std::shared_ptr<Graph> graph();
-    std::map<position_t, std::map<int, position_t>>& resource_neurons();
-    std::map<position_t, std::vector<std::pair<std::string, Player*>>>& epsps();
-
-    // setter 
-    void set_epsps(std::map<position_t, std::vector<std::pair<std::string, Player*>>> epsp) {
-      epsps_ = epsp;
-    }
+    const std::map<position_t, std::map<int, position_t>>& resource_neurons();
+    const std::map<position_t, std::vector<std::pair<std::string, Player*>>>& epsps();
 
     // methods:
     
     /**
-     *
+     * Gets all positions in graph as vector.
+     * @return vector of all positions in graph.
      */
     std::vector<position_t> GraphPositions();
     
     /**
-     * Adds random natural barriers.
+     * Adds random natural barriers based on pitch
+     * @param[in] reduced_pitches (ruffly matching number of positions in field)
+     * @param[in] average_pitch
+     * @param[in] looseness can be increased to create less 'hills' assure that map is playable.
      */
-    void AddHills(RandomGenerator*, RandomGenerator*, unsigned short denceness=1);
-
-    /** 
-     * Adds resources ([G]old, [S]ilver, [B]ronze) near given position.
-     * @param start_pos position near which to create resources.
-     */
-    void AddResources(position_t start_pos);
+    void AddHills(std::vector<double> reduced_pitches, double average_pitch, unsigned short looseness);
 
     /**
-     * Adds position for player nucleus.
-     * @param[in] section
-     * @return position of player nucleus.
+     * Adds nucleus and resources for each player.
+     * @param[in] num_players 
+     * @return nucleus-position for each player.
      */
     std::vector<position_t> AddNucleus(unsigned int num_players);
+
+    /** 
+     * Adds resources.
+     * @param[in] start_pos position near which to create resources.
+     */
+    void AddResources(position_t start_pos);
 
     /**
      * Builds graph to calculate ways.
      * Function should be called after field is initialized. Function checks all
      * fields reachable from player-den (this could be the den of any player).
-     * @param[in] player_nucleus (list to check if each nucleus is reachable).
      */
     void BuildGraph();
 
     /**
-     * Finds a free position for a defence tower and adds tower to player/ ki
-     * units.
-     * @param pos position of new defence tower.
-     * @param unit integer to identify unit.
+     * Adds new neuron to field at given position (not for resource-neurons) and
+     * adds to field-neurons together with player.
+     * @param[in] pos position of new neuron
+     * @param[in] neuron shared pointer to neuron
+     * @param[in] p player neuron belongs to
      */
-    void AddNewUnitToPos(position_t pos, std::shared_ptr<Neuron> neuron, Player* p);
-    void RemoveUnitFromPos(position_t pos);
-    std::pair<short, Player*> GetNeuronTypeAtPosition(position_t pos);
-    void ClearNeurons();
-    
+    void AddNewNeuron(position_t pos, std::shared_ptr<Neuron> neuron, Player* p);
+
+    /**
+     * Removes neuron from map of neurons, does not removes from field, as
+     * position if indefinetly taken.
+     * @param[in] pos
+     */
+    void RemoveNeuron(position_t pos);
+
+    /**
+     * Gets neuron-type and matching player at given position.
+     * @param[in] pos
+     * @return pair of neuron-type and player
+     */
+    std::pair<short, Player*> GetNeuronTypeAndPlayerAtPosition(position_t pos);
 
     /**
      * Gets way to a soldiers target.
-     * @param start_pos starting position.
-     * @param target_pos target position.
+     * @param[in] start_pos starting position.
+     * @param[in] target_pos target position.
      * @return list of positions.
      */ 
-    std::list<position_t> GetWay(position_t start_pos, std::vector<position_t> way_points);
+    std::list<position_t> GetWay(position_t start_pos, const std::vector<position_t>& way_points);
 
     /** 
-     * Finds the next free position near a given position with min and max
-     * deviation.
+     * Finds the next free position near a given position with min and max deviation.
      * @param pos
      * @param min distance 
      * @param max distance
@@ -118,8 +127,7 @@ class Field {
      * @param[in] free (default: false=don't check if positions are free)
      * @return array of position in specified range.
      */
-    std::vector<position_t> GetAllInRange(position_t start, double max_dist, 
-        double min_dist, bool free=false);
+    std::vector<position_t> GetAllInRange(position_t start, double max_dist, double min_dist, bool free=false);
 
     /**
      * Gets the positions of the center of each section.
@@ -129,7 +137,8 @@ class Field {
 
     /**
      * Gets all positions of a given section.
-     * @param[in] section]
+     * @param[in] section
+     * @param[in] in_graph (if specified retruns only positions within graph)
      * @return all positions of a given section.
      */
     std::vector<position_t> GetAllPositionsOfSection(unsigned short section, bool in_graph = false);
@@ -140,9 +149,20 @@ class Field {
      * @return two-dimensional array with Symbol (string, color) as value.
      */
     std::vector<std::vector<Data::Symbol>> Export(std::vector<Player*> players);
+
+    /**
+     * Calls `Export(std::vector<Player*>)` after converting map to list.
+     * @param[in] players
+     * @return two-dimensional array with Symbol (string, color) as value.
+     */
     std::vector<std::vector<Data::Symbol>> Export(std::map<std::string, Player*> players);
 
-    void GetEpsps(std::map<std::string, Player*> players);
+    /**
+     * Gathers and stores all epsps from all players after clearing current
+     * gathered epsps.
+     * @param[in] players
+     */
+    void GatherEpspsFromPlayers(std::map<std::string, Player*> players);
 
   private: 
     // members
@@ -151,10 +171,9 @@ class Field {
     RandomGenerator* ran_gen_;
     std::shared_ptr<Graph> graph_;
     std::vector<std::vector<std::string>> field_;
-    std::map<position_t, std::pair<std::shared_ptr<Neuron>, Player*>> neurons_;
-    std::shared_mutex mutex_field_;
-    std::map<position_t, std::map<int, position_t>> resource_neurons_;
-    std::map<position_t, std::vector<std::pair<std::string, Player*>>> epsps_;
+    std::map<position_t, std::map<int, position_t>> resource_neurons_;  ///< stored to access after creation
+    std::map<position_t, std::pair<std::shared_ptr<Neuron>, Player*>> neurons_;  ///< stored here for fast-access
+    std::map<position_t, std::vector<std::pair<std::string, Player*>>> epsps_;  ///< stored here for fast-access
 
     // functions
     
@@ -165,6 +184,12 @@ class Field {
      */
     bool InField(position_t pos);
 
+    /**
+     * Checks if a nucleus is within given range of position.
+     * @param[in] pos 
+     * @param[in] range 
+     * @return whether a nucleus is within range of position.
+     */
     bool NucleusInRange(position_t pos, unsigned int range);
 };
 

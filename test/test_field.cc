@@ -99,7 +99,7 @@ TEST_CASE("test_field", "[main]") {
       field->BuildGraph(); // Check free also checks in graph.
       auto positions_to_block = field->GetAllInRange({50, 50}, 2, 0, true);
       for (const auto& it : positions_to_block) 
-        field->AddNewUnitToPos(it, std::make_shared<ActivatedNeuron>(it, 0, 0), nullptr);
+        field->AddNewNeuron(it, std::make_shared<ActivatedNeuron>(it, 0, 0), nullptr);
       auto positions_in_range = field->GetAllInRange({50, 50}, 3, 0, true);
       REQUIRE(positions_in_range.size() == 29-positions_to_block.size());
     }
@@ -143,15 +143,15 @@ TEST_CASE("test_field", "[main]") {
   SECTION ("test AddNewUnitToPos") {
     auto pos = t_utils::GetRandomPositionInField(field, ran_gen);
     SECTION("test add activated neuron to field") {
-      field->AddNewUnitToPos(pos, std::make_shared<ActivatedNeuron>(pos, 0, 0), nullptr);
+      field->AddNewNeuron(pos, std::make_shared<ActivatedNeuron>(pos, 0, 0), nullptr);
       REQUIRE(field->GetSymbolAtPos(pos) == SYMBOL_DEF);
     }
     SECTION("test add synapse to field") {
-      field->AddNewUnitToPos(pos, std::make_shared<Synapse>(pos, 0, 0, DEFAULT_POS, DEFAULT_POS), nullptr);
+      field->AddNewNeuron(pos, std::make_shared<Synapse>(pos, 0, 0, DEFAULT_POS, DEFAULT_POS), nullptr);
       REQUIRE(field->GetSymbolAtPos(pos) == SYMBOL_BARACK);
     }
     SECTION("test add nucleus to field") {
-      field->AddNewUnitToPos(pos, std::make_shared<Nucleus>(pos), nullptr);
+      field->AddNewNeuron(pos, std::make_shared<Nucleus>(pos), nullptr);
       REQUIRE(field->GetSymbolAtPos(pos) == SYMBOL_DEN);
     }
   }

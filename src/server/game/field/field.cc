@@ -6,6 +6,7 @@
 #include <curses.h>
 #include <exception>
 #include <iostream>
+#include <iterator>
 #include <locale>
 #include <memory>
 #include <random>
@@ -54,8 +55,8 @@ Field::Field(const Field& field) {
 unsigned int Field::lines() { return lines_; }
 unsigned int Field::cols() { return cols_; }
 std::shared_ptr<Graph> Field::graph() { return graph_; }
-std::map<position_t, std::map<int, position_t>>& Field::resource_neurons() { return resource_neurons_; }
-std::map<position_t, std::vector<std::pair<std::string, Player*>>>& Field::epsps() { return epsps_; }
+const std::map<position_t, std::map<int, position_t>>& Field::resource_neurons() { return resource_neurons_; }
+const std::map<position_t, std::vector<std::pair<std::string, Player*>>>& Field::epsps() { return epsps_; }
 
 std::vector<position_t> Field::GraphPositions() {
   std::vector<position_t> graph_positions;
@@ -156,50 +157,39 @@ void Field::BuildGraph() {
       num_positions_before);
 }
 
-void Field::AddHills(RandomGenerator* gen_1, RandomGenerator* gen_2, unsigned short denceness) {
-  auto pitches = gen_1->analysed_data().EveryXPitch(lines_*cols_);
-  std::reverse(pitches.begin(), pitches.end());
-  double avrg = gen_1->analysed_data().average_pitch_;
-  spdlog::get(LOGGER)->info("Field::AddHills: num pitches={}, avrg={}, pitch={}", pitches.size(), avrg, pitches.front());
-  spdlog::get(LOGGER)->info("Field::AddHills: denceness={} -> avrg/{}", denceness, 1.8+denceness*0.1);
-  int mountains = 0;
-  int big_mountains = 0;
-  
+void Field::AddHills(std::vector<double> reduced_pitches, double avrg_pitch, unsigned short looseness) {
+  // reverse pitches to use `.back()` and `.pop_back()` 
+  std::reverse(reduced_pitches.begin(), reduced_pitches.end());
+  // Iterate over field and create 'hill', small or big 'mountain' based on matching pitch
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
-      // Check random 50% chance for building a mountain.
-      if (pitches.back() < (avrg/(1.8+denceness*0.1)))
+      // small hill: slightly below average pitch (low looseness influence)
+      if (reduced_pitches.back() < (avrg_pitch/(1.8+looseness*0.1)))
         field_[l][c] = SYMBOL_HILL;
-      if (pitches.back() < avrg/(3.5+denceness*0.8)) {
-        mountains++;
+      // small hill: below average pitch (medium looseness influence)
+      if (reduced_pitches.back() < avrg_pitch/(3.5+looseness*0.8))
         for (const auto& it : GetAllInRange({l, c}, 1.5, 0))
           field_[it.first][it.second] = SYMBOL_HILL;
-      }
-      if (pitches.back() < avrg/(4.1+denceness*2)) {
-        big_mountains++;
+      // small hill: obviously below average pitch (high looseness influence)
+      if (reduced_pitches.back() < avrg_pitch/(4.1+looseness*2))
         for (const auto& it : GetAllInRange({l, c}, 2, 1))
           field_[it.first][it.second] = SYMBOL_HILL;
-      }
-
-      pitches.pop_back();
+      reduced_pitches.pop_back();
     }
   }
-  spdlog::get(LOGGER)->debug("Field::AddHills: done, build {} mountains and {} bug mountains", mountains, big_mountains);
 }
 
 
-std::list<position_t> Field::GetWay(position_t start_pos, std::vector<position_t> way_points) {
+std::list<position_t> Field::GetWay(position_t start_pos, const std::vector<position_t>& way_points) {
   spdlog::get(LOGGER)->debug("Field::GetWayForSoldier: pos={}", utils::PositionToString(start_pos));
   if (way_points.size() < 1)
     return {};
-
   std::list<position_t> way = {start_pos};
   for (unsigned int i=0; i<way_points.size(); i++) {
     try {
       // Get new way-part
       auto new_part = graph_->DijkstrasWay(way.back(), way_points[i]);
-      new_part.pop_front(); // Remove first element (start-position).
-      way.insert(way.end(), new_part.begin(), new_part.end());
+      way.insert(way.end(), std::next(new_part.begin()), new_part.end());
       // set start-pos as current way-point
       start_pos = way_points[0];
     }
@@ -210,27 +200,21 @@ std::list<position_t> Field::GetWay(position_t start_pos, std::vector<position_t
   return way;
 }
 
-void Field::AddNewUnitToPos(position_t pos, std::shared_ptr<Neuron> neuron, Player* p) {
+void Field::AddNewNeuron(position_t pos, std::shared_ptr<Neuron> neuron, Player* p) {
   spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos({})", utils::PositionToString(pos));
-  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos() x-size: {}", field_.size());
-  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos() y-size: {}", field_[0].size());
-  std::unique_lock ul_field(mutex_field_);
-  if (neuron->type_ == UnitsTech::ACTIVATEDNEURON)
-    field_[pos.first][pos.second] = SYMBOL_DEF;
-  else if (neuron->type_== UnitsTech::SYNAPSE)
-    field_[pos.first][pos.second] = SYMBOL_BARACK;
-  else if (neuron->type_ == UnitsTech::NUCLEUS)
-    field_[pos.first][pos.second] = SYMBOL_DEN;
+  // Add unit to field if in unit-symbol-mapping (resource-neurons already exist)
+  if (unit_symbol_mapping.count(neuron->type_) > 0)
+    field_[pos.first][pos.second] = unit_symbol_mapping.at(neuron->type_);
+  // Add to neurons
   neurons_[pos] = {neuron, p};
-  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos() done.");
 }
 
-void Field::RemoveUnitFromPos(position_t pos) {
+void Field::RemoveNeuron(position_t pos) {
   if (neurons_.count(pos) > 0)
     neurons_.erase(pos);
 }
 
-std::pair<short, Player*> Field::GetNeuronTypeAtPosition(position_t pos) {
+std::pair<short, Player*> Field::GetNeuronTypeAndPlayerAtPosition(position_t pos) {
   if (neurons_.count(pos) > 0)
     return {neurons_.at(pos).first->type_, neurons_.at(pos).second};
   return {-1, nullptr};
@@ -240,17 +224,10 @@ bool Field::InField(position_t pos) {
   return (pos.first >= 0 && pos.first <= lines_ && pos.second >= 0 && pos.second <= cols_);
 }
 
-void Field::ClearNeurons() {
-  for (const auto& it : neurons_)
-    field_[it.first.first][it.first.second] = SYMBOL_FREE;
-  neurons_.clear();
-}
-
 position_t Field::FindFree(position_t pos, int min, int max) {
-  std::shared_lock sl_field(mutex_field_);
   auto positions = GetAllInRange(pos, max, min, true);
   if (positions.size() == 0)
-    return {-1, -1};
+    return DEFAULT_POS;
   return positions[ran_gen_->RandomInt(0, positions.size()-1)];
 }
 
@@ -308,7 +285,6 @@ std::vector<std::vector<Data::Symbol>> Field::Export(std::map<std::string, Playe
 
 std::vector<std::vector<Data::Symbol>> Field::Export(std::vector<Player*> players) {
   spdlog::get(LOGGER)->debug("Field::Export");
-  std::shared_lock sl_field(mutex_field_);
   std::vector<std::vector<Data::Symbol>> t_field;
   // Create transfer-type field.
   for (int l=0; l<lines_; l++) {
@@ -337,7 +313,7 @@ bool Field::NucleusInRange(position_t pos, unsigned int range) {
   return false; 
 }
 
-void Field::GetEpsps(std::map<std::string, Player*> players) {
+void Field::GatherEpspsFromPlayers(std::map<std::string, Player*> players) {
   epsps_.clear();
   for (const auto& p : players) {
     for (const auto& potential : p.second->potential()) {
