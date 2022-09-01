@@ -42,11 +42,11 @@ TEST_CASE("Test creating msg dto", "[msgpack]") {
 
 TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
   std::string command = "setup_new_game";
-  unsigned short lines = 100;
-  unsigned short cols = 50;
+  int lines = 100;
+  int cols = 50;
 
   SECTION ("Test create setup_new_game-command for single-player", "[msgpack]") {
-    unsigned short mode = SINGLE_PLAYER;
+    int mode = SINGLE_PLAYER;
     std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
     Command cmd(command, data);
     REQUIRE(cmd.command() == command);
@@ -67,8 +67,8 @@ TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
   }
 
   SECTION ("Test create setup_new_game-command for multi-player (host)", "[msgpack]") {
-    unsigned short num_players = 2;
-    unsigned short mode = MULTI_PLAYER;
+    int num_players = 2;
+    int mode = MULTI_PLAYER;
     std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
     data->set_num_players(num_players);
     Command cmd(command, data);
@@ -91,7 +91,7 @@ TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
 
   SECTION ("Test create setup_new_game-command for multi-player (client)", "[msgpack]") {
     std::string game_id = "fux_game";
-    unsigned short mode = MULTI_PLAYER_CLIENT;
+    int mode = MULTI_PLAYER_CLIENT;
     std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
     data->set_game_id(game_id);
     Command cmd(command, data);
@@ -157,7 +157,7 @@ TEST_CASE("Test creating update_game dto", "[msgpack]") {
   std::string command = "update_game";
   std::map<std::string, std::pair<std::string, int>> players = {{"fux", {"0/9", 1}}, {"georg", {"5/9", 2}}};
   std::map<position_t, int> new_dead_neurons = {{{99, 99}, 3}, {{23, 7}, 2}};
-  std::map<position_t, std::pair<std::string, short>> potentials = {};
+  std::map<position_t, std::pair<std::string, int>> potentials = {};
   float audio_played = 0.7;
   std::map<int, Data::Resource> resources = {
     {1, Data::Resource(34.5, 23.4, 100, 2, true)}, 
@@ -203,7 +203,7 @@ TEST_CASE("Test creating init_game-dto update", "[msgpack]") {
 
   // Create update-data
   std::map<std::string, std::pair<std::string, int>> players = {{"fux", {"0/9", 1}}, {"georg", {"5/9", 2}}};
-  std::map<position_t, std::pair<std::string, short>> potentials = {{{99, 99}, {"10", EPSP}}, {{23, 7}, {"c", IPSP}}};
+  std::map<position_t, std::pair<std::string, int>> potentials = {{{99, 99}, {"10", EPSP}}, {{23, 7}, {"c", IPSP}}};
   std::map<position_t, int> new_dead_neurons = {{{99, 99}, 3}, {{23, 7}, 2}};
   float audio_played = 0.7;
   std::map<int, Data::Resource> resources = {
@@ -300,15 +300,15 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
   std::vector<int> neurons_1 = {ACTIVATEDNEURON, ACTIVATEDNEURON, SYNAPSE, ACTIVATEDNEURON};
   for (const auto& it : neurons_1)
     statistics_1->AddNewNeuron(it);
-  for (unsigned int i=0; i<10; i++)
+  for (int i=0; i<10; i++)
     statistics_1->AddEpspSwallowed();
-  for (unsigned int i=0; i<100; i++)
+  for (int i=0; i<100; i++)
     statistics_1->AddKillderPotential("epsp_");
-  for (unsigned int i=0; i<15; i++)
+  for (int i=0; i<15; i++)
     statistics_1->AddKillderPotential("ipsp_");
-  for (unsigned int i=0; i<95; i++)
+  for (int i=0; i<95; i++)
     statistics_1->AddLostPotential("epsp_");
-  for (unsigned int i=0; i<5; i++)
+  for (int i=0; i<5; i++)
     statistics_1->AddLostPotential("ipsp_");
   statistics_1->AddNewPotential(1);
   statistics_1->stats_resources_ref()[1] = {{"1", 3.5}, {"3", 7.6}};
@@ -328,15 +328,15 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
   std::vector<int> neurons_2 = {SYNAPSE, ACTIVATEDNEURON, SYNAPSE, SYNAPSE};
   for (const auto& it : neurons_2)
     statistics_2->AddNewNeuron(it);
-  for (unsigned int i=0; i<11; i++)
+  for (int i=0; i<11; i++)
     statistics_2->AddEpspSwallowed();
-  for (unsigned int i=0; i<120; i++)
+  for (int i=0; i<120; i++)
     statistics_2->AddKillderPotential("epsp_");
-  for (unsigned int i=0; i<13; i++)
+  for (int i=0; i<13; i++)
     statistics_2->AddKillderPotential("ipsp_");
-  for (unsigned int i=0; i<92; i++)
+  for (int i=0; i<92; i++)
     statistics_2->AddLostPotential("epsp_");
-  for (unsigned int i=0; i<6; i++)
+  for (int i=0; i<6; i++)
     statistics_2->AddLostPotential("ipsp_");
   statistics_2->AddNewPotential(2);
   statistics_2->stats_resources_ref()[3] = {{"1", 3.5}, {"3", 7.6}};
@@ -379,8 +379,8 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
 
 TEST_CASE("Test creating build_potential-dto", "[msgpack]") {
   std::string command = "build_potential";
-  short unit = EPSP;
-  short num = 1;
+  int unit = EPSP;
+  int num = 1;
   position_t default_pos = {-1, -1};
   position_t synapse_pos = {3,4};
   std::vector<position_t> positions = { {3,4}, {5,6}, {0,0}};
@@ -464,8 +464,8 @@ TEST_CASE("Test creating build_potential-dto", "[msgpack]") {
 
 TEST_CASE("Test creating build_neuron-dto", "[msgpack]") {
   std::string command = "build_neuron";
-  short unit = EPSP;
-  short range = 6;
+  int unit = EPSP;
+  int range = 6;
   position_t default_pos = {-1, -1};
   position_t pos = {3,6};
   position_t start_pos = {3,4};
@@ -665,7 +665,7 @@ TEST_CASE("Test creating set_wps-dto", "[msgpack]") {
 
 TEST_CASE("Test creating set_target-dto", "[msgpack]") {
   std::string command = "set_target";
-  short unit = IPSP;
+  int unit = IPSP;
   position_t default_pos = {-1, -1};
   position_t synapse_pos = {40, 40};
   position_t start_pos= {56, 12};
@@ -744,7 +744,7 @@ TEST_CASE("Test creating get_positions-dto", "[msgpack]") {
   std::vector<position_t> positions = {{40, 40}, {34, 43}};
 
   SECTION ("Test with single position-request and no (empty) data", "[msgpack]") {
-    std::map<short, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
+    std::map<int, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
     std::string return_cmd = "select_synapse";
     std::shared_ptr<Data> select_synapse = std::make_shared<SelectSynapse>();
     std::shared_ptr<Data> data = std::make_shared<GetPositions>(return_cmd, position_requests, select_synapse);
@@ -779,7 +779,7 @@ TEST_CASE("Test creating get_positions-dto", "[msgpack]") {
   }
 
   SECTION ("Test with single position-request", "[msgpack]") {
-    std::map<short, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
+    std::map<int, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
     std::string return_cmd = "select_synapse";
     std::shared_ptr<Data> select_synapse = std::make_shared<SelectSynapse>(positions);
     std::shared_ptr<Data> data = std::make_shared<GetPositions>(return_cmd, position_requests, select_synapse);
@@ -814,7 +814,7 @@ TEST_CASE("Test creating get_positions-dto", "[msgpack]") {
   }
 
   SECTION ("Test with multiple position-request", "[msgpack]") {
-    std::map<short, Data::PositionInfo> position_requests = {{{CURRENT_WAY, Data::PositionInfo(synapse_pos)}, 
+    std::map<int, Data::PositionInfo> position_requests = {{{CURRENT_WAY, Data::PositionInfo(synapse_pos)}, 
           {CURRENT_WAY_POINTS, Data::PositionInfo(synapse_pos)}, {CENTER, Data::PositionInfo()}}};
     std::string return_cmd = "set_wps";
     std::shared_ptr<Data> set_wps = std::make_shared<SetWayPoints>(synapse_pos);
@@ -953,7 +953,7 @@ TEST_CASE("Test creating initialize-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating distributed_iron-dto", "[msgpack]") {
-  unsigned int short resource = POTASSIUM;
+  int resource = POTASSIUM;
 
   SECTION ("Test creating add-iron-cmd", "[msgpack]") {
     std::string command = "add_iron";
@@ -983,7 +983,7 @@ TEST_CASE("Test creating distributed_iron-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating add_technology-dto", "[msgpack]") {
-  unsigned int short technology = SWARM;
+  int technology = SWARM;
   std::string command = "add_technology";
 
   std::shared_ptr<Data> data = std::make_shared<AddTechnology>(technology);

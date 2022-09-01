@@ -52,8 +52,8 @@ Field::Field(const Field& field) {
 }
 
 // getter 
-unsigned int Field::lines() { return lines_; }
-unsigned int Field::cols() { return cols_; }
+int Field::lines() { return lines_; }
+int Field::cols() { return cols_; }
 std::shared_ptr<Graph> Field::graph() { return graph_; }
 const std::map<position_t, std::map<int, position_t>>& Field::resource_neurons() { return resource_neurons_; }
 const std::map<position_t, std::vector<std::pair<std::string, Player*>>>& Field::epsps() { return epsps_; }
@@ -65,26 +65,26 @@ std::vector<position_t> Field::GraphPositions() {
   return graph_positions;
 }
 
-std::vector<position_t> Field::AddNucleus(unsigned int num_players) {
+std::vector<position_t> Field::AddNucleus(int num_players) {
   spdlog::get(LOGGER)->info("Field::AddNucleus: num players {}", num_players);
   // Get all availible sections (more than a fourth of the positions of a section exist in graph). 
-  std::vector<unsigned int> availible_sections;
-  for (unsigned int i=1; i<=8; i++) {
-    unsigned int free_positions = 0;
+  std::vector<int> availible_sections;
+  for (int i=1; i<=8; i++) {
+    int free_positions = 0;
     auto positions_in_section = GetAllPositionsOfSection(i);
     for (const auto& it : positions_in_section) {
       if (graph_->InGraph(it)) 
         free_positions++;
     }
-    if (free_positions > positions_in_section.size()/4)
+    if (free_positions > (int)positions_in_section.size()/4)
       availible_sections.push_back(i);
   }
   // If not at least half as many sections are availible as players (max 2 players per section) omit.
-  if (availible_sections.size() < num_players/2)
+  if ((int)availible_sections.size() < num_players/2)
     return {};
   // Create nucleus-positions.
   std::vector<position_t> nucleus_positions;
-  for (unsigned int i=0; i<num_players; i++) {
+  for (int i=0; i<num_players; i++) {
     // Get random section and then erase retreived section from availible sections
     int section = ran_gen_->RandomInt(0, availible_sections.size()-1);
     auto positions_in_section = GetAllPositionsOfSection(availible_sections[section], true);
@@ -108,7 +108,7 @@ void Field::AddResources(position_t start_pos) {
   std::map<int, position_t> resource_positions;
 
   // Get positions sourrounding start position, with enough free spaces for all resources.
-  unsigned int nth_try = 0;
+  int nth_try = 0;
   std::vector<position_t> positions = GetAllInRange(start_pos, 4, 2, true);
   spdlog::get(LOGGER)->info("Field::AddResources, positions: {}", positions.size());
   while(positions.size() < symbol_resource_mapping.size()-1) {
@@ -157,7 +157,7 @@ void Field::BuildGraph() {
       num_positions_before);
 }
 
-void Field::AddHills(std::vector<double> reduced_pitches, double avrg_pitch, unsigned short looseness) {
+void Field::AddHills(std::vector<double> reduced_pitches, double avrg_pitch, int looseness) {
   // reverse pitches to use `.back()` and `.pop_back()` 
   std::reverse(reduced_pitches.begin(), reduced_pitches.end());
   // Iterate over field and create 'hill', small or big 'mountain' based on matching pitch
@@ -185,7 +185,7 @@ std::list<position_t> Field::GetWay(position_t start_pos, const std::vector<posi
   if (way_points.size() < 1)
     return {};
   std::list<position_t> way = {start_pos};
-  for (unsigned int i=0; i<way_points.size(); i++) {
+  for (size_t i=0; i<way_points.size(); i++) {
     try {
       // Get new way-part
       auto new_part = graph_->DijkstrasWay(way.back(), way_points[i]);
@@ -214,7 +214,7 @@ void Field::RemoveNeuron(position_t pos) {
     neurons_.erase(pos);
 }
 
-std::pair<short, Player*> Field::GetNeuronTypeAndPlayerAtPosition(position_t pos) {
+std::pair<int, Player*> Field::GetNeuronTypeAndPlayerAtPosition(position_t pos) {
   if (neurons_.count(pos) > 0)
     return {neurons_.at(pos).first->type_, neurons_.at(pos).second};
   return {-1, nullptr};
@@ -262,7 +262,7 @@ std::vector<position_t> Field::GetAllCenterPositionsOfSections() {
   return positions;
 }
 
-std::vector<position_t> Field::GetAllPositionsOfSection(unsigned short interval, bool in_graph) {
+std::vector<position_t> Field::GetAllPositionsOfSection(int interval, bool in_graph) {
   std::vector<position_t> positions;
   int l = (interval-1)%(SECTIONS/2)*(cols_/4);
   int c = (interval < (SECTIONS/2)+1) ? 0 : lines_/2;
@@ -291,9 +291,9 @@ std::vector<std::vector<Data::Symbol>> Field::Export(std::vector<Player*> player
     t_field.push_back(std::vector<Data::Symbol>());
     for (int c=0; c<cols_; c++) {
       position_t cur = {l, c};
-      short color = COLOR_DEFAULT;
+      int color = COLOR_DEFAULT;
       // Check if belongs to either player, is blocked or is resource-neuron
-      for (unsigned int i=0; i<players.size(); i++) {
+      for (size_t i=0; i<players.size(); i++) {
         auto new_color = players[i]->GetColorForPos(cur);
         if (new_color != COLOR_DEFAULT)
           color = new_color;
@@ -306,7 +306,7 @@ std::vector<std::vector<Data::Symbol>> Field::Export(std::vector<Player*> player
   return t_field;
 }
 
-bool Field::NucleusInRange(position_t pos, unsigned int range) {
+bool Field::NucleusInRange(position_t pos, int range) {
   for (const auto& it : GetAllInRange(pos, range, 0))
     if (field_[it.first][it.second] == SYMBOL_DEN)
       return true;

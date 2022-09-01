@@ -88,7 +88,7 @@ class ServerGame {
     std::string host_;  ///< host player.
     std::vector<std::string> observers_;  ///< vector with usernames of observers
     std::set<std::string> dead_players_;  ///< keeps track of dead players.
-    const unsigned int max_players_;
+    const int max_players_;
 
     // audio
     Audio audio_;  ///< main-audio (f.e. map and in single-player: ai)
@@ -124,7 +124,7 @@ class ServerGame {
      * "swallows" epsp if enemy ipsp is on same field.
      * @return map of potentials in stacked format.
      */
-    std::map<position_t, std::pair<std::string, short>> GetAndUpdatePotentials() const;
+    std::map<position_t, std::pair<std::string, int>> GetAndUpdatePotentials() const;
 
     /**
      * Create player-agnostic transfer-data.

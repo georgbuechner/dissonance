@@ -88,8 +88,8 @@ position_t utils::PositionFromVector(std::vector<int> vec_pos) {
   return {vec_pos[0], vec_pos[1]};
 }
 
-unsigned int utils::Mod(int n, int m, unsigned int min) {
-  unsigned int val = ((n%m)+m)%m;
+int utils::Mod(int n, int m, int min) {
+  int val = ((n%m)+m)%m;
   if (val < min)
     val = min;
   return val;
@@ -110,7 +110,7 @@ std::vector<std::string> utils::GetAllPathsInDirectory(std::string path) {
   return paths;
 }
 
-std::string utils::Dtos(double value, unsigned int precision) {
+std::string utils::Dtos(double value, int precision) {
   std::stringstream stream;
   stream << std::fixed << std::setprecision(precision) << value;
   return stream.str();

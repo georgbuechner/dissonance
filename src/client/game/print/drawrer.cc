@@ -52,7 +52,7 @@ position_t Drawrer::field_pos() {
 
 std::string Drawrer::game_id_from_lobby() {
   std::unique_lock ul(mutex_print_field_);
-  if (cur_view_point_ == VP_LOBBY && (unsigned int)cur_selection_.at(VP_LOBBY).x() < lobby_->lobby().size())
+  if (cur_view_point_ == VP_LOBBY && (size_t)cur_selection_.at(VP_LOBBY).x() < lobby_->lobby().size())
     return lobby_->lobby()[cur_selection_.at(VP_LOBBY).x()]._game_id;
   return "";
 }
@@ -137,10 +137,10 @@ void Drawrer::set_transfer(std::shared_ptr<Data> init, bool show_ai_tactics) {
 
   // Adjust start-point of field if game size is smaller than resolution suggests.
   spdlog::get(LOGGER)->debug("Drawrer::set_transfer: setting height and width.");
-  unsigned int cur_height = field_height();
-  unsigned int cur_width = field_width();
-  extra_height_ = (cur_height > field_.size()) ? (cur_height-field_.size())/2 : 0;
-  extra_width_ = (cur_width > field_[0].size()) ? cur_width-field_[0].size() : 0;
+  int cur_height = field_height();
+  int cur_width = field_width();
+  extra_height_ = ((size_t)cur_height > field_.size()) ? (cur_height-field_.size())/2 : 0;
+  extra_width_ = ((size_t)cur_width > field_[0].size()) ? cur_width-field_[0].size() : 0;
   spdlog::get(LOGGER)->debug("Drawrer::set_transfer: setting graph_positions.");
   for (const auto& it : init->graph_positions())
     graph_positions_->insert(it);
@@ -229,7 +229,7 @@ void Drawrer::ToggleShowResource(int resource) {
     show_resources_[resource] = !show_resources_.at(resource);
 }
 
-void Drawrer::AddNewUnitToPos(position_t pos, short unit, short color) {
+void Drawrer::AddNewUnitToPos(position_t pos, int unit, int color) {
   spdlog::get(LOGGER)->debug("Drawrer::AddNewUnitToPos: pos: {}, unit: {}, color: {}", 
       utils::PositionToString(pos), unit, color);
   std::unique_lock ul(mutex_print_field_);
@@ -247,7 +247,7 @@ void Drawrer::AddNewUnitToPos(position_t pos, short unit, short color) {
     field_[pos.first][pos.second] = Data::Symbol({unit_symbol_mapping.at(unit), color});
 }
 
-void Drawrer::AddTechnology(short technology) {
+void Drawrer::AddTechnology(int technology) {
   if (technologies_->count(technology) && technologies_->at(technology).first < technologies_->at(technology).second) 
     technologies_->at(technology).first++;
 }
@@ -333,12 +333,12 @@ void Drawrer::PrintOnlyCenteredLine(int l, std::string line) const {
 
 void Drawrer::PrintCenteredLineColored(int l, std::vector<std::pair<std::string, int>> txt_with_color) {
   // Get total length.
-  unsigned int total_length = 0;
+  int total_length = 0;
   for (const auto& it : txt_with_color) 
     total_length += it.first.length();
 
   // Print parts one by one and update color for each part.
-  unsigned int position = COLS/2-total_length/2;
+  int position = COLS/2-total_length/2;
   for (const auto& it : txt_with_color) {
     if (it.second == COLOR_AVAILIBLE)
       attron(WA_BOLD);
@@ -355,11 +355,11 @@ void Drawrer::PrintCenteredParagraph(texts::paragraph_t paragraph, bool nextmsg)
     paragraph.push_back("");
     paragraph.push_back("[press 'h' for previous and 'l' for next text. 'q' to quit.]");
   }
-  PrintCenteredParagraph(paragraph, (unsigned int)0);
+  PrintCenteredParagraph(paragraph, 0);
 }
-void Drawrer::PrintCenteredParagraph(texts::paragraph_t paragraph, unsigned int additional_height) {
+void Drawrer::PrintCenteredParagraph(texts::paragraph_t paragraph, int additional_height) {
   int counter = 0;
-  unsigned int start_height = LINES/2 - paragraph.size()/2 - additional_height;
+  int start_height = LINES/2 - paragraph.size()/2 - additional_height;
   for (const auto& line : paragraph)
     PrintCenteredLine(start_height+counter++, line);
 }
@@ -372,14 +372,14 @@ void Drawrer::PrintCenteredParagraphAndMiniFields(texts::paragraph_t paragraph, 
     paragraph.push_back("[press 'h' for previous and 'l' for next text. 'q' to quit.]");
   }
   // Print paragraph
-  PrintCenteredParagraph(paragraph, (unsigned int)5);
+  PrintCenteredParagraph(paragraph, 5);
 
   // Print mini-field(s).
-  unsigned int start_height = LINES/2 + paragraph.size()/2 + 2;
-  for (unsigned int r=0; r<10; r++) {
-    unsigned int start_col = COLS/2-10*fields.size() - 5*(fields.size()/2);
+  int start_height = LINES/2 + paragraph.size()/2 + 2;
+  for (int r=0; r<10; r++) {
+    int start_col = COLS/2-10*fields.size() - 5*(fields.size()/2);
     for (unsigned int field=0; field<fields.size(); field++) {
-      for (unsigned int c=0; c<10; c++) {
+      for (int c=0; c<10; c++) {
         auto sym = mini_fields_.at(fields[field])[r][c];
         attron(COLOR_PAIR(sym.color_));
         mvaddstr(start_height+r, start_col++, sym.symbol_.c_str());
@@ -439,8 +439,8 @@ void Drawrer::PrintHeader(float audio_played, const t_topline& players) {
   ClearLine(l_headline_+1);
   PrintCenteredLineColored(l_headline_+1, players);
   // Print audio
-  unsigned int length = (c_resources_ - c_field_ - 20) * audio_played;
-  for (unsigned int i=0; i<length; i++)
+  int length = (c_resources_ - c_field_ - 20) * audio_played;
+  for (int i=0; i<length; i++)
     mvaddstr(l_audio_, c_field_+10+i, "x");
 }
 
@@ -511,7 +511,7 @@ void Drawrer::PrintSideColumn() {
   mvaddstr(l_main_, c_resources_, "RESOURCES");
   attroff(WA_BOLD);
   int inc = (static_cast<int>(resources_->size()*2 + technologies_->size()*2+4) > field_height()) ? 1 : 2;
-  unsigned int counter = 2;
+  int counter = 2;
   for (const auto& it : *resources_) {
     // Mark selected resource/ technology
     if (cur_selection_.at(VP_RESOURCE).x() == it.first) {
@@ -686,7 +686,7 @@ void Drawrer::PrintStatisticsTable(std::shared_ptr<Statictics> statistic) const 
 }
 
 int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, 
-    std::map<unsigned short, unsigned short> infos) const {
+    std::map<int, int> infos) const {
   spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticEntry: {}, {}", heading, infos.size());
   PrintCenteredLineBold(s+(++i), heading);
   for (const auto& it : infos) 
@@ -694,7 +694,7 @@ int Drawrer::PrintStatisticEntry(std::string heading, int s, int i,
   return ++i;
 }
 
-int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, unsigned short info) const {
+int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, int info) const {
   spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticEntry: {}, {}", heading, info);
   PrintCenteredLineBold(s+(++i), heading);
   PrintCenteredLine(s+(++i), std::to_string(info));
@@ -743,11 +743,11 @@ void Drawrer::PrintLobby() {
   }
   // Otherwise print lobby
   else {
-    unsigned int counter = 0;
+    int counter = 0;
     for (const auto& it : lobby_->lobby()) {
       std::string lobby_line = it._audio_map_name + ": " + std::to_string(it._cur_players) + "/" 
         + std::to_string(it._max_players);
-      if ((unsigned int)cur_selection_.at(VP_LOBBY).x() == counter/2)
+      if (cur_selection_.at(VP_LOBBY).x() == counter/2)
         attron(COLOR_PAIR(COLOR_AVAILIBLE));
       PrintCenteredLine(LINES/4+5+counter, lobby_line);
       attron(COLOR_PAIR(COLOR_DEFAULT));
@@ -791,7 +791,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   spdlog::get(LOGGER)->debug("Creating new player");
   p = new Player("p", nucleus.front(), field, ran_gen, player_color);
   // Give player plenty resources (iron):
-  for (unsigned int i=0; i<10; i++) 
+  for (int i=0; i<10; i++) 
     p->IncreaseResources(true);
   spdlog::get(LOGGER)->info("done");
   mini_fields_["field_player"] = field->Export({p});
@@ -809,7 +809,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   p->DistributeIron(GLUTAMATE);
   p->DistributeIron(GLUTAMATE);
   // Give player plenty resources (iron):
-  for (unsigned int i=0; i<100; i++) 
+  for (int i=0; i<100; i++) 
     p->IncreaseResources(true);
   exported_field = field->Export({p});
   mini_fields_["field_player_oxygen_potassium_glutamat_activated"] = exported_field;
@@ -859,13 +859,13 @@ void Drawrer::CreateMiniFields(int player_color) {
   spdlog::get(LOGGER)->debug("Creating new player");
   Player* p_enemy = new Player("p", nucleus_pos_enemy, field_enemy, ran_gen, enemy_color);
   // Give enemy plenty resources.
-  for (unsigned int i=0; i<10; i++) 
+  for (int i=0; i<10; i++) 
     p_enemy->IncreaseResources(true);
   p_enemy->DistributeIron(OXYGEN);
   p_enemy->DistributeIron(OXYGEN);
   p_enemy->DistributeIron(POTASSIUM);
   p_enemy->DistributeIron(POTASSIUM);
-  for (unsigned int i=0; i<100; i++) 
+  for (int i=0; i<100; i++) 
     p_enemy->IncreaseResources(true);
   auto exported_field_enemy = field_enemy->Export({p_enemy});
   // Add synape

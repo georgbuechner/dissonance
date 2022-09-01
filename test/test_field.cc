@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 #include <cstddef>
+#include <cstdint>
 #include <iterator>
 #include <algorithm>
 #include <memory>
@@ -77,8 +78,8 @@ TEST_CASE("test_field", "[main]") {
     }
 
     SECTION("Test for each position.") {
-      for (unsigned int l=1; l<field->lines(); l++) {
-        for (unsigned int c=1; c<field->cols(); c++) {
+      for (int l=1; l<field->lines(); l++) {
+        for (int c=1; c<field->cols(); c++) {
           auto positions = field->GetAllInRange({l, c}, 1.5, 1);
           if (l == 0 && c == 0)
             REQUIRE(positions.size() == 3);
@@ -320,8 +321,8 @@ TEST_CASE("test graph: find way with special conditions", "[graph]") {
 
 
 TEST_CASE("test hashing and unhashing positions" "[graph]") {
-  for (unsigned short i=0;i<1000; i++) {
-    for (unsigned short j=0;j<1000; j++) {
+  for (int16_t i=0;i<1000; i++) {
+    for (int16_t j=0;j<1000; j++) {
       position_t pos = {i, j};
       int i_pos = Graph::to_int(pos);
       REQUIRE(Graph::get_pos(i_pos) == pos);

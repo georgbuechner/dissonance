@@ -29,8 +29,8 @@ class Field {
     Field(const Field& field);
 
     // getter 
-    unsigned int lines();
-    unsigned int cols();
+    int lines();
+    int cols();
     std::shared_ptr<Graph> graph();
     const std::map<position_t, std::map<int, position_t>>& resource_neurons();
     const std::map<position_t, std::vector<std::pair<std::string, Player*>>>& epsps();
@@ -49,14 +49,14 @@ class Field {
      * @param[in] average_pitch
      * @param[in] looseness can be increased to create less 'hills' assure that map is playable.
      */
-    void AddHills(std::vector<double> reduced_pitches, double average_pitch, unsigned short looseness);
+    void AddHills(std::vector<double> reduced_pitches, double average_pitch, int looseness);
 
     /**
      * Adds nucleus and resources for each player.
      * @param[in] num_players 
      * @return nucleus-position for each player.
      */
-    std::vector<position_t> AddNucleus(unsigned int num_players);
+    std::vector<position_t> AddNucleus(int num_players);
 
     /** 
      * Adds resources.
@@ -92,7 +92,7 @@ class Field {
      * @param[in] pos
      * @return pair of neuron-type and player
      */
-    std::pair<short, Player*> GetNeuronTypeAndPlayerAtPosition(position_t pos);
+    std::pair<int, Player*> GetNeuronTypeAndPlayerAtPosition(position_t pos);
 
     /**
      * Gets way to a soldiers target.
@@ -141,7 +141,7 @@ class Field {
      * @param[in] in_graph (if specified retruns only positions within graph)
      * @return all positions of a given section.
      */
-    std::vector<position_t> GetAllPositionsOfSection(unsigned short section, bool in_graph = false);
+    std::vector<position_t> GetAllPositionsOfSection(int section, bool in_graph = false);
 
     /**
      * Converts current field to transfer-object.
@@ -190,7 +190,7 @@ class Field {
      * @param[in] range 
      * @return whether a nucleus is within range of position.
      */
-    bool NucleusInRange(position_t pos, unsigned int range);
+    bool NucleusInRange(position_t pos, int range);
 };
 
 #endif

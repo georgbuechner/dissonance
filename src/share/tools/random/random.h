@@ -21,7 +21,7 @@ class RandomGenerator {
      * @param[in] generator custom function to generate random numbers based on
      * audio data.
      */
-    RandomGenerator(AudioData analysed_data, size_t(RandomGenerator::*generator)(size_t, size_t));
+    RandomGenerator(AudioData analysed_data, int(RandomGenerator::*generator)(int, int));
 
     /**
      * Base function calling set random number generator.
@@ -29,13 +29,13 @@ class RandomGenerator {
      * @param[in] maz
      * @return random number between min and max.
      */
-    int RandomInt(size_t min, size_t max);
+    int RandomInt(int min, int max);
 
     // generators
     /**
      * Gets random number from std::random.
      */
-    size_t ran(size_t min, size_t max);
+    int ran(int min, int max);
 
     /**
      * Gets random number based on the first note at beat. Uses multiplication
@@ -44,7 +44,7 @@ class RandomGenerator {
      * @param[in] maz
      * @return random number between min and max.
      */
-    size_t ran_note(size_t min, size_t max);
+    int ran_note(int min, int max);
 
     /**
      * Gets random number based on the existance of a minor third intervals in
@@ -53,16 +53,16 @@ class RandomGenerator {
      * @param[in] max
      * @return random number between min and max.
      */
-    size_t ran_boolean_minor_interval(size_t min, size_t max);
+    int ran_boolean_minor_interval(int min, int max);
 
-    size_t ran_level_peaks(size_t min, size_t max);
+    int ran_level_peaks(int min, int max);
 
   private:
     // member
     AudioData analysed_data_;
-    size_t last_point_;
+    int last_point_;
     std::vector<int> peaks_;
-    size_t(RandomGenerator::*get_ran_)(size_t min, size_t max);
+    int(RandomGenerator::*get_ran_)(int min, int max);
 
     // functions:
 

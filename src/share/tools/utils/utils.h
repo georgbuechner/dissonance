@@ -13,7 +13,7 @@
 
 namespace utils {
 
-  typedef std::pair<short, short> position_t;
+  typedef std::pair<int16_t, int16_t> position_t;
 
   /**
    * Is up
@@ -93,7 +93,7 @@ namespace utils {
    * @param[in] m (congruence class)
    * @return modulo of n in congruence class m.
    */
-  unsigned int Mod(int n, int m, unsigned int min=0);
+  int Mod(int n, int m, int min=0);
 
   /**
    * Converts all chars to upper case.
@@ -115,7 +115,7 @@ namespace utils {
    * @param[in] precision (default: 2)
    * @return string representation of double value with given precision.
    */
-  std::string Dtos(double value, unsigned int precision=2);
+  std::string Dtos(double value, int precision=2);
 
   /**
    * Creates id in format: [type][random(0, 9) x 39].
@@ -169,9 +169,9 @@ namespace utils {
    * @return slices vector.
    */
   template<class T>
-  std::vector<T> SliceVector(std::vector<T> in_vec, unsigned int begin, unsigned int len) {
+  std::vector<T> SliceVector(std::vector<T> in_vec, int begin, int len) {
     std::vector<T> out_vec;
-    for (unsigned int i=begin; i<begin+len && i<in_vec.size(); i++)
+    for (int i=begin; i<begin+len && (size_t)i<in_vec.size(); i++)
       out_vec.push_back(in_vec[i]);
     return out_vec;
   }

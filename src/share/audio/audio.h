@@ -20,29 +20,29 @@
 #include "miniaudio.h"
 
 struct Note {
-  size_t midi_note_;
+  int midi_note_;
   std::string note_name_;
-  size_t note_;
-  size_t ocatve_;
+  int note_;
+  int ocatve_;
 };
 
 struct AudioDataTimePoint {
   double time_;
   int bpm_;
-  size_t level_;
+  int level_;
   std::vector<Note> notes_;
   int interval_;
 };
 
 struct Interval {
-  size_t id_;
+  int id_;
   std::string key_;
-  size_t key_note_;
-  size_t signature_;  ///< 0=unsigned, 1=sharp, 2=flat
+  int key_note_;
+  int signature_;  ///< 0=unsigned, 1=sharp, 2=flat
   bool major_;  
-  size_t notes_in_key_;
-  size_t notes_out_key_;
-  size_t darkness_;
+  int notes_in_key_;
+  int notes_out_key_;
+  int darkness_;
 };
 
 struct AudioData {
@@ -52,7 +52,7 @@ struct AudioData {
   std::vector<double> pitches_;
   double average_pitch_;
 
-  size_t max_level_;
+  int max_level_;
   std::string key_;
   std::map<int, Interval> intervals_;
   int max_peak_;
@@ -60,7 +60,7 @@ struct AudioData {
   std::vector<double> EveryXPitch(int num_pitches) {
     std::vector<double> pitches;
     int every_x = pitches_.size()/num_pitches;
-    for (unsigned int i=0; i<pitches_.size(); i+=every_x)
+    for (size_t i=0; i<pitches_.size(); i+=every_x)
       pitches.push_back(pitches_[i]);
     return pitches;
   }
@@ -95,9 +95,9 @@ class Audio {
     void Stop();
 
     bool MoreOffNotes(const AudioDataTimePoint& data_at_beat, bool off=true) const;
-    size_t NextOfNotesIn(double cur_time) const;
+    int NextOfNotesIn(double cur_time) const;
 
-    static std::vector<unsigned short> GetInterval(std::vector<Note> notes);
+    static std::vector<int> GetInterval(std::vector<Note> notes);
 
     static void Initialize();
 
@@ -118,7 +118,7 @@ class Audio {
     static Note ConvertMidiToNote(int midi_note);
 
     void CreateLevels(int intervals);
-    void CalcLevel(size_t quater, std::map<std::string, int> notes_by_frequency, size_t darkness);
+    void CalcLevel(int quater, std::map<std::string, int> notes_by_frequency, int darkness);
 
     void AnalyzePeak();
     AudioData AnalyzeFile(std::string source_path);
@@ -127,7 +127,7 @@ class Audio {
     void Safe(AudioData audio_data, std::string source_path);
     std::string GetOutPath(std::filesystem::path source_path);
 
-    static std::map<unsigned short, std::vector<Note>> GetNotesInSimilarOctave(std::vector<Note> notes);
+    static std::map<int, std::vector<Note>> GetNotesInSimilarOctave(std::vector<Note> notes);
 
 };
 

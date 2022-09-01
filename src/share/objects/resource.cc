@@ -2,7 +2,7 @@
 #include "spdlog/spdlog.h"
 #include <numeric>
 
-Resource::Resource(double init, unsigned int max, int distributed_iron, bool to_int, position_t pos) 
+Resource::Resource(double init, int max, int distributed_iron, bool to_int, position_t pos) 
     : to_int_(to_int), pos_(pos) {
   free_ = init;
   limit_ = max;
@@ -20,10 +20,10 @@ double Resource::cur() const {
 double Resource::bound() const {
   return bound_;
 }
-unsigned int Resource::limit() const {
+int Resource::limit() const {
   return limit_;
 }
-unsigned int Resource::distributed_iron() const {
+int Resource::distributed_iron() const {
   return distributed_iron_;
 }
 bool Resource::blocked() const {
@@ -64,10 +64,10 @@ void Resource::set_cur(double value) {
 void Resource::set_bound(double value) {
   bound_ = value;
 }
-void Resource::set_distributed_iron(unsigned int value) {
+void Resource::set_distributed_iron(int value) {
   distributed_iron_ = value;
 }
-void Resource::set_limit(unsigned int value) {
+void Resource::set_limit(int value) {
   limit_ = value;
 }
 void Resource::set_blocked(bool value) {

@@ -13,13 +13,13 @@
 
 class Resource {
   public:
-    Resource(double init, unsigned int max, int distributed_iron, bool to_int, position_t pos);
+    Resource(double init, int max, int distributed_iron, bool to_int, position_t pos);
 
     // getter
     double cur() const;
     double bound() const;
-    unsigned int limit() const;
-    unsigned int distributed_iron() const;
+    int limit() const;
+    int distributed_iron() const;
     bool blocked() const;
     position_t pos() const;
     double total() const;
@@ -32,8 +32,8 @@ class Resource {
     // setter 
     void set_cur(double value);
     void set_bound(double value);
-    void set_distributed_iron(unsigned int value);
-    void set_limit(unsigned int value);
+    void set_distributed_iron(int value);
+    void set_limit(int value);
     void set_blocked(bool value);
 
     // functions
@@ -65,8 +65,8 @@ class Resource {
     // members
     double free_;  ///< current availible 
     double bound_;  ///< current bound
-    unsigned int limit_;  ///< maximum of this resource (free+bound)
-    unsigned int distributed_iron_;
+    int limit_;  ///< maximum of this resource (free+bound)
+    int distributed_iron_;
     bool blocked_;
     const bool to_int_;
     const position_t pos_;

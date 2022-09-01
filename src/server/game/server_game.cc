@@ -95,7 +95,7 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
   std::unique_lock ul(mutex_players_);
   spdlog::get(LOGGER)->info("ServerGame::AddPlayer: {}, cur: {}, max: {}", username, players_.size(), max_players_);
   // Check is free slots in lobby.
-  if (players_.size() < max_players_) {
+  if (players_.size() < (size_t)max_players_) {
     players_[username] = nullptr;
     human_players_[username] = nullptr;
     // Adjust field size and width
@@ -124,7 +124,7 @@ void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
 void ServerGame::PlayerReady(std::string username) {
   spdlog::get(LOGGER)->debug("ServerGame::PlayerReady. {}", username);
   // Only start game if status is still waiting, to avoid starting game twice.
-  if (players_.size() >= max_players_ && status_ == WAITING_FOR_PLAYERS) {
+  if (players_.size() >= (size_t)max_players_ && status_ == WAITING_FOR_PLAYERS) {
     spdlog::get(LOGGER)->info("ServerGame::PlayerReady: starting game as last player entered game.");
     RunGame();
   }
@@ -460,8 +460,8 @@ void ServerGame::SetUpGame(std::vector<Audio*> audios) {
   spdlog::get(LOGGER)->info("ServerGame::SetUpGame: Creating {} players.", max_players_);
 
   // Setup players.
-  unsigned int ai_audio_counter = 0;
-  unsigned int counter = 0;
+  int ai_audio_counter = 0;
+  int counter = 0;
   for (const auto& it : players_) {
     int color = (counter % 4) + 10; // currently results in four different colors
     auto nucleus_pos = nucleus_positions[counter];
@@ -496,7 +496,7 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
     field_->AddHills(reduced_pitches, audio_.analysed_data().average_pitch_, denseness++);
     field_->BuildGraph();
     nucleus_positions = field_->AddNucleus(max_players_);
-    if (nucleus_positions.size() < max_players_) {
+    if (nucleus_positions.size() < (size_t)max_players_) {
       delete field_;
       field_ = nullptr;
     }
@@ -640,8 +640,8 @@ void ServerGame::Thread_Ai(std::string username) {
   spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");
 }
 
-std::map<position_t, std::pair<std::string, short>> ServerGame::GetAndUpdatePotentials() const {
-  std::map<position_t, std::pair<std::string, short>> potential_per_pos;
+std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotentials() const {
+  std::map<position_t, std::pair<std::string, int>> potential_per_pos;
   std::map<position_t, int> positions;
   // 2: Create map of potentials in stacked format.
   for (const auto& it : players_) {

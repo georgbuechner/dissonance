@@ -277,14 +277,14 @@ class Graph {
         }
         return way;
       }
-      spdlog::get(LOGGER)->debug("Could not find way: " + utils::PositionToString(s) + " to " + utils::PositionToString(t));
-      std::cout << "Could not find way: " + utils::PositionToString(s) + " to " + utils::PositionToString(t) << std::endl;
+      spdlog::get(LOGGER)->debug("Could not find way: {} to {}", utils::PositionToString(s), utils::PositionToString(t));
       throw "Could not find way: " + utils::PositionToString(s) + " to " + utils::PositionToString(t);
     }
 
     static int to_int(position_t pos) {
       return pos.first<<16 | pos.second;
     }
+
     static position_t get_pos(int c) {
       return {c>>16, c & 0xFFFF};
     }

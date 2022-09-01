@@ -52,7 +52,7 @@ class Context {
     char cmd() const { return cmd_; }
     std::shared_ptr<Data> data() const { return data_; }
     std::string action() const { return action_; }
-    unsigned int num() const { return num_; }
+    int num() const { return num_; }
     int last_context() const { return last_context_; }
 
     std::vector<std::pair<std::string, int>> topline() const { return topline_; }
@@ -67,7 +67,7 @@ class Context {
     void set_data(std::shared_ptr<Data> data) { data_ = data; }
     void set_cmd(char cmd) { cmd_ = cmd; }
     void set_action(std::string action) { action_ = action; }
-    void set_num(unsigned int num) { num_ = num; }
+    void set_num(int num) { num_ = num; }
 
     // methods 
     void init_text(texts::paragraphs_field_t text, int context) {
@@ -76,7 +76,7 @@ class Context {
       num_ = 0;
     }
     texts::paragraph_field_t get_paragraph() { return text_[num_]; }
-    bool last_text() { return text_.size()-1 == num_; }
+    bool last_text() { return text_.size()-1 == (size_t)num_; }
     
   private:
     EventManager<char, ClientGame, std::shared_ptr<Data>> eventmanager_;
@@ -87,7 +87,7 @@ class Context {
     std::shared_ptr<Data> data_;
 
     texts::paragraphs_field_t text_;
-    unsigned int num_;
+    int num_;
     int last_context_;
 
     t_topline topline_;

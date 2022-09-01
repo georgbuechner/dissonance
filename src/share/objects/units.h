@@ -56,9 +56,9 @@ struct Neuron : Unit {
     virtual int potential_slowdown() const { return -1; };
     virtual std::vector<position_t> ways_points() const { return {}; }
     virtual bool swarm() const { return false; }
-    virtual unsigned int num_availible_ways() const { return 0; }
-    virtual unsigned int max_stored() const { return 0; }
-    virtual unsigned int stored() const { return 0; }
+    virtual int num_availible_ways() const { return 0; }
+    virtual int max_stored() const { return 0; }
+    virtual int stored() const { return 0; }
     virtual position_t epsp_target() const { return DEFAULT_POS; }
     virtual position_t ipsp_target() const { return DEFAULT_POS; }
     virtual position_t macro_target() const { return DEFAULT_POS; }
@@ -76,8 +76,8 @@ struct Neuron : Unit {
     virtual void set_epsp_target_pos(position_t pos) {};
     virtual void set_ipsp_target_pos(position_t pos) {};
     virtual void set_macro_target_pos(position_t pos) {};
-    virtual void set_availible_ways(unsigned int num_ways) {};
-    virtual void set_max_stored(unsigned int max_stored) {};
+    virtual void set_availible_ways(int num_ways) {};
+    virtual void set_max_stored(int max_stored) {};
     virtual void set_target(position_t) {};
 
     // methods
@@ -93,7 +93,7 @@ struct Neuron : Unit {
       spdlog::get(LOGGER)->error("Neuron::GetWayPoints: invalid base clase call!");
       return {}; 
     }
-    virtual unsigned int AddEpsp() { return 0; }
+    virtual int AddEpsp() { return 0; }
 
   private:
     int lp_;
@@ -117,9 +117,9 @@ struct Synapse : Neuron {
     // getter: 
     std::vector<position_t> ways_points() const;
     bool swarm() const;
-    unsigned int num_availible_ways() const;
-    unsigned int max_stored() const;
-    unsigned int stored() const;
+    int num_availible_ways() const;
+    int max_stored() const;
+    int stored() const;
     position_t epsp_target() const { return epsp_target_; }
     position_t ipsp_target() const { return ipsp_target_; }
     position_t macro_target() const { return macro_target_; }
@@ -137,12 +137,12 @@ struct Synapse : Neuron {
     void set_epsp_target_pos(position_t pos);
     void set_ipsp_target_pos(position_t pos);
     void set_macro_target_pos(position_t pos);
-    void set_availible_ways(unsigned int num_availible_way_points);
-    void set_max_stored(unsigned int max_stored);
+    void set_availible_ways(int num_availible_way_points);
+    void set_max_stored(int max_stored);
 
     // methods: 
     std::vector<position_t> GetWayPoints(int unit) const;
-    unsigned int AddEpsp();
+    int AddEpsp();
 
   private:
     bool swarm_;
@@ -153,7 +153,7 @@ struct Synapse : Neuron {
     position_t ipsp_target_;
     position_t macro_target_;
 
-    unsigned int num_availible_way_points_;
+    int num_availible_way_points_;
     std::vector<position_t> way_points_;
 };
 

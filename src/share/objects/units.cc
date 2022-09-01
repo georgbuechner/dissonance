@@ -78,13 +78,13 @@ std::vector<position_t> Synapse::ways_points() const {
 bool Synapse::swarm() const { 
   return swarm_; 
 }
-unsigned int Synapse::num_availible_ways() const { 
+int Synapse::num_availible_ways() const { 
   return num_availible_way_points_; 
 }
-unsigned int Synapse::max_stored() const { 
+int Synapse::max_stored() const { 
   return max_stored_; 
 }
-unsigned int Synapse::stored() const { 
+int Synapse::stored() const { 
   return stored_; 
 }
 
@@ -104,10 +104,10 @@ void Synapse::set_ipsp_target_pos(position_t pos) {
 void Synapse::set_macro_target_pos(position_t pos) {
   macro_target_ = pos;
 }
-void Synapse::set_availible_ways(unsigned int num_availible_way_points) {
+void Synapse::set_availible_ways(int num_availible_way_points) {
   num_availible_way_points_ = num_availible_way_points;
 }
-void Synapse::set_max_stored(unsigned int max_stored) {
+void Synapse::set_max_stored(int max_stored) {
   max_stored_ = max_stored;
 }
 
@@ -126,7 +126,7 @@ std::vector<position_t> Synapse::GetWayPoints(int unit) const {
   return way;
 }
 
-unsigned int Synapse::AddEpsp() { 
+int Synapse::AddEpsp() { 
   spdlog::get(LOGGER)->debug("Synapse::AddEpsp");
   if (swarm_) {
     if (++stored_ >= max_stored_) {

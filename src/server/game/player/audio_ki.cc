@@ -10,6 +10,7 @@
 #include "spdlog/spdlog.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <iterator>
 #include <algorithm>
@@ -70,7 +71,7 @@ void AudioKi::SetUpTactics(bool inital_setup) {
   }
   
   // Increase interval.
-  if (cur_interval_.id_+1 < audio_->analysed_data().intervals_.size())
+  if ((size_t)cur_interval_.id_+1 < audio_->analysed_data().intervals_.size())
     cur_interval_ = audio_->analysed_data().intervals_[cur_interval_.id_+1];
 }
 
@@ -150,7 +151,7 @@ void AudioKi::SetEconomyTactics() {
     resource_tactics_.insert(resource_tactics_.end(), {SEROTONIN, DOPAMINE});
   }
   // Distribute extra iron +3 top resources, +2 second resource, +1 third resource.
-  for (unsigned int i : {0, 0, 0, 1, 1, 2})
+  for (int i : {0, 0, 0, 1, 1, 2})
     resource_tactics_.push_back(resource_tactics_[i]);
   // Log final resource tactics.
   for (const auto& it : resource_tactics_)
@@ -173,7 +174,7 @@ void AudioKi::SetEconomyTactics() {
       && cur_interval_.signature_ != Signitue::UNSIGNED) ? cur_interval_.darkness_%9 : 0;
   // TODO (fux): handle technology_tactics[WAY]
   // Added sorted technology tacics to final tactics three times (as there are three levels for each technology).
-  for (unsigned int i=0; i<3; i++) 
+  for (int i=0; i<3; i++) 
     for (const auto& it : SortStrategy(technology_tactics)) 
       technology_tactics_.push_back(it.second);
   // log final technology tactics
@@ -487,7 +488,7 @@ void AudioKi::CreateActivatedNeuron(bool force) {
 }
 
 void AudioKi::HandleIron() {
-  unsigned int iron = resources_.at(IRON).cur();
+  int iron = resources_.at(IRON).cur();
   std::string resource_list;
   for (const auto& it : resource_tactics_)
     resource_list += resources_name_mapping.at(it) + ", ";
@@ -668,11 +669,11 @@ int AudioKi::SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length) const 
 
 void AudioKi::Defend() {
   auto ps = enemies_.front()->GetEpspAtPosition();
-  unsigned int enemy_potentials = std::accumulate(std::begin(ps), std::end(ps), 0, 
+  int enemy_potentials = std::accumulate(std::begin(ps), std::end(ps), 0, 
       [](int v, const std::map<position_t, int>::value_type& p) { return v+p.second; });
   spdlog::get(LOGGER)->debug("AudioKi::Defend. {} enemy potential coming.", enemy_potentials);
   if (enemy_potentials > 0) {
-    unsigned int shortest_way = 20;
+    size_t shortest_way = 20;
     // Get shortes enemy-way (==first enemy epsp to arrive) and ignore all way > 20
     std::list<position_t> way;
     for (const auto& it : enemies_.front()->potential()) {
@@ -703,7 +704,7 @@ void AudioKi::Defend() {
   }
 }
 
-bool AudioKi::IpspDef(unsigned int enemy_potentials, std::list<position_t> way, int diff) {
+bool AudioKi::IpspDef(int enemy_potentials, std::list<position_t> way, int diff) {
   spdlog::get(LOGGER)->debug("AudioKi::IpspDef");
   // If ipsps cannot be build, ommit.
   if (GetMissingResources(IPSP).size() > 0) {
@@ -731,7 +732,7 @@ bool AudioKi::IpspDef(unsigned int enemy_potentials, std::list<position_t> way, 
   return true;
 }
 
-bool AudioKi::CreateExtraActivatedNeurons(unsigned int enemy_potentials, const std::list<position_t>& way, int diff) {
+bool AudioKi::CreateExtraActivatedNeurons(int enemy_potentials, const std::list<position_t>& way, int diff) {
   spdlog::get(LOGGER)->debug("AudioKi::CreateExtraActivatedNeurons. creating {} activated neurons", diff);
   // Build activated neurons based on enemy epsp-attack launch.
   while (diff-- > 0) {
@@ -768,10 +769,10 @@ void AudioKi::HandleHighBound() {
     return;
   }
   // Second, try adding iron to resouce
-  unsigned int iron = resources_.at(IRON).cur();
+  int iron = resources_.at(IRON).cur();
   if (iron > 2 && resources_activated_.size() >= SEROTONIN) {
     // Distribute all iron but the last to resource with highest bound
-    for (unsigned int i=1; i<iron; i++) DistributeIron(resouce);
+    for (int i=1; i<iron; i++) DistributeIron(resouce);
     spdlog::get(LOGGER)->info("AudioKi::HandleHighBound. Successfully distributed {} iron to resouce.", iron-1);
     return;
   }

@@ -139,7 +139,7 @@ class AudioKi : public Player {
      * @param[in] way (way of random enemy incoming epsp)
      * @return false if defence-strategy could not be applied, true otherwise.
      */
-    bool IpspDef(unsigned int enemy_potentials, std::list<position_t> way, int diff);
+    bool IpspDef(int enemy_potentials, std::list<position_t> way, int diff);
 
     /**
      * Creates extra activated neurons based on enemies attack-strength.
@@ -147,7 +147,7 @@ class AudioKi : public Player {
      * @param[in] way (way of random enemy incoming epsp)
      * @return false if defence-strategy could not be applied, true otherwise.
      */
-    bool CreateExtraActivatedNeurons(unsigned int enemy_potentials, const std::list<position_t>& way, int diff);
+    bool CreateExtraActivatedNeurons(int enemy_potentials, const std::list<position_t>& way, int diff);
 
     /**
      * Fixes high bounds on resources.

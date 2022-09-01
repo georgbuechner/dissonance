@@ -18,6 +18,7 @@
 #include "spdlog/spdlog.h"
 
 #include <cctype>
+#include <cstddef>
 #include <filesystem>
 #include <iterator>
 #include <math.h>
@@ -431,7 +432,7 @@ void ClientGame::h_SendSelectSynapse(std::shared_ptr<Data> data) {
   // first call: initalize synapse-context
   else {
     SwitchToSynapseContext();
-    std::map<short, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
+    std::map<int, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
     ws_srv_->SendMessage("get_positions", 
         std::make_shared<GetPositions>("select_synapse", position_requests, std::make_shared<SelectSynapse>()));
   }
@@ -459,7 +460,7 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
     for (const auto& it : data->current_way())
       drawrer_.AddMarker(WAY_MARKER, it, COLOR_MARKED);
     // print current-waypoints 
-    for (unsigned int i=0; i<data->current_waypoints().size(); i++)
+    for (size_t i=0; i<data->current_waypoints().size(); i++)
       drawrer_.AddMarker(WAY_MARKER, data->current_waypoints()[i], COLOR_MARKED, 
           utils::CharToString('1', i));
     // set up pick-context:
@@ -481,12 +482,11 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
     // Otherwise, request inital data.
     else {
       // Request inital data.
-      std::map<short, Data::PositionInfo> position_requests = {
+      std::map<int, Data::PositionInfo> position_requests = {
         {CURRENT_WAY, Data::PositionInfo(data->synapse_pos())}, 
         {CURRENT_WAY_POINTS, Data::PositionInfo(data->synapse_pos())}, {CENTER, Data::PositionInfo()}
       };
-      ws_srv_->SendMessage("get_positions", std::make_shared<GetPositions>("set_wps", position_requests, 
-            data));
+      ws_srv_->SendMessage("get_positions", std::make_shared<GetPositions>("set_wps", position_requests, data));
     }
   }
 }
@@ -514,8 +514,8 @@ void ClientGame::h_SetTarget(std::shared_ptr<Data> data) {
   // First call: request positions
   else {
     auto cmd = contexts_.at(current_context_).cmd();
-    short unit = (cmd == 'e') ? EPSP : (cmd == 'i') ? IPSP : MACRO;
-    std::map<short, Data::PositionInfo> position_requests = {{ENEMY, Data::PositionInfo(NUCLEUS)}, 
+    int unit = (cmd == 'e') ? EPSP : (cmd == 'i') ? IPSP : MACRO;
+    std::map<int, Data::PositionInfo> position_requests = {{ENEMY, Data::PositionInfo(NUCLEUS)}, 
         {TARGETS, Data::PositionInfo(unit, data->synapse_pos())}};
     std::shared_ptr<Data> inital_set_target = std::make_shared<SetTarget>(data->synapse_pos(), unit);
     ws_srv_->SendMessage("get_positions", 
@@ -782,7 +782,7 @@ void ClientGame::m_SendAudioInfo(std::shared_ptr<Data> data) {
 
   // If observer load audio for two ai-files (no need to send audio-file: only analysed data)
   if (data->send_ai_audios()) {
-    for (unsigned int i = 0; i<2; i++) {
+    for (int i = 0; i<2; i++) {
       std::string source_path = SelectAudio("select ai sound " + std::to_string(i+1));
       Audio audio(base_path_);
       audio.set_source_path(source_path);
@@ -1091,14 +1091,14 @@ void ClientGame::h_TextNext(std::shared_ptr<Data>) {
     h_TextQuit();
   // Otherwise increase num and then print text.
   else {
-    unsigned int num = contexts_.at(CONTEXT_TEXT).num();
+    int num = contexts_.at(CONTEXT_TEXT).num();
     contexts_.at(CONTEXT_TEXT).set_num(num+1);
     h_TextPrint();
   }
 }
 
 void ClientGame::h_TextPrev(std::shared_ptr<Data>) {
-  unsigned int num = contexts_.at(CONTEXT_TEXT).num();
+  int num = contexts_.at(CONTEXT_TEXT).num();
   if (num == 0) 
     return;
   contexts_.at(CONTEXT_TEXT).set_num(num-1);
@@ -1158,14 +1158,14 @@ std::string ClientGame::SelectAudio(std::string msg) {
   std::string error = "";
   std::string help = "(use + to add paths, ENTER to select,  h/l or ←/→ to change directory "
     "and j/k or ↓/↑ to circle through songs,)";
-  unsigned int selected = 0;
+  size_t selected = 0;
   int level = 0;
-  unsigned int print_start = 0;
-  unsigned int max = LINES/2;
+  int print_start = 0;
+  size_t max = LINES/2;
   std::vector<std::pair<std::string, std::string>> visible_options;
 
   while(true) {
-    unsigned int print_max = std::min((unsigned int)selector.options_.size(), max);
+    size_t print_max = std::min(selector.options_.size(), max);
     visible_options = utils::SliceVector(selector.options_, print_start, print_max);
     
     drawrer_.PrintCenteredLine(8, utils::ToUpper(msg));
@@ -1178,7 +1178,7 @@ std::string ClientGame::SelectAudio(std::string msg) {
     error = "";
     attron(COLOR_PAIR(COLOR_DEFAULT));
 
-    for (unsigned int i=0; i<visible_options.size(); i++) {
+    for (size_t i=0; i<visible_options.size(); i++) {
       if (i == selected) {
         attron(COLOR_PAIR(COLOR_AVAILIBLE));
         attron(WA_BOLD);

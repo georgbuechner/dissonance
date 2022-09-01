@@ -61,9 +61,9 @@ class Drawrer {
      * @param[in] pos
      * @param[in] unit
      */
-    void AddNewUnitToPos(position_t pos, short unit, short color);
+    void AddNewUnitToPos(position_t pos, int unit, int color);
 
-    void AddTechnology(short technology);
+    void AddTechnology(int technology);
 
     /**
      * Updates transfer object with new infos.
@@ -131,7 +131,7 @@ class Drawrer {
      * @param[in] infos to print (f.e. map with all neurons built neuron-type -> num)
      * @return new current line (i)
      */
-    int PrintStatisticEntry(std::string heading, int s, int i, std::map<unsigned short, unsigned short> infos) const;
+    int PrintStatisticEntry(std::string heading, int s, int i, std::map<int, int> infos) const;
 
     /**
      * Prints single statistics-entry (with single information)
@@ -141,7 +141,7 @@ class Drawrer {
      * @param[in] infos to print (f.e. number of enemy epsps swallowed)
      * @return new current line (i)
      */
-    int PrintStatisticEntry(std::string heading, int s, int i, unsigned short info) const;
+    int PrintStatisticEntry(std::string heading, int s, int i, int info) const;
 
     /**
      * Prints resource-statistics
@@ -176,7 +176,7 @@ class Drawrer {
      * @param[in] nextmsg adds a message with instructions for prev/next/quit (default=false)
      */
     void PrintCenteredParagraph(texts::paragraph_t paragraph, bool nextmsg=false);
-    void PrintCenteredParagraph(texts::paragraph_t paragraph, unsigned int start_height);
+    void PrintCenteredParagraph(texts::paragraph_t paragraph, int start_height);
     void PrintCenteredParagraphAndMiniFields(texts::paragraph_t paragraph, std::vector<std::string> field, 
         bool nextmsg=false);
 

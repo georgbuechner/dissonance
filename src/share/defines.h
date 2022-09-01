@@ -66,7 +66,7 @@
 typedef std::map<size_t, std::pair<std::string, int>> choice_mapping_t; 
 
 /// Heigh, Width
-typedef std::pair<short, short> position_t;
+typedef std::pair<int16_t, int16_t> position_t;
 
 /// i of m
 typedef std::pair<size_t, size_t> tech_of_t;

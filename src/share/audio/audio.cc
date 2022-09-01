@@ -7,6 +7,7 @@
 #include <atomic>
 #include <algorithm>
 #include <aubio/pitch/pitch.h>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -130,7 +131,7 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
 
   float average_bpm = 0.0f;
   float average_level = 0.0f;
-  size_t max_level = 0.0f;
+  int max_level = 0.0f;
   std::vector<Note> last_notes;
   std::vector<int> last_levels;
   std::vector<double> pitches;
@@ -150,7 +151,7 @@ AudioData Audio::AnalyzeFile(std::string source_path) {
     // do something with the beats
     if (out->data[0] != 0) {
       // Get current level and bpm
-      size_t level = std::accumulate(last_levels.begin(), last_levels.end(), 0.0)/last_levels.size();
+      int level = std::accumulate(last_levels.begin(), last_levels.end(), 0.0)/last_levels.size();
       last_levels.clear();
       int bpm = aubio_tempo_get_bpm(bpm_obj);
       average_bpm += bpm;
@@ -310,10 +311,10 @@ void Audio::CreateLevels(int intervals) {
   spdlog::get(LOGGER)->debug("Audio::CreateLevels");
   // 1. Sort notes by frequency:
   std::map<std::string, int> notes_by_frequency;
-  long unsigned int counter = 0;
-  size_t cur_interval = 0;
-  size_t darkness = 0;
-  size_t total = 0;
+  int counter = 0;
+  int cur_interval = 0;
+  int darkness = 0;
+  int total = 0;
   for (auto& it : analysed_data_.data_per_beat_) {
     for (const auto& note : it.notes_) {
       notes_by_frequency[note.note_name_]++;
@@ -321,7 +322,7 @@ void Audio::CreateLevels(int intervals) {
       total+=note.ocatve_;
     }
     // If next intervals was reached, calc key and increase current level.
-    if (++counter > analysed_data_.data_per_beat_.size()/intervals*(cur_interval+1)) {
+    if (++counter > (int)analysed_data_.data_per_beat_.size()/intervals*(cur_interval+1)) {
       it.interval_ = cur_interval;
       darkness /= total;
       CalcLevel(cur_interval++, notes_by_frequency, darkness);
@@ -332,7 +333,7 @@ void Audio::CreateLevels(int intervals) {
   }
 }
 
-void Audio::CalcLevel(size_t interval, std::map<std::string, int> notes_by_frequency, size_t darkness) {
+void Audio::CalcLevel(int interval, std::map<std::string, int> notes_by_frequency, int darkness) {
   spdlog::get(LOGGER)->debug("Audio::CalcLevel");
   std::list<std::pair<int, std::string>> sorted_notes_by_frequency;
   // Transfor to ordered list
@@ -344,11 +345,11 @@ void Audio::CalcLevel(size_t interval, std::map<std::string, int> notes_by_frequ
   // Get note with most frequent frequency.
   std::string key = sorted_notes_by_frequency.front().second; 
   auto it = std::find(note_names_.begin(), note_names_.end(), key);
-  size_t key_note = it - note_names_.begin();
+  int key_note = it - note_names_.begin();
 
   // Check minor/ major
-  size_t notes_in_minor = 0;
-  size_t notes_in_major = 0;
+  int notes_in_minor = 0;
+  int notes_in_major = 0;
   std::vector<std::string> notes = keys_.at(key + "Major");
   for (const auto& it : sorted_notes_by_frequency)
     if (std::find(notes.begin(), notes.end(), it.second) != notes.end())
@@ -360,7 +361,7 @@ void Audio::CalcLevel(size_t interval, std::map<std::string, int> notes_by_frequ
   key += (notes_in_minor > notes_in_major) ? "Minor" : "Major";
 
   // Calculate number of notes inside and outside of key.
-  size_t notes_in_key = 0;
+  int notes_in_key = 0;
   notes = keys_.at(key);
   for (const auto& it : sorted_notes_by_frequency)
      if (std::find(notes.begin(), notes.end(), it.second) != notes.end())
@@ -370,7 +371,7 @@ void Audio::CalcLevel(size_t interval, std::map<std::string, int> notes_by_frequ
   spdlog::get(LOGGER)->info("AUDI KEY: {}, Major? {}", key, key.find("Major") != std::string::npos);
   analysed_data_.intervals_[interval] = Interval({interval, key, key_note, 
       Signitue::UNSIGNED, key.find("Major") != std::string::npos, notes_in_key, 
-      sorted_notes_by_frequency.size()-notes_in_key, darkness}
+      (int)sorted_notes_by_frequency.size()-notes_in_key, darkness}
     );
   spdlog::get(LOGGER)->debug("Created level with darkness: {}, now: {}", darkness, 
       analysed_data_.intervals_[interval].darkness_);
@@ -392,7 +393,7 @@ bool Audio::MoreOffNotes(const AudioDataTimePoint &data_at_beat, bool off) const
     return false;
   }
   auto notes_in_cur_key = keys_.at(cur_key);
-  size_t off_notes_counter = 0;
+  int off_notes_counter = 0;
   for (const auto& note : data_at_beat.notes_) {
     if (off) {
       if (std::find(notes_in_cur_key.begin(), notes_in_cur_key.end(), note.note_name_) == notes_in_cur_key.end())
@@ -404,10 +405,10 @@ bool Audio::MoreOffNotes(const AudioDataTimePoint &data_at_beat, bool off) const
     }
   }
   spdlog::get(LOGGER)->debug("Audio::MoreOffNotes: done");
-  return off_notes_counter == data_at_beat.notes_.size() && off_notes_counter > 0;
+  return ((size_t)off_notes_counter == data_at_beat.notes_.size()) && off_notes_counter > 0;
 }
 
-size_t Audio::NextOfNotesIn(double cur_time) const {
+int Audio::NextOfNotesIn(double cur_time) const {
   spdlog::get(LOGGER)->debug("Audio::NextOfNotesIn");
   size_t counter = 1;
   for (const auto& it : analysed_data_.data_per_beat_) {
@@ -430,9 +431,9 @@ std::string Audio::GetOutPath(std::filesystem::path source_path) {
   return out_path;
 }
 
-std::map<unsigned short, std::vector<Note>> Audio::GetNotesInSimilarOctave(std::vector<Note> notes) {
+std::map<int, std::vector<Note>> Audio::GetNotesInSimilarOctave(std::vector<Note> notes) {
   // Initialize.
-  std::map<unsigned short, std::vector<Note>> notes_in_ocatve;
+  std::map<int, std::vector<Note>> notes_in_ocatve;
   for (const auto& note : notes)
     notes_in_ocatve[note.ocatve_].push_back(note);
   // Add notes to ocatve_ above and below.
@@ -445,22 +446,22 @@ std::map<unsigned short, std::vector<Note>> Audio::GetNotesInSimilarOctave(std::
   return notes_in_ocatve;
 }
 
-std::vector<unsigned short> Audio::GetInterval(std::vector<Note> notes) {
+std::vector<int> Audio::GetInterval(std::vector<Note> notes) {
   auto notes_in_ocatve = GetNotesInSimilarOctave(notes);
-  std::vector<unsigned short> intervals;
+  std::vector<int> intervals;
   for (const auto& it : notes_in_ocatve) {
     if (it.second.size() < 2)
       continue;
-    for (unsigned int i=1; i<it.second.size(); i++) {
-      unsigned short note_a = it.second[i-1].note_;
-      unsigned short note_b = it.second[i].note_;
+    for (size_t i=1; i<it.second.size(); i++) {
+      int note_a = it.second[i-1].note_;
+      int note_b = it.second[i].note_;
       // Handle different ocatves.
       if (it.second[i-1].ocatve_ > it.second[i].ocatve_)
         note_a += 12;
       else if (it.second[i-1].ocatve_ < it.second[i].ocatve_)
         note_b += 12;
       // Calculate interval
-      unsigned short interval = (note_a < note_b) ? note_b - note_a : note_b+12-note_a;
+      int interval = (note_a < note_b) ? note_b - note_a : note_b+12-note_a;
       // Add only if it is between 0 and 12.
       if (interval <= 12)
         intervals.push_back(interval);
