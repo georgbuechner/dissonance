@@ -55,6 +55,7 @@
 #define RECENTLYPLAYER_PATH "settings/recently_played.json"
 #define MUSIC_PATHS "settings/music_paths.json"
 #define USER_FILES "data/user-files/"
+#define RANKING_PATH "data/local_ranking.json"
 #define ANALYSIS_PATH "data/analysis/"
 
 // logger

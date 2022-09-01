@@ -149,9 +149,9 @@ nlohmann::json utils::LoadJsonFromDisc(std::string path) {
 void utils::WriteJsonToDisc(std::string path, nlohmann::json& json) {
   std::ofstream write(path.c_str());
   if (!write)
-    spdlog::get(LOGGER)->error("Audio::Safe: Could not safe at {}", path);
+    spdlog::get(LOGGER)->error("utils::WriteJsonToDisc: Could not safe at {}", path);
   else {
-    spdlog::get(LOGGER)->info("Audio::Safe: safeing at {}", path);
+    spdlog::get(LOGGER)->info("utils::WriteJsonToDisc: safeing at {}", path);
     write << json;
   }
   write.close();

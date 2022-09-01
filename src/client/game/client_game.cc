@@ -200,6 +200,8 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
 
   tutorial_ = Tutorial({0, 0, 0, true, true, false, false, false, false, false, false, false, false, false});
   drawrer_.CreateMiniFields((username_.front() > 'A') ? COLOR_P3 : COLOR_P2);
+
+  LoadRanking();
 }
 
 // setter 
@@ -708,13 +710,16 @@ void ClientGame::m_SelectMode(std::shared_ptr<Data>) {
     {MULTI_PLAYER_CLIENT, {"muli-player (client)", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     {TUTORIAL, {"tutorial", (!muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, // only in sp
     {OBSERVER, {"watch ki", (!muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, // only in sp
-    {SETTINGS, {"settings", COLOR_AVAILIBLE}}
+    {SETTINGS, {"settings", COLOR_AVAILIBLE}},
+    {RANKING, {"show local ranking", COLOR_AVAILIBLE}}
   };
   mode_ = SelectInteger("Select mode", true, mapping, {mapping.size()+1}, "Mode not available");
 
   // If mode is settings, let player edit settings (game closed afterwards!!)
   if (mode_ == SETTINGS)
     EditSettings(); // closes game!!
+  if (mode_ == RANKING)
+    PrintRanking();
                     
   drawrer_.set_mode(mode_);
   auto new_data = std::make_shared<InitNewGame>(mode_, drawrer_.field_height(), drawrer_.field_width());
@@ -739,13 +744,17 @@ void ClientGame::m_SelectMode(std::shared_ptr<Data>) {
 void ClientGame::m_SelectAudio(std::shared_ptr<Data>) {
   // Load map-audio.
   audio_file_path_ = SelectAudio("select map");
+  std::filesystem::path p = audio_file_path_;
+  std::string filename = p.filename().string();
   std::shared_ptr<CheckSendAudio> new_data = nullptr;
   if (mode_ != MULTI_PLAYER) {
     new_data = std::make_shared<CheckSendAudio>(audio_file_path_);
+    // If no ranking-entry for song exists, create one.
+    if (ranking_.count(audio_file_path_) == 0)
+      ranking_[audio_file_path_] = RankingEntry({"", filename, 0, 0, 0});
   }
   else {
-    std::filesystem::path p = audio_file_path_;
-    new_data = std::make_shared<CheckSendAudio>(username_ + "/" + p.filename().string(), p.filename().string());
+    new_data = std::make_shared<CheckSendAudio>(username_ + "/" + filename, filename);
   }
   ws_srv_->SendMessage("audio_map", new_data);
 }
@@ -877,6 +886,22 @@ void ClientGame::m_GameEnd(std::shared_ptr<Data> data) {
   std::unique_lock ul(mutex_context_);
   current_context_ = CONTEXT_POST_GAME;
   drawrer_.set_viewpoint(VP_POST_GAME);
+  if (mode_ == SINGLE_PLAYER) {
+    spdlog::get(LOGGER)->debug("ClientGame::m_GameEnd. Adding to ranking...");
+    if (data->msg().find("times up") != std::string::npos) {
+      spdlog::get(LOGGER)->debug("ClientGame::m_GameEnd. Adding to ranking TIME UP.");
+      ranking_[audio_file_path_]._timeup++;
+    }
+    else if (data->msg().find("LOST") != std::string::npos) {
+      spdlog::get(LOGGER)->debug("ClientGame::m_GameEnd. Adding to ranking LOST.");
+      ranking_[audio_file_path_]._lost++;
+    }
+    else {
+      spdlog::get(LOGGER)->debug("ClientGame::m_GameEnd. Adding to ranking WON.");
+      ranking_[audio_file_path_]._won++;
+    }
+    StoreRanking();
+  }
 }
 
 void ClientGame::m_SetUnit(std::shared_ptr<Data> data) {
@@ -1341,12 +1366,55 @@ void ClientGame::EditSettings() {
 }
 
 void ClientGame::LoadSettings() {
-  auto settings = utils::LoadJsonFromDisc(base_path_ + SETTINGS_PATH);
+  nlohmann::json settings = utils::LoadJsonFromDisc(base_path_ + SETTINGS_PATH);
   stay_in_synapse_menu_ = settings["stay_in_synapse_menu"];
   show_full_welcome_text_ = settings["show_full_welcome"];
   music_on_ = settings["music_on"];
   show_ai_tactics_ = settings["show_ai_tactics"];
 }
+
+void ClientGame::LoadRanking() {
+  nlohmann::json ranking = utils::LoadJsonFromDisc(base_path_ + RANKING_PATH);
+  if (ranking.size() == 0)
+    return;
+  for (const auto& it : ranking.get<std::map<std::string, nlohmann::json>>()) {
+    nlohmann::json e = it.second;
+    ranking_[it.first] = RankingEntry({e["interpret"], e["songname"], e["won"], e["lost"], e["timeup"]});
+  }
+}
+
+void ClientGame::StoreRanking() {
+  nlohmann::json ranking;
+  for (const auto& it : ranking_) {
+    ranking[it.first] = nlohmann::json({{"interpret", it.second._interpret}, {"songname", it.second._songname},
+        {"won", it.second._won}, {"lost", it.second._lost}, {"timeup", it.second._timeup}});
+  }
+  utils::WriteJsonToDisc(base_path_ + RANKING_PATH, ranking);
+}
+
+void ClientGame::PrintRanking() {
+  drawrer_.ClearField();
+  drawrer_.PrintCenteredLineBold(5, "LOCAL RANKING");
+  RankingEntry header({"interpret", "songname", 6, 7, 8});
+  std::string header_str = header.string();
+  auto pos = header_str.rfind("8");
+  header_str.replace(pos, 6, "timeup");
+  pos = header_str.rfind("7");
+  header_str.replace(pos, 6, "lost  ");
+  pos = header_str.rfind("6");
+  header_str.replace(pos, 6, "won   ");
+  drawrer_.PrintCenteredLineBold(7, header_str);
+
+  int counter=0;
+  for (const auto& it : ranking_) {
+    drawrer_.PrintCenteredLine(8+counter++, it.second.string());
+  }
+  drawrer_.PrintCenteredLine(15+counter, "[Press any key to quit]");
+  refresh();
+  getch();
+  WrapUp();
+}
+
 
 void ClientGame::h_TextQuit(std::shared_ptr<Data>) {
   h_TextQuit();
@@ -1366,7 +1434,6 @@ void ClientGame::h_TextPrint() {
   drawrer_.PrintCenteredParagraphAndMiniFields(paragraph.first, paragraph.second, true);
   refresh();
 }
-
 
 void ClientGame::Pause() {
   pause_ = true;

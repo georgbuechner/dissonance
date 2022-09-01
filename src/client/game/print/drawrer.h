@@ -194,6 +194,7 @@ class Drawrer {
      */
     void PrintLobby();
 
+
     void CreateMiniFields(int player_color);
 
   private:

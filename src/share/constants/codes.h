@@ -52,7 +52,8 @@ enum Mode {
   OBSERVER,
   TUTORIAL,
   SETTINGS,
-  AI_GAME
+  AI_GAME,
+  RANKING,
 };
 
 enum ViewRange {
