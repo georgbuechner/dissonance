@@ -86,13 +86,13 @@ namespace texts {
       "##### HELP #####",
       "",
       " --- POTENTIALS --- ",
-      "EPSP: used to destroy enemy neurons. Adds small amount of potential.",
+      "EPSP: used to destroy enemy neurons. Adds small amount of voltage to enemy-neurons.",
       "IPSP: used to a) block enemy neurons or b) 'swallow' potential of enemy epsp",
-      "MACRO: very stroing potential. Which macro you will use is randomly assigned on game-start.",
+      "MACRO: very strong potential. Which macro you will use is randomly assigned on game-start.",
       "Explore the different macros on your own. A macro is always destroyed by first hit of activated neuron",
       "",
       " --- NEURONS --- ",
-      "ACTIVATED NEURON: block enemy potential. Decreases potential of incoming potentials. range ~5.",
+      "ACTIVATED NEURON: block enemy potential. Decreases voltage of incoming potentials. range ~5.",
       "SYNAPSE: used to create potentials (epsp/ ipsp/ macro)",
       "NUCLEUS: increase resource-limits (10%), you can build neurons inside of the nucleus' range. ",
       "Nucleus can be built anywhere on the map.",
@@ -127,12 +127,12 @@ namespace texts {
       "RESOURCE SLOWDOWN-- (resource curve slowdown - 1): iron=1, dopamine=21.0, serotonin=21.2",
       "",
       "potential-upgrade:",
-      "EPSP/ IPSP POTENTIAL++ (increases potential of ipsp/ epsp): iron=1, potassium=10.0, dopamine=16.0, serotonin=11.2",
+      "EPSP/ IPSP POTENTIAL++ (increases voltage of ipsp/ epsp): iron=1, potassium=10.0, dopamine=16.0, serotonin=11.2",
       "EPSP/ IPSP SPEED-- (increases speed of ipsp/ epsp): iron=1, potassium=10.0, dopamine=19.0 serotonin=13.2",
       "IPSP DURATION++ (increases duration of ipsp): iron=1, potassium=10.0, dopamine=17.5, serotonin=12.2",
       "",
       "activated-neuron upgrade",
-      "ACTIVATED NEURON POTENTIAL++ (increases potential of activated-neuron): "
+      "ACTIVATED NEURON VOLTAGE++ (increases voltage-decrease of activated-neuron): "
         "iron=1, glutamate=15.9, dopamine=14.5, serotonin=17.6",
       "ACTIVATED NEURON SPEED++ (increases speed of activated-neuron): "
         "iron=1, glutamate=15.9, dopamine=16.5, serotonin=6.6",
@@ -336,7 +336,7 @@ namespace texts {
       "TUTORIAL",
       "",
       "Place THREE activated neurons.",
-      "HINT: Activated neurons can decrease potential of incoming potentials in a certain range.",
+      "HINT: Activated neurons can decrease the voltage of incoming potentials in a certain range.",
       "If you place you activated neurons to close to your nucleus, they won't affect",
       "incoming potentials *behind* the activated neurons."
      }, {}}
@@ -374,6 +374,8 @@ namespace texts {
       "TUTORIAL",
       "",
       "Great! Now you can build potentials (EPSP and IPSP) to attack your enemy.",
+      "They will add voltage to your enemy's neurons, eventually destroying them ",
+      "once their voltage exceeds a certain limit.",
       "Also, by sending potentials to the enemy's nucleus that part of the brain will be revealed.",
     }, {}},
     {{
@@ -531,7 +533,7 @@ namespace texts {
       "(all your synapses should be marked on the map with a, b, ...)",
       "",
       "Select 'w' for 'set [w]ay points'. You can now set as many way points as your research-level allows (1-3).",
-      "Try to select the way-points so that your potentials pass the least amount of enemy activated neurons.",
+      "Try to select the waypoints so that your potentials pass the least amount of enemy activated neurons.",
       "After each way-point is selected you can see the current way of your epsp marked in purple.",
       "Applied ways are used for epsp AND ipsp (of course their targets might be different).",
     }, {}},
@@ -634,10 +636,10 @@ namespace texts {
       "",
       "Your enemy has launched an attack!",
       "Units (potentials) are symbolized either by letters: a, b, ..., z (epsp) or numbers: 1,2,..., 9 (ipsp).",
-      "The enemy's epsps add potential to your neurons. If a certain potential is reached, this neuron is destroyed.",
+      "The enemy's epsps add voltage to your neurons. If a certain voltage is reached, this neuron is destroyed.",
       "Also: you cannot place new neurons on top of a destroyed neuron!",
       "If your last nucleus is destroyed, you have lost.",
-      "You can see the current potential of your nucleus at the top of the screen.",
+      "You can see the current voltage of your nucleus at the top of the screen.",
       "",
       "The map below shows some EPSP advancing from the enemy's SYNAPSE to an imaginary target outside of the map."
     }, {"field_attack"}},
@@ -653,7 +655,7 @@ namespace texts {
       "TUTORIAL",
       "",
       "Your enemy's epsps have reached your nucleus!",
-      "Potential is now added to your nucleus. If your nucleus' potential reaches '9/9' you have lost!",
+      "Potential is now added to your nucleus. If your nucleus' voltage reaches '9/9' you have lost!",
       "Consider building more ACTIVATED NEURONS."
     }, {"field_attack_2"}}
   };
