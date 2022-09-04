@@ -142,7 +142,7 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
         game->PlayerResigned(username);
       // If player was host (game exists with this username): update lobby for waiting players
       if (games_.count(username) > 0) {
-        spdlog::get(LOGGER)->debug("Game removed, informing waiting players");
+        spdlog::get(LOGGER)->debug("WebsocketFrame::OnClose: Game removed, informing waiting players");
         UpdateLobby();
         for (const auto& it : connections_) {
           if (it.second->waiting())
@@ -289,15 +289,20 @@ void WebsocketServer::CloseGames() {
     std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     std::unique_lock ul(shared_mutex_games_);
     std::vector<std::string> games_to_delete;
-    spdlog::get(LOGGER)->info("Checking running games");
+    spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: Checking running games");
     // Gather games to delete or close games if all users are disconnected.
     for (const auto& it : games_) {
-      // If game is closed and to game to delete.
+      spdlog::get(LOGGER)->debug("WebsocketServer::CloseGames: Checking game: {}, status: {}",
+          it.first, it.second->status());
+      // If game is closed add to game_to_delete.
       if (it.second->status() == CLOSED)
         games_to_delete.push_back(it.first);
       // If all users are disconnected, set status to closed.
-      else if (GetPlayingUsers(it.first, true).size() == 0)
+      else if (GetPlayingUsers(it.first, true).size() == 0) {
+        spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: game-status changed to {}",
+            (it.second->status() < SETTING_UP) ? CLOSED : CLOSING);
         it.second->set_status((it.second->status() < SETTING_UP) ? CLOSED : CLOSING);
+      }
     }
     // Detelte games to delete, remove from games and remove all player-game-mappings for this game.
     for (const auto& it : games_to_delete) {
@@ -315,7 +320,7 @@ void WebsocketServer::CloseGames() {
       }
     }
     if (games_to_delete.size() > 0) {
-      spdlog::get(LOGGER)->info("Game removed, informing waiting players");
+      spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: Game removed, informing waiting players");
       UpdateLobby();
       for (const auto& it : connections_) {
         if (it.second->waiting()) 
