@@ -531,7 +531,6 @@ void ServerGame::RunGame(std::vector<Audio*> audios) {
     status_ = RUNNING;
     // Inform players, to start game with initial field included
     SendInitialData();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     // For non-monto-carlo-games, start ai-threads.
     for (const auto& it : players_) {
       if (IsAi(it.first)) {

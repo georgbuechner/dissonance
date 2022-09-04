@@ -826,7 +826,6 @@ void ClientGame::SendSong() {
       return;
     }
   }
-  std::this_thread::sleep_for(std::chrono::milliseconds(150));
 }
 
 void ClientGame::m_PrintMsg(std::shared_ptr<Data> data) {
@@ -834,6 +833,7 @@ void ClientGame::m_PrintMsg(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
+  std::unique_lock ul(mutex_);
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame");
   drawrer_.ClearField();
   drawrer_.set_transfer(data, show_ai_tactics_);
@@ -842,6 +842,8 @@ void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
   current_context_ = CONTEXT_RESOURCES;
   drawrer_.set_msg(contexts_.at(current_context_).msg());
   drawrer_.set_topline(contexts_.at(current_context_).topline());
+  ul.unlock();
+  spdlog::get(LOGGER)->debug("ClientGame::m_InitGame");
   
   audio_.set_source_path(audio_file_path_);
   if (music_on_)
@@ -850,7 +852,9 @@ void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::m_UpdateGame(std::shared_ptr<Data> data) {
+  std::shared_lock sl(mutex_);
   drawrer_.UpdateTranser(data);
+  sl.unlock();
   drawrer_.PrintGame(false, false, current_context_);
 }
 

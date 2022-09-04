@@ -59,6 +59,7 @@ class ClientGame {
     const std::string username_;
     const bool muliplayer_availible_;
     Client* ws_srv_;
+    std::shared_mutex mutex_;  ///< mutex locked, when setting transfer.
 
     // eventmanager
     static std::map<int, std::map<char, void(ClientGame::*)(std::shared_ptr<Data> data)>> handlers_;
