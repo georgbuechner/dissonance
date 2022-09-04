@@ -523,6 +523,7 @@ void ServerGame::RunGame(std::vector<Audio*> audios) {
   // Delete audio-data buffer as no longer needed.
   audio_data_buffer_.clear();
   // Setup game.
+  status_ = SETTING_UP;
   SetUpGame(audios);
   // Start ai-threads for all ai-players.
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Starting game.");
@@ -530,6 +531,7 @@ void ServerGame::RunGame(std::vector<Audio*> audios) {
     status_ = RUNNING;
     // Inform players, to start game with initial field included
     SendInitialData();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     // For non-monto-carlo-games, start ai-threads.
     for (const auto& it : players_) {
       if (IsAi(it.first)) {
