@@ -43,11 +43,9 @@ int main(int argc, const char** argv) {
   base_path += "/.dissonance/";
   int server_port = 4444;
   bool multiplayer = false;
-  std::string server_address = "ws://localhost:4444";
+  std::string server_address = "ws://kava-i.de:4444";
+  std::string localhost = "ws://localhost:4444";
   bool standalone = false;
-  std::string path_sound_map = "dissonance/data/examples/Hear_My_Call-coffeeshoppers.mp3";
-  std::string path_sound_ai_1 = "dissonance/data/examples/airtone_-_blackSnow_1.mp3";
-  std::string path_sound_ai_2 = "dissonance/data/examples/Karstenholymoly_-_The_night_is_calling.mp3";
 
   // Setup command-line-arguments-parser
   auto cli = lyra::cli() 
@@ -55,17 +53,15 @@ int main(int argc, const char** argv) {
     | lyra::opt(keep_log) ["-k"]["--keep-log"]("If set, does not remove all log-files before starting the game.")
     | lyra::opt(log_level, "options: [warn, info, debug], default: \"warn\"") ["-l"]["--log_level"]("set log-level")
     | lyra::opt(base_path, "path to dissonance files") 
-        ["-p"]["--base-path"]("Set path to dissonance files (logs, settings, data)")
+        ["-b"]["--base-path"]("Set path to dissonance files (logs, settings, data)")
 
     // multi-player/ standalone.
     | lyra::opt(multiplayer) ["-m"]["--multiplayer"]("If set, starts a multi-player game.")
     | lyra::opt(standalone) ["-s"]["--standalone"]("If set, starts only server.")
+    | lyra::opt(server_port, "custom port (default=4444)")["-p"]["--port"]("Change default port (4444)")
     | lyra::opt(server_address, "format [ws://<url>:<port> | wss://<url>:<port>], default: wss://kava-i.de:4444") 
-        ["-z"]["--connect"]("specify address which to connect to.")
+        ["-z"]["--connect"]("specify address which to connect to.");
 
-    | lyra::opt(path_sound_map, "for ai games: map sound input") ["--map_sound"]("")
-    | lyra::opt(path_sound_ai_1, "for ai games: ai-1 sound input") ["--ai1_sound"]("")
-    | lyra::opt(path_sound_ai_2, "for ai games: ai-2 sound input") ["--ai2_sound"]("");
 
   cli.add_argument(lyra::help(show_help));
   auto result = cli.parse({ argc, argv });
@@ -122,6 +118,8 @@ int main(int argc, const char** argv) {
   Client* client = (standalone) ? nullptr : new Client(client_game, username, base_path);
   if (client_game)
     client_game->set_client(client);
+  if (!multiplayer)
+    server_address = localhost;
   std::thread thread_client([client, server_address]() { if (client) client->Start(server_address); });
   std::thread thread_client_input([client_game, client]() { 
     if (client) {

@@ -22,7 +22,11 @@ dissonance
 
 multiplayer:
 ```
-dissonance -m -z "ws://kava-i.de:4444"  # or adress of a private server.
+dissonance -m
+```
+or 
+```
+dissonance -m -z "ws://<host>:<port>"  # or adress of a private server.
 ```
 
 # Table of contents
@@ -148,12 +152,12 @@ store settings and analysed musical data.
 
 ### Usage
 To play, simply run `dissonance` in your command line for singe-player and
-`dissonance -m -z ""ws://{server-name}:{port}"` to play online (multiplayer). 
+`dissonance -m` to play online (multiplayer), which will automatically connect
+you to our server. You may also connect to a custom server with  
+`dissonance -m -z "ws://{server-name}:{port}"`. 
 
-Currently there should be a server running at "ws://kava-i.de:4444".
-
-You can run your own server by adding `-s` flag (standalone).
-`4444` is the standard port.
+You can run your own server by adding `-s` flag (or: `--standalone`).
+`4444` is the standard port, you can change by adding the `-p` flag (or: `--port`)
 
 You should open your terminal in full screen mode. Technically any terminal-size
 is possible, but the game is only really tested for *1900x1020* and *3440x1440*.
