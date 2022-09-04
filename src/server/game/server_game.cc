@@ -526,8 +526,8 @@ void ServerGame::RunGame(std::vector<Audio*> audios) {
   SetUpGame(audios);
   // Start ai-threads for all ai-players.
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: Starting game.");
-  status_ = SETTING_UP;
   if (field_) {
+    status_ = RUNNING;
     // Inform players, to start game with initial field included
     SendInitialData();
     // For non-monto-carlo-games, start ai-threads.

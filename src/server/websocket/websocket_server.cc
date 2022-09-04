@@ -300,8 +300,8 @@ void WebsocketServer::CloseGames() {
       // If all users are disconnected, set status to closed.
       else if (GetPlayingUsers(it.first, true).size() == 0) {
         spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: game-status changed to {}",
-            (it.second->status() < SETTING_UP) ? CLOSED : CLOSING);
-        it.second->set_status((it.second->status() < SETTING_UP) ? CLOSED : CLOSING);
+            (it.second->status() <= SETTING_UP) ? CLOSED : CLOSING);
+        it.second->set_status((it.second->status() <= SETTING_UP) ? CLOSED : CLOSING);
       }
     }
     // Detelte games to delete, remove from games and remove all player-game-mappings for this game.
