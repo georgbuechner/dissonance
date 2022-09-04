@@ -95,6 +95,7 @@ class ServerGame {
     std::string audio_data_buffer_;  ///< audio data (used as buffer when receiving audio-data)
     std::string audio_file_name_;  ///< audio-file-name.
     std::string base_path_;
+    bool audio_stored_;
 
     // meta 
     WebsocketServer* ws_server_;

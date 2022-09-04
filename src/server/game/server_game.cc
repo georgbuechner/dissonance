@@ -46,6 +46,7 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   time_in_pause_ = 0;
   audio_data_buffer_ = "";
   audio_file_name_ = "";
+  audio_stored_ = true;
   base_path_ = base_path;
   // Initialize eventmanager.
   eventmanager_.AddHandler("audio_map", &ServerGame::m_SendAudioMap);
@@ -117,8 +118,10 @@ void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
     std::filesystem::create_directory(path);
   path += "/"+data->songname();
   audio_data_buffer_+=data->content();
-  if (data->part() == data->parts())
+  if (data->part() == data->parts()) {
     utils::StoreMedia(path, audio_data_buffer_);
+    audio_stored_ = true;
+  }
 }
 
 void ServerGame::PlayerReady(std::string username) {
@@ -376,8 +379,10 @@ void ServerGame::m_SendAudioMap(std::shared_ptr<Data> data) {
       audio_data_buffer_ = utils::GetMedia(path);
       audio_file_name_ = data->audio_file_name();
     }
-    else 
+    else {
       send_song = true;
+      audio_stored_ = false;
+    }
   }
   bool send_ai_audios = mode_ == OBSERVER;
   ws_server_->SendMessage(data->u(), "send_audio_info", std::make_shared<SendAudioInfo>(send_song, send_ai_audios));
@@ -401,6 +406,8 @@ void ServerGame::m_SendSong(std::shared_ptr<Data> data) {
 
 void ServerGame::m_InitializeGame(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->info("ServerGame::InitializeGame: initializing with user: {} {}", host_, mode_);
+
+  while (!audio_stored_) {}
 
   // Get and analyze main audio-file (used for map and in SP for AI).
   std::string map_name = data->map_name();
