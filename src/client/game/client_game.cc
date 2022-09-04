@@ -826,6 +826,7 @@ void ClientGame::SendSong() {
       return;
     }
   }
+  std::this_thread::sleep_for(std::chrono::milliseconds(150));
 }
 
 void ClientGame::m_PrintMsg(std::shared_ptr<Data> data) {

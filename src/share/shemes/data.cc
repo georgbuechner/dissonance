@@ -171,7 +171,6 @@ Update::Update(const char* payload, size_t len, size_t& offset) : Data() {
 
   unpack(result, payload, len, offset);
   new_dead_neurons_ = result->as<std::map<position_t, int>>();
-  spdlog::get(LOGGER)->debug("New-dead-neurons size: {}", new_dead_neurons_.size());
 
   unpack(result, payload, len, offset);
   audio_played_ = result->as<float>();
