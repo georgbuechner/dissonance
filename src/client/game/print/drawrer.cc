@@ -268,11 +268,12 @@ void Drawrer::UpdateTranser(std::shared_ptr<Data> update) {
   for (const auto & it : update->new_dead_neurons())
     AddNewUnitToPos(it.first, it.second, COLOR_DEFAULT);
 
-  // Add potentials
+  // Add potentials (pos: {symbol (1..9, a..z), color})
   for (const auto& it : update->potentials()) {
     // Add potential to field as temporary.
     temp_symbols_[it.first] = field_[it.first.first][it.first.second];
-    field_[it.first.first][it.first.second] = Data::Symbol({it.second.first, it.second.second});
+    int color = (update->hit_potentials().count(it.first) > 0) ? COLOR_MAGENTA : it.second.second;
+    field_[it.first.first][it.first.second] = Data::Symbol({it.second.first, color});
   }
   spdlog::get(LOGGER)->debug("Drawrer::UpdateTranser: done");
 }

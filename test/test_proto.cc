@@ -181,9 +181,11 @@ TEST_CASE("Test creating update_game dto", "[msgpack]") {
   };
   std::vector<bool> build_options = { true, true, false, false, false};
   std::vector<bool> synapse_options = { false, false, true, true, true, false};
+  std::set<position_t> hit_potentials;
 
   SECTION ("Test create update_game-command", "[msgpack]") {
-    std::shared_ptr<Data> data = std::make_shared<Update>(players, potentials, new_dead_neurons, audio_played);
+    std::shared_ptr<Data> data = std::make_shared<Update>(players, potentials, hit_potentials, new_dead_neurons, 
+        audio_played);
     data->set_resources(resources);
     data->set_build_options(build_options);
     data->set_synapse_options(synapse_options);
@@ -228,7 +230,9 @@ TEST_CASE("Test creating init_game-dto update", "[msgpack]") {
   };
   std::vector<bool> build_options = { true, true, false, false, false};
   std::vector<bool> synapse_options = { false, false, true, true, true, false};
-  std::shared_ptr<Update> update = std::make_shared<Update>(players, potentials, new_dead_neurons, audio_played);
+  std::set<position_t> hit_potentials;
+  std::shared_ptr<Update> update = std::make_shared<Update>(players, potentials, hit_potentials, 
+      new_dead_neurons, audio_played);
 
   // Create field-data
   std::vector<std::vector<Data::Symbol>> field = {
@@ -319,9 +323,9 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
   for (int i=0; i<10; i++)
     statistics_1->AddEpspSwallowed();
   for (int i=0; i<100; i++)
-    statistics_1->AddKillderPotential("epsp_");
+    statistics_1->AddKilledPotential("epsp_");
   for (int i=0; i<15; i++)
-    statistics_1->AddKillderPotential("ipsp_");
+    statistics_1->AddKilledPotential("ipsp_");
   for (int i=0; i<95; i++)
     statistics_1->AddLostPotential("epsp_");
   for (int i=0; i<5; i++)
@@ -347,9 +351,9 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
   for (int i=0; i<11; i++)
     statistics_2->AddEpspSwallowed();
   for (int i=0; i<120; i++)
-    statistics_2->AddKillderPotential("epsp_");
+    statistics_2->AddKilledPotential("epsp_");
   for (int i=0; i<13; i++)
-    statistics_2->AddKillderPotential("ipsp_");
+    statistics_2->AddKilledPotential("ipsp_");
   for (int i=0; i<92; i++)
     statistics_2->AddLostPotential("epsp_");
   for (int i=0; i<6; i++)

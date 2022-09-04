@@ -134,6 +134,13 @@ class Player {
     std::vector<position_t> GetPotentialPositions() const;
 
     /**
+     * Adds all positions of potentials which where hit (by activated neuron or 
+     * ipsp-swallow) to hits.
+     * @param[in, out] hits (positions of hit potentials)
+     */
+    void GetPositionsOfHitPotentials(std::set<position_t>& hits);
+
+    /**
      * Gets all neurons in cur-range to given position.
      * @param[in] pos 
      * @return list of FieldPositions (pos, unit, color) in range.

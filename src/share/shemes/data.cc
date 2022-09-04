@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <memory>
 #include <msgpack.hpp>
+#include <set>
 #include <string>
 #include "nlohmann/json.hpp"
 #include "spdlog/spdlog.h"
@@ -150,10 +151,11 @@ void InitNewGame::binary(std::stringstream& buffer) {
 // UPDATE_GAME
 Update::Update(std::map<std::string, std::pair<std::string, int>> players, 
     std::map<position_t, std::pair<std::string, int>> potentials,
-    std::map<position_t, int> new_dead_neurons,
+    std::set<position_t> hit_potentials, std::map<position_t, int> new_dead_neurons,
     float audio_played) 
-  : Data(), players_(players), potentials_(potentials), new_dead_neurons_(new_dead_neurons), 
-    audio_played_(audio_played) {};
+  : Data(), players_(players), potentials_(potentials), hit_potentials_(hit_potentials), 
+    new_dead_neurons_(new_dead_neurons), audio_played_(audio_played) {
+};
 
 Update::Update(const char* payload, size_t len, size_t& offset) : Data() {
   msgpack::object_handle result;
@@ -163,6 +165,9 @@ Update::Update(const char* payload, size_t len, size_t& offset) : Data() {
 
   unpack(result, payload, len, offset);
   potentials_ = result->as<std::map<position_t, std::pair<std::string, int>>>();
+
+  unpack(result, payload, len, offset);
+  hit_potentials_ = result->as<std::set<position_t>>();
 
   unpack(result, payload, len, offset);
   new_dead_neurons_ = result->as<std::map<position_t, int>>();
@@ -189,6 +194,7 @@ Update::Update(const char* payload, size_t len, size_t& offset) : Data() {
 // getter 
 std::map<std::string, std::pair<std::string, int>> Update::players() { return players_; }
 std::map<position_t, std::pair<std::string, int>> Update::potentials() { return potentials_; }
+std::set<position_t> Update::hit_potentials() { return hit_potentials_; }
 std::map<position_t, int> Update::new_dead_neurons() { return new_dead_neurons_; }
 float Update::audio_played() { return audio_played_; }
 std::map<int, Data::Resource> Update::resources() { return resources_; }
@@ -204,6 +210,7 @@ void Update::set_synapse_options(std::vector<bool> synapse_options) { synapse_op
 void Update::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, players_);
   msgpack::pack(buffer, potentials_);
+  msgpack::pack(buffer, hit_potentials_);
   msgpack::pack(buffer, new_dead_neurons_);
   spdlog::get(LOGGER)->debug("New-dead-neurons size: {}", new_dead_neurons_.size());
   msgpack::pack(buffer, audio_played_);
@@ -442,7 +449,7 @@ void Statictics::AddNewNeuron(int unit) {
 void Statictics::AddNewPotential(int unit) {
   potentials_build_[unit]++;
 }
-void Statictics::AddKillderPotential(std::string id) {
+void Statictics::AddKilledPotential(std::string id) {
   int unit = (id.find("ipsp") != std::string::npos) ? IPSP : EPSP;
   potentials_killed_[unit]++;
 }

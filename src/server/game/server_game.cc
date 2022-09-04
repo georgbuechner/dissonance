@@ -690,12 +690,15 @@ std::shared_ptr<Update> ServerGame::CreateBaseUpdate(float audio_played) const {
   // Create player agnostic transfer-data
   std::map<std::string, std::pair<std::string, int>> players_status;
   std::map<position_t, int> new_dead_neurons;
+  std::set<position_t> hit_potentials;
   for (const auto& it : players_) {
+    // Get hit-potentials 
+    it.second->GetPositionsOfHitPotentials(hit_potentials);
     players_status[it.first] = {it.second->GetNucleusLive(), it.second->color()};
     for (const auto& it : it.second->GetNewDeadNeurons())
       new_dead_neurons[it.first] = it.second;
   }
-  return std::make_shared<Update>(players_status, updated_potentials, new_dead_neurons, audio_played);
+  return std::make_shared<Update>(players_status, updated_potentials, hit_potentials, new_dead_neurons, audio_played);
 }
 
 void ServerGame::SendInitialData() const {

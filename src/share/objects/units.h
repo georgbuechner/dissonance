@@ -257,11 +257,12 @@ struct Potential : Unit {
   int _duration; ///< only ipsp: duration for blocking
   std::list<position_t> _way; 
   bool _target_blocked;  ///< only ipsp: indicates whether ipsp is currently blocking it's target.
+  bool _hit;
 
   Potential() : Unit(), _voltage(0), _next_action(999), _speed(999), _duration(0) {}
   Potential(position_t pos, int attack, std::list<position_t> way, int speed, int type, int duration) 
     : Unit(pos, type), _voltage(attack), _next_action(speed), _speed(speed), _duration(duration), 
-    _way(way), _target_blocked(false) {}
+    _way(way), _target_blocked(false), _hit(false) {}
 };
 
 /**

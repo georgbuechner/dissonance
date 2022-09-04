@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <iostream>
 #include <memory>
+#include <set>
 #include <string>
 #include <sstream>
 #include <vector>
@@ -86,6 +87,7 @@ class Data {
 
     virtual std::map<std::string, std::pair<std::string, int>> players() { return {}; }
     virtual std::map<position_t, std::pair<std::string, int>> potentials() { return {}; }
+    virtual std::set<position_t> hit_potentials() { return {}; }
     virtual std::map<position_t, int> new_dead_neurons() { return {}; }
     virtual float audio_played() { return 0; }
     virtual std::map<int, Resource> resources() { return {}; }
@@ -253,13 +255,14 @@ class Update : public Data {
   public: 
     Update(std::map<std::string, std::pair<std::string, int>> players, 
         std::map<position_t, std::pair<std::string, int>> potentials,
-        std::map<position_t, int> new_dead_neurons, 
+        std::set<position_t> hits, std::map<position_t, int> new_dead_neurons, 
         float audio_played);
     Update(const char* payload, size_t len, size_t& offset);
 
     // getter 
     std::map<std::string, std::pair<std::string, int>> players();
     std::map<position_t, std::pair<std::string, int>> potentials();
+    std::set<position_t> hit_potentials();
     std::map<position_t, int> new_dead_neurons();
     float audio_played();
     std::map<int, Resource> resources();
@@ -280,6 +283,7 @@ class Update : public Data {
     // Identical for all players
     std::map<std::string, std::pair<std::string, int>> players_;
     std::map<position_t, std::pair<std::string, int>> potentials_;
+    std::set<position_t> hit_potentials_;
     std::map<position_t, int> new_dead_neurons_;
     float audio_played_;
 
@@ -415,7 +419,7 @@ class Statictics : public Data {
     // methods
     void AddNewNeuron(int unit);
     void AddNewPotential(int unit);
-    void AddKillderPotential(std::string id);
+    void AddKilledPotential(std::string id);
     void AddLostPotential(std::string id);
     void AddEpspSwallowed();
     void AddStatisticsEntry(double oxygen, double potassium, double chloride, double glutamate, 

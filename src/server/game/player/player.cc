@@ -199,6 +199,15 @@ std::vector<position_t> Player::GetPotentialPositions() const {
   return {potential_positions.begin(), potential_positions.end()};
 }
 
+void Player::GetPositionsOfHitPotentials(std::set<position_t>& hits) {
+  for (auto& it : potential_) {
+    if (it.second._hit) {
+      hits.insert(it.second.pos_);
+      it.second._hit = false;
+    }
+  }
+}
+
 std::vector<FieldPosition> Player::GetAllNeuronsInRange(position_t pos) const {
   std::vector<FieldPosition> neurons_in_range_;
   for (const auto& it : neurons_) {
@@ -693,7 +702,7 @@ void Player::HandleDef() {
         for (const auto& potential : enemy->potential()) {
           if (utils::Dist(neuron.first, potential.second.pos_) < 3) {
             if (enemy->NeutralizePotential(potential.first, neuron.second->potential_slowdown()))
-              statistics_->AddKillderPotential(potential.first);
+              statistics_->AddKilledPotential(potential.first);
             neuron.second->ResetMovement();  // neuron did action, so update last_action_.
             break;
           }
@@ -736,6 +745,7 @@ bool Player::NeutralizePotential(std::string id, int voltage, bool erase) {
   spdlog::get(LOGGER)->debug("Player::NeutralizePotential: {} {}", id, voltage);
   if (potential_.count(id) > 0) {
     potential_.at(id)._voltage -= voltage;
+    potential_.at(id)._hit = true;
     // Remove potential only if not already at it's target (length of way is greater than zero).
     if ((potential_.at(id)._voltage == 0 || potential_.at(id)._voltage > 10) && potential_.at(id)._way.size() > 0) {
       spdlog::get(LOGGER)->debug("Player::NeutralizePotential: potential: died.");
