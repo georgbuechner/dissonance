@@ -172,7 +172,6 @@ void AudioKi::SetEconomyTactics() {
   // expanssion focuesed.
   technology_tactics[NUCLEUS_RANGE] = (audio_->analysed_data().Allegro() 
       && cur_interval_.signature_ != Signitue::UNSIGNED) ? cur_interval_.darkness_%9 : 0;
-  // TODO (fux): handle technology_tactics[WAY]
   // Added sorted technology tacics to final tactics three times (as there are three levels for each technology).
   for (int i=0; i<3; i++) 
     for (const auto& it : SortStrategy(technology_tactics)) 
@@ -677,8 +676,8 @@ void AudioKi::Defend() {
     // Get shortes enemy-way (==first enemy epsp to arrive) and ignore all way > 20
     std::list<position_t> way;
     for (const auto& it : enemies_.front()->potential()) {
-      if (it.second.way_.size() < shortest_way)
-        way = it.second.way_;
+      if (it.second._way.size() < shortest_way)
+        way = it.second._way;
     }
     if (way.size() == 0) {
       spdlog::get(LOGGER)->debug("AudioKi::Defend. ommited since all enemies still far away.");

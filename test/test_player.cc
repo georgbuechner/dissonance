@@ -113,15 +113,15 @@ TEST_CASE("test_ipsp_takes_epsp_potential", "[test_player]") {
 
   SECTION("test GetNucleusLive") {
     REQUIRE(player->GetNucleusLive() == "0 / 9");
-    player->AddPotentialToNeuron(player->GetOneNucleus(), 1);
+    player->AddVoltageToNeuron(player->GetOneNucleus(), 1);
     REQUIRE(player->GetNucleusLive() == "1 / 9");
   }
 
   SECTION("test HasLost") {
     REQUIRE(player->HasLost() == false);  // player has not already lost at the beginnig of the game.
-    player->AddPotentialToNeuron(player->GetOneNucleus(), 8);
+    player->AddVoltageToNeuron(player->GetOneNucleus(), 8);
     REQUIRE(player->HasLost() == false);  // player still alive with 8/9 voltage.
-    player->AddPotentialToNeuron(player->GetOneNucleus(), 1);
+    player->AddVoltageToNeuron(player->GetOneNucleus(), 1);
     REQUIRE(player->HasLost() == true);  // player has lost.
   }
 

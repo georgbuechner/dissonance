@@ -348,16 +348,17 @@ class Player {
     /**
      * Decrease potential and removes potential if potential is down to zero.
      * @param id of potential.
+     * @param voltage 
      * @return whether potential was removed.
      */
-    bool NeutralizePotential(std::string id, int potential, bool erase=true);
+    bool NeutralizePotential(std::string id, int voltage, bool erase=true);
 
     /**
-     * Adds potential to neuron and destroies neuron if max potential is reached.
+     * Adds voltage to neuron and destroys neuron if max potential is reached.
      * @param[in] pos 
      * @param[in] potential
      */
-    void AddPotentialToNeuron(position_t pos, int potential);
+    void AddVoltageToNeuron(position_t pos, int potential);
 
     /**
      * When a nucleus is destroyed, all neurons, which are not in the range of

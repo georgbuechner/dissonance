@@ -1118,9 +1118,7 @@ void ClientGame::h_TextNext(std::shared_ptr<Data>) {
   else {
     int num = contexts_.at(CONTEXT_TEXT).num();
     contexts_.at(CONTEXT_TEXT).set_num(num+1);
-    spdlog::get(LOGGER)->debug("ClientGame::h_TextNext: printing...");
     h_TextPrint();
-    spdlog::get(LOGGER)->debug("ClientGame::h_TextNext: printing done");
   }
 }
 

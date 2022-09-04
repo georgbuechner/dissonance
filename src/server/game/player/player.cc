@@ -107,14 +107,14 @@ void Player::set_lost(bool lost) {
 
 position_t Player::GetSynapesTarget(position_t synape_pos, int unit) const {
   if (neurons_.count(synape_pos) > 0)
-    return neurons_.at(synape_pos)->target(unit);
+    return neurons_.at(synape_pos)->GetTargetForPotential(unit);
   return DEFAULT_POS;
 }
 
 std::vector<position_t> Player::GetSynapesWaypoints(position_t synapse_pos, int unit) const {
   if (neurons_.count(synapse_pos) > 0) {
     if (unit == -1)
-      return neurons_.at(synapse_pos)->ways_points();
+      return neurons_.at(synapse_pos)->waypoints();
     else 
       return neurons_.at(synapse_pos)->GetWayPoints(unit);
   }
@@ -394,7 +394,7 @@ bool Player::AddPotential(position_t synapes_pos, int unit, int inital_speed_dec
     potential_[id] = Makro(synapes_pos, way, potential_boast, 5*macro_+speed_boast);
   }
   // Decrease speed if given.
-  potential_[id].movement_.first += inital_speed_decrease;
+  potential_[id]._next_action += inital_speed_decrease;
   spdlog::get(LOGGER)->debug("Player::AddPotential: done.");
   statistics_->AddNewPotential(unit);
   return true;
@@ -427,6 +427,11 @@ bool Player::AddTechnology(int technology) {
     for (auto& it : neurons_)
       if (it.second->type_ == UnitsTech::SYNAPSE)
         it.second->set_max_stored(technologies_[technology].first*3+1);
+  }
+  else if (technology == UnitsTech::DEF_SPEED) {
+    for (auto& it : neurons_)
+      if (it.second->type_ == UnitsTech::SYNAPSE)
+        it.second->DecreaseTotalCooldown();
   }
   else if (technology == UnitsTech::TOTAL_RESOURCE) {
     UpdateResourceLimits(0.2);
@@ -474,7 +479,7 @@ bool Player::RemoveIron(int resource) {
   }
   resources_.at(resource).set_distributed_iron(resources_.at(resource).distributed_iron()-1);
   if (resources_.at(resource).distributed_iron() == 1) {
-    AddPotentialToNeuron(resources_.at(resource).pos(), 100);  // Remove resource neuron.
+    AddVoltageToNeuron(resources_.at(resource).pos(), 100);  // Remove resource neuron.
     // Add the second iron too.
     resources_.at(IRON).set_cur(resources_.at(IRON).cur() + 1);
   }
@@ -497,7 +502,7 @@ int Player::AddWayPosForSynapse(position_t synapse_pos, position_t way_position,
     return -1;
   }
   if (neurons_.count(synapse_pos) && neurons_.at(synapse_pos)->type_ == UnitsTech::SYNAPSE) {
-    auto cur_waypoints = neurons_.at(synapse_pos)->ways_points();
+    auto cur_waypoints = neurons_.at(synapse_pos)->waypoints();
     if (reset)
       cur_waypoints.clear();
     cur_waypoints.push_back(way_position);
@@ -550,19 +555,19 @@ void Player::MovePotential() {
   // Move soldiers along the way to it's target and check if target is reached.
   std::vector<std::string> potential_to_remove;
   for (auto& it : potential_) {
-    it.second.movement_.first--; // update cooldown.
+    it.second._next_action--; // update cooldown.
     // If target not yet reached and it is time for the next action, move potential
-    if (it.second.way_.size() > 0 && it.second.movement_.first == 0) {
+    if (it.second._way.size() > 0 && it.second._next_action == 0) {
       // Move potential.
-      it.second.pos_ = it.second.way_.front(); 
-      it.second.way_.pop_front();
-      it.second.movement_.first = it.second.movement_.second;  // potential did action, so reset speed.
+      it.second.pos_ = it.second._way.front(); 
+      it.second._way.pop_front();
+      it.second._next_action = it.second._speed; // potential did action, so reset speed.
       CheckLoophole(it.second);
     }
     // If target is reached, handle epsp and ipsp seperatly.
     // Epsp: add potential to target and add epsp to list of potentials to remove.
     if (it.second.type_ == UnitsTech::EPSP || it.second.type_ == UnitsTech::MACRO) {
-      if (it.second.way_.size() == 0) {
+      if (it.second._way.size() == 0) {
         HandleEpspAndMacro(it.second);
         potential_to_remove.push_back(it.first); // remove 
       }
@@ -596,8 +601,8 @@ void Player::CheckLoophole(Potential& potential) {
     // If loophole-target exists, enter loophole.
     if (loophole_target.first != -1 && loophole_target.second != -1) {
       potential.pos_ = loophole_target;
-      potential.way_ = field_->GetWay(potential.pos_, {potential.way_.back()});
-      potential.way_.pop_front(); // remove first position, which is the loophole.
+      potential._way = field_->GetWay(potential.pos_, {potential._way.back()});
+      potential._way.pop_front(); // remove first position, which is the loophole.
     }
   }
 }
@@ -608,23 +613,25 @@ void Player::HandleEpspAndMacro(Potential& potential) {
   if (potential.type_ == UnitsTech::EPSP) {
     auto res = field_->GetNeuronTypeAndPlayerAtPosition(potential.pos_);
     if (res.first != -1)
-      res.second->AddPotentialToNeuron(potential.pos_, potential.potential_);
-    // Friendly fire
-    AddPotentialToNeuron(potential.pos_, potential.potential_);
+      res.second->AddVoltageToNeuron(potential.pos_, potential._voltage);
+    // Check friendly fire (TODO (fux): check if this is necessary!)
+    AddVoltageToNeuron(potential.pos_, potential._voltage);
   }
   // Makro (A)
   else if (potential.type_ == UnitsTech::MACRO && macro_ == 0) {
     auto res = field_->GetNeuronTypeAndPlayerAtPosition(potential.pos_);
     if (res.first != -1) {
+      // Get all neurons in range of macro-position (range is matched with enemies current range)
       auto neurons = res.second->GetAllNeuronsInRange(potential.pos_);
-      int macro_lp = potential.potential_;
+      int macro_voltage = potential._voltage;
+      // Unload voltage on surounding enemy neuerons. (destroy enemy neurons, unit macro-voltage is 0)
       for (const auto& neuron : neurons) {
-        int lp = (neuron.unit() == SYNAPSE) ? 5 : (neuron.unit() == ACTIVATEDNEURON) ? 17 : 0;
-        macro_lp-= lp;
-        if (macro_lp < 0) 
-          lp = macro_lp+lp;
-        res.second->AddPotentialToNeuron(neuron.pos(), lp);
-        if (macro_lp < 0) 
+        int enemy_neuron_voltage = (neuron.unit() == SYNAPSE) ? 5 : (neuron.unit() == ACTIVATEDNEURON) ? 17 : 0;
+        macro_voltage -= enemy_neuron_voltage;
+        if (macro_voltage < 0) 
+          enemy_neuron_voltage = macro_voltage+enemy_neuron_voltage;
+        res.second->AddVoltageToNeuron(neuron.pos(), enemy_neuron_voltage);
+        if (macro_voltage < 0) 
           break;
       }
     }
@@ -655,7 +662,7 @@ bool Player::HandleIpsp(Potential& ipsp, std::string id) {
     }
   }
   // If duration since last action is reached, add ipsp to list of potentials to remove and unblock target.
-  if (ipsp.movement_.first == 0) {
+  if (ipsp._next_action == 0) {
     auto res = field_->GetNeuronTypeAndPlayerAtPosition(ipsp.pos_);
     if (res.first != -1)
       res.second->SetBlockForNeuron(ipsp.pos_, false);  // unblock target.
@@ -663,9 +670,9 @@ bool Player::HandleIpsp(Potential& ipsp, std::string id) {
   }
   // If target was reached for the first time, block target and change
   // movement form speed to duration.
-  else if (ipsp.way_.size() == 0 && !ipsp.target_blocked_) {
-    ipsp.movement_.first = ipsp.duration_;
-    ipsp.target_blocked_ = true;
+  else if (ipsp._way.size() == 0 && !ipsp._target_blocked) {
+    ipsp._next_action = ipsp._duration;
+    ipsp._target_blocked = true;
     auto res = field_->GetNeuronTypeAndPlayerAtPosition(ipsp.pos_);
     if (res.first != -1)
       res.second->SetBlockForNeuron(ipsp.pos_, true);  // block target
@@ -679,8 +686,7 @@ void Player::HandleDef() {
     if (neuron.second->type_ != UnitsTech::ACTIVATEDNEURON)
       continue;
     // Check if activated neurons recharge is done.
-    neuron.second->decrease_cooldown();
-    if (neuron.second->cur_movement() == 0 && !neuron.second->blocked()) {
+    if (neuron.second->DecreaseCooldown() && !neuron.second->blocked()) {
       // for every enemy
       for (const auto& enemy : enemies_) {
         // Check for potentials in range of activated neuron.
@@ -688,7 +694,7 @@ void Player::HandleDef() {
           if (utils::Dist(neuron.first, potential.second.pos_) < 3) {
             if (enemy->NeutralizePotential(potential.first, neuron.second->potential_slowdown()))
               statistics_->AddKillderPotential(potential.first);
-            neuron.second->reset_movement();  // neuron did action, so update last_action_.
+            neuron.second->ResetMovement();  // neuron did action, so update last_action_.
             break;
           }
         }
@@ -726,12 +732,12 @@ void Player::SetBlockForNeuron(position_t pos, bool blocked) {
   }
 }
 
-bool Player::NeutralizePotential(std::string id, int potential, bool erase) {
-  spdlog::get(LOGGER)->debug("Player::NeutralizePotential: {} {}", id, potential);
+bool Player::NeutralizePotential(std::string id, int voltage, bool erase) {
+  spdlog::get(LOGGER)->debug("Player::NeutralizePotential: {} {}", id, voltage);
   if (potential_.count(id) > 0) {
-    potential_.at(id).potential_ -= potential;
+    potential_.at(id)._voltage -= voltage;
     // Remove potential only if not already at it's target (length of way is greater than zero).
-    if ((potential_.at(id).potential_ == 0 || potential_.at(id).potential_ > 10) && potential_.at(id).way_.size() > 0) {
+    if ((potential_.at(id)._voltage == 0 || potential_.at(id)._voltage > 10) && potential_.at(id)._way.size() > 0) {
       spdlog::get(LOGGER)->debug("Player::NeutralizePotential: potential: died.");
       if (erase)
         potential_.erase(id);
@@ -742,7 +748,7 @@ bool Player::NeutralizePotential(std::string id, int potential, bool erase) {
   return false;
 }
 
-void Player::AddPotentialToNeuron(position_t pos, int potential) {
+void Player::AddVoltageToNeuron(position_t pos, int potential) {
   spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: {} {}", utils::PositionToString(pos), potential);
   // If potential is negative: stop.
   if (potential < 0) {

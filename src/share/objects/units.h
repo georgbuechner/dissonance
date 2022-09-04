@@ -20,9 +20,8 @@
 
 
 /**
- * Abstrackt class for all neurons or potentials.
+ * Abstract class for all neurons or potentials.
  * Attributes:
- * - pos
  */
 struct Unit {
   position_t pos_;
@@ -33,28 +32,22 @@ struct Unit {
 };
 
 /**
- * Abstrackt class for all neurons.
- * Neurons are non-moving units on the field (buildings), which have lp. When
- * lp<=0, a neuron is destroyed
- * Attributes:
- * - pos (derived from Unit)
- * - lp 
+ * Abstract class for all neurons.
+ * Neurons are non-moving units on the field (buildings), which have voltage
+ * When voltage>=max_voltage, a neuron is destroyed
  */
 struct Neuron : Unit {
   public:
     Neuron();
     Neuron(position_t pos, int lp, int type);
-    Neuron(const Neuron& neuron);
     virtual ~Neuron() {}
 
     // getter 
     int voltage() const;
     int max_voltage() const;
     bool blocked() const;
-    virtual int cur_movement() const { return 999; };
-    virtual std::pair<int, int> movement() const { return DEFAULT_POS; };
     virtual int potential_slowdown() const { return -1; };
-    virtual std::vector<position_t> ways_points() const { return {}; }
+    virtual std::vector<position_t> waypoints() const { return {}; }
     virtual bool swarm() const { return false; }
     virtual int num_availible_ways() const { return 0; }
     virtual int max_stored() const { return 0; }
@@ -63,7 +56,6 @@ struct Neuron : Unit {
     virtual position_t ipsp_target() const { return DEFAULT_POS; }
     virtual position_t macro_target() const { return DEFAULT_POS; }
     virtual size_t resource() const { return 9999; }
-    virtual position_t target(int unit) const { return {-1, -1}; }
     virtual position_t target() const { return {-1, -1}; }
     virtual std::chrono::time_point<std::chrono::steady_clock> created_at() const { 
       return std::chrono::steady_clock::now(); 
@@ -81,55 +73,45 @@ struct Neuron : Unit {
     virtual void set_target(position_t) {};
 
     // methods
-    virtual void decrease_cooldown() {}
-    virtual void reset_movement() {}
+    virtual bool DecreaseCooldown() { return false; }
+    virtual void ResetMovement() {}
+    virtual void DecreaseTotalCooldown() {};
+
+    virtual position_t GetTargetForPotential(int unit) const { return {-1, -1}; }
+    virtual std::vector<position_t> GetWayPoints(int unit) const { return {}; }
+    virtual int AddEpsp() { return 0; }
 
     /**
      * Increases voltage of neuron and returns whether neuron is destroyed.
+     * @param[in] voltage 
+     * @return whether neuron is destroyed (voltage exceeds max-voltage)
      */
-    bool IncreaseVoltage(int potential);
-
-    virtual std::vector<position_t> GetWayPoints(int unit) const { 
-      spdlog::get(LOGGER)->error("Neuron::GetWayPoints: invalid base clase call!");
-      return {}; 
-    }
-    virtual int AddEpsp() { return 0; }
+    bool IncreaseVoltage(int voltage);
 
   private:
-    int lp_;
-    int max_lp_;
+    int voltage_;
+    int max_voltage_;
     bool blocked_;
 };
 
 /** 
  * Implemented class: Synapse.
- * Synapse is a special kind of neuron, which can create potential.
- * Attributes:
- * - pos (derived from Unit)
- * - lp (derived from Neuron)
+ * Synapse is a special kind of neuron, which can create potentials.
  */
 struct Synapse : Neuron {
   public: 
     Synapse();
     Synapse(position_t pos, int max_stored, int num_availible_ways, position_t epsp_target, position_t ipsp_target);
-    Synapse(const Neuron& neuron);
 
     // getter: 
-    std::vector<position_t> ways_points() const;
+    std::vector<position_t> waypoints() const;
     bool swarm() const;
     int num_availible_ways() const;
     int max_stored() const;
     int stored() const;
-    position_t epsp_target() const { return epsp_target_; }
-    position_t ipsp_target() const { return ipsp_target_; }
-    position_t macro_target() const { return macro_target_; }
-
-    position_t target(int unit)  const { 
-      if (unit == IPSP) return ipsp_target_;
-      if (unit == EPSP) return epsp_target_;
-      if (unit == MACRO) return macro_target_;
-      return {-1, -1};
-    }
+    position_t epsp_target() const;
+    position_t ipsp_target() const;
+    position_t macro_target() const;
    
     // setter: 
     void set_way_points(std::vector<position_t> way_points);
@@ -141,7 +123,30 @@ struct Synapse : Neuron {
     void set_max_stored(int max_stored);
 
     // methods: 
+    
+    /**
+     * Gets the target matching the given potential (EPSP, IPSP, MACRO).
+     * @param[in] unit (must be EPSP, IPSP or MACRO)
+     * @return position of matching target or DEFAULT_POS (if unit does not match EPSP, IPSP or MACRO.
+     */
+    position_t GetTargetForPotential(int unit) const;
+
+    /**
+     * Gets way-points of the synapse with the target matching the given unit
+     * included as last waypoint.
+     * Throws if unit does not match (EPSP, IPSP or MACRO)
+     * @param[in] unit 
+     * @return waypoints + `unit`'s target
+     */
     std::vector<position_t> GetWayPoints(int unit) const;
+
+    /**
+     * Adds epsp to stored if `swarm_==true`, and returns number of epsps to
+     * create. 
+     * Either 1 (`!swarm_`) otherwise 0, or, if `stored_==max_stored_` is reached
+     * `max_stored` (if this case `stored_` is reset).
+     * @return number of epsps to create (1, 0, or max_stored_)
+     */
     int AddEpsp();
 
   private:
@@ -153,8 +158,8 @@ struct Synapse : Neuron {
     position_t ipsp_target_;
     position_t macro_target_;
 
-    int num_availible_way_points_;
-    std::vector<position_t> way_points_;
+    int num_availible_waypoints_;
+    std::vector<position_t> waypoints_;
 };
 
 /** 
@@ -168,29 +173,42 @@ struct ActivatedNeuron : Neuron {
   public:
     ActivatedNeuron();
     ActivatedNeuron(position_t pos, int slowdown_boast, int speed_boast);
-    ActivatedNeuron(const Neuron& neuron);
 
     // getter 
-    int cur_movement() const;
-    std::pair<int, int> movement() const;
     int potential_slowdown() const;
     
-    void decrease_cooldown();
-    void reset_movement();
+    /**
+     * Decreases next-action by one returns true, when next_action_ is 0.
+     * @return true if next_action_ is zero.
+     */
+    bool DecreaseCooldown();
+
+    /**
+     * Resets next_action_ to cooldown.
+     */
+    void ResetMovement();
+
+    /**
+     * Decreases cooldown.
+     */
+    void DecreaseTotalCooldown();
 
   private:
-    std::pair<int, int> movement_;  ///< lower number means higher speed.
+    int next_action_;  ///< when 0, does action (reduce incoming potentials voltage)
+    int cooldown_; 
     int potential_slowdown_;
 };
 
 /**
- *
+ * Implemented class: ResourceNeuron.
+ * Resource neurons automatically created when >2 iron is distributed to a
+ * resource and destroyed when iron is withdrawn from resource. 
+ * When resource-neuron is destroyed, all iron is withdrawn from resource.
  */
 struct ResourceNeuron : Neuron {
   public: 
     ResourceNeuron();
     ResourceNeuron(position_t, size_t resource);
-    ResourceNeuron(const Neuron& neuron);
 
     // getter 
     size_t resource() const;
@@ -200,26 +218,24 @@ struct ResourceNeuron : Neuron {
 };
 
 /** 
- * Implemented class: Synapse.
+ * Implemented class: Nucleus.
  * The Nucleus is the main point from which your system is developing.
- * Attributes:
- * - pos (derived from Unit)
- * - lp (derived from Neuron)
  */
 struct Nucleus : Neuron {
   Nucleus() : Neuron() {}
   Nucleus(position_t pos) : Neuron(pos, 9, UnitsTech::NUCLEUS) {}
-  Nucleus(const Neuron& neuron) : Neuron(neuron) {
-    spdlog::get(LOGGER)->debug("Added Nucleus. type: {}", type_);
-  }
 };
 
+/** 
+ * Implemented class: Loophole.
+ * The Nucleus is the main point from which your system is developing.
+ */
 struct Loophole : Neuron {
   public: 
     Loophole() : Neuron(), target_({-1, -1}), created_at_(std::chrono::steady_clock::now()) {}
     Loophole(position_t pos, position_t target) : Neuron(pos, 9, UnitsTech::LOOPHOLE), target_(target) {}
 
-    // getteconst r
+    // getter
     position_t target() const { return target_; }
     std::chrono::time_point<std::chrono::steady_clock> created_at() const { return created_at_; }
 
@@ -232,31 +248,24 @@ struct Loophole : Neuron {
 };
 
 /**
- * Abstrackt class for all potentials.
- * Attributes:
- * - pos (derived from Unit)
- * - cur_movement (int cooldown, int speed)
+ * Abstract class for all potentials.
  */
 struct Potential : Unit {
-  int potential_;
-  std::pair<int, int> movement_;  ///< lower number means higher speed.
-  int duration_; ///< only ipsp
-  std::list<position_t> way_;
-  bool target_blocked_;
+  int _voltage;  ///< voltage added to neuron when hit.
+  int _next_action;  ///< indicates when next action will happen 
+  int _speed;  ///< initial value for `next_action_`. `next_action_` reset to speed after action.
+  int _duration; ///< only ipsp: duration for blocking
+  std::list<position_t> _way; 
+  bool _target_blocked;  ///< only ipsp: indicates whether ipsp is currently blocking it's target.
 
-  Potential() : Unit(), movement_({999, 999}) {}
+  Potential() : Unit(), _voltage(0), _next_action(999), _speed(999), _duration(0) {}
   Potential(position_t pos, int attack, std::list<position_t> way, int speed, int type, int duration) 
-    : Unit(pos, type), potential_(attack), movement_({speed, speed}), duration_(duration), 
-    way_(way), target_blocked_(false) {}
+    : Unit(pos, type), _voltage(attack), _next_action(speed), _speed(speed), _duration(duration), 
+    _way(way), _target_blocked(false) {}
 };
 
 /**
  * Implemented class: EPSP
- * Attributes:
- * - pos (derived from Unit)
- * - attack (derived from Potential)
- * - speed (derived from Potential)
- * - way (derived from Potential)
  */
 struct Epsp : Potential {
   Epsp() : Potential() {}
@@ -266,11 +275,6 @@ struct Epsp : Potential {
 
 /**
  * Implemented class: IPSP.
- * Attributes:
- * - pos (derived from Unit)
- * - attack (derived from Potential)
- * - speed (derived from Potential)
- * - way (derived from Potential)
  */
 struct Ipsp : Potential {
   Ipsp() : Potential() {}
@@ -278,6 +282,9 @@ struct Ipsp : Potential {
     : Potential(pos, 3+potential_boast, way, IPSP_SPEED-speed_boast, UnitsTech::IPSP, IPSP_DURATION+duration_boast) {}
 };
 
+/**
+ * Implemented class: Makro.
+ */
 struct Makro : Potential {
   Makro() : Potential() {}
   Makro(position_t pos, std::list<position_t> way, int potential_boast, int speed_boast)  

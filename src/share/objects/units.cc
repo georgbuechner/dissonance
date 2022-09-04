@@ -1,5 +1,6 @@
 #include "share/objects/units.h"
 #include "share/constants/codes.h"
+#include "share/defines.h"
 #include "share/tools/utils/utils.h"
 #include "spdlog/spdlog.h"
 #include <cstddef>
@@ -7,25 +8,17 @@
 // Neurons
 Neuron::Neuron() : Unit () {}
 Neuron::Neuron(position_t pos, int lp, int type) : Unit(pos, type) {
-  lp_ = 0;
-  max_lp_ = lp;
+  voltage_ = 0;
+  max_voltage_ = lp;
   blocked_ = false;
-}
-
-Neuron::Neuron(const Neuron& neuron) {
-  pos_ = neuron.pos_;
-  type_ = neuron.type_;
-  lp_ = neuron.lp_;
-  max_lp_ = neuron.max_lp_;
-  blocked_ = neuron.blocked_;
 }
 
 // getter 
 int Neuron::voltage() const { 
-  return lp_; 
+  return voltage_; 
 }
 int Neuron::max_voltage() const { 
-  return max_lp_; 
+  return max_voltage_; 
 }
 bool Neuron::blocked() const { return blocked_; };
 
@@ -39,47 +32,36 @@ void Neuron::set_blocked(bool blocked) {
 /**
  * Increases voltage of neuron and returns whether neuron is destroyed.
  */
-bool Neuron::IncreaseVoltage(int potential) {
-  if (potential < 0)
+bool Neuron::IncreaseVoltage(int voltage) {
+  if (voltage < 0)
     return false;
-  lp_ += potential;
-  return (lp_ >= max_lp_) ? true : false;
+  voltage_ += voltage;
+  return voltage_ >= max_voltage_;
 }
 
 // Synapses ...
 Synapse::Synapse() : Neuron() {}
-Synapse::Synapse(position_t pos, int max_stored, int num_availible_ways, position_t epsp_target, position_t ipsp_target) :
-    Neuron(pos, 5, UnitsTech::SYNAPSE) {
+Synapse::Synapse(position_t pos, int max_stored, int num_availible_ways, position_t epsp_target, position_t ipsp_target) 
+  : Neuron(pos, 5, UnitsTech::SYNAPSE) 
+{
   swarm_ =false;
   max_stored_ = max_stored;
   stored_ = 0;
   epsp_target_ = epsp_target;
   ipsp_target_ = ipsp_target;
   macro_target_ = epsp_target;
-  num_availible_way_points_ = num_availible_ways;
-}
-
-Synapse::Synapse(const Neuron& neuron) : Neuron(neuron) {
-  swarm_ = neuron.swarm();
-  max_stored_ = neuron.max_stored();
-  stored_ = neuron.stored();
-  epsp_target_ = neuron.ipsp_target();
-  ipsp_target_ = neuron.epsp_target();
-  macro_target_ = neuron.macro_target();
-  num_availible_way_points_ = neuron.num_availible_ways();
-  way_points_ = neuron.ways_points();
-  spdlog::get(LOGGER)->debug("Added Synape. type: {}", type_);
+  num_availible_waypoints_ = num_availible_ways;
 }
 
 // getter: 
-std::vector<position_t> Synapse::ways_points() const { 
-  return way_points_; 
+std::vector<position_t> Synapse::waypoints() const { 
+  return waypoints_; 
 }
 bool Synapse::swarm() const { 
   return swarm_; 
 }
 int Synapse::num_availible_ways() const { 
-  return num_availible_way_points_; 
+  return num_availible_waypoints_; 
 }
 int Synapse::max_stored() const { 
   return max_stored_; 
@@ -87,10 +69,25 @@ int Synapse::max_stored() const {
 int Synapse::stored() const { 
   return stored_; 
 }
+position_t Synapse::epsp_target() const { 
+  return epsp_target_; 
+}
+position_t Synapse::ipsp_target() const { 
+  return ipsp_target_; 
+}
+position_t Synapse::macro_target() const { 
+  return macro_target_; 
+}
+position_t Synapse::GetTargetForPotential(int unit)  const { 
+  if (unit == IPSP) return ipsp_target_;
+  if (unit == EPSP) return epsp_target_;
+  if (unit == MACRO) return macro_target_;
+  return DEFAULT_POS;
+}
 
 // setter: 
 void Synapse::set_way_points(std::vector<position_t> way_points) { 
-  way_points_ = way_points; 
+  waypoints_ = way_points; 
 }
 void Synapse::set_swarm(bool swarm) {
   swarm_ = swarm;
@@ -105,7 +102,7 @@ void Synapse::set_macro_target_pos(position_t pos) {
   macro_target_ = pos;
 }
 void Synapse::set_availible_ways(int num_availible_way_points) {
-  num_availible_way_points_ = num_availible_way_points;
+  num_availible_waypoints_ = num_availible_way_points;
 }
 void Synapse::set_max_stored(int max_stored) {
   max_stored_ = max_stored;
@@ -114,16 +111,16 @@ void Synapse::set_max_stored(int max_stored) {
 // methods: 
 std::vector<position_t> Synapse::GetWayPoints(int unit) const { 
   spdlog::get(LOGGER)->debug("SYNAPSE::GetWayPoints");
-  auto way = way_points_;
+  auto waypoints_with_target = waypoints_;
   if (unit == UnitsTech::EPSP)
-    way.push_back(epsp_target_);
+    waypoints_with_target.push_back(epsp_target_);
   else if (unit == UnitsTech::IPSP)
-    way.push_back(ipsp_target_);
+    waypoints_with_target.push_back(ipsp_target_);
   else if (unit == UnitsTech::MACRO) 
-    way.push_back(macro_target_);
+    waypoints_with_target.push_back(macro_target_);
   else
    throw std::invalid_argument("Target neither epsp or ipsp:");
-  return way;
+  return waypoints_with_target;
 }
 
 int Synapse::AddEpsp() { 
@@ -142,44 +139,36 @@ int Synapse::AddEpsp() {
 ActivatedNeuron::ActivatedNeuron() : Neuron() {}
 ActivatedNeuron::ActivatedNeuron(position_t pos, int slowdown_boast, int speed_boast) : 
     Neuron(pos, 17, UnitsTech::ACTIVATEDNEURON) {
-  movement_ = {0, ACTIVATEDNEURON_SPEED-speed_boast};
+  next_action_ = 0;
+  cooldown_ = ACTIVATEDNEURON_SPEED-speed_boast;
   potential_slowdown_ = 1+slowdown_boast;
 }
 
-ActivatedNeuron::ActivatedNeuron(const Neuron& neuron) : Neuron(neuron) {
-  movement_ = neuron.movement();
-  potential_slowdown_ = neuron.potential_slowdown();
-  spdlog::get(LOGGER)->debug("Added ActivatedNeuron. type: {}", type_);
-}
-
 // getter 
-int ActivatedNeuron::cur_movement() const { 
-  return movement_.first; 
-}
-std::pair<int, int> ActivatedNeuron::movement() const { 
-  return movement_; 
-}
 int ActivatedNeuron::potential_slowdown() const { 
   return potential_slowdown_; 
 }
 
-void ActivatedNeuron::decrease_cooldown() {
-  if (movement_.first > 0)
-    movement_.first--;
-}
-void ActivatedNeuron::reset_movement() {
-  movement_.first = movement_.second;
+bool ActivatedNeuron::DecreaseCooldown() {
+  // Make sure next_action_ is never negative.
+  if (next_action_ > 0)
+    next_action_--;
+  return next_action_ == 0;
 }
 
+void ActivatedNeuron::ResetMovement() {
+  next_action_ = cooldown_;
+}
+
+void ActivatedNeuron::DecreaseTotalCooldown() {
+  cooldown_--;
+}
 
 // ResourceNeuron...
 ResourceNeuron::ResourceNeuron() : Neuron(), resource_(999) {}
 ResourceNeuron::ResourceNeuron(position_t pos, size_t resource) : Neuron(pos, 0, UnitsTech::RESOURCENEURON), 
     resource_(resource) {
   spdlog::get(LOGGER)->debug("ResourceNeuron::ResourceNeuron, type {}", UnitsTech::RESOURCENEURON);
-}
-ResourceNeuron::ResourceNeuron(const Neuron& neuron) : Neuron(neuron), resource_(neuron.resource()) { 
-  spdlog::get(LOGGER)->debug("Added ResourceNeuron. type: {}", type_);
 }
 
 // getter 
