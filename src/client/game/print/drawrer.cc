@@ -379,8 +379,9 @@ void Drawrer::PrintCenteredParagraphAndMiniFields(texts::paragraph_t paragraph, 
   for (int r=0; r<10; r++) {
     int start_col = COLS/2-10*fields.size() - 5*(fields.size()/2);
     for (unsigned int field=0; field<fields.size(); field++) {
+      const auto& mini_field = mini_fields_.at(fields[field]);
       for (int c=0; c<10; c++) {
-        auto sym = mini_fields_.at(fields[field])[r][c];
+        auto sym = mini_field[r][c];
         attron(COLOR_PAIR(sym.color_));
         mvaddstr(start_height+r, start_col++, sym.symbol_.c_str());
         mvaddch(start_height+r, start_col++, ' ');
@@ -389,7 +390,6 @@ void Drawrer::PrintCenteredParagraphAndMiniFields(texts::paragraph_t paragraph, 
       start_col += 5;
     }
   }
-  spdlog::get(LOGGER)->debug("done");
 }
 
 void Drawrer::PrintCenteredParagraphs(texts::paragraphs_t paragraphs, bool skip_first_wait) {
@@ -812,7 +812,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   for (int i=0; i<100; i++) 
     p->IncreaseResources(true);
   exported_field = field->Export({p});
-  mini_fields_["field_player_oxygen_potassium_glutamat_activated"] = exported_field;
+  mini_fields_["field_player_oxygen_potassium_glutamate_activated"] = exported_field;
 
   // Simple map showing how to select position on map.
   spdlog::get(LOGGER)->debug("MAP: Simple map with showing highlighted range.");
@@ -846,7 +846,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   exported_field[positions.front().first][positions.front().second].color_ = COLOR_AVAILIBLE;
   exported_field[positions.front().first][positions.front().second].symbol_ = SYMBOL_DEF;
   mini_fields_["field_select_neuron_position_3"] = exported_field;
-  exported_field = mini_fields_["field_player_oxygen_potassium_glutamat_activated"];
+  exported_field = mini_fields_["field_player_oxygen_potassium_glutamate_activated"];
   
   // Simple map with player nucleus and resources (not activated)
   spdlog::get(LOGGER)->debug("MAP: Simple map with player nucleus and resources (not activated)");
@@ -895,7 +895,7 @@ void Drawrer::CreateMiniFields(int player_color) {
   
   // Map showing how to select between multiple synapses.
   spdlog::get(LOGGER)->debug("MAP: showing how to select between multiple synapses.");
-  exported_field = mini_fields_["field_player_oxygen_potassium_glutamat_activated"];
+  exported_field = mini_fields_["field_player_oxygen_potassium_glutamate_activated"];
   auto synapse_a = field->GetAllInRange(nucleus.front(), 2, 1.5, true).front();
   auto synapse_b = field->GetAllInRange(nucleus.front(), 3, 2, true).front();
   exported_field[synapse_a.first][synapse_a.second].color_ = player_color;

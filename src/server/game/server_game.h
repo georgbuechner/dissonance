@@ -100,6 +100,7 @@ class ServerGame {
     WebsocketServer* ws_server_;
     EventManager<std::string, ServerGame, std::shared_ptr<Data>> eventmanager_;
     const int mode_; ///< (see: codes.h: Mode)
+    const bool tutorial_; ///< when true, less resources for enemy.
     std::shared_mutex mutex_status_;  ///< mutex locked, when printing field.
     int status_;  ///< current game status (see: codes.h: GameStatus)
     std::shared_mutex mutex_pause_;

@@ -1118,7 +1118,9 @@ void ClientGame::h_TextNext(std::shared_ptr<Data>) {
   else {
     int num = contexts_.at(CONTEXT_TEXT).num();
     contexts_.at(CONTEXT_TEXT).set_num(num+1);
+    spdlog::get(LOGGER)->debug("ClientGame::h_TextNext: printing...");
     h_TextPrint();
+    spdlog::get(LOGGER)->debug("ClientGame::h_TextNext: printing done");
   }
 }
 
@@ -1431,7 +1433,9 @@ void ClientGame::h_TextQuit() {
 void ClientGame::h_TextPrint() {
   drawrer_.ClearField();
   auto paragraph = contexts_.at(current_context_).get_paragraph();
+  spdlog::get(LOGGER)->debug("ClientGame::h_TextPrint printing text and field...");
   drawrer_.PrintCenteredParagraphAndMiniFields(paragraph.first, paragraph.second, true);
+  spdlog::get(LOGGER)->debug("ClientGame::h_TextPrint done");
   refresh();
 }
 

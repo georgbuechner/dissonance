@@ -23,14 +23,10 @@ namespace texts {
       "Welcome to DISSONANCE",
       "",
       "This is a beta-version. Please report issues at:",
-      "https://github.com/georgbuechner/dissonance/issues"
-    },
-    {
-      "Welcome to DISSONANCE",
+      "https://github.com/georgbuechner/dissonance/issues",
       "",
-      "Several parts of the brain are in dissonance and started attacking each other",
-      "with strong potentials, aiming to destroy the others nucleus."
-    }
+      "enjoy dissonance, it's what keeps us alive"
+    },
   };
 
   const paragraphs_t welcome = {
@@ -66,7 +62,7 @@ namespace texts {
       "enemy's resource-production.",
       "",
       "Once you gained enough resources you can expand your control over the brain by",
-      "building more nucleus. Use these, your build potential and the strategist",
+      "building more nucleus. Use these, your built potentials and the strategist",
       "inside you to overcome dissonance in your favor!"
     },
     {
@@ -75,6 +71,14 @@ namespace texts {
       "Also keep in mind, that there are two kinds of potential: ",
       "EPSP (strong in attack) and IPSP (blocks buildings and enemy potential); you should start with EPSP."
     },
+    {
+      "In case you're not familiar with using the command-line or terminal: ",
+      "should the game at any point 'crash' or 'hang up' (which we hope will not happen!), ",
+      "press CRTL-C (german keyboard: STRG-C) to force-quit the game. Then you can start over :)",
+    },
+    {
+      "enjoy dissonance, it's what keeps us alive"
+    }
   };
 
   const paragraphs_t help = {
@@ -84,11 +88,11 @@ namespace texts {
       " --- POTENTIALS --- ",
       "EPSP: used to destroy enemy neurons. Adds small amount of potential.",
       "IPSP: used to a) block enemy neurons or b) 'swallow' potential of enemy epsp",
-      "MACRO: used to destroy enemy neurons. Adds a total of 50 damage to all nearby neurons",
-      "as long as potential is still availible. Is destroyed by first hit of activated neuron",
+      "MACRO: very stroing potential. Which macro you will use is randomly assigned on game-start.",
+      "Explore the different macros on your own. A macro is always destroyed by first hit of activated neuron",
       "",
       " --- NEURONS --- ",
-      "ACTIVATED NEURON: block enemy potential. Desceases potential of incoming potentials. range ~5.",
+      "ACTIVATED NEURON: block enemy potential. Decreases potential of incoming potentials. range ~5.",
       "SYNAPSE: used to create potentials (epsp/ ipsp/ macro)",
       "NUCLEUS: increase resource-limits (10%), you can build neurons inside of the nucleus' range. ",
       "Nucleus can be built anywhere on the map.",
@@ -123,12 +127,12 @@ namespace texts {
       "RESOURCE SLOWDOWN-- (resource curve slowdown - 1): iron=1, dopamine=21.0, serotonin=21.2",
       "",
       "potential-upgrade:",
-      "EPSP/ IPSP POTENIAL++ (increases potential of ipsp/ epsp): iron=1, potassium=10.0, dopamine=16.0, serotonin=11.2",
+      "EPSP/ IPSP POTENTIAL++ (increases potential of ipsp/ epsp): iron=1, potassium=10.0, dopamine=16.0, serotonin=11.2",
       "EPSP/ IPSP SPEED-- (increases speed of ipsp/ epsp): iron=1, potassium=10.0, dopamine=19.0 serotonin=13.2",
       "IPSP DURATION++ (increases duration of ipsp): iron=1, potassium=10.0, dopamine=17.5, serotonin=12.2",
       "",
       "activated-neuron upgrade",
-      "ACTIVATED NEURON POTENIAL++ (increases potential of activated-neuron): "
+      "ACTIVATED NEURON POTENTIAL++ (increases potential of activated-neuron): "
         "iron=1, glutamate=15.9, dopamine=14.5, serotonin=17.6",
       "ACTIVATED NEURON SPEED++ (increases speed of activated-neuron): "
         "iron=1, glutamate=15.9, dopamine=16.5, serotonin=6.6",
@@ -160,19 +164,27 @@ namespace texts {
       "Welcome to DISSONANCE tutorial",
       "",
       "You will start a normal game but we will give you hints and",
-      "try to explain while you're playing."
+      "try to explain while you're playing.",
+      "Also, the AI will gain resources slower than in single-player mode."
     }, 
     {
       "TUTORIAL",
       "",
-      "The first you'll have to do is to select a song to play along to.",
+      "The first thing you'll have to do is to select a song to play along to.",
       "Your choice of music will influence the map and the style of the AI.",
-      "We added a song which should be fairly easy, while you're still learning.",
+      "We added a song which is not necessarily easy to play, but which will demonstrate",
+      "a lot of the games aspects.",
+      "So don't worry should you loose other songs might be easier to play.",
+      "Also you can play with your friends in multiplayer-mode by starting the game with the `-m` flag",
+      "dissonance -m"
+    },
+    {
+      "TUTORIAL",
       "",
       "However also the size of your terminal and the selected font will affect the map",
       "and as a direct effect the game's difficulty. You should generally consider playing on full screen.",
-      "The game has been tested with a resolution of 1920x1080. However, higher resolutions allow a",
-      "prettier printing of the side-bar.",
+      "The game has been tested with a resolution of 1920x1080. However, dissonance can adjust to",
+      "almost any resolution, we only *recommend* 1920x1080.",
     },
     {
       "TUTORIAL",
@@ -191,6 +203,13 @@ namespace texts {
   };
 
   const paragraphs_field_t tutorial_get_oxygen = {
+    {{
+       "TUTORIAL",
+       "",
+       "You can ignore this first message, it informs you which kind of MACRO you are playing with.",
+       "MACROs are a strong special unit, which will not be referred to in the tutorial.", 
+       "Explore which macros exist and what they can do in single-player mode, once you learned how to play.",
+    }, {}},
     {{
       "TUTORIAL",
       "",
@@ -216,13 +235,13 @@ namespace texts {
       "The formula looks something like this: ",
       "iron * log(oxygen+0.5) * (1 - (free+bound)/limit)",
       "",
-     }, {}},
+    }, {}},
     {{
       "TUTORIAL",
       "",
       "This is the exact formula, but it will be explained later so you don't need to understand everything now:",
       "",
-      "(boost * gain * negative-faktor) / slowdown",
+      "(boost * gain * negative-factor) / slowdown",
       "",
       "where...",
       "... boost = 1 + distributed-iron/10",
@@ -258,7 +277,7 @@ namespace texts {
       "iron " SYMBOL_IRON "   oxygen " SYMBOL_OXYGEN "   potassium " SYMBOL_POTASSIUM "   glutamate  " SYMBOL_GLUTAMATE 
         "   dopamine " SYMBOL_DOPAMINE "   serotonin " SYMBOL_SEROTONIN,
       "(In the second image oxygen has been activated, and in the third oxygen, glutamate and potassium)"
-    }, {"field_player", "field_player_oxygen_activated", "field_player_oxygen_potassium_glutamat_activated"}},
+    }, {"field_player", "field_player_oxygen_activated", "field_player_oxygen_potassium_glutamate_activated"}},
     {{
       "TUTORIAL",
       "",
@@ -389,7 +408,7 @@ namespace texts {
       "If you already have multiple synapses you will first have to select one synapse.",
       "After hitting 's', all your synapses are shown on the map as a, b,..., n. Simply press the corresponding",
       "letter to select the synapse. You can choose different targets for each synapse",
-      "and different targets for epsp and ipsp (we will come to ipsp later).",
+      "and different targets for epsps and ipsps (we will come to ipsps later).",
       "",
       "The map shows how the first of two SYNAPSES is selected by first pressing 's' (select synapse(s))",
       "and then 'a' (select first synapse)."
@@ -411,9 +430,9 @@ namespace texts {
       "TUTORIAL",
       "",
       "With CHLORIDE you can build IPSP.",
-      "Ipsp can be used in two ways: ",
+      "Ipsps can be used in two ways: ",
       "a) to block any enemy neurons: activated neurons, synapses, resource-neurons.",
-      "b) since ipsp 'swallow' enemy epsp, they can be used to block enemy attacks.",
+      "b) since ipsps 'swallow' enemy epsps, they can be used to block enemy attacks.",
     }, {}},
     {{
       "TUTORIAL",
@@ -572,7 +591,7 @@ namespace texts {
       "Good thing that you are increasing your defence! However you should keep the following in mind:",
       "This is the formula for your research-gain per resource: ",
       "",
-      "(boost * gain * negative-faktor) / slowdown",
+      "(boost * gain * negative-factor) / slowdown",
       "",
       "where...",
       "... boost = 1 + distributed-iron/10",
@@ -597,13 +616,13 @@ namespace texts {
       "",
       "If you have come to a point where you seem to be getting no more resources at all, you have three options:",
       "a) research the 'resource limits++'-technology, which increases the limits for each resource (20%).",
-      "b) by building new nucleus you also get increased resource limits (10%)",
-      "c) destroy own neurons (friendly fire)"
+      "b) by building a new nucleus you also get increased resource limits (10%)",
+      "c) destroy own neurons ('friendly fire' is allowed)"
     }, {}},
     {{
       "TUTORIAL",
       "",
-      "Maybe you already noticed but to see not only the 'free' amount of a resource but also the bound and boost part,",
+      "Maybe you already noticed but to see not only the 'free' amount of a resource but also the 'bound' and 'boost' part,",
       "you can select a resource with 'j'/'k'-keys and a more detailed description of the resource will be shown",
       "at the bottom of the screen (just as with technologies).",
     }, {}}
@@ -615,9 +634,9 @@ namespace texts {
       "",
       "Your enemy has launched an attack!",
       "Units (potentials) are symbolized either by letters: a, b, ..., z (epsp) or numbers: 1,2,..., 9 (ipsp).",
-      "The enemy's epsps add potential to your neurons. If a certain potential is reached this neuron is destroyed.",
+      "The enemy's epsps add potential to your neurons. If a certain potential is reached, this neuron is destroyed.",
       "Also: you cannot place new neurons on top of a destroyed neuron!",
-      "If your nucleus is destroyed, you have lost.",
+      "If your last nucleus is destroyed, you have lost.",
       "You can see the current potential of your nucleus at the top of the screen.",
       "",
       "The map below shows some EPSP advancing from the enemy's SYNAPSE to an imaginary target outside of the map."
@@ -633,7 +652,7 @@ namespace texts {
     {{
       "TUTORIAL",
       "",
-      "Your enemy's epsp have reached your nucleus!",
+      "Your enemy's epsps have reached your nucleus!",
       "Potential is now added to your nucleus. If your nucleus' potential reaches '9/9' you have lost!",
       "Consider building more ACTIVATED NEURONS."
     }, {"field_attack_2"}}

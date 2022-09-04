@@ -39,7 +39,7 @@ bool IsAi(std::string username) {
 
 ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::string base_path, 
     WebsocketServer* srv) : lines_(lines), cols_(cols), max_players_(num_players), audio_(base_path), 
-    ws_server_(srv), mode_((mode == TUTORIAL) ? SINGLE_PLAYER : mode), status_(WAITING) 
+    ws_server_(srv), mode_((mode == TUTORIAL) ? SINGLE_PLAYER : mode), tutorial_(mode == TUTORIAL), status_(WAITING) 
 {
   spdlog::get(LOGGER)->info("ServerGame::ServerGame: num_players: {}", max_players_);
   pause_ = false;
@@ -634,7 +634,8 @@ void ServerGame::Thread_Ai(std::string username) {
         audio_start_time = std::chrono::steady_clock::now();
       // Increase reasources twice every beat.
       ai->IncreaseResources(audio_.MoreOffNotes(ai->audio_beats().front()));
-      ai->IncreaseResources(false);
+      if (!tutorial_)
+        ai->IncreaseResources(false);
     }
   }
   spdlog::get(LOGGER)->info("Game::Thread_Ai: ended");

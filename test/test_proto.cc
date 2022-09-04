@@ -11,6 +11,22 @@
 #include "share/shemes/commands.h"
 #include "share/shemes/data.h"
 #include "share/tools/utils/utils.h"
+#include <msgpack.hpp>
+
+TEST_CASE("Test int and short size equivalent", "[msgpack]") {
+  // get command
+  std::vector<int> int_msg;
+  for (int i=0; i<30000; i++)
+    int_msg.push_back(i);
+  std::vector<short> short_msg;
+  for (int i=0; i<30000; i++)
+    short_msg.push_back(i);
+  std::stringstream int_buffer;
+  msgpack::pack(int_buffer, int_msg);
+  std::stringstream short_buffer;
+  msgpack::pack(short_buffer, short_msg);
+  REQUIRE(int_buffer.str().size() == short_buffer.str().size());
+}
 
 TEST_CASE("Test creating simple dto", "[msgpack]") {
   std::string command = "preparing";
