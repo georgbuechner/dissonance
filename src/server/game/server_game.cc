@@ -47,6 +47,7 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
   audio_data_buffer_ = "";
   audio_file_name_ = "";
   audio_stored_ = true;
+  last_audio_part_ = -1;
   base_path_ = base_path;
   // Initialize eventmanager.
   eventmanager_.AddHandler("audio_map", &ServerGame::m_SendAudioMap);
@@ -109,21 +110,25 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
 }
 
 void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->error("ServerGame::m_AddAudioPart, part {}", data->part());
-  // Set song name if not already set.
-  if (audio_file_name_ == "")
-    audio_file_name_ = data->songname();
-  std::string path = base_path_ + USER_FILES + data->username();
-  // Create directory for this user.
-  if (!std::filesystem::exists(path))
-    std::filesystem::create_directory(path);
-  path += "/"+data->songname();
+  std::unique_lock ul_audio(mutex_audio_);
+  if (data->part() != last_audio_part_+1)
+    spdlog::get(LOGGER)->error("ServerGame::m_AddAudioPart. cur-part {} not last+1 {}", 
+        data->part(), last_audio_part_);
   audio_data_buffer_+=data->content();
+  last_audio_part_++;
   if (data->part() == data->parts()) {
+    // Set song name if not already set.
+    if (audio_file_name_ == "")
+      audio_file_name_ = data->songname();
+    std::string path = base_path_ + USER_FILES + data->username();
+    // Create directory for this user.
+    if (!std::filesystem::exists(path))
+      std::filesystem::create_directory(path);
+    path += "/"+data->songname();
+    // Store audio
     utils::StoreMedia(path, audio_data_buffer_);
     audio_stored_ = true;
   }
-  spdlog::get(LOGGER)->error("ServerGame::m_AddAudioPart, done with part {}", data->part());
 }
 
 void ServerGame::PlayerReady(std::string username) {
