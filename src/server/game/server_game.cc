@@ -110,13 +110,9 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
 }
 
 void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
-  while(data->part() > last_audio_part_+1) {}
   std::unique_lock ul_audio(mutex_audio_);
-  if (data->part() != last_audio_part_+1)
-    spdlog::get(LOGGER)->error("ServerGame::m_AddAudioPart. cur-part {} not last+1 {}", 
-        data->part(), last_audio_part_);
-  audio_data_buffer_+=data->content();
-  last_audio_part_++;
+  audio_data_sorted_buffer_.insert(std::prev(audio_data_sorted_buffer_.end()), 
+      std::pair{data->part(), data->content()});
   if (data->part() == data->parts()) {
     // Set song name if not already set.
     if (audio_file_name_ == "")
@@ -127,6 +123,11 @@ void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
       std::filesystem::create_directory(path);
     path += "/"+data->songname();
     // Store audio
+    for (const auto& it : audio_data_sorted_buffer_)
+      audio_data_buffer_ += it.second;
+    if (audio_data_sorted_buffer_.size() != data->parts())
+      spdlog::get(LOGGER)->error("ServerGame::m_AddAudioPart: received parts {} differs from expected {}",
+          audio_data_sorted_buffer_.size(), data->parts());
     utils::StoreMedia(path, audio_data_buffer_);
     audio_stored_ = true;
   }

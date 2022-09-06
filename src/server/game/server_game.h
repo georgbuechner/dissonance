@@ -92,6 +92,7 @@ class ServerGame {
 
     // audio
     Audio audio_;  ///< main-audio (f.e. map and in single-player: ai)
+    std::map<int, std::string> audio_data_sorted_buffer_;
     std::string audio_data_buffer_;  ///< audio data (used as buffer when receiving audio-data)
     std::string audio_file_name_;  ///< audio-file-name.
     std::string base_path_;
