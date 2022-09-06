@@ -96,7 +96,7 @@ class ServerGame {
     std::string audio_file_name_;  ///< audio-file-name.
     std::string base_path_;
     bool audio_stored_;
-    int last_audio_part_;
+    std::atomic<int> last_audio_part_;
     std::shared_mutex mutex_audio_;
 
 

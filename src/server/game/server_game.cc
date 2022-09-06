@@ -110,6 +110,7 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
 }
 
 void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
+  while(data->part() > last_audio_part_+1) {}
   std::unique_lock ul_audio(mutex_audio_);
   if (data->part() != last_audio_part_+1)
     spdlog::get(LOGGER)->error("ServerGame::m_AddAudioPart. cur-part {} not last+1 {}", 
