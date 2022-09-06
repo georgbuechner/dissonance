@@ -125,7 +125,7 @@ void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
     // Store audio
     for (const auto& it : audio_data_sorted_buffer_)
       audio_data_buffer_ += it.second;
-    if (audio_data_sorted_buffer_.size() != data->parts())
+    if (audio_data_sorted_buffer_.size() != (size_t)data->parts())
       spdlog::get(LOGGER)->error("ServerGame::m_AddAudioPart: received parts {} differs from expected {}",
           audio_data_sorted_buffer_.size(), data->parts());
     utils::StoreMedia(path, audio_data_buffer_);
