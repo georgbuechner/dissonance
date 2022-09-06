@@ -852,9 +852,9 @@ void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::m_UpdateGame(std::shared_ptr<Data> data) {
-  std::shared_lock sl(mutex_);
+  std::unique_lock ul(mutex_);
   drawrer_.UpdateTranser(data);
-  sl.unlock();
+  ul.unlock();
   drawrer_.PrintGame(false, false, current_context_);
 }
 
