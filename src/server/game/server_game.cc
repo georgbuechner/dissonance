@@ -109,6 +109,7 @@ void ServerGame::AddPlayer(std::string username, int lines, int cols) {
 }
 
 void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->error("ServerGame::m_AddAudioPart, part {}", data->part());
   // Set song name if not already set.
   if (audio_file_name_ == "")
     audio_file_name_ = data->songname();
@@ -122,6 +123,7 @@ void ServerGame::m_AddAudioPart(std::shared_ptr<Data> data) {
     utils::StoreMedia(path, audio_data_buffer_);
     audio_stored_ = true;
   }
+  spdlog::get(LOGGER)->error("ServerGame::m_AddAudioPart, done with part {}", data->part());
 }
 
 void ServerGame::PlayerReady(std::string username) {

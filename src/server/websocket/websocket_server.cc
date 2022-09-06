@@ -115,7 +115,7 @@ void WebsocketServer::Start(int port) {
 }
 
 void WebsocketServer::OnOpen(websocketpp::connection_hdl hdl) {
-  std::unique_lock ul(shared_mutex_connections_);
+  std::unique_lock ul_connections(shared_mutex_connections_);
   if (connections_.count(hdl.lock().get()) == 0)
     connections_[hdl.lock().get()] = new Connection(hdl, hdl.lock().get(), "");
   else
@@ -123,7 +123,7 @@ void WebsocketServer::OnOpen(websocketpp::connection_hdl hdl) {
 }
 
 void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
-  std::unique_lock ul(shared_mutex_connections_);
+  std::unique_lock ul_connections(shared_mutex_connections_);
   if (connections_.count(hdl.lock().get()) > 0) {
     try {
       // Delete connection.
@@ -133,7 +133,7 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
         connections_.erase(hdl.lock().get());
       else 
         connections_.clear();
-      ul.unlock();
+      ul_connections.unlock();
       spdlog::get(LOGGER)->info("WebsocketFrame::OnClose: Connection closed successfully: {}", username);
       // Tell game that player has disconnected. 
       std::unique_lock ul_games(shared_mutex_games_);
@@ -143,6 +143,7 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
       // If player was host (game exists with this username): update lobby for waiting players
       if (games_.count(username) > 0) {
         spdlog::get(LOGGER)->debug("WebsocketFrame::OnClose: Game removed, informing waiting players");
+        ul_games.unlock();
         UpdateLobby();
         for (const auto& it : connections_) {
           if (it.second->waiting())
@@ -262,7 +263,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
 
 void WebsocketServer::h_InGameAction(connection_id id, Command cmd) {
   spdlog::get(LOGGER)->info("h_InGameAction");
-  std::shared_lock sl(shared_mutex_games_);
+  std::shared_lock sl_games(shared_mutex_games_);
   spdlog::get(LOGGER)->info("h_InGameAction: username {}", cmd.username());
   auto game = GetGameFromUsername(cmd.username());
   if (game) {
@@ -331,6 +332,7 @@ void WebsocketServer::CloseGames() {
 }
 
 WebsocketServer::connection_id WebsocketServer::GetConnectionIdByUsername(std::string username) {
+  std::shared_lock sl_connections(shared_mutex_connections_);
   for (const auto& it : connections_)
     if (it.second->username() == username) 
       return it.second->get_connection_id();
@@ -338,6 +340,7 @@ WebsocketServer::connection_id WebsocketServer::GetConnectionIdByUsername(std::s
 }
 
 bool WebsocketServer::UsernameExists(std::string username) {
+  std::shared_lock sl_connections(shared_mutex_connections_);
   for (const auto& it : connections_)
     if (it.second->username() == username) 
       return true;
@@ -345,6 +348,7 @@ bool WebsocketServer::UsernameExists(std::string username) {
 }
 
 ServerGame* WebsocketServer::GetGameFromUsername(std::string username) {
+  std::shared_lock sl_connections(shared_mutex_connections_);
   if (username_game_id_mapping_.count(username) > 0 
       && games_.count(username_game_id_mapping_.at(username)))
     return games_.at(username_game_id_mapping_.at(username));
@@ -382,7 +386,7 @@ void WebsocketServer::SendMessage(connection_id id, std::string command, std::sh
 void WebsocketServer::SendMessage(connection_id id, std::string msg) {
   try {
     // Set last incomming and get connection hdl from connection.
-    std::shared_lock sl(shared_mutex_connections_);
+    std::shared_lock sl_connections(shared_mutex_connections_);
     if (connections_.count(id) == 0) {
       spdlog::get(LOGGER)->error("WebsocketFrame::SendMessage: failed to get connection to {}", id);
       return;
@@ -398,7 +402,7 @@ void WebsocketServer::SendMessage(connection_id id, std::string msg) {
 }
 
 void WebsocketServer::UpdateLobby() {
-  std::unique_lock ul(shared_mutex_lobby_);
+  std::unique_lock ul_lobby(shared_mutex_lobby_);
   lobby_->clear();
   for (const auto& it : games_) {
     if (it.second->status() == WAITING_FOR_PLAYERS)
