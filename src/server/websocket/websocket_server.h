@@ -99,15 +99,16 @@ class WebsocketServer {
     // members:
 
     server server_;  ///< server object.
-    mutable std::shared_mutex shared_mutex_connections_;  ///< Mutex for connections_.
+    mutable std::shared_mutex mutex_connections_;  ///< Mutex for connections_.
     std::map<connection_id, Connection*> connections_;  ///< Dictionary with all connections.
 
-    mutable std::shared_mutex shared_mutex_games_;  ///< Mutex for connections_.
+    mutable std::shared_mutex mutex_games_map_;  ///< Mutex for games map (sl when accessed, ul when modified)
+    mutable std::shared_mutex mutex_games_;  ///< Mutex for games (sl when used, ul when games are deleted).
     std::map<std::string, std::string> username_game_id_mapping_;  ///< maps username to game
     std::map<std::string, ServerGame*> games_;  ///< all games (key=host-player).
 
     std::shared_ptr<Lobby> lobby_;  ///< the game-lobby.
-    mutable std::shared_mutex shared_mutex_lobby_;  ///< Mutex for connections_.
+    mutable std::shared_mutex mutex_lobby_;  ///< Mutex for connections_.
 
     const bool standalone_;  ///< if set, closes CloseGames-thread when a game is over.
     const std::string base_path_;
@@ -175,6 +176,17 @@ class WebsocketServer {
      */
     std::vector<std::string> GetPlayingUsers(std::string username, bool check_connected=false);
 
+    /**
+     * Updates lobby, then sends updated lobby to all users in lobby
+     */
+    void SendUpdatedLobbyToAllInLobby();
+
+    /**
+     * Updates lobby. 
+     * Empties lobby first, then fills lobby with all game where status is WAITING_FOR_PLAYERS.
+     * Unique-lock mutex lobby
+     * Shared-lock mutex games
+     */
     void UpdateLobby();
 
     // handlers:
