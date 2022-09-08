@@ -136,14 +136,14 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
       ul_connections.unlock();
       spdlog::get(LOGGER)->info("WebsocketFrame::OnClose: Connection closed successfully: {}", username);
       // Tell game that player has disconnected. 
-      std::shared_lock sl_games_map(mutex_games_map_);
+      std::shared_lock sl_games(mutex_games_);
       auto game = GetGameFromUsername(username);
       if (game)
         game->PlayerResigned(username);
+      sl_games.unlock();
       // If player was host (game exists with this username): update lobby for waiting players
       if (games_.count(username) > 0) {
         spdlog::get(LOGGER)->debug("WebsocketFrame::OnClose: Game removed, informing waiting players");
-        sl_games_map.unlock();
         SendUpdatedLobbyToAllInLobby();
       }
     } catch (std::exception& e) {
@@ -196,9 +196,9 @@ void WebsocketServer::h_InitializeUser(connection_id id, std::string username) {
     SendMessage(id, "kill", std::make_shared<Msg>("A game for this username is currently running!"));
   // Everything fine: set username and send next instruction to user.
   else if (connections_.count(id) > 0) {
-    std::unique_lock ul(mutex_connections_);
+    std::shared_lock sl_connections(mutex_connections_);
     connections_[id]->set_username(username);
-    ul.unlock();
+    sl_connections.unlock();
     SendMessage(id, Command("select_mode").bytes());
   }
   else
@@ -209,7 +209,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
   if (data->mode() == SINGLE_PLAYER || data->mode() == TUTORIAL) {
     spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: initializing new single-player game.");
     std::string game_id = username;
-    std::unique_lock ul(mutex_games_map_); // unique_lock since games-map is being modyfied (add game)
+    std::unique_lock ul_games_map(mutex_games_map_); // unique_lock since games-map is being modyfied (add game)
     username_game_id_mapping_[username] = game_id;
     games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), 2, base_path_, this);
     SendMessage(id, Command("select_audio").bytes());
@@ -217,10 +217,9 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
   else if (data->mode() == MULTI_PLAYER) {
     spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: initializing new multi-player game.");
     std::string game_id = username;
-    std::unique_lock ul(mutex_games_map_); // unique_lock since games-map is being modyfied (add game)
+    std::unique_lock ul_games_map(mutex_games_map_); // unique_lock since games-map is being modyfied (add game)
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), data->num_players(), 
-        base_path_, this);
+    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), data->num_players(), base_path_, this);
     SendMessage(id, Command("select_audio").bytes());
     spdlog::get(LOGGER)->debug("WebsocketServer::h_InitializeGame: New game added, informing waiting players");
   }
@@ -230,14 +229,18 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     if (game_id == "") {
       UpdateLobby();
       SendMessage(username, "update_lobby", lobby_);
+      std::shared_lock sl_connections(mutex_connections_);
       connections_.at(id)->set_waiting(true); // indicate player is now waiting for game.
+      sl_connections.unlock();
     }
     // with game_id: joint game
     else if (games_.count(game_id) > 0){
-      std::unique_lock sl(mutex_games_map_);  // unique-lock since user-game mapping is modyfied
+      std::unique_lock ul_games_map(mutex_games_map_);  // unique-lock since user-game mapping is modyfied
       ServerGame* game = games_.at(game_id);
       if (game->status() == WAITING_FOR_PLAYERS) {
+        std::shared_lock sl_connections(mutex_connections_);
         connections_.at(id)->set_waiting(false);  // indicate player has stopped waiting for game.
+        sl_connections.unlock();
         username_game_id_mapping_[username] = game_id;  // Add username to mapping, to find matching game.
         game->AddPlayer(username, data->lines(), data->cols()); // Add user to game.
         SendMessage(id, "print_msg", std::make_shared<Msg>("Waiting for players..."));
@@ -258,12 +261,9 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
 }
 
 void WebsocketServer::h_InGameAction(connection_id id, Command cmd) {
-  spdlog::get(LOGGER)->info("h_InGameAction");
-  std::shared_lock sl_games_map(mutex_games_map_);
-  std::shared_lock sl_games(mutex_games_); // lock applied while games-map also locked
   spdlog::get(LOGGER)->info("h_InGameAction: username {}", cmd.username());
+  std::shared_lock sl_games(mutex_games_); // lock applied while games-map also locked
   auto game = GetGameFromUsername(cmd.username());
-  sl_games_map.unlock();
   if (game) {
     std::string command = cmd.command();
     cmd.data()->AddUsername(cmd.username());
@@ -287,7 +287,7 @@ void WebsocketServer::CloseGames() {
     spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: Checking running games");
     // Gather games to delete or close games if all users are disconnected.
     for (const auto& it : games_) {
-      spdlog::get(LOGGER)->debug("WebsocketServer::CloseGames: Checking game: {}, status: {}",
+      spdlog::get(LOGGER)->debug("WebsocketServer::CloseGames: Checking game: {}, status: {}", 
           it.first, it.second->status());
       // If game is closed add to game_to_delete.
       if (it.second->status() == CLOSED)
@@ -341,6 +341,7 @@ bool WebsocketServer::UsernameExists(std::string username) {
 }
 
 ServerGame* WebsocketServer::GetGameFromUsername(std::string username) {
+  std::shared_lock sl_games_map(mutex_games_map_);
   std::shared_lock sl_connections(mutex_connections_);
   if (username_game_id_mapping_.count(username) > 0 && games_.count(username_game_id_mapping_.at(username)))
     return games_.at(username_game_id_mapping_.at(username));

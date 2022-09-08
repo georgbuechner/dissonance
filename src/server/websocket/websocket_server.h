@@ -102,6 +102,14 @@ class WebsocketServer {
     mutable std::shared_mutex mutex_connections_;  ///< Mutex for connections_.
     std::map<connection_id, Connection*> connections_;  ///< Dictionary with all connections.
 
+    // mutex for games and games-map:
+    // `mutex_games_map_` is alway unique-locked when games-map is modified (and also when a game is deleted)
+    // The mutex should always be shared-locked, when map is accessed.
+    // `mutex_games_` is only unique-locked when game is deleted (as adding a game to map is irrelevant to
+    // any game-action, and deleting from map only happens, when the game is also deleted).
+    // The mutex hast be be shared-locked only when a game-action is executed.
+    // → This way a in-game-action blocks deleting a game, but also modifying the games-map is allowed during 
+    // a game-action.
     mutable std::shared_mutex mutex_games_map_;  ///< Mutex for games map (sl when accessed, ul when modified)
     mutable std::shared_mutex mutex_games_;  ///< Mutex for games (sl when used, ul when games are deleted).
     std::map<std::string, std::string> username_game_id_mapping_;  ///< maps username to game
@@ -140,6 +148,7 @@ class WebsocketServer {
 
     /**
      * Sends message to given connection by connection-id.
+     * Shared-locks connections-mutex.
      * @param[in] id of connection over which to send.
      * @param[in] msg message which to send.
      */
@@ -147,6 +156,7 @@ class WebsocketServer {
 
     /**
      * Gets player connection by username.
+     * Shared-locks connections-mutex
      * @param[in] username
      * @return id of connection.
      */
@@ -154,6 +164,7 @@ class WebsocketServer {
 
     /**
      * Checks whether a username is already in use.
+     * Shared-locks connections-mutex
      * @param[in] username
      * @return whether a connection with this username already exists.
      */
@@ -161,14 +172,16 @@ class WebsocketServer {
 
     /**
      * Gets game from username. Checks whether username and game exists. 
-     * Locks mutex_game_
+     * Shared-locks games-map- and connections-mutex
      * @param[in] username
      * @retrun game or nullptr if game or user does not exist.
      */
     ServerGame* GetGameFromUsername(std::string username);
 
     /**
-     * Gets all users playing same game a user. No mutex locked
+     * Gets all users playing same game a user. 
+     * No mutex locked (only called in `CloseGames` which locks most mutexes
+     * anyway)
      * @param username
      * @param check_connected if set, only returns users which are currently connected
      * @return list of all users belonging to one game. Of `check_connected`
@@ -178,6 +191,8 @@ class WebsocketServer {
 
     /**
      * Updates lobby, then sends updated lobby to all users in lobby
+     * (No mutex locked, but `UpdateLobby` lockes games-map- and lobby-mutex and `SendMessage` 
+     * locks connection-mutex)
      */
     void SendUpdatedLobbyToAllInLobby();
 
