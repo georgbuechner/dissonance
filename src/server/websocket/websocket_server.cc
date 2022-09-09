@@ -272,14 +272,12 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
 
 void WebsocketServer::h_InGameAction(connection_id id, Command cmd) {
   spdlog::get(LOGGER)->info("h_InGameAction: username {}", cmd.username());
-  std::shared_lock sl_games(mutex_games_); // lock applied while games-map also locked
   auto game = GetGameFromUsername(cmd.username());
   if (game) {
     std::string command = cmd.command();
     cmd.data()->AddUsername(cmd.username());
     spdlog::get(LOGGER)->debug("h_InGameAction: calling game-function");
     game->HandleInput(command, cmd.data());
-    sl_games.unlock();
     spdlog::get(LOGGER)->debug("h_InGameAction: calling game-function: done");
     // Update lobby for all waiting players after "initialize_game" was called (potentially new game)
     if (command == "initialize_game")
