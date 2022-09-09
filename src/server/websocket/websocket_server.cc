@@ -136,11 +136,10 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
       ul_connections.unlock();
       spdlog::get(LOGGER)->info("WebsocketFrame::OnClose: Connection closed successfully: {}", username);
       // Tell game that player has disconnected. 
-      std::shared_lock sl_games(mutex_games_);
       auto game = GetGameFromUsername(username);
       if (game)
         game->PlayerResigned(username);
-      sl_games.unlock();
+      // TODO (fux): potentially unlock game here
       // If player was host (game exists with this username): update lobby for waiting players
       if (games_.count(username) > 0) {
         spdlog::get(LOGGER)->debug("WebsocketFrame::OnClose: Game removed, informing waiting players");
@@ -239,6 +238,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     else if (games_.count(game_id) > 0) {
       spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: add client-player");
       std::unique_lock ul_games_map(mutex_games_map_);  // unique-lock since user-game mapping is modyfied
+      // TODO (fux): potentially lock game here 
       ServerGame* game = games_.at(game_id);
       if (game->status() == WAITING_FOR_PLAYERS) {
         spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: add client-player adding to game");
@@ -247,6 +247,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
         sl_connections.unlock();
         username_game_id_mapping_[username] = game_id;  // Add username to mapping, to find matching game.
         game->AddPlayer(username, data->lines(), data->cols()); // Add user to game.
+      // TODO (fux): potentially unlock game here 
         SendMessage(id, "print_msg", std::make_shared<Msg>("Waiting for players..."));
       }
       else{ 
@@ -310,9 +311,9 @@ void WebsocketServer::CloseGames() {
       }
     }
     // Detelte games to delete, remove from games and remove all player-game-mappings for this game.
-    std::unique_lock ul_games(mutex_games_); // unique_lock since games deleted.
     for (const auto& it : games_to_delete) {
       // Delete game and remove from list of games.
+      // TODO (fux): check if game is locked, if yes, continue...
       delete games_[it];
       games_.erase(it);
       // Remove all username-game-mappings
@@ -325,7 +326,6 @@ void WebsocketServer::CloseGames() {
         return;
       }
     }
-    ul_games.unlock();
     ul_games_map.unlock();
     if (games_to_delete.size() > 0) {
       spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: Game removed, informing waiting players");
@@ -353,8 +353,10 @@ bool WebsocketServer::UsernameExists(std::string username) {
 ServerGame* WebsocketServer::GetGameFromUsername(std::string username) {
   std::shared_lock sl_games_map(mutex_games_map_);
   std::shared_lock sl_connections(mutex_connections_);
-  if (username_game_id_mapping_.count(username) > 0 && games_.count(username_game_id_mapping_.at(username)))
+  if (username_game_id_mapping_.count(username) > 0 && games_.count(username_game_id_mapping_.at(username))) {
     return games_.at(username_game_id_mapping_.at(username));
+    // TODO (fux): potentially lock game here 
+  }
   return nullptr;
 }
 
