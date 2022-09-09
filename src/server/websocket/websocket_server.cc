@@ -224,9 +224,11 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     spdlog::get(LOGGER)->debug("WebsocketServer::h_InitializeGame: New game added, informing waiting players");
   }
   else if (data->mode() == MULTI_PLAYER_CLIENT) {
+    spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: initializing new client-player.");
     std::string game_id = data->game_id();
     // game_id empy: enter lobby
     if (game_id == "") {
+      spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: new client-player: get lobby");
       UpdateLobby();
       SendMessage(username, "update_lobby", lobby_);
       std::shared_lock sl_connections(mutex_connections_);
@@ -234,10 +236,12 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
       sl_connections.unlock();
     }
     // with game_id: joint game
-    else if (games_.count(game_id) > 0){
+    else if (games_.count(game_id) > 0) {
+      spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: add client-player");
       std::unique_lock ul_games_map(mutex_games_map_);  // unique-lock since user-game mapping is modyfied
       ServerGame* game = games_.at(game_id);
       if (game->status() == WAITING_FOR_PLAYERS) {
+        spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: add client-player adding to game");
         std::shared_lock sl_connections(mutex_connections_);
         connections_.at(id)->set_waiting(false);  // indicate player has stopped waiting for game.
         sl_connections.unlock();
@@ -245,9 +249,14 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
         game->AddPlayer(username, data->lines(), data->cols()); // Add user to game.
         SendMessage(id, "print_msg", std::make_shared<Msg>("Waiting for players..."));
       }
+      else{ 
+        spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: add client-player: game full");
+        SendMessage(id, "print_msg", std::make_shared<Msg>("Game already full."));
+      }
     }
     else {
-      SendMessage(id, "print_msg", std::make_shared<Msg>("Game No Longer Exists"));
+      spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: add client-player: game does not exist.");
+      SendMessage(id, "print_msg", std::make_shared<Msg>("Game no longer exists"));
     }
   }
   else if (data->mode() == OBSERVER) {
@@ -281,6 +290,7 @@ void WebsocketServer::h_InGameAction(connection_id id, Command cmd) {
 
 void WebsocketServer::CloseGames() {
   for(;;) {
+    spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: waiting...");
     std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     std::unique_lock ul_games_map(mutex_games_map_); // unique_lock since 
     std::vector<std::string> games_to_delete;
