@@ -22,7 +22,7 @@ namespace texts {
     {
       "Welcome to DISSONANCE",
       "",
-      "An update is availible. Run `git pull` in the git-dissonance folder,",
+      "An update is availible. Run `git pull` in the dissonance git-folder (the cloned github project)",
       "to get the most recent code, then run `make setup` to install.",
     }
   };
