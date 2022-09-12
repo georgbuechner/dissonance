@@ -135,12 +135,16 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
         connections_.clear();
       ul_connections.unlock();
       spdlog::get(LOGGER)->info("WebsocketFrame::OnClose: Connection closed successfully: {}", username);
-      // Tell game that player has disconnected. 
-      auto game = GetGameFromUsername(username);
-      if (game)
-        game->PlayerResigned(username);
-      // TODO (fux): potentially unlock game here
+      // Get and lock game.
+      {
+        auto [game, game_id] = GetGameFromUsername(username);
+        // Tell game that player has disconnected. 
+        if (game)
+          game->PlayerResigned(username);
+        UnlockGame(game_id);
+      }
       // If player was host (game exists with this username): update lobby for waiting players
+      std::shared_lock sl_games(mutex_games_map_);
       if (games_.count(username) > 0) {
         spdlog::get(LOGGER)->debug("WebsocketFrame::OnClose: Game removed, informing waiting players");
         SendUpdatedLobbyToAllInLobby();
@@ -238,7 +242,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     else if (games_.count(game_id) > 0) {
       spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: add client-player");
       std::unique_lock ul_games_map(mutex_games_map_);  // unique-lock since user-game mapping is modyfied
-      // TODO (fux): potentially lock game here 
+      LockGame(game_id); 
       ServerGame* game = games_.at(game_id);
       if (game->status() == WAITING_FOR_PLAYERS) {
         spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: add client-player adding to game");
@@ -247,7 +251,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
         sl_connections.unlock();
         username_game_id_mapping_[username] = game_id;  // Add username to mapping, to find matching game.
         game->AddPlayer(username, data->lines(), data->cols()); // Add user to game.
-      // TODO (fux): potentially unlock game here 
+        UnlockGame(game_id); 
         SendMessage(id, "print_msg", std::make_shared<Msg>("Waiting for players..."));
       }
       else{ 
@@ -272,13 +276,20 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
 
 void WebsocketServer::h_InGameAction(connection_id id, Command cmd) {
   spdlog::get(LOGGER)->info("h_InGameAction: username {}", cmd.username());
-  auto game = GetGameFromUsername(cmd.username());
+  // Gets command and adds command to cmd-data.
+  std::string command = cmd.command();
+  cmd.data()->AddUsername(cmd.username());
+  // Get and lock game.
+  auto [game, game_id] = GetGameFromUsername(cmd.username());
+  spdlog::get(LOGGER)->debug("h_InGameAction: calling game-function");
   if (game) {
-    std::string command = cmd.command();
-    cmd.data()->AddUsername(cmd.username());
-    spdlog::get(LOGGER)->debug("h_InGameAction: calling game-function");
-    game->HandleInput(command, cmd.data());
+    try {
+      game->HandleInput(command, cmd.data());
+    } catch (std::exception& e) {
+      spdlog::get(LOGGER)->error("h_InGameAction: calling game-function failed: {}", e.what());
+    }
     spdlog::get(LOGGER)->debug("h_InGameAction: calling game-function: done");
+    UnlockGame(game_id);
     // Update lobby for all waiting players after "initialize_game" was called (potentially new game)
     if (command == "initialize_game")
       SendUpdatedLobbyToAllInLobby();
@@ -310,10 +321,13 @@ void WebsocketServer::CloseGames() {
     }
     // Detelte games to delete, remove from games and remove all player-game-mappings for this game.
     for (const auto& it : games_to_delete) {
+      // Check if game is locked, if yes, continue...
+      if (IsLocked(it))
+        continue;
       // Delete game and remove from list of games.
-      // TODO (fux): check if game is locked, if yes, continue...
       delete games_[it];
       games_.erase(it);
+      spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: removed game with id: {}", it);
       // Remove all username-game-mappings
       std::vector<std::string> all_users = GetPlayingUsers(it);
       for (const auto& it : all_users)
@@ -348,14 +362,15 @@ bool WebsocketServer::UsernameExists(std::string username) {
   return false;
 }
 
-ServerGame* WebsocketServer::GetGameFromUsername(std::string username) {
+std::pair<ServerGame*, std::string> WebsocketServer::GetGameFromUsername(std::string username) {
   std::shared_lock sl_games_map(mutex_games_map_);
   std::shared_lock sl_connections(mutex_connections_);
   if (username_game_id_mapping_.count(username) > 0 && games_.count(username_game_id_mapping_.at(username))) {
-    return games_.at(username_game_id_mapping_.at(username));
-    // TODO (fux): potentially lock game here 
+    std::string game_id = username_game_id_mapping_.at(username);
+    LockGame(game_id);
+    return {games_.at(game_id), game_id};
   }
-  return nullptr;
+  return {nullptr, ""};
 }
 
 std::vector<std::string> WebsocketServer::GetPlayingUsers(std::string username, bool check_connected) {
@@ -420,4 +435,27 @@ void WebsocketServer::UpdateLobby() {
     if (it.second->status() == WAITING_FOR_PLAYERS)
       lobby_->AddEntry(it.first, it.second->max_players(), it.second->cur_players(), it.second->audio_map_name());
   }
+}
+
+void WebsocketServer::LockGame(std::string game_id) {
+  spdlog::get(LOGGER)->debug("WebsocketServer::LockGame: game-id: {}", game_id);
+  std::unique_lock ul_games_lock(mutex_games_lock_);
+  games_lock_[game_id] = true;
+}
+
+void WebsocketServer::UnlockGame(std::string game_id) {
+  spdlog::get(LOGGER)->debug("WebsocketServer::UnLockGame: game-id: {}", game_id);
+  std::unique_lock ul_games_lock(mutex_games_lock_);
+  if (games_lock_.count(game_id) > 0)
+    games_lock_[game_id] = false;
+  else 
+    spdlog::get(LOGGER)->warn("WebsocketServer::UnlockGame: trying to unlock game, but {} does not exist!", game_id);
+}
+
+bool WebsocketServer::IsLocked(std::string game_id) {
+  spdlog::get(LOGGER)->debug("WebsocketServer::IsLocked: game-id: {}", game_id);
+  std::unique_lock ul_games_lock(mutex_games_lock_);
+  if (games_lock_.count(game_id) > 0)
+    return games_lock_.at(game_id);
+  return false;
 }

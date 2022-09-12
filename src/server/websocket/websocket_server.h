@@ -102,18 +102,12 @@ class WebsocketServer {
     mutable std::shared_mutex mutex_connections_;  ///< Mutex for connections_.
     std::map<connection_id, Connection*> connections_;  ///< Dictionary with all connections.
 
-    // mutex for games and games-map:
-    // `mutex_games_map_` is alway unique-locked when games-map is modified (and also when a game is deleted)
-    // The mutex should always be shared-locked, when map is accessed.
-    // `mutex_games_` is only unique-locked when game is deleted (as adding a game to map is irrelevant to
-    // any game-action, and deleting from map only happens, when the game is also deleted).
-    // The mutex hast be be shared-locked only when a game-action is executed.
-    // → This way a in-game-action blocks deleting a game, but also modifying the games-map is allowed during 
-    // a game-action.
     mutable std::shared_mutex mutex_games_map_;  ///< Mutex for games map (sl when accessed, ul when modified)
-    mutable std::shared_mutex mutex_games_;  ///< Mutex for games (sl when used, ul when games are deleted).
     std::map<std::string, std::string> username_game_id_mapping_;  ///< maps username to game
     std::map<std::string, ServerGame*> games_;  ///< all games (key=host-player).
+
+    mutable std::shared_mutex mutex_games_lock_;  ///< Mutex for games map (sl when accessed, ul when modified)
+    std::map<std::string, bool> games_lock_; ///< stores whether game is currently locked.
 
     std::shared_ptr<Lobby> lobby_;  ///< the game-lobby.
     mutable std::shared_mutex mutex_lobby_;  ///< Mutex for connections_.
@@ -171,12 +165,14 @@ class WebsocketServer {
     bool UsernameExists(std::string username);
 
     /**
-     * Gets game from username. Checks whether username and game exists. 
+     * Gets game and game-id from username. Checks whether username and game exists. 
      * Shared-locks games-map- and connections-mutex
+     * Locks game befor returning, if it exists. When finished using game, game
+     * mus be unlocked with returned game-id
      * @param[in] username
-     * @retrun game or nullptr if game or user does not exist.
+     * @return game or nullptr if game or user does not exist and game-id.
      */
-    ServerGame* GetGameFromUsername(std::string username);
+    std::pair<ServerGame*, std::string> GetGameFromUsername(std::string username);
 
     /**
      * Gets all users playing same game a user. 
@@ -229,6 +225,28 @@ class WebsocketServer {
      * @param[in, out] msg
      */
     void h_InGameAction(connection_id id, Command cmd);
+
+    // helper 
+    
+    /** 
+     * Locks game with given game-id. 
+     * If game does not exist in `games_lock_` creates new entry for this game.
+     * @param[in] game_id
+     */
+    void LockGame(std::string game_id);
+
+    /** 
+     * Unlocks game with given game-id if game exists.
+     * @param[in] game_id
+     */
+    void UnlockGame(std::string game_id);
+
+    /**
+     * Checks whether a game is currently locked.
+     * @param[in] game_id
+     * @return whether game is locked. If no entry exists, always unlocked (so game can be deleted).
+     */
+    bool IsLocked(std::string game_id);
 };
 
 #endif 
