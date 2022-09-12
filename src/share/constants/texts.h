@@ -18,6 +18,17 @@ namespace texts {
     "test field: "
   };
 
+  const paragraph_t update_avaiblibe_msg {
+    {
+      "Welcome to DISSONANCE",
+      "",
+      "An update is availible. Run `git pull` in the git-dissonance folder,",
+      "to get the most recent code, then run `make setup` to install.",
+    }
+  };
+
+  const paragraph_t server_msg = {};
+
   const paragraphs_t welcome_reduced = {
     {
       "Welcome to DISSONANCE",

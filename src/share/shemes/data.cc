@@ -1,5 +1,6 @@
 #include "share/shemes/data.h"
 #include "share/constants/codes.h"
+#include "share/constants/texts.h"
 #include "share/defines.h"
 #include "share/tools/utils/utils.h"
 #include <cstddef>
@@ -105,7 +106,23 @@ void Msg::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, msg_);
 }
 
-// SELECT MODE
+// Paragraph
+Paragraph::Paragraph(texts::paragraph_t paragraph) : paragraph_(paragraph) {}
+Paragraph::Paragraph(const char* payload, size_t len, size_t& offset) {
+  msgpack::object_handle result;
+  unpack(result, payload, len, offset);
+  paragraph_ = result->as<texts::paragraph_t>();
+}
+
+// getter 
+texts::paragraph_t Paragraph::paragraph() const { return paragraph_; }
+
+// methods 
+void Paragraph::binary(std::stringstream& buffer) {
+  msgpack::pack(buffer, paragraph_);
+}
+
+// InitNewGame
 InitNewGame::InitNewGame(int mode, int lines, int cols) : Data() {
   mode_ = mode;
   lines_ = lines;

@@ -1,4 +1,5 @@
 #include "share/shemes/commands.h"
+#include "share/shemes/data.h"
 #include <memory>
 #include <msgpack.hpp>
 
@@ -38,6 +39,8 @@ Command::Command(const char* payload, size_t len) {
     data_ = std::make_shared<Msg>(payload, len, offset);
   else if (command_ == "set_msg")
     data_ = std::make_shared<Msg>(payload, len, offset);
+  else if (command_ == "select_mode")
+    data_ = std::make_shared<Paragraph>(payload, len, offset);
   else if (command_ == "set_unit")
     data_ = std::make_shared<FieldPosition>(payload, len, offset);
   else if (command_ == "set_units")

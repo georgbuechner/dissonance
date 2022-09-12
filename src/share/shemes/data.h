@@ -2,6 +2,7 @@
 #define SRC_SHARE_DATA_H_
 
 #include "nlohmann/json.hpp"
+#include "share/constants/texts.h"
 #include "share/defines.h"
 #include <cstddef>
 #include <iostream>
@@ -17,8 +18,8 @@ class StaticticsEntry;
 class Statictics;
 
 /**
- * Used for cmds: `preparing`, `select_mode`, `select_audio`, `send_audio`
- * `resign`, `set_pause_on`, `set_pause_off`, `initialize_user`, `ready`
+ * Used for cmds: `preparing`, `select_audio`, `send_audio` `resign`, `set_pause_on`, 
+ * `set_pause_off`, `initialize_user`, `ready`
  */
 class Data {
   public: 
@@ -73,6 +74,7 @@ class Data {
     std::string u() { return u_; }
 
     virtual std::string msg() { return ""; } 
+    virtual texts::paragraph_t paragraph() const { return {}; }
 
     virtual int mode() { return 0; }
     virtual int lines() { return 0; }
@@ -215,6 +217,24 @@ class Msg : public Data {
 
   private:
     std::string msg_;
+};
+
+/**
+ * Used for cmds: `select_mode`
+ */
+class Paragraph : public Data {
+  public:
+    Paragraph(texts::paragraph_t paragraph);
+    Paragraph(const char* payload, size_t len, size_t& offset);
+
+    // getter 
+    texts::paragraph_t paragraph() const;
+    
+    // methods 
+    void binary(std::stringstream& buffer);
+   
+  private: 
+    texts::paragraph_t paragraph_;
 };
 
 /**

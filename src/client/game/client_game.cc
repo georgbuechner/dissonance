@@ -695,13 +695,16 @@ void ClientGame::m_Preparing(std::shared_ptr<Data>) {
   drawrer_.PrintOnlyCenteredLine(LINES/2, "Analyzing audio...");
 }
 
-void ClientGame::m_SelectMode(std::shared_ptr<Data>) {
+void ClientGame::m_SelectMode(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode");
+  
   // Print welcome text.
-  if (show_full_welcome_text_)
-    drawrer_.PrintCenteredParagraphs(texts::welcome);
-  else 
-    drawrer_.PrintCenteredParagraphs(texts::welcome_reduced);
+  auto welcome_text = (show_full_welcome_text_) ? texts::welcome : texts::welcome_reduced;
+  // Append server-message.
+  if (data->paragraph().size() > 0) {
+    welcome_text.push_back(data->paragraph());
+  }
+  drawrer_.PrintCenteredParagraphs(welcome_text);
   
   // Select single-player, mulit-player (host/ client), observer.
   choice_mapping_t mapping = {

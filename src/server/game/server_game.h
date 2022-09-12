@@ -100,7 +100,6 @@ class ServerGame {
     std::atomic<int> last_audio_part_;
     std::shared_mutex mutex_audio_;
 
-
     // meta 
     WebsocketServer* ws_server_;
     EventManager<std::string, ServerGame, std::shared_ptr<Data>> eventmanager_;

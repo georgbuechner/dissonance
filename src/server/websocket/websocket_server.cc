@@ -20,6 +20,7 @@
 #include <websocketpp/error.hpp>
 #include <websocketpp/frame.hpp>
 #include <spdlog/spdlog.h>
+#include "share/constants/texts.h"
 #include "share/shemes/data.h"
 #include "spdlog/common.h"
 #include "spdlog/logger.h"
@@ -202,7 +203,7 @@ void WebsocketServer::h_InitializeUser(connection_id id, std::string username) {
     std::shared_lock sl_connections(mutex_connections_);
     connections_[id]->set_username(username);
     sl_connections.unlock();
-    SendMessage(id, Command("select_mode").bytes());
+    SendMessage(id, "select_mode", std::make_shared<Paragraph>(texts::server_msg));
   }
   else
     spdlog::get(LOGGER)->warn("WebsocketServer::h_InitializeUser: connection does not exist! {}", username);
