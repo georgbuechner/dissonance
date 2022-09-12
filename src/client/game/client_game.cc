@@ -815,9 +815,12 @@ void ClientGame::SendSong() {
   for (const auto& it : contents) {
     data->set_part(it.first);
     data->set_content(it.second);
+    std::string msg = "Sending audio part " + std::to_string(it.first+1) + " of " 
+      + std::to_string(contents.size()) + "...";
+    if ((size_t)it.first+1 == contents.size())
+      msg = "Data sent. Waiting for server...";
+    drawrer_.PrintOnlyCenteredLine(LINES/2, msg);
     try {
-      drawrer_.PrintOnlyCenteredLine(LINES/2, "Sending audio part " + std::to_string(it.first+1) + " of " 
-          + std::to_string(contents.size()) + "...");
       ws_srv_->SendMessage("send_audio_data", data);
     } catch(...) {
       drawrer_.ClearField();
