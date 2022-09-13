@@ -608,45 +608,100 @@ void Drawrer::PrintStatisticsGraph(std::shared_ptr<Statictics> statistic) const 
   // Print legend:
   PrintLegend();
 
+  int max_elems = COLS-(cols_offset*2);
+  max_elems -= max_elems*0.07;
+
   // draw graph-outlines:
-  for (unsigned int i=0; i<graph.size() && i<(size_t)(COLS-(cols_offset*2)); i++) {
+  for (int i=0; i<max_elems && i<(int)graph.size(); i++) {
     // y-numbering:
     if (i%10 == 0)
       mvaddstr(LINES-6, i+12+cols_offset, std::to_string(i).c_str());
     // x-numbering:
-    if (i%5 == 0 && i<(size_t)(LINES-16)) {
+    if (i%5 == 0 && i<(LINES-16)) {
       int line_val = i/fak;
       mvaddstr(LINES-lines_offset-i, cols_offset, std::to_string(line_val).c_str());
     }
-    else if (i<(size_t)(LINES-16))
+    else if (i<(LINES-16))
       mvaddstr(LINES-lines_offset-i, cols_offset, "|");
     mvaddstr(LINES-lines_offset, i+cols_offset, "-");
-    // Skip printing resource if graph must be reduced.
-    if (cols_init_offset == cols_offset) {
-      int mod = 1+graph.size()/(size_t)(COLS-(cols_offset*2));
-      if (i%mod != 0 && graph[i].neurons_built().size() == 0)
-        continue;
+  }
+
+  std::vector<double> oxygen;
+  std::vector<double> potassium;
+  std::vector<double> glutamate;
+  std::vector<double> chloride;
+  std::vector<double> dopamine;
+  std::vector<double> serotonin;
+  for (const auto& it : graph) {
+    oxygen.push_back(it.oxygen());
+    potassium.push_back(it.potassium());
+    glutamate.push_back(it.glutamate());
+    chloride.push_back(it.chloride());
+    dopamine.push_back(it.dopamine());
+    serotonin.push_back(it.serotonin());
+  }
+  auto oxygen_vals = utils::DecimateCurve(oxygen, max_elems);
+  auto potassium_vals = utils::DecimateCurve(potassium, max_elems);
+  auto glutamate_vals = utils::DecimateCurve(glutamate, max_elems);
+  auto chloride_vals = utils::DecimateCurve(chloride, max_elems);
+  auto dopamine_vals = utils::DecimateCurve(dopamine, max_elems);
+  auto serotonin_vals = utils::DecimateCurve(serotonin, max_elems);
+
+  std::map<int, std::vector<int>> neurons_built;
+  for (size_t i=0; i<graph.size(); i++) {
+    if (graph[i].neurons_built().size() > 0) 
+      neurons_built[i] = graph[i].neurons_built();
+  }
+
+  for (int i=0; i<max_elems && i<(int)serotonin_vals.size(); i++) {
+    PrintResource(SEROTONIN, (LINES-serotonin_vals[i].second*fak)-lines_offset, i+5+cols_offset);
+    if (graph[serotonin_vals[i].first].neurons_built().size()) {
+      PrintNeuronsBuilt(neurons_built[serotonin_vals[i].first], i, cols_offset);
+      neurons_built.erase(serotonin_vals[i].first);
     }
-    // Neurons built:
-    if (graph[i].neurons_built().size() > 0) {
-      size_t size = graph[i].neurons_built().size();
-      for (unsigned int j=0; j<size; j++) {
-        size_t neuron = graph[i].neurons_built()[j];
-        spdlog::get(LOGGER)->debug("Drawrer::PrintStatistics: neuron: {}", neuron);
-        if (neuron == RESOURCENEURON)
-          mvaddstr(7, i+cols_offset-(size-j), "R");
-        else 
-          mvaddstr(7, i+cols_offset-(size-j), unit_symbol_mapping.at(neuron).c_str());
-        spdlog::get(LOGGER)->debug("Drawrer::PrintStatistics: neuron: {} printed", neuron);
-      }
+  }
+
+  for (int i=0; i<max_elems && i<(int)dopamine_vals.size(); i++) {
+    PrintResource(DOPAMINE, (LINES-dopamine_vals[i].second*fak)-lines_offset, i+5+cols_offset);
+    if (graph[dopamine_vals[i].first].neurons_built().size()) {
+      PrintNeuronsBuilt(neurons_built[dopamine_vals[i].first], i, cols_init_offset);
+      neurons_built.erase(dopamine_vals[i].first);
     }
-    // Resources (most relevant last):
-    PrintResource(SEROTONIN, (LINES-graph[i].serotonin()*fak)-lines_offset, i+5+cols_offset);
-    PrintResource(DOPAMINE, (LINES-graph[i].dopamine()*fak)-lines_offset, i+5+cols_offset);
-    PrintResource(CHLORIDE, (LINES-graph[i].chloride()*fak)-lines_offset, i+5+cols_offset);
-    PrintResource(GLUTAMATE, (LINES-graph[i].glutamate()*fak)-lines_offset, i+5+cols_offset);
-    PrintResource(POTASSIUM, (LINES-graph[i].potassium()*fak)-lines_offset, i+5+cols_offset);
-    PrintResource(OXYGEN, (LINES-graph[i].oxygen()*fak)-lines_offset, i+5+cols_offset);
+  }
+
+  for (int i=0; i<max_elems && i<(int)chloride_vals.size(); i++) {
+    PrintResource(CHLORIDE, (LINES-chloride_vals[i].second*fak)-lines_offset, i+5+cols_offset);
+    if (graph[chloride_vals[i].first].neurons_built().size()) {
+      PrintNeuronsBuilt(neurons_built[chloride_vals[i].first], i, cols_init_offset);
+      neurons_built.erase(chloride_vals[i].first);
+    }
+
+  }
+
+  for (int i=0; i<max_elems && i<(int)glutamate_vals.size(); i++) {
+    PrintResource(GLUTAMATE, (LINES-glutamate_vals[i].second*fak)-lines_offset, i+5+cols_offset);
+    if (graph[glutamate_vals[i].first].neurons_built().size()) {
+      PrintNeuronsBuilt(neurons_built[glutamate_vals[i].first], i, cols_init_offset);
+      neurons_built.erase(glutamate_vals[i].first);
+    }
+
+  }
+
+  for (int i=0; i<max_elems && i<(int)potassium_vals.size(); i++) {
+    PrintResource(POTASSIUM, (LINES-potassium_vals[i].second*fak)-lines_offset, i+5+cols_offset);
+    if (graph[potassium_vals[i].first].neurons_built().size()) {
+      PrintNeuronsBuilt(neurons_built[potassium_vals[i].first], i, cols_init_offset);
+      neurons_built.erase(potassium_vals[i].first);
+    }
+  }
+
+  // Also print neurons built with oxygen.
+  for (int i=0; i<max_elems && i<(int)oxygen_vals.size(); i++) {
+    PrintResource(OXYGEN, (LINES-oxygen_vals[i].second*fak)-lines_offset, i+5+cols_offset);
+    if (graph[oxygen_vals[i].first].neurons_built().size()) {
+      PrintNeuronsBuilt(neurons_built[oxygen_vals[i].first], i, cols_init_offset);
+      neurons_built.erase(serotonin_vals[i].first);
+    }
   }
 }
 
@@ -665,6 +720,18 @@ void Drawrer::PrintResource(int resource, int line, int column) const {
     attron(COLOR_PAIR(resource));
     mvaddstr(line, column, SYMBOL_FREE);
     attron(COLOR_PAIR(COLOR_DEFAULT));
+  }
+}
+
+void Drawrer::PrintNeuronsBuilt(std::vector<int> neurons_built, int i, int cols_offset) const {
+  size_t size = neurons_built.size();
+  for (unsigned int j=0; j<size; j++) {
+    size_t neuron = neurons_built[j];
+    spdlog::get(LOGGER)->debug("Drawrer::PrintStatistics: neuron: {}", neuron);
+    if (neuron == RESOURCENEURON)
+      mvaddstr(7, i+cols_offset-(size-j), "R");
+    else 
+      mvaddstr(7, i+cols_offset-(size-j), unit_symbol_mapping.at(neuron).c_str());
   }
 }
 

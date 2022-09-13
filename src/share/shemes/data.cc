@@ -527,12 +527,12 @@ StaticticsEntry::StaticticsEntry(double oxygen, double potassium, double chlorid
 }
 
 // getter 
-double StaticticsEntry::oxygen() { return oxygen_; }
-double StaticticsEntry::potassium() { return potassium_; }
-double StaticticsEntry::chloride() { return chloride_; }
-double StaticticsEntry::glutamate() { return glutamate_; }
-double StaticticsEntry::dopamine() { return dopamine_; }
-double StaticticsEntry::serotonin() { return serotonin_; }
+double StaticticsEntry::oxygen() const { return oxygen_; }
+double StaticticsEntry::potassium() const { return potassium_; }
+double StaticticsEntry::chloride() const { return chloride_; }
+double StaticticsEntry::glutamate() const { return glutamate_; }
+double StaticticsEntry::dopamine() const { return dopamine_; }
+double StaticticsEntry::serotonin() const { return serotonin_; }
 std::vector<int> StaticticsEntry::neurons_built() { return neurons_built_; }
 
 // methods 

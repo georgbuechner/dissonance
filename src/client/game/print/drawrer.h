@@ -116,6 +116,7 @@ class Drawrer {
     void PrintStatisticsGraph(std::shared_ptr<Statictics> statistic) const;
     void PrintLegend() const;
     void PrintResource(int resource, int line, int column) const;
+    void PrintNeuronsBuilt(std::vector<int> neurons_built, int i, int cols_offset) const;
 
     /**
      * Prints statistics-graph for selected player

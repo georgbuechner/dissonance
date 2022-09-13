@@ -469,12 +469,12 @@ class StaticticsEntry : public Data {
         std::vector<int> neurons_built);
 
     // getter 
-    double oxygen();
-    double potassium();
-    double chloride();
-    double glutamate();
-    double dopamine();
-    double serotonin();
+    double oxygen() const;
+    double potassium() const;
+    double chloride() const;
+    double glutamate() const;
+    double dopamine() const;
+    double serotonin() const;
     std::vector<int> neurons_built();
 
     // methods 
