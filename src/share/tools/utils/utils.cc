@@ -3,6 +3,7 @@
 #include "nlohmann/json.hpp"
 #include <cctype>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdlib>
 #include <ctime>
@@ -241,4 +242,58 @@ void utils::SplitLargeData(std::map<int, std::string>& contents, std::string con
   else {
     contents[contents.size()] = content;
   }
+}
+
+struct Line {
+  Line(std::pair<double, double> p1, std::pair<double, double> p2) {
+    _a = p2.second-p1.second;
+    _b = p1.first-p2.first;
+    _c = (_a*p1.first + _b*p1.second) * (-1);
+  }
+  double _a;
+  double _b;
+  double _c;
+};
+
+double ShortestDistance(double x, double y, Line line) {
+  return std::abs((line._a*x + line._b*y + line._c) / std::sqrt(line._a*line._a + line._b*line._b));
+}
+
+double utils::GetPercent(double a, double b) {
+  return std::abs((a-b)/a) * 100;
+}
+
+std::vector<std::pair<int, double>> utils::DouglasPeucker(std::vector<std::pair<int, double>> vec, double e) {
+  // Find the point with the maximum distance
+  double dmax =  0;
+  int index = 0;
+  int end = vec.size()-1;
+  for (int i=1; i<end-1; i++) {
+    double d = ShortestDistance(vec[i].first, vec[i].second, Line(vec[0], vec[end]));
+    if (d > dmax) {
+      index = i;
+      dmax = d;
+    }
+  }
+
+  std::vector<std::pair<int, double>> result;
+  if (dmax > e) {
+    // Recursive call
+    std::vector<std::pair<int, double>> part_1(vec.begin(), vec.begin()+index);
+    auto results_1 = DouglasPeucker(part_1, e);
+    std::vector<std::pair<int, double>> part_2(vec.begin()+index, vec.end());
+    auto results_2 = DouglasPeucker(part_2, e);
+    // Build result list
+    result.insert(result.end(), results_1.begin(), results_1.end());
+    result.insert(result.end(), results_2.begin(), results_2.end());
+  }
+  else {
+    result = {vec[0], vec[end]};
+  }
+  return result;
+}
+
+double utils::GetEpsilon(int num_pitches, int max_elems) {
+  double e = 1*std::pow(10, std::sqrt(num_pitches/max_elems)-1);
+  return (e > 10000) ? 10000 : e;
 }

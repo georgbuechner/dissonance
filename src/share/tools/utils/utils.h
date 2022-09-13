@@ -2,11 +2,14 @@
 #define SRC_UTILS_H_
 
 #include <chrono>
+#include <iostream>
+#include <cmath>
 #include <cstddef>
 #include <iterator>
 #include <list>
 #include <string>
 #include <utility>
+#include <valarray>
 #include <vector>
 
 #include "nlohmann/json.hpp"
@@ -161,6 +164,65 @@ namespace utils {
   void WaitABit(int milliseconds);
 
   void SplitLargeData(std::map<int, std::string>& contents, std::string content, size_t threshold);
+
+  /** 
+   * Decimates curve, while perserving structure.
+   * @param[in] vec vector of data-points (index: value)
+   * @param[in] e (epsilon)
+   * @return reduced curve
+   */
+  std::vector<std::pair<int, double>> DouglasPeucker(std::vector<std::pair<int, double>> vec, double e);
+
+  /**
+   * Finds aproxiamte epsilon based on difference of number of data points and max
+   * allowed number of data points.
+   * @param[in] num_pitches
+   * @param[in] max_elems
+   * @return aproxiamte epsilon
+   */
+  double GetEpsilon(int num_pitches, int max_elems);
+
+  double GetPercent(double a, double b);
+
+  template<class T>
+  std::vector<std::pair<int, T>> DecimateCurve(std::vector<T> vec, int max_elems) {
+    double epsilon = GetEpsilon(vec.size(), max_elems);
+    // Convert simple vector to vector-with indexes
+    std::vector<std::pair<int, double>> vec_points;
+    for (size_t i=0; i<vec.size(); i++)
+      vec_points.push_back({i, vec[i]});
+    auto decimated_vec_points = DouglasPeucker(vec_points, epsilon);
+    double max_epsilon = std::sqrt(vec.size());
+    double min_epsilon = 0;
+    for (int i=0; i<10; i++) {
+      if (GetPercent(decimated_vec_points.size(), max_elems) < 7)
+        break;
+      if (decimated_vec_points.size() > (size_t)max_elems) {
+        min_epsilon = epsilon;
+        epsilon = (epsilon+max_epsilon)/2;
+      }
+      else {
+        max_epsilon = epsilon;
+        epsilon = (epsilon+min_epsilon)/2;
+      }
+      decimated_vec_points = DouglasPeucker(vec_points, epsilon);
+    }
+    std::vector<std::pair<int, T>> vec_points_t;
+    for (const auto& it : decimated_vec_points) {
+      vec_points_t.push_back({it.first, it.second});
+    }
+    return vec_points_t;
+  }
+
+  template<class T>
+  std::vector<T> DecimateCurveReconverted(std::vector<T> vec, int max_elems) {
+    auto decimated_vec_points = DecimateCurve(vec, max_elems);
+    // re-convert to simple vector
+    std::vector<T> decimated_curve;
+    for (const auto& x : decimated_vec_points)
+      decimated_curve.push_back(x.second);
+    return decimated_curve;
+  }
 
   /**
    * Slices vector from `begin` to `begin+len`.
