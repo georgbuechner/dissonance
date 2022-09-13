@@ -6,6 +6,8 @@
 #include <memory>
 #include <set>
 #include <vector>
+#include "server/game/server_game.h"
+#include "share/audio/audio.h"
 #include "share/constants/codes.h"
 #include "server/game/field/field.h"
 #include "share/defines.h"
@@ -343,5 +345,27 @@ TEST_CASE("Test ran gen", "random-generator]") {
   }
   for (int i=min; i<=max; i++) {
     REQUIRE(nums.count(i));
+  }
+}
+
+TEST_CASE("Test setting up field from server", "[setup_field]") {
+  // Create server game
+  std::string base_path = "test_data/";
+  ServerGame game(35, 76, SINGLE_PLAYER, 2, base_path, nullptr);
+  {
+    std::string source_path = "dissonance/data/examples/elle_rond_elle_bon_et_blonde.wav";
+    REQUIRE(game.TestField(source_path) == true);
+  }
+  {
+    std::string source_path = "dissonance/data/examples/Hear_My_Call-coffeeshoppers.mp3";
+    REQUIRE(game.TestField(source_path) == true);
+  }
+  {
+    std::string source_path = "/media/data/Music/Aurora/All My Demons Greeting Me As A Friend/01 - Runaway.mp3";
+    REQUIRE(game.TestField(source_path) == true);
+  }
+  {
+    std::string source_path = "/media/data/Music/Eminem/Curtain Call The Hits/06 Lose Yourself.mp3";
+    REQUIRE(game.TestField(source_path) == true);
   }
 }

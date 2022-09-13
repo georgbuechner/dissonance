@@ -100,27 +100,53 @@ TEST_CASE("Split large data") {
   REQUIRE((size/threshold)*2 > contents.size());
 }
 
-std::vector<double> GetMinMax(std::vector<double> vec) {
-  double max = -1;
-  double min = 10000;
-  for (const auto& it : vec) {
-    if (it > max)
-      max = it;
-    if (it < min)
-      min = it;
+TEST_CASE("Test min-max-avrg", "[utils]") {
+  nlohmann::json analysis_json = utils::LoadJsonFromDisc("dissonance/data/analysis/elle_rond.json");
+  std::vector<double> pitches = analysis_json["pitches"].get<std::vector<double>>();
+  std::vector<int> levels;
+  for (const auto& it : analysis_json["time_points"].get<nlohmann::json>())
+    levels.push_back(it["level"]);
+
+  SECTION ("test min-max-avrg with vector of doubles") {
+    double max = -1;
+    double min = 10000;
+    double avrg = 0;
+    for (const auto& it : pitches) {
+      if (it > max)
+        max = it;
+      if (it < min)
+        min = it;
+      avrg+=it;
+    }
+    avrg /= pitches.size();
+    auto min_max_avrg = utils::GetMinMaxAvrg(pitches);
+    REQUIRE(min == min_max_avrg._min);
+    REQUIRE(max == min_max_avrg._max);
+    REQUIRE(avrg == min_max_avrg._avrg);
   }
-  return {min, max};
+
+  SECTION ("test min-max-avrg with vector of doubles") {
+    int max = -1;
+    int min = 10000;
+    double avrg = 0;
+    for (const auto& it : levels) {
+      if (it > max)
+        max = it;
+      if (it < min)
+        min = it;
+      avrg+=it;
+    }
+    avrg /= levels.size();
+    auto min_max_avrg = utils::GetMinMaxAvrg(levels);
+    REQUIRE(min == min_max_avrg._min);
+    REQUIRE(max == min_max_avrg._max);
+    REQUIRE(avrg == min_max_avrg._avrg);
+  }
 }
-std::vector<int> GetMinMax(std::vector<int> vec) {
-  int max = -1;
-  int min = 10000;
-  for (const auto& it : vec) {
-    if (it > max)
-      max = it;
-    if (it < min)
-      min = it;
-  }
-  return {min, max};
+
+TEST_CASE("Test getting percent", "[utils]") {
+  REQUIRE(utils::GetPercentDiff(10, 7) == 30);
+  REQUIRE(utils::GetPercentDiff(7, 10) > utils::GetPercentDiff(10, 7));
 }
 
 TEST_CASE("Test DouglasPeucker algorithm", "[douglas_peucker]") {
@@ -132,41 +158,37 @@ TEST_CASE("Test DouglasPeucker algorithm", "[douglas_peucker]") {
 
   SECTION("Test with float vector") {
     // Analyze some data for later comparison
-    auto min_max_avrg = GetMinMax(pitches);
+    auto min_max_avrg = utils::GetMinMaxAvrg(pitches);
     // Generate some example max-elems
     std::vector<int> test_maxs = {static_cast<int>((int)pitches.size()*0.9), 
       static_cast<int>((int)pitches.size()*0.75), static_cast<int>((int)pitches.size()*0.5), 1000, 500};
     // For each max-elems bound decimate curve.
     for (const auto& max_elems : test_maxs) {
       auto reduced_pitches = utils::DecimateCurveReconverted(pitches, max_elems);
-      std::cout << "num pitches: " << pitches.size() << ", reduced: " << reduced_pitches.size() << 
-        ", max_elems: " << max_elems << std::endl;
       // Check that new size is in bounds of 10% to given allowed max.
-      REQUIRE(utils::GetPercent(reduced_pitches.size(), max_elems) < 7);
+      REQUIRE(utils::GetPercentDiff(reduced_pitches.size(), max_elems) < 7);
       // Check that min, max and average have remained identical
-      auto new_min_max_avrg = GetMinMax(reduced_pitches);
-      for (size_t i=0; i<new_min_max_avrg.size(); i++)
-        REQUIRE(new_min_max_avrg[i] == min_max_avrg[i]);
+      auto new_min_max_avrg = utils::GetMinMaxAvrg(reduced_pitches);
+      REQUIRE(new_min_max_avrg._min == min_max_avrg._min);
+      REQUIRE(new_min_max_avrg._max == min_max_avrg._max);
     }
   }
 
   SECTION("Test with int vector") {
     // Analyze some data for later comparison
-    auto min_max_avrg = GetMinMax(levels);
+    auto min_max_avrg = utils::GetMinMaxAvrg(levels);
     // Generate some example max-elems
     std::vector<int> test_maxs = {static_cast<int>((int)levels.size()*0.9), 
       static_cast<int>((int)levels.size()*0.75), static_cast<int>((int)levels.size()*0.5), 100, 75};
     // For each max-elems bound decimate curve.
     for (const auto& max_elems : test_maxs) {
       auto reduced_levels = utils::DecimateCurveReconverted(levels, max_elems);
-      std::cout << "num levels: " << levels.size() << ", reduced: " << reduced_levels.size() << 
-        ", max_elems: " << max_elems << std::endl;
       // Check that new size is in bounds of 10% to given allowed max.
-      REQUIRE(utils::GetPercent(reduced_levels.size(), max_elems) < 7);
+      REQUIRE(utils::GetPercentDiff(reduced_levels.size(), max_elems) < 7);
       // Check that min, max and average have remained identical
-      auto new_min_max_avrg = GetMinMax(levels);
-      for (size_t i=0; i<new_min_max_avrg.size(); i++)
-        REQUIRE(new_min_max_avrg[i] == min_max_avrg[i]);
+      auto new_min_max_avrg = utils::GetMinMaxAvrg(levels);
+      REQUIRE(new_min_max_avrg._min == min_max_avrg._min);
+      REQUIRE(new_min_max_avrg._max == min_max_avrg._max);
     }
   }
 }

@@ -41,7 +41,7 @@ ServerGame::ServerGame(int lines, int cols, int mode, int num_players, std::stri
     WebsocketServer* srv) : lines_(lines), cols_(cols), max_players_(num_players), audio_(base_path), 
     ws_server_(srv), mode_((mode == TUTORIAL) ? SINGLE_PLAYER : mode), tutorial_(mode == TUTORIAL), status_(WAITING) 
 {
-  spdlog::get(LOGGER)->info("ServerGame::ServerGame: num_players: {}", max_players_);
+  spdlog::get(LOGGER)->info("ServerGame::ServerGame: num_players: {} lines {}, cols {}", max_players_, lines_, cols_);
   pause_ = false;
   time_in_pause_ = 0;
   audio_data_buffer_ = "";
@@ -473,8 +473,14 @@ void ServerGame::SetUpGame(std::vector<Audio*> audios) {
   // Initialize field.
   RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
   auto nucleus_positions = SetUpField(ran_gen);
-  if (!field_)
+  // Check if map is playable (all nucleus-positions could be found), otherwise
+  // send message to all players and quit.
+  if (!field_) {
+    std::string msg = "Game cannot be played with this song, as generated map is unplayable. "
+      "It might work with a higher resolution. (dissonance -r)";
+    SendMessageToAllPlayers(Command("kill", std::make_shared<Msg>(msg)));
     return;
+  }
   spdlog::get(LOGGER)->info("ServerGame::SetUpGame: Creating {} players.", max_players_);
 
   // Setup players.
@@ -507,7 +513,7 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
   field_ = nullptr;
   spdlog::get(LOGGER)->info("ServerGame::SetUpField: creating map. field initialized? {}", field_ != nullptr);
   std::vector<position_t> nucleus_positions;
-  auto reduced_pitches = audio_.analysed_data().EveryXPitch(lines_*cols_);
+  auto reduced_pitches = utils::DecimateCurveReconverted(audio_.analysed_data().pitches_, lines_*cols_);
   int denseness = 0;
   while (!field_ && denseness < 4) {
     field_ = new Field(lines_, cols_, ran_gen);
@@ -519,15 +525,19 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
       field_ = nullptr;
     }
   }
-
-  // Check if map is playable (all nucleus-positions could be found)
-  if (!field_) {
-    std::string msg = "Game cannot be played with this song, as generated map is unplayable. "
-      "It might work with a higher resolution. (dissonance -r)";
-    SendMessageToAllPlayers(Command("kill", std::make_shared<Msg>(msg)));
-  }
-  spdlog::get(LOGGER)->info("ServerGame::SetUpField: successfully created map for {} players", nucleus_positions.size());
+  spdlog::get(LOGGER)->info("ServerGame::SetUpField: created map for {} players", nucleus_positions.size());
   return nucleus_positions;
+}
+
+bool ServerGame::TestField(std::string source_path) {
+  audio_.set_source_path(source_path);
+  audio_.Analyze();
+  RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
+  SetUpField(ran_gen);
+  bool success = field_ != nullptr;
+  // clean up:
+  delete field_;
+  return success;
 }
 
 void ServerGame::RunGame(std::vector<Audio*> audios) {

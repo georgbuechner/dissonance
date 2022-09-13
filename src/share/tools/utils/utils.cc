@@ -259,11 +259,11 @@ double ShortestDistance(double x, double y, Line line) {
   return std::abs((line._a*x + line._b*y + line._c) / std::sqrt(line._a*line._a + line._b*line._b));
 }
 
-double utils::GetPercent(double a, double b) {
+double utils::GetPercentDiff(double a, double b) {
   return std::abs((a-b)/a) * 100;
 }
 
-std::vector<std::pair<int, double>> utils::DouglasPeucker(std::vector<std::pair<int, double>> vec, double e) {
+std::vector<std::pair<int, double>> utils::DouglasPeucker(const std::vector<std::pair<int, double>>& vec, double e) {
   // Find the point with the maximum distance
   double dmax =  0;
   int index = 0;

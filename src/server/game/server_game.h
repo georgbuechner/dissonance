@@ -74,6 +74,8 @@ class ServerGame {
      * @param[in] data
      */
     void HandleInput(std::string command, std::shared_ptr<Data> data);
+
+    bool TestField(std::string audio_path);
     
   private: 
     // field

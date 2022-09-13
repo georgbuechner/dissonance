@@ -30,9 +30,7 @@ TEST_CASE("test createing intervals", "[main]") {
 }
 
 TEST_CASE("test analysing audio", "[main]") {
-  // Initialize audio
-  Audio::Initialize();
-  Audio audio("dissonance");
+  Audio audio("test_data/");
 
   SECTION("test analysing wav-file") {
     audio.set_source_path("dissonance/data/examples/elle_rond_elle_bon_et_blonde.wav");

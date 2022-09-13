@@ -2,6 +2,7 @@
 #define SRC_UTILS_H_
 
 #include <chrono>
+#include <climits>
 #include <iostream>
 #include <cmath>
 #include <cstddef>
@@ -171,7 +172,7 @@ namespace utils {
    * @param[in] e (epsilon)
    * @return reduced curve
    */
-  std::vector<std::pair<int, double>> DouglasPeucker(std::vector<std::pair<int, double>> vec, double e);
+  std::vector<std::pair<int, double>> DouglasPeucker(const std::vector<std::pair<int, double>>& vec, double e);
 
   /**
    * Finds aproxiamte epsilon based on difference of number of data points and max
@@ -182,10 +183,23 @@ namespace utils {
    */
   double GetEpsilon(int num_pitches, int max_elems);
 
-  double GetPercent(double a, double b);
+  /**
+   * Gets how much difference in precent between a and b.
+   * Function is *not communative!*
+   * @param[in] a 
+   * @param[in] b
+   * @return difference in percent off a and b
+   */
+  double GetPercentDiff(double a, double b);
 
+  /**
+   * Decimates curve.
+   * @param[in] vec (vector to reduce)
+   * @param[in] max_elems (maximum of elements which to reduce to)
+   * @return reduced curve with original mapping to value.
+   */
   template<class T>
-  std::vector<std::pair<int, T>> DecimateCurve(std::vector<T> vec, int max_elems) {
+  std::vector<std::pair<int, T>> DecimateCurve(const std::vector<T>& vec, int max_elems) {
     double epsilon = GetEpsilon(vec.size(), max_elems);
     // Convert simple vector to vector-with indexes
     std::vector<std::pair<int, double>> vec_points;
@@ -195,7 +209,7 @@ namespace utils {
     double max_epsilon = std::sqrt(vec.size());
     double min_epsilon = 0;
     for (int i=0; i<10; i++) {
-      if (GetPercent(decimated_vec_points.size(), max_elems) < 7)
+      if (GetPercentDiff(decimated_vec_points.size(), max_elems) < 7)
         break;
       if (decimated_vec_points.size() > (size_t)max_elems) {
         min_epsilon = epsilon;
@@ -214,14 +228,41 @@ namespace utils {
     return vec_points_t;
   }
 
+  /**
+   * Decimates curve and reconverts to simple-vector.
+   * @param[in] vec (vector to reduce)
+   * @param[in] max_elems (maximum of elements which to reduce to)
+   * @return reduced curve as simple vector.
+   */
   template<class T>
-  std::vector<T> DecimateCurveReconverted(std::vector<T> vec, int max_elems) {
+  std::vector<T> DecimateCurveReconverted(const std::vector<T>& vec, int max_elems) {
     auto decimated_vec_points = DecimateCurve(vec, max_elems);
     // re-convert to simple vector
     std::vector<T> decimated_curve;
     for (const auto& x : decimated_vec_points)
       decimated_curve.push_back(x.second);
     return decimated_curve;
+  }
+
+  template<class T>
+  struct MinMaxAvrg {
+    T _min;
+    T _max;
+    double _avrg;
+  };
+  template<class T> 
+  MinMaxAvrg<T> GetMinMaxAvrg(std::vector<T> vec) {
+    T max = INT_MIN;
+    T min = INT_MAX;
+    T avrg = 0; 
+    for (const auto& it : vec) {
+      if (it > max)
+        max = it;
+      if (it < min)
+        min = it;
+      avrg+=it;
+    }
+    return MinMaxAvrg<T>({min, max, static_cast<double>(avrg)/static_cast<double>(vec.size())});
   }
 
   /**
