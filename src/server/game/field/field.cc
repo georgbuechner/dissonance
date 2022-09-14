@@ -157,26 +157,78 @@ void Field::BuildGraph() {
       num_positions_before);
 }
 
-void Field::AddHills(std::vector<double> reduced_pitches, double avrg_pitch, int looseness) {
-  // reverse pitches to use `.back()` and `.pop_back()` 
-  std::reverse(reduced_pitches.begin(), reduced_pitches.end());
+void Field::AddHills(std::vector<double> reduced_pitches, int looseness) {
+  auto min_pitch_max = utils::GetMinMaxAvrg(reduced_pitches);
+  double avrg_pitch = min_pitch_max._avrg;
+  double min_pitch_diff = avrg_pitch - min_pitch_max._min;
+  double max_pitch_diff = min_pitch_max._max - avrg_pitch;
+
+  int hudge = 0;
+  int large = 0;
+  int medium_high = 0;
+  int medium_low = 0;
+  int small = 0;
+  int blocked = 0;
+
   // Iterate over field and create 'hill', small or big 'mountain' based on matching pitch
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
-      // small hill: slightly below average pitch (low looseness influence)
-      if (reduced_pitches.back() < (avrg_pitch/(1.8+looseness*0.1)))
-        field_[l][c] = SYMBOL_HILL;
-      // small hill: below average pitch (medium looseness influence)
-      if (reduced_pitches.back() < avrg_pitch/(3.5+looseness*0.8))
-        for (const auto& it : GetAllInRange({l, c}, 1.5, 0))
-          field_[it.first][it.second] = SYMBOL_HILL;
-      // small hill: obviously below average pitch (high looseness influence)
-      if (reduced_pitches.back() < avrg_pitch/(4.1+looseness*2))
-        for (const auto& it : GetAllInRange({l, c}, 2, 1))
-          field_[it.first][it.second] = SYMBOL_HILL;
-      reduced_pitches.pop_back();
+      auto pitch_diff = avrg_pitch - reduced_pitches[l*cols_+c];
+      if (pitch_diff > 0) {
+        auto percent = utils::GetPercentDiff(min_pitch_diff, pitch_diff);
+        spdlog::get(LOGGER)->debug("pitch_diff: {}, percent: {}", pitch_diff, percent);
+        // hugde
+        if (percent >= 99) {
+          hudge++;
+          for (const auto& it : GetAllInRange({l, c}, 4, 1.2)) {
+            auto pitch_diff = reduced_pitches[it.first*cols_+it.second] - avrg_pitch;
+            if (pitch_diff < 0 || utils::GetPercentDiff(max_pitch_diff, pitch_diff) < 80)
+              field_[it.first][it.second] = SYMBOL_HILL;
+            else 
+              blocked++;
+          }
+        }
+
+        // large hill: 
+        if (percent > 95+looseness) {
+          large++;
+          for (const auto& it : GetAllInRange({l, c}, 3, 1.8)) {
+            auto pitch_diff = reduced_pitches[it.first*cols_+it.second] - avrg_pitch;
+            if (pitch_diff < 0 || utils::GetPercentDiff(max_pitch_diff, pitch_diff) < 6)
+              field_[it.first][it.second] = SYMBOL_HILL;
+            else 
+              blocked++;
+          }
+        }
+        if (percent > 81+looseness*3) {
+          medium_high++;
+          for (const auto& it : GetAllInRange({l, c}, 2, 1.2)) {
+            auto pitch_diff = reduced_pitches[it.first*cols_+it.second] - avrg_pitch;
+            if (pitch_diff < 0 || utils::GetPercentDiff(max_pitch_diff, pitch_diff) < 9)
+              field_[it.first][it.second] = SYMBOL_HILL;
+            else 
+              blocked++;
+          }
+        }
+        if (percent > 72+looseness*5) {
+          medium_low++;
+          for (const auto& it : GetAllInRange({l, c}, 1.5, 1)) {
+            auto pitch_diff = reduced_pitches[it.first*cols_+it.second] - avrg_pitch;
+            if (pitch_diff < 0 || utils::GetPercentDiff(max_pitch_diff, pitch_diff) < 18)
+              field_[it.first][it.second] = SYMBOL_HILL;
+            else 
+              blocked++;
+          }
+        }
+        if (percent > 27+looseness*20) {
+          small++;
+          field_[l][c] = SYMBOL_HILL;
+        }
+      }
     }
   }
+  spdlog::get(LOGGER)->debug("From {} fields, and {} pitches, created {} small, {} med_l, {} med_h, {} large, {} hudge, {} blocked",
+      lines_*cols_, reduced_pitches.size(), small, medium_low, medium_high, large, hudge, blocked);
 }
 
 

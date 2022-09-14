@@ -515,9 +515,9 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
   std::vector<position_t> nucleus_positions;
   auto reduced_pitches = utils::DecimateCurveReconverted(audio_.analysed_data().pitches_, lines_*cols_);
   int denseness = 0;
-  while (!field_ && denseness < 4) {
+  while (!field_ && denseness < 5) {
     field_ = new Field(lines_, cols_, ran_gen);
-    field_->AddHills(reduced_pitches, audio_.analysed_data().average_pitch_, denseness++);
+    field_->AddHills(reduced_pitches, denseness++);
     field_->BuildGraph();
     nucleus_positions = field_->AddNucleus(max_players_);
     if (nucleus_positions.size() < (size_t)max_players_) {
