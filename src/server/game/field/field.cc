@@ -76,23 +76,32 @@ std::vector<position_t> Field::AddNucleus(int num_players) {
       if (graph_->InGraph(it)) 
         free_positions++;
     }
-    if (free_positions > (int)positions_in_section.size()/4)
+    if (free_positions > (int)positions_in_section.size()/4 && free_positions > 8)
       availible_sections.push_back(i);
   }
+  spdlog::get(LOGGER)->debug("Field::AddNucleus: got all sections: {}", availible_sections.size());
   // If not at least half as many sections are availible as players (max 2 players per section) omit.
-  if ((int)availible_sections.size() < num_players/2)
+  if ((int)availible_sections.size() < num_players/2) {
+    spdlog::get(LOGGER)->info("Field::AddNucleus: returning since not enough sections...");
     return {};
+  }
   // Create nucleus-positions.
   std::vector<position_t> nucleus_positions;
   for (int i=0; i<num_players; i++) {
+    spdlog::get(LOGGER)->debug("Field::AddNucleus: adding nucleus for player {}", i);
     // Get random section and then erase retreived section from availible sections
     int section = ran_gen_->RandomInt(0, availible_sections.size()-1);
     auto positions_in_section = GetAllPositionsOfSection(availible_sections[section], true);
-    // availible_sections.erase(availible_sections.begin() + section);
     // Make sure no other nucleus is too near and enough free fields
     position_t pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size()-1)];
-    while (NucleusInRange(pos, 8) || GetAllInRange(pos, 1.5, 0, true).size() < 8)
+    int counter = 0;
+    while (NucleusInRange(pos, 8) || GetAllInRange(pos, 2, 0, true).size() < 8) {
       pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size())];
+      if (counter++ == 100) {
+        spdlog::get(LOGGER)->info("Field::AddNucleus: failed since not enough space in section.");
+        return {};
+      }
+    }
     // Add to field and nucleus positions.
     field_[pos.first][pos.second] = SYMBOL_DEN;
     nucleus_positions.push_back(pos);
@@ -110,7 +119,6 @@ void Field::AddResources(position_t start_pos) {
   // Get positions sourrounding start position, with enough free spaces for all resources.
   int nth_try = 0;
   std::vector<position_t> positions = GetAllInRange(start_pos, 4, 2, true);
-  spdlog::get(LOGGER)->info("Field::AddResources, positions: {}", positions.size());
   while(positions.size() < symbol_resource_mapping.size()-1) {
     spdlog::get(LOGGER)->debug("Field::AddResources: {}th try getting positions", nth_try);
     positions = GetAllInRange(start_pos, 4+nth_try++, 3, true);
@@ -119,9 +127,8 @@ void Field::AddResources(position_t start_pos) {
   for (const auto& it : symbol_resource_mapping) {
     if (it.second == IRON)
       continue;
-    spdlog::get(LOGGER)->info("Field::AddResources: resource {}", it.second);
+    spdlog::get(LOGGER)->debug("Field::AddResources: resource {}", it.second);
     int ran = ran_gen_->RandomInt(0, positions.size()-1);
-    spdlog::get(LOGGER)->info("Field::AddResources: ran {}", ran);
     auto pos = positions[ran];
     positions.erase(positions.begin()+ran);
     field_[pos.first][pos.second] = it.first;
@@ -180,7 +187,7 @@ void Field::AddHills(std::vector<double> reduced_pitches, int looseness) {
         // hugde
         if (percent >= 99) {
           hudge++;
-          for (const auto& it : GetAllInRange({l, c}, 4, 1.2)) {
+          for (const auto& it : GetAllInRange({l, c}, 5, 1.2)) {
             auto pitch_diff = reduced_pitches[it.first*cols_+it.second] - avrg_pitch;
             if (pitch_diff < 0 || utils::GetPercentDiff(max_pitch_diff, pitch_diff) < 80)
               field_[it.first][it.second] = SYMBOL_HILL;
@@ -192,27 +199,7 @@ void Field::AddHills(std::vector<double> reduced_pitches, int looseness) {
         // large hill: 
         if (percent > 95+looseness) {
           large++;
-          for (const auto& it : GetAllInRange({l, c}, 3, 1.8)) {
-            auto pitch_diff = reduced_pitches[it.first*cols_+it.second] - avrg_pitch;
-            if (pitch_diff < 0 || utils::GetPercentDiff(max_pitch_diff, pitch_diff) < 6)
-              field_[it.first][it.second] = SYMBOL_HILL;
-            else 
-              blocked++;
-          }
-        }
-        if (percent > 81+looseness*3) {
-          medium_high++;
-          for (const auto& it : GetAllInRange({l, c}, 2, 1.2)) {
-            auto pitch_diff = reduced_pitches[it.first*cols_+it.second] - avrg_pitch;
-            if (pitch_diff < 0 || utils::GetPercentDiff(max_pitch_diff, pitch_diff) < 9)
-              field_[it.first][it.second] = SYMBOL_HILL;
-            else 
-              blocked++;
-          }
-        }
-        if (percent > 72+looseness*5) {
-          medium_low++;
-          for (const auto& it : GetAllInRange({l, c}, 1.5, 1)) {
+          for (const auto& it : GetAllInRange({l, c}, 4, 1.8)) {
             auto pitch_diff = reduced_pitches[it.first*cols_+it.second] - avrg_pitch;
             if (pitch_diff < 0 || utils::GetPercentDiff(max_pitch_diff, pitch_diff) < 18)
               field_[it.first][it.second] = SYMBOL_HILL;
@@ -220,7 +207,27 @@ void Field::AddHills(std::vector<double> reduced_pitches, int looseness) {
               blocked++;
           }
         }
-        if (percent > 27+looseness*20) {
+        if (percent > 72+looseness*3) {
+          medium_high++;
+          for (const auto& it : GetAllInRange({l, c}, 2, 1.2)) {
+            auto pitch_diff = reduced_pitches[it.first*cols_+it.second] - avrg_pitch;
+            if (pitch_diff < 0 || utils::GetPercentDiff(max_pitch_diff, pitch_diff) < 27)
+              field_[it.first][it.second] = SYMBOL_HILL;
+            else 
+              blocked++;
+          }
+        }
+        if (percent > 63+looseness*5) {
+          medium_low++;
+          for (const auto& it : GetAllInRange({l, c}, 1.5, 1)) {
+            auto pitch_diff = reduced_pitches[it.first*cols_+it.second] - avrg_pitch;
+            if (pitch_diff < 0 || utils::GetPercentDiff(max_pitch_diff, pitch_diff) < 36)
+              field_[it.first][it.second] = SYMBOL_HILL;
+            else 
+              blocked++;
+          }
+        }
+        if (percent > 9+looseness*10) {
           small++;
           field_[l][c] = SYMBOL_HILL;
         }

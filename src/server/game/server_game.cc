@@ -423,7 +423,14 @@ void ServerGame::m_InitializeGame(std::shared_ptr<Data> data) {
   // Get and analyze main audio-file (used for map and in SP for AI).
   std::string map_name = data->map_name();
   ws_server_->SendMessage(host_, "preparing", std::make_shared<Data>());
-  audio_.Analyze();
+  try {
+    audio_.Analyze();
+  } catch (std::exception& e) {
+    spdlog::get(LOGGER)->info("ServerGame::InitializeGame: failed to analyze audio: {}", e.what());
+    std::string msg = "Game cannot be played with this song, since audio could not be analyzed.";
+    ws_server_->SendMessage(host_, "kill", std::make_shared<Msg>(msg));
+    return;
+  }
   if (map_name.size() > 10) 
     map_name = map_name.substr(0, 10);
 
@@ -515,7 +522,7 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
   std::vector<position_t> nucleus_positions;
   auto reduced_pitches = utils::DecimateCurveReconverted(audio_.analysed_data().pitches_, lines_*cols_);
   int denseness = 0;
-  while (!field_ && denseness < 5) {
+  while (!field_ && denseness < 4) {
     field_ = new Field(lines_, cols_, ran_gen);
     field_->AddHills(reduced_pitches, denseness++);
     field_->BuildGraph();
@@ -531,7 +538,11 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
 
 bool ServerGame::TestField(std::string source_path) {
   audio_.set_source_path(source_path);
-  audio_.Analyze();
+  try {
+    audio_.Analyze();
+  } catch (...) {
+    return true; // Problem ist audio-specific, not concerning field, so return test did not fail.
+  }
   RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
   SetUpField(ran_gen);
   bool success = field_ != nullptr;

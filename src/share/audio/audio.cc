@@ -324,13 +324,15 @@ void Audio::CreateLevels(int intervals) {
     // If next intervals was reached, calc key and increase current level.
     if (++counter > (int)analysed_data_.data_per_beat_.size()/intervals*(cur_interval+1)) {
       it.interval_ = cur_interval;
-      darkness /= total;
+      if (total != 0)
+        darkness /= total;
       CalcLevel(cur_interval++, notes_by_frequency, darkness);
       notes_by_frequency.clear();
       darkness = 0;
       total = 0;
     }
   }
+  spdlog::get(LOGGER)->debug("Audio::CreateLevels done.");
 }
 
 void Audio::CalcLevel(int interval, std::map<std::string, int> notes_by_frequency, int darkness) {
@@ -379,6 +381,7 @@ void Audio::CalcLevel(int interval, std::map<std::string, int> notes_by_frequenc
     analysed_data_.intervals_[interval].signature_ = Signitue::SHARP;
   else if (key.find("b") != std::string::npos)
     analysed_data_.intervals_[interval].signature_ = Signitue::FLAT;
+  spdlog::get(LOGGER)->debug("Audio::CalcLevel done.");
 }
 
 bool Audio::MoreOffNotes(const AudioDataTimePoint &data_at_beat, bool off) const {
