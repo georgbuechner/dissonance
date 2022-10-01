@@ -129,9 +129,10 @@ class Graph {
         if (next.size() > cur.size()) {
           auto swap = cur;
           cur = next;
-          next = cur;
+          next = swap;
         }
         // Erase all nodes in smaller component
+        spdlog::get(LOGGER)->debug("Graph::ReduceToGreatest. Component erased with {} elements", next.size());
         for (auto it : next) {
           delete nodes_[it];
           nodes_.erase(it);
@@ -143,7 +144,7 @@ class Graph {
       // Initialize all nodes as not-vistited.
       std::unordered_map<int, bool> visited; 
       for (auto node : nodes_)
-        visited[node.first] = node.first == pos;  // initialize all with false expecpt given position.
+        visited[node.first] = node.first == pos;  // initialize all with false except given position.
       // Get all nodes which can be visited from player-den.
       std::queue<Node*> queue;
       queue.push(nodes_.at(pos));

@@ -76,23 +76,33 @@ std::vector<position_t> Field::AddNucleus(int num_players) {
       if (graph_->InGraph(it)) 
         free_positions++;
     }
-    if (free_positions > (int)positions_in_section.size()/4)
+    if (free_positions > (int)positions_in_section.size()/4 && free_positions > 8)
       availible_sections.push_back(i);
   }
+  spdlog::get(LOGGER)->debug("Field::AddNucleus: got all sections: {}", availible_sections.size());
   // If not at least half as many sections are availible as players (max 2 players per section) omit.
-  if ((int)availible_sections.size() < num_players/2)
+  if ((int)availible_sections.size() < num_players/2) {
+    spdlog::get(LOGGER)->info("Field::AddNucleus: returning since not enough sections...");
     return {};
+  }
   // Create nucleus-positions.
   std::vector<position_t> nucleus_positions;
   for (int i=0; i<num_players; i++) {
+    spdlog::get(LOGGER)->debug("Field::AddNucleus: adding nucleus for player {}", i);
     // Get random section and then erase retreived section from availible sections
     int section = ran_gen_->RandomInt(0, availible_sections.size()-1);
     auto positions_in_section = GetAllPositionsOfSection(availible_sections[section], true);
-    // availible_sections.erase(availible_sections.begin() + section);
     // Make sure no other nucleus is too near and enough free fields
     position_t pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size()-1)];
-    while (NucleusInRange(pos, 8) || GetAllInRange(pos, 1.5, 0, true).size() < 8)
+    int counter = 0;
+    // All nucleus have and exclusive range of 6 and a minimum of 10 free fields.
+    while (NucleusInRange(pos, 12) || GetAllInRange(pos, 2, 0, true).size() < 10) {
       pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size())];
+      if (counter++ == 100) {
+        spdlog::get(LOGGER)->info("Field::AddNucleus: failed since not enough space in section.");
+        return {};
+      }
+    }
     // Add to field and nucleus positions.
     field_[pos.first][pos.second] = SYMBOL_DEN;
     nucleus_positions.push_back(pos);
@@ -110,7 +120,6 @@ void Field::AddResources(position_t start_pos) {
   // Get positions sourrounding start position, with enough free spaces for all resources.
   int nth_try = 0;
   std::vector<position_t> positions = GetAllInRange(start_pos, 4, 2, true);
-  spdlog::get(LOGGER)->info("Field::AddResources, positions: {}", positions.size());
   while(positions.size() < symbol_resource_mapping.size()-1) {
     spdlog::get(LOGGER)->debug("Field::AddResources: {}th try getting positions", nth_try);
     positions = GetAllInRange(start_pos, 4+nth_try++, 3, true);
@@ -119,9 +128,8 @@ void Field::AddResources(position_t start_pos) {
   for (const auto& it : symbol_resource_mapping) {
     if (it.second == IRON)
       continue;
-    spdlog::get(LOGGER)->info("Field::AddResources: resource {}", it.second);
+    spdlog::get(LOGGER)->debug("Field::AddResources: resource {}", it.second);
     int ran = ran_gen_->RandomInt(0, positions.size()-1);
-    spdlog::get(LOGGER)->info("Field::AddResources: ran {}", ran);
     auto pos = positions[ran];
     positions.erase(positions.begin()+ran);
     field_[pos.first][pos.second] = it.first;
@@ -157,28 +165,50 @@ void Field::BuildGraph() {
       num_positions_before);
 }
 
-void Field::AddHills(std::vector<double> reduced_pitches, double avrg_pitch, int looseness) {
-  // reverse pitches to use `.back()` and `.pop_back()` 
-  std::reverse(reduced_pitches.begin(), reduced_pitches.end());
+void Field::CreateBrain(std::vector<double> reduced_pitches, int looseness) {
+  spdlog::get(LOGGER)->info("Field::CreateBrain. looseness {}", looseness);
+  auto min_pitch_max = utils::GetMinMaxAvrg(reduced_pitches);
+  double avrg_pitch = min_pitch_max._avrg;
+  double min_pitch_diff = avrg_pitch - min_pitch_max._min;
+  double max_pitch_diff = min_pitch_max._max - avrg_pitch;
+
   // Iterate over field and create 'hill', small or big 'mountain' based on matching pitch
   for (int l=0; l<lines_; l++) {
     for (int c=0; c<cols_; c++) {
-      // small hill: slightly below average pitch (low looseness influence)
-      if (reduced_pitches.back() < (avrg_pitch/(1.8+looseness*0.1)))
-        field_[l][c] = SYMBOL_HILL;
-      // small hill: below average pitch (medium looseness influence)
-      if (reduced_pitches.back() < avrg_pitch/(3.5+looseness*0.8))
-        for (const auto& it : GetAllInRange({l, c}, 1.5, 0))
-          field_[it.first][it.second] = SYMBOL_HILL;
-      // small hill: obviously below average pitch (high looseness influence)
-      if (reduced_pitches.back() < avrg_pitch/(4.1+looseness*2))
-        for (const auto& it : GetAllInRange({l, c}, 2, 1))
-          field_[it.first][it.second] = SYMBOL_HILL;
-      reduced_pitches.pop_back();
+      auto pitch_diff = avrg_pitch - reduced_pitches[l*cols_+c];
+      if (pitch_diff > 0) {
+        auto percent = utils::GetPercentDiff(min_pitch_diff, pitch_diff);
+        spdlog::get(LOGGER)->debug("pitch_diff: {}, percent: {}", pitch_diff, percent);
+        // hugde
+        if (percent >= 99) {
+          CreateBrainPart(reduced_pitches, {l, c}, 5, 0, 80, avrg_pitch, max_pitch_diff);
+        }
+        // large hill: 
+        if (percent > 95+looseness) {
+          CreateBrainPart(reduced_pitches, {l, c}, 4, 2, 10, avrg_pitch, max_pitch_diff);
+        }
+        if (percent > 72+looseness*3) {
+          CreateBrainPart(reduced_pitches, {l, c}, 2, 1.5, 25, avrg_pitch, max_pitch_diff);
+        }
+        if (percent > 63+looseness*5) {
+          CreateBrainPart(reduced_pitches, {l, c}, 1.5, 1, 50, avrg_pitch, max_pitch_diff);
+        }
+        if (percent > 9+looseness*10) {
+          field_[l][c] = SYMBOL_HILL;
+        }
+      }
     }
-  }
+  } 
 }
 
+void Field::CreateBrainPart(const std::vector<double>& reduced_pitches, const position_t& pos, double range_max,
+    double range_min, int min_high_pitch_diff, int avrg_pitch, int max_pitch_diff) {
+  for (const auto& it : GetAllInRange(pos, 1.5, 1)) {
+    auto pitch_diff = reduced_pitches[it.first*cols_+it.second] - avrg_pitch;
+    if (pitch_diff < 0 || utils::GetPercentDiff(max_pitch_diff, pitch_diff) < max_pitch_diff)
+      field_[it.first][it.second] = SYMBOL_HILL;
+  }
+}
 
 std::list<position_t> Field::GetWay(position_t start_pos, const std::vector<position_t>& way_points) {
   spdlog::get(LOGGER)->debug("Field::GetWayForSoldier: pos={}", utils::PositionToString(start_pos));

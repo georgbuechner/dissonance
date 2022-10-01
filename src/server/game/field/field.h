@@ -46,10 +46,11 @@ class Field {
     /**
      * Adds random natural barriers based on pitch
      * @param[in] reduced_pitches (ruffly matching number of positions in field)
-     * @param[in] average_pitch
      * @param[in] looseness can be increased to create less 'hills' assure that map is playable.
      */
-    void AddHills(std::vector<double> reduced_pitches, double average_pitch, int looseness);
+    void CreateBrain(std::vector<double> reduced_pitches, int looseness);
+    void CreateBrainPart(const std::vector<double>& reduced_pitches, const position_t& pos, double range_max, 
+        double range_min, int min_high_pitch_diff, int avrg_pitch, int max_pitch_diff);
 
     /**
      * Adds nucleus and resources for each player.

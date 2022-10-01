@@ -106,6 +106,18 @@ TEST_CASE("test_field", "[main]") {
       auto positions_in_range = field->GetAllInRange({50, 50}, 3, 0, true);
       REQUIRE(positions_in_range.size() == 29-positions_to_block.size());
     }
+
+    SECTION("Variety of ranges") {
+      REQUIRE(field->GetAllInRange({50, 50}, 1, 0).size() == 5);
+      REQUIRE(field->GetAllInRange({50, 50}, 1, 1).size() == 4);
+      REQUIRE(field->GetAllInRange({50, 50}, 1.5, 0).size() == 9);
+      REQUIRE(field->GetAllInRange({50, 50}, 1.5, 1).size() == 8);
+      REQUIRE(field->GetAllInRange({50, 50}, 1.5, 1.2).size() == 4);
+      REQUIRE(field->GetAllInRange({50, 50}, 2, 0).size() == 13);
+      REQUIRE(field->GetAllInRange({50, 50}, 2, 1).size() == 12);
+      REQUIRE(field->GetAllInRange({50, 50}, 2, 1.2).size() == 8);
+      REQUIRE(field->GetAllInRange({50, 50}, 2, 1.8).size() == 4);
+    }
   }
 
   SECTION("test GetAllCenterPositionsOfSections") {
@@ -352,20 +364,41 @@ TEST_CASE("Test setting up field from server", "[setup_field]") {
   // Create server game
   std::string base_path = "test_data/";
   ServerGame game(35, 76, SINGLE_PLAYER, 2, base_path, nullptr);
-  {
-    std::string source_path = "dissonance/data/examples/elle_rond_elle_bon_et_blonde.wav";
-    REQUIRE(game.TestField(source_path) == true);
+
+  SECTION("Test all examples") {
+    std::string source_path = "dissonance/data/examples/";
+    for (auto const& dir_entry : std::filesystem::directory_iterator{source_path}) 
+      if (dir_entry.path().extension() == ".mp3" || dir_entry.path().extension() == ".wav")
+        REQUIRE(game.TestField(dir_entry.path().string()) == true);
   }
-  {
-    std::string source_path = "dissonance/data/examples/Hear_My_Call-coffeeshoppers.mp3";
-    REQUIRE(game.TestField(source_path) == true);
-  }
-  {
+  /*
+  SECTION("Local show test") {
     std::string source_path = "/media/data/Music/Aurora/All My Demons Greeting Me As A Friend/01 - Runaway.mp3";
     REQUIRE(game.TestField(source_path) == true);
-  }
-  {
-    std::string source_path = "/media/data/Music/Eminem/Curtain Call The Hits/06 Lose Yourself.mp3";
+    source_path = "/media/data/Music/Beethoven/Beethoven complete Symphonies/Beethoven_Symphonies_Side11.mp3";
+    REQUIRE(game.TestField(source_path) == true);
+    source_path = "/media/data/Music/Eminem/Curtain Call The Hits/06 Lose Yourself.mp3";
+    REQUIRE(game.TestField(source_path) == true);
+    source_path = "/media/data/Music/david music/blank banshee/Blank Banshee - MEGA - 01 BIOS.mp3";
+    REQUIRE(game.TestField(source_path) == true);
+    source_path = "/media/data/Music/YUNG HURN/1220/03 - Hellwach - prod. Supahoes.ogg";
     REQUIRE(game.TestField(source_path) == true);
   }
+  SECTION("Local full test") {
+    std::string source_path = "/media/data/Music/Eminem/Curtain Call The Hits/";
+    for (auto const& dir_entry : std::filesystem::directory_iterator{source_path}) 
+      if (dir_entry.path().extension() == ".mp3" || dir_entry.path().extension() == ".wav")
+        REQUIRE(game.TestField(dir_entry.path().string()) == true);
+    source_path = "/media/data/Music/Aurora/";
+    for (auto const& dir_entry : std::filesystem::directory_iterator{source_path}) 
+      if (dir_entry.path().extension() == ".mp3" || dir_entry.path().extension() == ".wav")
+        REQUIRE(game.TestField(dir_entry.path().string()) == true);
+    source_path = "/media/data/Music/david music/blank banshee/";
+    for (auto const& dir_entry : std::filesystem::directory_iterator{source_path}) 
+      if (dir_entry.path().extension() == ".mp3" || dir_entry.path().extension() == ".wav")
+        REQUIRE(game.TestField(dir_entry.path().string()) == true);
+    source_path = "/media/data/Music/YUNG HURN/Love Hotel EP/Yung Hurn - Love Hotel EP (Official Audio) (Full Album).mp3";
+    REQUIRE(game.TestField(source_path) == true);
+  }
+  */
 }
