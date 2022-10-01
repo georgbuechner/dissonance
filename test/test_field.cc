@@ -371,6 +371,7 @@ TEST_CASE("Test setting up field from server", "[setup_field]") {
       if (dir_entry.path().extension() == ".mp3" || dir_entry.path().extension() == ".wav")
         REQUIRE(game.TestField(dir_entry.path().string()) == true);
   }
+  /*
   SECTION("Local show test") {
     std::string source_path = "/media/data/Music/Aurora/All My Demons Greeting Me As A Friend/01 - Runaway.mp3";
     REQUIRE(game.TestField(source_path) == true);
@@ -399,5 +400,5 @@ TEST_CASE("Test setting up field from server", "[setup_field]") {
     source_path = "/media/data/Music/YUNG HURN/Love Hotel EP/Yung Hurn - Love Hotel EP (Official Audio) (Full Album).mp3";
     REQUIRE(game.TestField(source_path) == true);
   }
-
+  */
 }

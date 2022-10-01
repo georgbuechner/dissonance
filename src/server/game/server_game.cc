@@ -524,7 +524,7 @@ std::vector<position_t> ServerGame::SetUpField(RandomGenerator* ran_gen) {
   int denseness = 0;
   while (!field_ && denseness < 4) {
     field_ = new Field(lines_, cols_, ran_gen);
-    field_->AddHills(reduced_pitches, denseness++);
+    field_->CreateBrain(reduced_pitches, denseness++);
     field_->BuildGraph();
     nucleus_positions = field_->AddNucleus(max_players_);
     if (nucleus_positions.size() < (size_t)max_players_) {
