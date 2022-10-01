@@ -56,8 +56,8 @@ namespace costs {
     },
     {UnitsTech::MACRO, {
         {Resources::OXYGEN, 0}, 
-        {Resources::POTASSIUM, 54}, 
-        {Resources::CHLORIDE, 54}, 
+        {Resources::POTASSIUM, 25}, 
+        {Resources::CHLORIDE, 25}, 
         {Resources::GLUTAMATE, 0}, 
         {Resources::DOPAMINE, 0}, 
         {Resources::SEROTONIN, 0}

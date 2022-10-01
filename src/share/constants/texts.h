@@ -23,7 +23,7 @@ namespace texts {
       "Welcome to DISSONANCE",
       "",
       "An update is availible. Run `git pull` in the dissonance git-folder (the cloned github project)",
-      "to get the most recent code, then run `make setup` to install.",
+      "to get the most recent code, then run `make install`.",
     }
   };
 
@@ -120,6 +120,7 @@ namespace texts {
       "SYNAPSE: oxygen=13.4, potassium=6.6",
       "EPSP: potassium=4.4",
       "IPSP: potassium=3.4, chloride=6.8",
+      "MACRO: potassium=25, chloride=25",
     },
     {
       "##### HELP #####",

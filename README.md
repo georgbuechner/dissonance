@@ -1,7 +1,7 @@
 ![Title Image](images/title_image.png)
 
 ### tl;dr
-Installing:
+**Installing**:
 ```
 git clone https://github.com/georgbuechner/dissonance
 cd dissonance
@@ -9,24 +9,24 @@ cd dissonance
 # ubuntu:
 sudo apt-get install aubio-tools libaubio-dev libaubio-doc
 
-# MacOs and other linux-distros:
+# MacOs and other non-ubuntu linux-distros:
 make aubio  
 
 make install
 ```
 
-single player
+**running single-player**:
 ```
 dissonance
 ```
 
-multiplayer:
+**running multiplayer**:
 ```
 dissonance -m
 ```
-or 
+or for connecting to custom-server
 ```
-dissonance -m -z "ws://<host>:<port>"  # or adress of a private server.
+dissonance -m -z "ws://<host>:<port>"  
 ```
 
 # Table of contents
@@ -144,7 +144,7 @@ In case you experience the error `/usr/bin/env: ‘python’: No such file or di
 
 Finally you install *dissonance* by running:
 ```c
-make install  // (re-run this step for updates also) 
+make install  
 ```
 
 These steps install `dissonance` system-wide and create `.dissonance` in the home folder to
@@ -161,6 +161,20 @@ You can run your own server by adding `-s` flag (or: `--standalone`).
 
 You should open your terminal in full screen mode. Technically any terminal-size
 is possible, but the game is only really tested for *1900x1020* and *3440x1440*.
+
+### Update 
+If a update is availible first run:
+```
+git pull 
+``` 
+To get the most recent source-code, then run:
+```
+make install 
+```
+
+If you're playing in mutli-player mode you will be informed if a update is
+availible.
+
 
 ### Logfiles
 
@@ -432,11 +446,12 @@ For the following technologies/ neurons the costs are increased:
 
 | name    | iron | oxygen | potassium | chloride | glutamate | dopamine | serotonin |
 |:--------|------|--------|-----------|----------|-----------|----------|-----------|
-| Neuron: nucleus | 1 |8.2| 8.2       | 8.2      | 8.2       | 16.2     | 16.2      |
+| Neuron: nucleus | 1 |8.2| 8.2       | 8.2      | 8.2       | 16.4     | 16.4      |
 | Neuron: activated neuron | - | 8.9 | - | -     | 19.1      | -        | -         |
 | Neuron: synapse | - | 13.4 | 6.6    | -        | -         | -        | -         | 
 | Potential: epsp | - | - | 4.4       | -        | -         | -        | -         |
 | Potential: ipsp | - | - | 3.4       | 6.8      | -         | -        | -         |
+| Potential: macro| - | - | 25        | 25       | -         | -        | -         |
 | Tech: choose way | 1 | -| -         |-         | -         | 17.7     | -         |
 | Tech: swarm      | 1 | -| -         |-         | -         | 19.9     | -         |
 | Tech: target     | 1 | -| -         |-         | -         | 16.5     | -         |
@@ -469,6 +484,8 @@ awesome libraries makeing `dissonance` possible:
   of the fibonacci heap (I modified the fibonacci-queue-implementation to meet my needs).
 - [websocketpp](https://github.com/zaphoyd/websocketpp/blob/master/COPYING) for
   providing the socket communication for multiplayer-mode.
+- [msgpack](https://github.com/msgpack/msgpack-c) for it's fast and efficient
+  binary serialization!
 - and finally [ncurses](https://github.com/mirror/ncurses)! 
 
 Also I want to clarify, that not all dependencies use the same license as I:
@@ -484,6 +501,7 @@ Also I want to clarify, that not all dependencies use the same license as I:
 | ncurses | X11 |
 | fiboheap | LGPL-3.0 License |
 | websocketpp | custom |
+| msgpack-c | BSL |
 
 
 ### Music
