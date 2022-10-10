@@ -759,12 +759,13 @@ bool Player::NeutralizePotential(std::string id, int voltage, bool erase) {
 }
 
 void Player::AddVoltageToNeuron(position_t pos, int potential) {
-  spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: {} {}", utils::PositionToString(pos), potential);
+  spdlog::get(LOGGER)->debug("Player::AddVoltageToNeuron: {} {}", utils::PositionToString(pos), potential);
   // If potential is negative: stop.
   if (potential < 0) {
-    spdlog::get(LOGGER)->warn("Player::AddPotentialToNeuron: negative potential!");
+    spdlog::get(LOGGER)->warn("Player::AddVoltageToNeuron: negative potential!");
     return;
   }
+  // Check if neuron at given possition exists
   if (neurons_.count(pos) > 0) {
     if (neurons_.at(pos)->IncreaseVoltage(potential)) {
       int type = neurons_.at(pos)->type_;
@@ -774,13 +775,13 @@ void Player::AddVoltageToNeuron(position_t pos, int potential) {
       // Remove and free resources.
       neurons_.erase(pos);
       FreeBoundResources(type);
+      DeleteNeuron(type, pos);
       // Potentially deactivate all neurons formally in range of the destroyed nucleus.
       if (type == UnitsTech::NUCLEUS) {
-        spdlog::get(LOGGER)->debug("Player::AddPotentialToNeuron: nucleus died!");
+        spdlog::get(LOGGER)->debug("Player::AddVoltageToNeuron: nucleus died!");
         CheckNeuronsAfterNucleusDies();
         UpdateResourceLimits(-0.1);  // Remove added max resources when nucleus dies.
       }
-      DeleteNeuron(type, pos);
     }
   }
 }

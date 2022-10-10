@@ -806,20 +806,22 @@ std::vector<position_t> AudioKi::FindBestWayPoints(position_t synapse_pos, posit
   std::vector<position_t> waypoints;
   // Get all enemy activated neurons.
   auto activated_neurons = enemies_.front()->GetAllPositionsOfNeurons(ACTIVATEDNEURON);
+  size_t cur_ans_on_way = GetAllActivatedNeuronsOnWay(activated_neurons, 
+          field_->GetWay(synapse_pos, {target_pos})).size();
+
   // Find best waypoint for each possible way-point to set (based on technology WAY)
   for (size_t i=0; i<technologies_.at(WAY).first; i++) {
-    // Get All possible way with distance 5-6, 11-12, ...
-    std::vector<position_t> possible_way_points = field_->GetAllInRange(target_pos, 6*(i+1), 6*(i+1)-1, true);
+    // Get all possible ways with distance 8-9, 7-8, 6-7 (circle slowly draws closer...)
+    std::vector<position_t> possible_way_points = field_->GetAllInRange(target_pos, 9-1, 8-i, true);
     // Find way with least activated neurons on way.
-    size_t min = 999;
     position_t waypoint = DEFAULT_POS;
     for (const auto& pos : possible_way_points) {
       // Add this possible waypoint position and target to waypoints.
       waypoints.insert(waypoints.end(), {pos, target_pos});
       size_t num_ans_on_way = GetAllActivatedNeuronsOnWay(activated_neurons, 
           field_->GetWay(synapse_pos, waypoints)).size();
-      if (num_ans_on_way < min) {
-        min = num_ans_on_way;
+      if (num_ans_on_way < cur_ans_on_way) {
+        cur_ans_on_way = num_ans_on_way;
         waypoint = pos;
       }
       // Remove target and waypoint again.
@@ -827,7 +829,8 @@ std::vector<position_t> AudioKi::FindBestWayPoints(position_t synapse_pos, posit
       waypoints.pop_back();
     }
     // Add final waypoint.
-    waypoints.push_back(waypoint);
+    if (waypoint != DEFAULT_POS)
+      waypoints.push_back(waypoint);
     spdlog::get(LOGGER)->debug("AudioKi::FindBestWayPoints. Added waypoint: {}", utils::PositionToString(waypoint));
   }
   return waypoints;
