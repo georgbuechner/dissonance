@@ -195,8 +195,11 @@ class Drawrer {
      */
     void PrintLobby();
 
-
-    void CreateMiniFields(int player_color);
+    /**
+     * Loads mini-fields.
+     * @param[in] path
+     */
+    void LoadMiniField(std::string path);
 
   private:
     int lines_;

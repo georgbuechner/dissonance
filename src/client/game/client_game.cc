@@ -199,7 +199,7 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
   eventmanager_tutorial_.AddHandler("update_game", &ClientGame::h_TutorialUpdateGame);
 
   tutorial_ = Tutorial({0, 0, 0, true, true, false, false, false, false, false, false, false, false, false});
-  drawrer_.CreateMiniFields((username_.front() > 'A') ? COLOR_P3 : COLOR_P2);
+  drawrer_.LoadMiniField(base_path_ + MINI_FIELDS_PATH);
 
   LoadRanking();
 }

@@ -52,6 +52,7 @@
 
 // paths 
 #define SETTINGS_PATH "settings/settings.json"
+#define MINI_FIELDS_PATH "data/mini_fields.json"
 #define RECENTLYPLAYER_PATH "settings/recently_played.json"
 #define MUSIC_PATHS "settings/music_paths.json"
 #define USER_FILES "data/user-files/"
