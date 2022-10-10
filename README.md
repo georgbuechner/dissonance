@@ -210,6 +210,10 @@ make uninstall_aubio
 
 ### Known problems
 
+#### Conan 
+Conan is a great piece of software, however, errors might occurr. 
+You should definitly check that your conan version is up to date.
+
 #### MacOs installation: c++ compiler detected by cmake differs from conan profile.
 
 Possible error:
