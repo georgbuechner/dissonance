@@ -210,6 +210,13 @@ make uninstall_aubio
 
 ### Known problems
 
+#### General Disclaimer 
+This is a single-person project and issues may appear. 
+If the game crashes while playing, consider filing a bug-report on this github
+page and include the log file. 
+Also the terminal-command `reset` clears the screen when you experience
+corrupted output after a game crash.
+
 #### Conan 
 Conan is a great piece of software, however, errors might occurr. 
 You should definitly check that your conan version is up to date.
