@@ -22,7 +22,7 @@
 #include "server/game//player/player.h"
 #include "share/tools/utils/utils.h"
 
-Player::Player(std::string username, std::shared_ptr<Field> field, RandomGenerator* ran_gen, int color) 
+Player::Player(std::string username, std::shared_ptr<Field> field, std::shared_ptr<RandomGenerator> ran_gen, int color) 
     : username_(username), cur_range_(4), color_(color), resource_slowdown_(3) {
   field_ = field;
   ran_gen_ = ran_gen;

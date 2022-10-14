@@ -21,7 +21,7 @@
 #include "share/tools/fiboqueue.h"
 
 TEST_CASE("test_field", "[main]") {
-  RandomGenerator* ran_gen = new RandomGenerator();
+  std::shared_ptr<RandomGenerator> ran_gen = std::make_shared<RandomGenerator>();
   std::shared_ptr<Field> field = std::make_shared<Field>(100, 100, ran_gen);
 
   SECTION("tests based on graph", "[main, graph]") {
@@ -121,7 +121,7 @@ TEST_CASE("test_field", "[main]") {
   }
 
   SECTION("test GetAllCenterPositionsOfSections") {
-    std::shared_ptr<Field> field = std::make_shared<Field>(50, 100, new RandomGenerator());
+    std::shared_ptr<Field> field = std::make_shared<Field>(50, 100, std::make_shared<RandomGenerator>());
     auto positions= field->GetAllCenterPositionsOfSections();
     REQUIRE(positions.size() == 8);
     REQUIRE(std::find(positions.begin(), positions.end(), (position_t){12,12}) != positions.end());
@@ -192,7 +192,7 @@ TEST_CASE("test_field", "[main]") {
 }
 
 TEST_CASE("test graph", "[graph]") {
-  RandomGenerator* ran_gen = new RandomGenerator();
+  std::shared_ptr<RandomGenerator> ran_gen = std::make_shared<RandomGenerator>();
   std::shared_ptr<Field> field = std::make_shared<Field>(3, 4, ran_gen);
   field->BuildGraph();
 
@@ -283,7 +283,7 @@ TEST_CASE("test priority queue", "[graph]") {
 }
 
 TEST_CASE("test graph-cache", "[graph]") {
-  RandomGenerator* ran_gen = new RandomGenerator();
+  std::shared_ptr<RandomGenerator> ran_gen = std::make_shared<RandomGenerator>();
   std::shared_ptr<Field> field = std::make_shared<Field>(100, 100, ran_gen);
   field->BuildGraph();
   position_t target = {2, 0};
@@ -300,7 +300,7 @@ TEST_CASE("test graph-cache", "[graph]") {
 }
 
 TEST_CASE("test graph: find way with special conditions", "[graph]") {
-  RandomGenerator* ran_gen = new RandomGenerator();
+  std::shared_ptr<RandomGenerator> ran_gen = std::make_shared<RandomGenerator>();
   std::shared_ptr<Field> field = std::make_shared<Field>(100, 100, ran_gen);
   field->BuildGraph();
 
@@ -345,7 +345,7 @@ TEST_CASE("test hashing and unhashing positions" "[graph]") {
 }
 
 TEST_CASE("Test ran gen", "random-generator]") {
-  RandomGenerator* ran_gen = new RandomGenerator();
+  std::shared_ptr<RandomGenerator> ran_gen = std::make_shared<RandomGenerator>();
   int min = 0;
   int max = 10;
   std::set<int> nums;

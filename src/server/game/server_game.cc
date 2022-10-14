@@ -479,7 +479,8 @@ void ServerGame::m_InitializeGame(std::shared_ptr<Data> data) {
 void ServerGame::SetupGame(std::vector<Audio*> audios) {
   spdlog::get(LOGGER)->info("ServerGame::SetUpGame");
   // Initialize field.
-  RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
+  std::shared_ptr<RandomGenerator> ran_gen = std::make_shared<RandomGenerator>(audio_.analysed_data(), 
+      &RandomGenerator::ran_note);
   auto nucleus_positions = SetupField(ran_gen);
   // Check if map is playable (all nucleus-positions could be found), otherwise
   // send message to all players and quit.
@@ -516,7 +517,7 @@ void ServerGame::SetupGame(std::vector<Audio*> audios) {
   return;
 }
 
-std::vector<position_t> ServerGame::SetupField(RandomGenerator* ran_gen) {
+std::vector<position_t> ServerGame::SetupField(std::shared_ptr<RandomGenerator> ran_gen) {
   // Create field.
   field_ = nullptr;
   spdlog::get(LOGGER)->info("ServerGame::SetUpField: creating map. field initialized? {}", field_ != nullptr);
@@ -540,11 +541,11 @@ bool ServerGame::TestField(std::string source_path) {
   audio_.set_source_path(source_path);
   try {
     audio_.Analyze();
-  } catch (...) {
-    return true; // Problem ist audio-specific, not concerning field, so return test did not fail.
+  } catch (std::exception& e) {
+    spdlog::get(LOGGER)->warn("ServerGame::TestField: failed analysing audio: {}", e.what());
+    return true; // Problem is audio-specific, not concerning field, so return test did *not* fail.
   }
-  RandomGenerator* ran_gen = new RandomGenerator(audio_.analysed_data(), &RandomGenerator::ran_note);
-  SetupField(ran_gen);
+  SetupField(std::make_shared<RandomGenerator>(audio_.analysed_data(), &RandomGenerator::ran_note));
   bool success = field_ != nullptr;
   // clean up:
   field_.reset();

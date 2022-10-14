@@ -8,7 +8,7 @@
 #include <memory>
 
 namespace t_utils {
-  position_t GetRandomPositionInField(std::shared_ptr<Field> field, RandomGenerator* ran_gen);
+  position_t GetRandomPositionInField(std::shared_ptr<Field> field, std::shared_ptr<RandomGenerator> ran_gen);
 }
 
 #endif

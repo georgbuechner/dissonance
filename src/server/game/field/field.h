@@ -25,7 +25,7 @@ class Field {
      * @param[in] lines availible lines.
      * @param[in] cols availible cols
      */
-    Field(int lines, int cols, RandomGenerator* ran_gen);
+    Field(int lines, int cols, std::shared_ptr<RandomGenerator> ran_gen);
 
     // getter 
     int lines();
@@ -168,7 +168,7 @@ class Field {
     // members
     int lines_;
     int cols_;
-    RandomGenerator* ran_gen_;
+    std::shared_ptr<RandomGenerator> ran_gen_;
     std::shared_ptr<Graph> graph_;
     std::vector<std::vector<std::string>> field_;
     std::map<position_t, std::map<int, position_t>> resource_neurons_;  ///< stored to access after creation

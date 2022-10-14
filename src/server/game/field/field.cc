@@ -28,7 +28,7 @@
 #define SECTIONS 8
 
 
-Field::Field(int lines, int cols, RandomGenerator* ran_gen) {
+Field::Field(int lines, int cols, std::shared_ptr<RandomGenerator> ran_gen) {
   lines_ = lines;
   cols_ = cols;
   ran_gen_ = ran_gen;

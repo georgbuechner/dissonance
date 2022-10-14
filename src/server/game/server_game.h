@@ -320,7 +320,7 @@ class ServerGame {
      * @param[in] ran_gen (random generator used for game).
      * @return list of nucleus-positions of players.
      */
-    std::vector<position_t> SetupField(RandomGenerator* ran_gen);
+    std::vector<position_t> SetupField(std::shared_ptr<RandomGenerator> ran_gen);
 
     /**
      * Runs game.

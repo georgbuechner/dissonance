@@ -16,7 +16,8 @@
 
 class AudioKi : public Player {
   public:
-    AudioKi(std::string username, std::shared_ptr<Field> field, Audio* audio, RandomGenerator* ran_gen, int color);
+    AudioKi(std::string username, std::shared_ptr<Field> field, Audio* audio, 
+        std::shared_ptr<RandomGenerator> ran_gen, int color);
     ~AudioKi() {};
 
     // getter 

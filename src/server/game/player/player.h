@@ -36,7 +36,7 @@ class Player : public std::enable_shared_from_this<Player> {
      * @param[in] ran_gen (random number generator).
      * @param[in] color (random number generator).
      */
-    Player(std::string username, std::shared_ptr<Field> field, RandomGenerator* ran_gen, int color);
+    Player(std::string username, std::shared_ptr<Field> field, std::shared_ptr<RandomGenerator> ran_gen, int color);
 
     virtual ~Player() {}
 
@@ -400,7 +400,7 @@ class Player : public std::enable_shared_from_this<Player> {
     std::string username_;
     std::shared_ptr<Field> field_;
     std::shared_ptr<Statictics> statistics_;
-    RandomGenerator* ran_gen_;
+    std::shared_ptr<RandomGenerator> ran_gen_;
     std::vector<std::shared_ptr<Player>> enemies_;
     int cur_range_;
     int color_;
