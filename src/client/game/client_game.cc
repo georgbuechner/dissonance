@@ -210,9 +210,7 @@ void ClientGame::set_client(Client* ws_srv) {
 }
 
 void ClientGame::HandleAction(Command cmd) {
-  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: command: {}, context: {}", 
-      cmd.command(), current_context_);
-
+  spdlog::get(LOGGER)->debug("ClientGame::HandleAction: command: {}, context: {}", cmd.command(), current_context_);
   // Get event from event-manager
   if (eventmanager_.handlers().count(cmd.command()))
     (this->*eventmanager_.handlers().at(cmd.command()))(cmd.data());
@@ -241,6 +239,7 @@ void ClientGame::GetAction() {
     std::shared_lock sl(mutex_context_);
     if (contexts_.at(current_context_).eventmanager().handlers().count(choice) > 0) {
       auto data = contexts_.at(current_context_).data();
+      // Set (entered) command of current context to choice (equivalent to last history entry)
       contexts_.at(current_context_).set_cmd(choice);
       sl.unlock();
       (this->*contexts_.at(current_context_).eventmanager().handlers().at(choice))(data);
@@ -380,8 +379,16 @@ void ClientGame::h_BuildPotential(std::shared_ptr<Data> data) {
   }
   // first call: set potential-type and number of potentials to build
   else {
-    int num = (history_.size() > 1 && std::isdigit(history_[history_.size()-2])) 
-      ? history_[history_.size()-2] - '0' : 1;
+    int num = 1;
+    // If history is given and (second) last history entry is digit, create that number of potentials.
+    if (history_.size() > 1 && std::isdigit(history_[history_.size()-2])) 
+      num = history_[history_.size()-2] - '0';
+    // In case call from server has invalid entries and results to this case.
+    if (char_unit_mapping.count(contexts_.at(current_context_).cmd()) == 0) {
+      spdlog::get(LOGGER)->warn("ClientGame::h_BuildPotential (1) probably not called from `GetAction`, cmd: {}",
+          contexts_.at(current_context_).cmd());
+      return;
+    }
     int unit = char_unit_mapping.at(contexts_.at(current_context_).cmd());
     ws_srv_->SendMessage("check_build_potential", std::make_shared<BuildPotential>(unit, num));
   }
@@ -392,7 +399,7 @@ void ClientGame::h_ToResourceContext(std::shared_ptr<Data>) {
 }
 
 void ClientGame::h_BuildNeuron(std::shared_ptr<Data> data) {
-  // final call: send message to server to build neuron.
+  // final call: target build-position set, send message to server to build neuron.
   if (data->pos() != DEFAULT_POS) {
     ws_srv_->SendMessage("build_neuron", data);
   }
@@ -409,6 +416,12 @@ void ClientGame::h_BuildNeuron(std::shared_ptr<Data> data) {
   }
   // first call: send message to server, checking wether neuron can be build.
   else {
+    // In case call from server has invalid entries and results to this case.
+    if (char_unit_mapping.count(contexts_.at(current_context_).cmd()) == 0) {
+      spdlog::get(LOGGER)->warn("ClientGame::h_BuildNeuron (1) probably not called from `GetAction`, cmd: {}",
+          contexts_.at(current_context_).cmd());
+      return;
+    }
     int unit = char_unit_mapping.at(contexts_.at(current_context_).cmd());
     ws_srv_->SendMessage("check_build_neuron", std::make_shared<BuildNeuron>(unit));
   }
@@ -421,9 +434,9 @@ void ClientGame::h_SendSelectSynapse(std::shared_ptr<Data> data) {
     drawrer_.set_msg("Choose what to do.");
     drawrer_.AddMarker(SYNAPSE_MARKER, data->synapse_pos(), COLOR_MARKED);
   }
-  // second call: select synapse-pos from positions (or print error, if zero positions)
-  // (not checking `positions == 1` as in this case synapse-pos is automatically set)
-  else if (data->player_units().size() > 0) {
+  // second call: SelectSynapse-Class has been initialized. 
+  // select synapse-pos from positions (or print error, if zero positions)
+  else if (data->called()) {
     if (data->player_units().size() == 0) {
       drawrer_.set_msg("No synapse.");
       SwitchToResourceContext();
@@ -454,7 +467,7 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
   // third call: select field position
   else if (data->start_pos() != DEFAULT_POS) {
     RemovePickContext(CONTEXT_SYNAPSE);
-    SwitchToFieldContext(data->start_pos(), 1000, "set_wps", data, "Select new way-point position.", {'q'});
+    SwitchToFieldContext(data->start_pos(), FULL_MAP_ACCESSS, "set_wps", data, "Select new way-point position.", {'q'});
   }
   // second call: select start position
   else if (data->centered_positions().size() > 0) {
@@ -477,7 +490,7 @@ void ClientGame::h_SetWPs(std::shared_ptr<Data> data) {
     if (data->num() == -1) {
       data = std::make_shared<SetWayPoints>(data->synapse_pos());
     }
-    // If num is -1, this indicates, that no more way-point can be set: switch
+    // If num is 0xFFF, this indicates, that no more way-point can be set: switch
     // to resource-context or stay at synapse-context depending on settings.
     if (data->num() == 0xFFF)
       FinalSynapseContextAction(data->synapse_pos());
@@ -502,7 +515,7 @@ void ClientGame::h_SetTarget(std::shared_ptr<Data> data) {
   // third call: select field position
   else if (data->start_pos() != DEFAULT_POS) {
     RemovePickContext(CONTEXT_SYNAPSE);
-    SwitchToFieldContext(data->start_pos(), 1000, "target", data, "Select target position.", {'q'});
+    SwitchToFieldContext(data->start_pos(), FULL_MAP_ACCESSS, "target", data, "Select target position.", {'q'});
   }
   // Second call: select start position (first pos, or via pick-context) and show current-targets.
   else if (data->enemy_units().size() > 0 || data->target_positions().size()) {
@@ -532,6 +545,7 @@ void ClientGame::h_SwarmAttack(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("ClientGame::h_ResetOrQuitSynapseContext. current_context {}", current_context_);
   // if current context if not already synapse-context: switch to synapse-context.
   if (current_context_ != CONTEXT_SYNAPSE) {
     SwitchToSynapseContext(data);
@@ -540,7 +554,6 @@ void ClientGame::h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data) {
     drawrer_.AddMarker(SYNAPSE_MARKER, data->synapse_pos(), COLOR_MARKED);
   }
   else {
-    drawrer_.ClearMarkers();
     SwitchToResourceContext();
   }
 }
@@ -599,11 +612,13 @@ void ClientGame::SwitchToResourceContext(std::string msg) {
   current_context_ = CONTEXT_RESOURCES;
   drawrer_.set_topline(contexts_.at(current_context_).topline());
   drawrer_.set_viewpoint(current_context_);
+  drawrer_.ClearMarkers();
   if (msg != "")
     drawrer_.set_msg(msg);
 }
 
 void ClientGame::SwitchToSynapseContext(std::shared_ptr<Data> data) {
+  spdlog::get(LOGGER)->debug("ClientGame::SwitchToSynapseContext. current_context {}", current_context_);
   std::shared_lock sl(mutex_context_);
   current_context_ = CONTEXT_SYNAPSE;
   contexts_.at(current_context_).set_data(data);
@@ -612,7 +627,7 @@ void ClientGame::SwitchToSynapseContext(std::shared_ptr<Data> data) {
 
 void ClientGame::FinalSynapseContextAction(position_t synapse_pos) {
   // Switch (back) to synapse-context (clear only target-markers, leave synapse marked)
-  if (stay_in_synapse_menu_) {
+  if (stay_in_synapse_menu_ && synapse_pos != DEFAULT_POS) {
     SwitchToSynapseContext(std::make_shared<SelectSynapse>(synapse_pos));
     drawrer_.ClearMarkers(TARGETS_MARKER);
     drawrer_.ClearMarkers(WAY_MARKER);
@@ -620,7 +635,6 @@ void ClientGame::FinalSynapseContextAction(position_t synapse_pos) {
   // End synapse-context and go to resource-context (clear ALL markers).
   else {
     SwitchToResourceContext();
-    drawrer_.ClearMarkers();
   }
   drawrer_.set_viewpoint(CONTEXT_RESOURCES);
 }
@@ -899,18 +913,12 @@ void ClientGame::m_GameEnd(std::shared_ptr<Data> data) {
   drawrer_.set_viewpoint(VP_POST_GAME);
   if (mode_ == SINGLE_PLAYER) {
     spdlog::get(LOGGER)->debug("ClientGame::m_GameEnd. Adding to ranking...");
-    if (data->msg().find("times up") != std::string::npos) {
-      spdlog::get(LOGGER)->debug("ClientGame::m_GameEnd. Adding to ranking TIME UP.");
+    if (data->msg().find("times up") != std::string::npos)
       ranking_[audio_file_path_]._timeup++;
-    }
-    else if (data->msg().find("LOST") != std::string::npos) {
-      spdlog::get(LOGGER)->debug("ClientGame::m_GameEnd. Adding to ranking LOST.");
+    else if (data->msg().find("LOST") != std::string::npos)
       ranking_[audio_file_path_]._lost++;
-    }
-    else {
-      spdlog::get(LOGGER)->debug("ClientGame::m_GameEnd. Adding to ranking WON.");
+    else
       ranking_[audio_file_path_]._won++;
-    }
     StoreRanking();
   }
 }

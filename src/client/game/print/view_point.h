@@ -72,7 +72,7 @@ class ViewPoint {
 
       position_t pos = {y_, x_};
       // If not full field range: check if next position is a) still in range and b) valid graph positions
-      if (range_.second < 999 && 
+      if (range_.second < FULL_MAP_ACCESSS && 
           (utils::Dist(range_.first, pos) > range_.second || graph_positions_->count(pos) == 0)) {
         // If diagonal position possible, do that.
         if (graph_positions_->count(next_diag) > 0 && utils::Dist(range_.first, next_diag) <= range_.second) {

@@ -664,10 +664,11 @@ size_t AudioKi::NumberOfEpspsToCreate(const std::list<position_t>& way, size_t n
 }
 
 int AudioKi::SynchAttacks(size_t epsp_way_length, size_t ipsp_way_length) const {
+  spdlog::get(LOGGER)->debug("AudioKi::SynchAttacks");
   int speed_boast = 50*technologies_.at(UnitsTech::ATK_POTENIAL).first;
   size_t ipsp_duration = ipsp_way_length*(IPSP_SPEED-speed_boast);
   size_t epsp_duration = epsp_way_length*(EPSP_SPEED-speed_boast);
-  return (ipsp_duration < epsp_duration) ? 0 : (ipsp_duration-epsp_duration)+(IPSP_DURATION*0.75);
+  return (ipsp_duration < epsp_duration) ? 0 : (ipsp_duration-epsp_duration)+(IPSP_DURATION*1);
 }
 
 void AudioKi::Defend() {

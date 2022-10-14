@@ -50,6 +50,8 @@
 #define VP_LOBBY CONTEXT_LOBBY
 #define VP_TEXT CONTEXT_TEXT
 
+#define FULL_MAP_ACCESSS 1000
+
 // paths 
 #define SETTINGS_PATH "settings/settings.json"
 #define MINI_FIELDS_PATH "data/mini_fields.json"

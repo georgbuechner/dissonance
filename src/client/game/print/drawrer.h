@@ -48,11 +48,20 @@ class Drawrer {
     void set_mode(int mode);
     void set_statistics(std::vector<std::shared_ptr<Statictics>> statistics);
 
+    // methods 
+    
     bool InGraph(position_t);
     bool Free(position_t);
     void AddMarker(int type, position_t pos, int color, std::string symbol = "");
     position_t GetMarkerPos(int type, std::string symbol);
+
+    /**
+     * Clear markers. 
+     * If type==-1 delete ALL markers, otherwise only of given type.
+     * @param[in] type
+     */
     void ClearMarkers(int type = -1);
+
     void ToggleGraphView();
     void ToggleShowResource(int resouce);
 

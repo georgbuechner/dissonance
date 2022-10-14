@@ -185,6 +185,8 @@ class Data {
     virtual void set_part(int part) {}
 
     // methods 
+    // As virtual, always returns false. Used to indicate that derived class has been initialized.
+    virtual bool called() { return false;} 
     virtual void binary(std::stringstream&) {} 
     virtual void AddEntry(std::string game_id, int max_players, int cur_players, std::string audio_map_name) {}
     virtual void AddStatistics(std::shared_ptr<Statictics> statistics) {}
@@ -601,9 +603,19 @@ class SelectSynapse : public Data {
 
     // setter 
     void set_synapse_pos(position_t pos);
+    /**
+     * Sets player-units (synapse-positions).
+     * If only one synapse, automatically sets synapse-pos to this position.
+     * @param[in] positions
+     */
     void set_player_units(std::vector<position_t> positions);
 
     // methods
+    /**
+     * Always returns true.
+     */
+    bool called() { return true; }
+
     void binary(std::stringstream& buffer);
 
     /**
