@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <memory>
 #include <set>
+#include <utility>
 #include <vector>
 #include "server/game/server_game.h"
 #include "share/audio/audio.h"
@@ -14,6 +15,7 @@
 #include "share/objects/units.h"
 #include "server/game/player/player.h"
 #include "share/tools/graph.h"
+#include "spdlog/spdlog.h"
 #include "testing_utils.h"
 #include "share/tools/utils/utils.h"
 #include "share/tools/random/random.h"
@@ -212,30 +214,35 @@ TEST_CASE("test graph", "[graph]") {
     REQUIRE(new_way.back() == target);
   }
 
-  SECTION("way is siminar for both directions") {
+  SECTION("way is identical for both directions and for parts") {
+    std::cout << "BOTH WAYS IDENTICAL" << std::endl;
     std::shared_ptr<Field> field = std::make_shared<Field>(100, 100, ran_gen);
+    spdlog::get(LOGGER)->debug("MARK");
     field->BuildGraph();
     position_t target = {2, 0};
     position_t start = {99, 99};
     auto way_a = field->graph()->DijkstrasWay(start, target);
     auto way_b = field->graph()->DijkstrasWay(target, start);
+    int cache_size = field->graph()->GetCacheSize();
     way_b.reverse();
+    // Convert to vectors for index-access
     std::vector<position_t> way_a_vec{std::begin(way_a), std::end(way_a)};
     std::vector<position_t> way_b_vec{std::begin(way_b), std::end(way_b)};
-    REQUIRE(way_a.size() == way_a_vec.size());
-    REQUIRE(way_b.size() == way_b_vec.size());
-    REQUIRE(way_a.size() == way_b.size());
+    REQUIRE(way_a.size() == way_a_vec.size()); // make sure size has not changed
+    REQUIRE(way_b.size() == way_b_vec.size()); // make sure size has not changed
+    // Check equality of bath ways (compare size, then elements)
+    REQUIRE(way_a.size() == way_b.size()); 
     for (unsigned int i=0; i<way_a_vec.size(); i++)
       REQUIRE(way_a_vec[i] == way_b_vec[i]);
     // Get new way-bs using shifted start
     for (unsigned int shift=1; shift<way_a.size()-1; shift++) {
-      start = way_a_vec[shift];
-      way_b = field->graph()->DijkstrasWay(target, start);
-      way_b.reverse();
-      std::vector<position_t> way_b_vec_2{std::begin(way_b), std::end(way_b)};
-      for (unsigned int i=shift; i<way_b_vec.size(); i++)
-        REQUIRE(way_a_vec[i+shift] != way_b_vec[i]);
+      way_b = field->graph()->DijkstrasWay(target, way_a_vec[shift]); // search only pary part of way.
+      way_b.reverse(); // reverse to check identity
+      std::vector<position_t> way_b_vec_2{std::begin(way_b), std::end(way_b)}; // Convert to vector for index-access
+      for (unsigned int i=0; i<way_b_vec_2.size(); i++)
+        REQUIRE(utils::PositionToString(way_a_vec[i+shift]) == utils::PositionToString(way_b_vec_2[i]));
     }
+    REQUIRE(cache_size == field->graph()->GetCacheSize()); // Cache size should have stayed the same.
   }
 
   SECTION("test speed") {
@@ -247,13 +254,8 @@ TEST_CASE("test graph", "[graph]") {
     position_t start = {99, 99};
 
     start_time = std::chrono::steady_clock::now();
-    auto way = field->graph()->FindWay(start, target);
-    std::cout << "Time (tiefensuche): " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
-    start_time = std::chrono::steady_clock::now();
     auto new_way = field->graph()->DijkstrasWay(start, target);
     std::cout << "Time (DijkstrasWay): " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
-    REQUIRE(way.front() == new_way.front());
-    REQUIRE(way.back() == new_way.back());
   }
 }
 
@@ -264,21 +266,15 @@ TEST_CASE("test fiboqueue", "[graph]") {
 }
 
 TEST_CASE("test priority queue", "[graph]") {
-  Queue queue;
+  // Consruct fib-queue
   FibQueue<double> fq;
-  for (int i=0; i<10; i++) {
-    position_t pos = {i,i};
-    queue.insert(pos, 99999);
-    fq.push(99999, Graph::to_int(pos));
-  }
+  for (int i=0; i<10; i++)
+    fq.push(99999, Graph::to_int(std::make_pair(i, i)));
+  // Decrease priority of random postion to definitly be first postion.
   position_t first_pos = {5,5};
-  queue.descrease_key(first_pos, 99999, 1);
   fq.decrease_key(Graph::to_int(first_pos), 99999, 1.0);
-
-  REQUIRE(queue.pop_front() == first_pos);
   REQUIRE(Graph::get_pos(fq.pop()) == first_pos);
-  // Search again should fail.
-  REQUIRE(queue.pop_front() != first_pos);
+  // After popping, searching again should fail (no longer the selected postion)
   REQUIRE(Graph::get_pos(fq.pop()) != first_pos);
 }
 

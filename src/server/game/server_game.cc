@@ -436,10 +436,10 @@ void ServerGame::m_InitializeGame(std::shared_ptr<Data> data) {
     map_name = map_name.substr(0, 10);
 
   // Get and analyze audio-files for AIs (OBSERVER-mode).
-  std::vector<Audio*> audios; 
+  std::vector<std::shared_ptr<Audio>> audios; 
   if (data->ai_audio_data().size() > 0) {
     for (const auto& it : data->ai_audio_data()) {
-      Audio* new_audio = new Audio(base_path_);
+      std::shared_ptr<Audio> new_audio = std::make_shared<Audio>(base_path_);
       new_audio->set_source_path(it.first);
       // Analyze with given base-anaysis.
       new_audio->Analyze(it.second);
@@ -476,7 +476,7 @@ void ServerGame::m_InitializeGame(std::shared_ptr<Data> data) {
   }
 }
 
-void ServerGame::SetupGame(std::vector<Audio*> audios) {
+void ServerGame::SetupGame(std::vector<std::shared_ptr<Audio>> audios) {
   spdlog::get(LOGGER)->info("ServerGame::SetUpGame");
   // Initialize field.
   std::shared_ptr<RandomGenerator> ran_gen = std::make_shared<RandomGenerator>(audio_.analysed_data(), 
@@ -501,7 +501,7 @@ void ServerGame::SetupGame(std::vector<Audio*> audios) {
     if (IsAi(it.first) && audios.size() > 0)
       players_[it.first] = std::make_shared<AudioKi>(it.first, field_, audios[ai_audio_counter++], ran_gen, color);
     else if (IsAi(it.first))
-      players_[it.first] = std::make_shared<AudioKi>(it.first, field_, &audio_, ran_gen, color);
+      players_[it.first] = std::make_shared<AudioKi>(it.first, field_, std::make_shared<Audio>(audio_), ran_gen, color);
     // Add human player
     else
       players_[it.first] = std::make_shared<Player>(it.first, field_, ran_gen, color);
@@ -552,7 +552,7 @@ bool ServerGame::TestField(std::string source_path) {
   return success;
 }
 
-void ServerGame::RunGame(std::vector<Audio*> audios) {
+void ServerGame::RunGame(std::vector<std::shared_ptr<Audio>> audios) {
   // Delete audio-data buffer as no longer needed.
   audio_data_buffer_.clear();
   // Setup game.

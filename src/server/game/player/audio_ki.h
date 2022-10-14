@@ -16,7 +16,7 @@
 
 class AudioKi : public Player {
   public:
-    AudioKi(std::string username, std::shared_ptr<Field> field, Audio* audio, 
+    AudioKi(std::string username, std::shared_ptr<Field> field, std::shared_ptr<Audio> audio, 
         std::shared_ptr<RandomGenerator> ran_gen, int color);
     ~AudioKi() {};
 
@@ -48,7 +48,7 @@ class AudioKi : public Player {
     // members
 
     // audio-data
-    Audio* audio_;
+    std::shared_ptr<Audio> audio_;
     std::deque<AudioDataTimePoint> audio_beats_;
     Interval cur_interval_;
     const float average_level_;

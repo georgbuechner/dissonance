@@ -21,7 +21,7 @@
 
 #define ENEMY_ACTIAVTED_NEURON_THRESHOLD 6
 
-AudioKi::AudioKi(std::string username, std::shared_ptr<Field> field, Audio* audio, 
+AudioKi::AudioKi(std::string username, std::shared_ptr<Field> field, std::shared_ptr<Audio> audio, 
     std::shared_ptr<RandomGenerator> ran_gen, int color) 
     : Player(username, field, ran_gen, color), average_level_(audio->analysed_data().average_level_) {
   // Set up Audio

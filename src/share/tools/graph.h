@@ -20,60 +20,50 @@
 #include <set>
 #include <vector>
 
-struct Queue {
-  std::multimap<float, position_t> queue_;
-
-  bool empty() {
-    return queue_.size() == 0;
-  }
-
-  void insert(position_t pos, float priority) {
-    queue_.insert(std::make_pair(priority, pos));
-  }
-
-  position_t pop_front() {
-    position_t pos = queue_.begin()->second;
-    queue_.erase(queue_.begin());
-    return pos;
-  }
-
-  void descrease_key(position_t pos, float old_p, float new_p) {
-    auto ret = queue_.equal_range(old_p);
-    for (auto& it=ret.first; it!=ret.second; ++it) {
-      if (it->second == pos) {
-        queue_.erase(it);
-        break;
-      }
-    } 
-    insert(pos, new_p);
-  }
-};
-
+/**
+ * Fast priority queue.
+ */
 struct QueueF {
-  FibQueue<double> fq;
+  FibQueue<double> fq; ///< fibonacci-heap for fast access of element with lowest priority.
 
+  /**
+   * Checks whether queue is currently empty
+   */
   bool empty() {
     return fq.empty();
   }
 
+  /**
+   * Adds new element with priority
+   * @param[in] pos 
+   * @param[in] priority
+   */
   void insert(int pos, float priority) {
     fq.push(priority, pos);
   }
 
+  /**
+   * Access first element and delete from fib-queue.
+   */
   int pop_front() {
     return fq.pop();
   }
 
-  void descrease_key(int pos, float old_p, float new_p) {
-    fq.decrease_key(pos, old_p, new_p);
+  /**
+   * Changes priority of given element.
+   * @param[in] pos 
+   * @param[in] old_priority
+   * @param[in] new_priority
+   */
+  void descrease_key(int pos, float old_priority, float new_priority) {
+    fq.decrease_key(pos, old_priority, new_priority);
   }
 };
 
 struct Node {
   int i_pos_;
   position_t pos_;
-  std::list<std::pair<Node*, double>> nodes_; // TODO (fux): concider implementing map[dist] -> Node*. 
-                                              // Also do we need Node*?
+  std::list<std::pair<Node*, double>> nodes_; 
 };
 
 class Graph {
@@ -86,16 +76,39 @@ class Graph {
       return nodes_; 
     }
 
+    // methods 
+    
+    /**
+     * Gets cache size.
+     * @return cache size.
+     */
+    int GetCacheSize() {
+      return cache_.size();
+    }
+
+    /*
+     * Gets node at given position.
+     * @param[in] pos 
+     * @return pointer to node. 
+     */
     Node* GetNode(position_t pos) const {
       return nodes_.at(to_int(pos));
     }
 
+    /**
+     * Adds new node from x- and y-position.
+     * @param line (x-position)
+     * @param col (y-position)
+     */
     void AddNode(int line, int col) {
       position_t pos = {line, col};
       int i_pos = to_int(pos);
       nodes_[i_pos] = new Node({i_pos, pos, {}});
     };
 
+    /**
+     * Adds edge between to given nodes
+     */
     void AddEdge(Node* a, Node* b) {
       a->nodes_.push_back({b, utils::Dist(a->pos_, b->pos_)});
     }
@@ -166,45 +179,6 @@ class Graph {
       return vistited_positions;
     }
 
-    std::list<position_t> FindWay(position_t pos_a, position_t pos_b) const {
-      int i_pos_a = to_int(pos_a);
-      int i_pos_b = to_int(pos_b);
-      // Iialize all nodes as not-visited.
-      std::map<int, int> visited; 
-      for (auto node : nodes_)
-        visited[node.second->i_pos_] = -1;
-      // Get all nodes which can be visited from player-den.
-      std::list<Node*> queue;
-      visited[i_pos_a] = i_pos_a; 
-      queue.push_back(nodes_.at(i_pos_a));
-      while(!queue.empty()) {
-        auto cur = queue.front();
-        queue.pop_front();
-        // Check if desired node was found.
-        if (pos_b == cur->pos_)
-          break;
-        // iterate over children.
-        for (auto node : cur->nodes_) {
-          if (visited[node.first->i_pos_] == -1) {
-            visited[node.first->i_pos_] = cur->i_pos_;
-            queue.push_back(node.first);
-          }
-        }
-      }
-      if (visited[i_pos_b] == -1)
-        throw "Could not find way!.";
-      
-      std::list<int> i_way = { i_pos_b };
-      while (i_way.back() != i_pos_a)
-        i_way.push_back(visited[i_way.back()]);
-      //Reverse path and return.
-      std::reverse(std::begin(i_way), std::end(i_way));
-      std::list<position_t> way;
-      for (const auto& it : i_way) 
-        way.push_back(get_pos(it));
-      return way;
-    }
-
     std::list<position_t> DijkstrasWay(position_t s, position_t t) {
       if (s == t)
         return {s};
@@ -214,12 +188,12 @@ class Graph {
       // Check cache
       t_s_e_tuple start_end_tuple = {s, t};
       std::shared_lock sl(mutex_cache_);
-      if (chache_.count(start_end_tuple) > 0)
-        return chache_.at(start_end_tuple);
+      if (cache_.count(start_end_tuple) > 0)
+        return cache_.at(start_end_tuple);
       t_s_e_tuple end_start_tuple = {t, s};
       // If other direction is in cache, returned reversed.
-      if (chache_.count(end_start_tuple) > 0) {
-        auto way = chache_.at(end_start_tuple);
+      if (cache_.count(end_start_tuple) > 0) {
+        auto way = cache_.at(end_start_tuple);
         way.reverse();
         return way;
       }
@@ -237,7 +211,7 @@ class Graph {
       for (const auto& it : nodes_.at(i_pos_a)->nodes_) {
         // If direct child is target, return {[s]tart, [t]arget} and add to cache.
         if (it.first->pos_ == t) {
-          chache_[start_end_tuple] = {s, t};
+          cache_[start_end_tuple] = {s, t};
           return {s, t};
         }
         distance[it.first->i_pos_] = it.second;
@@ -274,7 +248,7 @@ class Graph {
         for (unsigned int i=0;i<way_vec.size(); i++) {
           t_s_e_tuple part_tuple = {way_vec[i], start_end_tuple.second};
           std::list<position_t> way_part(way_vec.begin()+i, way_vec.end());
-          chache_[part_tuple] = way_part;
+          cache_[part_tuple] = way_part;
         }
         return way;
       }
@@ -290,12 +264,12 @@ class Graph {
       return {c>>16, c & 0xFFFF};
     }
 
-    std::map<t_s_e_tuple, std::list<position_t>> chache() { return chache_; }
+    std::map<t_s_e_tuple, std::list<position_t>> chache() { return cache_; }
 
   private:
     std::unordered_map<int, Node*> nodes_;
     std::shared_mutex mutex_cache_;  ///< mutex locked, when accessing cache.
-    std::map<t_s_e_tuple, std::list<position_t>> chache_;
+    std::map<t_s_e_tuple, std::list<position_t>> cache_;
 };
 
 #endif

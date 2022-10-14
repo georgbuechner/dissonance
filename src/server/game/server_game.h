@@ -313,7 +313,7 @@ class ServerGame {
      * Calls SetUpField and creates players.
      * @param[in] audios.
      */
-    void SetupGame(std::vector<Audio*> audios);
+    void SetupGame(std::vector<std::shared_ptr<Audio>> audios);
 
     /**
      * Sets up field.
@@ -328,7 +328,7 @@ class ServerGame {
      * - starts main- and ai-thread(s)
      * @param[in] audios (audios-used for multiple ais. Default empty).
      */
-    void RunGame(std::vector<Audio*> audios = {});
+    void RunGame(std::vector<std::shared_ptr<Audio>> audios = {});
 
     // Threads
 
