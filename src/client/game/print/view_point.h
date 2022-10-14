@@ -46,7 +46,12 @@ class ViewPoint {
 
     void inc_resource(int val) { x_= utils::Mod(x_+val, SEROTONIN+1); }
     void inc_tech(int val) { x_= utils::Mod(x_+val, NUCLEUS_RANGE+1, WAY); }
-    void inc_stats(int val) { x_ = utils::Mod(x_+val, y_); }
+    void inc_stats(int val) { 
+      if (y_ > 0) 
+        x_ = utils::Mod(x_+val, y_); 
+      else 
+        spdlog::get(LOGGER)->debug("ViewPoint::inc_stats: Prevented remained by zero: {}|{}", y_, x_);
+    }
     void inc_field(int val) { 
       spdlog::get(LOGGER)->debug("ViewPoint::inc_field: Changing field selection: {}|{}", y_, x_);
       int old_x = x_;
