@@ -79,14 +79,20 @@ class ServerGame {
     
   private: 
     // field
-    Field* field_;  ///< field 
+    std::shared_ptr<Field> field_;  ///< field 
     int lines_; 
     int cols_;
 
-    // players
+    /** 
+     * Players mutex is locked before every action (player or server-action).
+     * Players map is NEVER modified after game-start.
+     * No player is ever deleted. 
+     * So every access to `players_` with an existing username should always be
+     * valid.
+     */
     std::shared_mutex mutex_players_;
-    std::map<std::string, Player*> players_;
-    std::map<std::string, Player*> human_players_;  ///< easy acces for only human-players
+    std::map<std::string, std::shared_ptr<Player>> players_;
+    std::vector<std::string> human_players_;  ///< easy acces for only human-players
     std::string host_;  ///< host player.
     std::vector<std::string> observers_;  ///< vector with usernames of observers
     std::set<std::string> dead_players_;  ///< keeps track of dead players.
@@ -124,7 +130,8 @@ class ServerGame {
      * @param[in] player
      * @return vector of enemies fort given player.
      */
-    std::vector<Player*> enemies(const std::map<std::string, Player*>& players, std::string player) const;
+    std::vector<std::shared_ptr<Player>> enemies(const std::map<std::string, std::shared_ptr<Player>>& players, 
+        std::string player) const;
 
     /**
      * Gets map of all potentials in stacked format (ipsp: 1-9, epsp a-z) and
@@ -162,7 +169,7 @@ class ServerGame {
      * Checks if player has loophols and sends loophol-field-positions to
      * player.
      */ 
-    void SendLoopHols(std::string username, Player* player) const;
+    void SendLoopHols(std::string username, std::shared_ptr<Player> player) const;
 
     /**
      * Checks if for any (human) player a potential has scouted new enemy
@@ -292,27 +299,28 @@ class ServerGame {
      * Build potential.
      * @param[in, out] msg
      */
-    void BuildPotentials(int unit, position_t pos, int num_potenials_to_build, std::string username, Player* player);
+    void BuildPotentials(int unit, position_t pos, int num_potenials_to_build, std::string username, 
+        std::shared_ptr<Player> player);
 
     /** 
      * Returns pointer to player from username.
      * Throws if player not found.
      */
-    Player* GetPlayer(std::string username) const;
+    std::shared_ptr<Player> GetPlayer(std::string username) const;
 
     /**
      * Sets up game.
      * Calls SetUpField and creates players.
      * @param[in] audios.
      */
-    void SetUpGame(std::vector<Audio*> audios);
+    void SetupGame(std::vector<Audio*> audios);
 
     /**
      * Sets up field.
      * @param[in] ran_gen (random generator used for game).
      * @return list of nucleus-positions of players.
      */
-    std::vector<position_t> SetUpField(RandomGenerator* ran_gen);
+    std::vector<position_t> SetupField(RandomGenerator* ran_gen);
 
     /**
      * Runs game.

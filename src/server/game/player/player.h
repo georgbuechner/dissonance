@@ -25,7 +25,7 @@ class Field;
 using namespace costs;
 
 
-class Player {
+class Player : public std::enable_shared_from_this<Player> {
   public:
     /**
      * Constructor initializing all resources and gatherers with defaul values
@@ -36,7 +36,7 @@ class Player {
      * @param[in] ran_gen (random number generator).
      * @param[in] color (random number generator).
      */
-    Player(std::string username, position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color);
+    Player(std::string username, std::shared_ptr<Field> field, RandomGenerator* ran_gen, int color);
 
     virtual ~Player() {}
 
@@ -46,18 +46,21 @@ class Player {
     int cur_range() const;
     std::map<int, Resource> resources() const;
     std::map<int, tech_of_t> technologies() const;
-    std::vector<Player*> enemies() const;
+    std::vector<std::shared_ptr<Player>> enemies() const;
     int color() const;
     int macro() const;
     virtual std::deque<AudioDataTimePoint> audio_beats() const { return {}; }
     virtual std::map<std::string, size_t> strategies() const { return {}; }
 
     // setter
-    void set_enemies(std::vector<Player*> enemies);
+    void set_enemies(std::vector<std::shared_ptr<Player>> enemies);
     void set_lost(bool lost);
 
     
     // methods:
+    
+    // Setup nucleus and resources 
+    void SetupNucleusAndResources(position_t nucleus_pos);
     
     // extended getter-functions
 
@@ -387,7 +390,7 @@ class Player {
     void UpdateStatisticsGraph();
 
     // Audio-ai
-    virtual void SetUpTactics(bool) {}
+    virtual void Setup() {}
     virtual void HandleIron() {}
     virtual bool DoAction() { return false; }
     virtual bool DoAction(const AudioDataTimePoint& data_at_beat) { return false; }
@@ -395,10 +398,10 @@ class Player {
   protected: 
     // members 
     std::string username_;
-    Field* field_;
+    std::shared_ptr<Field> field_;
     std::shared_ptr<Statictics> statistics_;
     RandomGenerator* ran_gen_;
-    std::vector<Player*> enemies_;
+    std::vector<std::shared_ptr<Player>> enemies_;
     int cur_range_;
     int color_;
     bool lost_;
@@ -409,6 +412,7 @@ class Player {
     double resource_slowdown_;  ///< negative factor when increasing resources.
 
     // neurons 
+    position_t nucleus_pos_;
     std::map<position_t, std::shared_ptr<Neuron>> neurons_;
     std::map<position_t, int> new_dead_neurons_;  ///< gathers destroyed neurons
     std::map<position_t, int> new_neurons_;  ///< gathers new neurons

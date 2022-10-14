@@ -14,29 +14,28 @@
 #include <cstdlib>
 #include <iterator>
 #include <algorithm>
+#include <memory>
 #include <numeric>
 #include <string>
 #include <vector>
 
 #define ENEMY_ACTIAVTED_NEURON_THRESHOLD 6
 
-AudioKi::AudioKi(std::string username, position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, 
-    int color) 
-  : Player(username, nucleus_pos, field, ran_gen, color), average_level_(audio->analysed_data().average_level_) {
+AudioKi::AudioKi(std::string username, std::shared_ptr<Field> field, Audio* audio, RandomGenerator* ran_gen, int color)
+    : Player(username, field, ran_gen, color), average_level_(audio->analysed_data().average_level_) {
+  // Set up Audio
   audio_ = audio;
-  nucleus_pos_ = nucleus_pos;
   cur_interval_ = audio_->analysed_data().intervals_[0];
   audio_beats_ = audio_->analysed_data().data_per_beat_;
 
+  // Set up tactics
   epsp_target_strategies_ = {{AIM_NUCLEUS, 3}, {DESTROY_ACTIVATED_NEURONS, 1}, {DESTROY_SYNAPSES, 1}, 
     {DESTROY_RESOURCES, 1}};
   ipsp_target_strategies_ = {{BLOCK_ACTIVATED_NEURON, 1}, {BLOCK_SYNAPSES, 1}, {BLOCK_RESOURCES, 1}};
   ipsp_epsp_strategies_ = {{EPSP_FOCUSED, 1}, {IPSP_FOCUSED, 1}};
   activated_neuron_strategies_ = {{DEF_SURROUNG_FOCUS, 1}, {DEF_FRONT_FOCUS, 1}};
   def_strategies_ = {{DEF_IPSP_BLOCK, 1}, {DEF_AN_BLOCK, 1}};
-
   building_tactics_ = {{ACTIVATEDNEURON, 4}, {SYNAPSE, 1}, {NUCLEUS, 1}};
-  SetUpTactics(true);
 }
 
 std::deque<AudioDataTimePoint> AudioKi::audio_beats() const {
@@ -57,19 +56,23 @@ std::map<std::string, size_t> AudioKi::strategies() const {
   return strategies;
 }
 
-void AudioKi::SetUpTactics(bool inital_setup) {
+void AudioKi::Setup() {
+  // Setup tactics
+  SetupTactics(true);
+  // Distribute initial iron.
+  DistributeIron(Resources::OXYGEN);
+  DistributeIron(Resources::OXYGEN);
+  resources_activated_.insert(OXYGEN);
+  HandleIron();
+}
+
+void AudioKi::SetupTactics(bool inital_setup) {
   spdlog::get(LOGGER)->info("AudioKi::SetUpTactics");
   // Setup tactics.
   SetBattleTactics();
   // If initial setup, also set up economy tactics and distribite initial resources.
-  if (inital_setup) {
+  if (inital_setup)
     SetEconomyTactics();
-    DistributeIron(Resources::OXYGEN);
-    DistributeIron(Resources::OXYGEN);
-    resources_activated_.insert(OXYGEN);
-    HandleIron();
-  }
-  
   // Increase interval.
   if ((size_t)cur_interval_.id_+1 < audio_->analysed_data().intervals_.size())
     cur_interval_ = audio_->analysed_data().intervals_[cur_interval_.id_+1];
@@ -200,7 +203,7 @@ bool AudioKi::DoAction(const AudioDataTimePoint& beat) {
       beat.level_, average_level_);
   // Change tactics when interval changes:
   if (beat.interval_ > last_beat_.interval_)
-    SetUpTactics(false);
+    SetupTactics(false);
   if (beat.level_ > average_level_) {
     // Create synapses when switch above average level.
     if (last_level_peaks_.size() == 0) 

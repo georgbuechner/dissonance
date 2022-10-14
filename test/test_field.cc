@@ -22,7 +22,7 @@
 
 TEST_CASE("test_field", "[main]") {
   RandomGenerator* ran_gen = new RandomGenerator();
-  Field* field = new Field(100, 100, ran_gen);
+  std::shared_ptr<Field> field = std::make_shared<Field>(100, 100, ran_gen);
 
   SECTION("tests based on graph", "[main, graph]") {
     field->BuildGraph();
@@ -121,7 +121,7 @@ TEST_CASE("test_field", "[main]") {
   }
 
   SECTION("test GetAllCenterPositionsOfSections") {
-    Field* field = new Field(50, 100, new RandomGenerator());
+    std::shared_ptr<Field> field = std::make_shared<Field>(50, 100, new RandomGenerator());
     auto positions= field->GetAllCenterPositionsOfSections();
     REQUIRE(positions.size() == 8);
     REQUIRE(std::find(positions.begin(), positions.end(), (position_t){12,12}) != positions.end());
@@ -193,7 +193,7 @@ TEST_CASE("test_field", "[main]") {
 
 TEST_CASE("test graph", "[graph]") {
   RandomGenerator* ran_gen = new RandomGenerator();
-  Field* field = new Field(3, 4, ran_gen);
+  std::shared_ptr<Field> field = std::make_shared<Field>(3, 4, ran_gen);
   field->BuildGraph();
 
   SECTION("fasted way direction forward") {
@@ -213,7 +213,7 @@ TEST_CASE("test graph", "[graph]") {
   }
 
   SECTION("way is siminar for both directions") {
-    Field* field = new Field(100, 100, ran_gen);
+    std::shared_ptr<Field> field = std::make_shared<Field>(100, 100, ran_gen);
     field->BuildGraph();
     position_t target = {2, 0};
     position_t start = {99, 99};
@@ -240,7 +240,7 @@ TEST_CASE("test graph", "[graph]") {
 
   SECTION("test speed") {
     auto start_time = std::chrono::steady_clock::now();
-    Field* field = new Field(100, 100, ran_gen);
+    std::shared_ptr<Field> field = std::make_shared<Field>(100, 100, ran_gen);
     field->BuildGraph();
     std::cout << "Time (build field): " << utils::GetElapsed(start_time, std::chrono::steady_clock::now()) << std::endl;
     position_t target = {2, 0};
@@ -284,7 +284,7 @@ TEST_CASE("test priority queue", "[graph]") {
 
 TEST_CASE("test graph-cache", "[graph]") {
   RandomGenerator* ran_gen = new RandomGenerator();
-  Field* field = new Field(100, 100, ran_gen);
+  std::shared_ptr<Field> field = std::make_shared<Field>(100, 100, ran_gen);
   field->BuildGraph();
   position_t target = {2, 0};
   position_t start = {99, 99};
@@ -301,7 +301,7 @@ TEST_CASE("test graph-cache", "[graph]") {
 
 TEST_CASE("test graph: find way with special conditions", "[graph]") {
   RandomGenerator* ran_gen = new RandomGenerator();
-  Field* field = new Field(100, 100, ran_gen);
+  std::shared_ptr<Field> field = std::make_shared<Field>(100, 100, ran_gen);
   field->BuildGraph();
 
   SECTION("Expecting specific length") {

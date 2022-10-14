@@ -26,14 +26,13 @@ class Field {
      * @param[in] cols availible cols
      */
     Field(int lines, int cols, RandomGenerator* ran_gen);
-    Field(const Field& field);
 
     // getter 
     int lines();
     int cols();
     std::shared_ptr<Graph> graph();
     const std::map<position_t, std::map<int, position_t>>& resource_neurons();
-    const std::map<position_t, std::vector<std::pair<std::string, Player*>>>& epsps();
+    const std::map<position_t, std::vector<std::pair<std::string, std::shared_ptr<Player>>>>& epsps();
 
     // methods:
     
@@ -79,7 +78,7 @@ class Field {
      * @param[in] neuron shared pointer to neuron
      * @param[in] p player neuron belongs to
      */
-    void AddNewNeuron(position_t pos, std::shared_ptr<Neuron> neuron, Player* p);
+    void AddNewNeuron(position_t pos, std::shared_ptr<Neuron> neuron, std::shared_ptr<Player> p);
 
     /**
      * Removes neuron from map of neurons, does not removes from field, as
@@ -93,7 +92,7 @@ class Field {
      * @param[in] pos
      * @return pair of neuron-type and player
      */
-    std::pair<int, Player*> GetNeuronTypeAndPlayerAtPosition(position_t pos);
+    std::pair<int, std::shared_ptr<Player>> GetNeuronTypeAndPlayerAtPosition(position_t pos);
 
     /**
      * Gets way to a soldiers target.
@@ -149,21 +148,21 @@ class Field {
      * @param[in] players
      * @return two-dimensional array with Symbol (string, color) as value.
      */
-    std::vector<std::vector<Data::Symbol>> Export(std::vector<Player*> players);
+    std::vector<std::vector<Data::Symbol>> Export(std::vector<std::shared_ptr<Player>> players);
 
     /**
-     * Calls `Export(std::vector<Player*>)` after converting map to list.
+     * Calls `Export(std::vector<std::shared_ptr<Player>>)` after converting map to list.
      * @param[in] players
      * @return two-dimensional array with Symbol (string, color) as value.
      */
-    std::vector<std::vector<Data::Symbol>> Export(std::map<std::string, Player*> players);
+    std::vector<std::vector<Data::Symbol>> Export(std::map<std::string, std::shared_ptr<Player>> players);
 
     /**
      * Gathers and stores all epsps from all players after clearing current
      * gathered epsps.
      * @param[in] players
      */
-    void GatherEpspsFromPlayers(std::map<std::string, Player*> players);
+    void GatherEpspsFromPlayers(std::map<std::string, std::shared_ptr<Player>> players);
 
   private: 
     // members
@@ -173,8 +172,11 @@ class Field {
     std::shared_ptr<Graph> graph_;
     std::vector<std::vector<std::string>> field_;
     std::map<position_t, std::map<int, position_t>> resource_neurons_;  ///< stored to access after creation
-    std::map<position_t, std::pair<std::shared_ptr<Neuron>, Player*>> neurons_;  ///< stored here for fast-access
-    std::map<position_t, std::vector<std::pair<std::string, Player*>>> epsps_;  ///< stored here for fast-access
+    std::map<position_t, std::pair<std::shared_ptr<Neuron>, std::shared_ptr<Player>>> neurons_;  ///< stored 
+                                                                                                 /// here for 
+                                                                                                 /// fast-access
+    std::map<position_t, std::vector<std::pair<std::string, std::shared_ptr<Player>>>> epsps_;  ///< stored here 
+                                                                                                /// for fast-access
 
     // functions
     

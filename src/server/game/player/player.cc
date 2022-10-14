@@ -22,7 +22,7 @@
 #include "server/game//player/player.h"
 #include "share/tools/utils/utils.h"
 
-Player::Player(std::string username, position_t nucleus_pos, Field* field, RandomGenerator* ran_gen, int color) 
+Player::Player(std::string username, std::shared_ptr<Field> field, RandomGenerator* ran_gen, int color) 
     : username_(username), cur_range_(4), color_(color), resource_slowdown_(3) {
   field_ = field;
   ran_gen_ = ran_gen;
@@ -33,21 +33,6 @@ Player::Player(std::string username, position_t nucleus_pos, Field* field, Rando
   statistics_ = std::make_shared<Statictics>();
   statistics_->set_color(color);
   statistics_->set_player_name(username_);
-
-  neurons_[nucleus_pos] = std::make_shared<Nucleus>(nucleus_pos);
-  CreateNeuron(NUCLEUS, nucleus_pos);
-  std::map<int, position_t> r_pos = field_->resource_neurons().at(nucleus_pos);
-  // Max only 20 as iron should be rare.
-  resources_.insert(std::pair<int, Resource>(IRON, Resource(3, 22, 2, true, {-1, -1})));  
-  resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(15.5, 100, 0, false, r_pos[OXYGEN]))); 
-  resources_.insert(std::pair<int, Resource>(Resources::POTASSIUM, Resource(0, 100, 0, false, r_pos[POTASSIUM]))); 
-  resources_.insert(std::pair<int, Resource>(Resources::CHLORIDE, Resource(0, 100, 0, false, r_pos[CHLORIDE]))); 
-  // Max 150: allows 7 activated neurons withput updates.
-  resources_.insert(std::pair<int, Resource>(Resources::GLUTAMATE, Resource(0, 150, 0, false, r_pos[GLUTAMATE]))); 
-  // Max low, dopamine is never bound.
-  resources_.insert(std::pair<int, Resource>(Resources::DOPAMINE, Resource(0, 70, 0, false, r_pos[DOPAMINE]))); 
-  // Max low, as serotonin is never bound.
-  resources_.insert(std::pair<int, Resource>(Resources::SEROTONIN, Resource(0, 70, 0, false, r_pos[SEROTONIN]))); 
   
   technologies_ = {
     {UnitsTech::WAY, {0,3}},
@@ -61,6 +46,20 @@ Player::Player(std::string username, position_t nucleus_pos, Field* field, Rando
     {UnitsTech::DEF_SPEED, {0,3}},
     {UnitsTech::NUCLEUS_RANGE, {0,3}},
   };
+}
+
+void Player::SetupNucleusAndResources(position_t nucleus_pos) {
+  nucleus_pos_ = nucleus_pos;
+  neurons_[nucleus_pos] = std::make_shared<Nucleus>(nucleus_pos);
+  CreateNeuron(NUCLEUS, nucleus_pos);
+  std::map<int, position_t> r_pos = field_->resource_neurons().at(nucleus_pos);
+  resources_.insert(std::pair<int, Resource>(IRON, Resource(3, 22, 2, true, {-1, -1})));  
+  resources_.insert(std::pair<int, Resource>(Resources::OXYGEN, Resource(15.5, 100, 0, false, r_pos[OXYGEN]))); 
+  resources_.insert(std::pair<int, Resource>(Resources::POTASSIUM, Resource(0, 100, 0, false, r_pos[POTASSIUM]))); 
+  resources_.insert(std::pair<int, Resource>(Resources::CHLORIDE, Resource(0, 100, 0, false, r_pos[CHLORIDE]))); 
+  resources_.insert(std::pair<int, Resource>(Resources::GLUTAMATE, Resource(0, 150, 0, false, r_pos[GLUTAMATE]))); 
+  resources_.insert(std::pair<int, Resource>(Resources::DOPAMINE, Resource(0, 70, 0, false, r_pos[DOPAMINE]))); 
+  resources_.insert(std::pair<int, Resource>(Resources::SEROTONIN, Resource(0, 70, 0, false, r_pos[SEROTONIN]))); 
 }
 
 // getter 
@@ -84,7 +83,7 @@ std::map<int, tech_of_t> Player::technologies() const {
   return technologies_;
 }
 
-std::vector<Player*> Player::enemies() const {
+std::vector<std::shared_ptr<Player>> Player::enemies() const {
   return enemies_;
 }
 
@@ -95,7 +94,7 @@ int Player::color() const {
 int Player::macro() const { return macro_; }
 
 // setter 
-void Player::set_enemies(std::vector<Player*> enemies) {
+void Player::set_enemies(std::vector<std::shared_ptr<Player>> enemies) {
   enemies_ = enemies;
 }
 
@@ -656,7 +655,7 @@ bool Player::HandleIpsp(Potential& ipsp, std::string id) {
   // Potential swallow (i: 
   if (field_->epsps().count(ipsp.pos_) > 0) {
     // Go through all epsps at ipsp's position and check if belonging to other player (different color)
-    std::vector<std::pair<std::string, Player*>> vec = field_->epsps().at(ipsp.pos_);
+    std::vector<std::pair<std::string, std::shared_ptr<Player>>> vec = field_->epsps().at(ipsp.pos_);
     for (auto it = vec.begin(); it != vec.end(); it++) {
       // If so, neutralize potential
       if (it->second->color() != color_) {
@@ -843,12 +842,13 @@ void Player::UpdateResourceLimits(float faktor) {
 void Player::CreateNeuron(int type, position_t pos) {
   new_neurons_[pos] = type;
   statistics_->AddNewNeuron(type);
-  field_->AddNewNeuron(pos, neurons_.at(pos), this);
+  field_->AddNewNeuron(pos, neurons_.at(pos), shared_from_this());
   neuron_positions_[type].push_back(pos);
   neuron_positions_[-1].push_back(pos);
 }
 
 void Player::DeleteNeuron(int type, position_t pos) {
+  spdlog::get(LOGGER)->debug("Player::DeleteNeuron: type: {}, pos: {}", type, utils::PositionToString(pos));
   new_dead_neurons_[pos] = type;
   field_->RemoveNeuron(pos);
   neuron_positions_[-1].erase(std::remove(neuron_positions_[-1].begin(), 

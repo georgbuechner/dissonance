@@ -42,21 +42,14 @@ Field::Field(int lines, int cols, RandomGenerator* ran_gen) {
   }
 }
 
-Field::Field(const Field& field) {
-  lines_ = field.lines_;
-  cols_ = field.cols_;
-  ran_gen_ = field.ran_gen_; // check deep-copy
-  graph_ = field.graph_; 
-  field_ = field.field_; 
-  // neurons are added when player's neurons are added.
-}
-
 // getter 
 int Field::lines() { return lines_; }
 int Field::cols() { return cols_; }
 std::shared_ptr<Graph> Field::graph() { return graph_; }
 const std::map<position_t, std::map<int, position_t>>& Field::resource_neurons() { return resource_neurons_; }
-const std::map<position_t, std::vector<std::pair<std::string, Player*>>>& Field::epsps() { return epsps_; }
+const std::map<position_t, std::vector<std::pair<std::string, std::shared_ptr<Player>>>>& Field::epsps() { 
+  return epsps_; 
+}
 
 std::vector<position_t> Field::GraphPositions() {
   std::vector<position_t> graph_positions;
@@ -230,7 +223,7 @@ std::list<position_t> Field::GetWay(position_t start_pos, const std::vector<posi
   return way;
 }
 
-void Field::AddNewNeuron(position_t pos, std::shared_ptr<Neuron> neuron, Player* p) {
+void Field::AddNewNeuron(position_t pos, std::shared_ptr<Neuron> neuron, std::shared_ptr<Player> p) {
   spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos({})", utils::PositionToString(pos));
   // Add unit to field if in unit-symbol-mapping (resource-neurons already exist)
   if (unit_symbol_mapping.count(neuron->type_) > 0)
@@ -244,7 +237,7 @@ void Field::RemoveNeuron(position_t pos) {
     neurons_.erase(pos);
 }
 
-std::pair<int, Player*> Field::GetNeuronTypeAndPlayerAtPosition(position_t pos) {
+std::pair<int, std::shared_ptr<Player>> Field::GetNeuronTypeAndPlayerAtPosition(position_t pos) {
   if (neurons_.count(pos) > 0)
     return {neurons_.at(pos).first->type_, neurons_.at(pos).second};
   return {-1, nullptr};
@@ -305,15 +298,15 @@ std::vector<position_t> Field::GetAllPositionsOfSection(int interval, bool in_gr
   return positions;
 }
 
-std::vector<std::vector<Data::Symbol>> Field::Export(std::map<std::string, Player*> players) {
+std::vector<std::vector<Data::Symbol>> Field::Export(std::map<std::string, std::shared_ptr<Player>> players) {
   spdlog::get(LOGGER)->debug("Field::Export");
-  std::vector<Player*> vec_players;
+  std::vector<std::shared_ptr<Player>> vec_players;
   for (const auto& it : players)
     vec_players.push_back(it.second);
   return Export(vec_players);
 }
 
-std::vector<std::vector<Data::Symbol>> Field::Export(std::vector<Player*> players) {
+std::vector<std::vector<Data::Symbol>> Field::Export(std::vector<std::shared_ptr<Player>> players) {
   spdlog::get(LOGGER)->debug("Field::Export");
   std::vector<std::vector<Data::Symbol>> t_field;
   // Create transfer-type field.
@@ -343,7 +336,7 @@ bool Field::NucleusInRange(position_t pos, int range) {
   return false; 
 }
 
-void Field::GatherEpspsFromPlayers(std::map<std::string, Player*> players) {
+void Field::GatherEpspsFromPlayers(std::map<std::string, std::shared_ptr<Player>> players) {
   epsps_.clear();
   for (const auto& p : players) {
     for (const auto& potential : p.second->potential()) {

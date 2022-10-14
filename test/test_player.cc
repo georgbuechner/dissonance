@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 #include <iterator>
+#include <memory>
 #include "server/game/field/field.h"
 #include "share/constants/codes.h"
 #include "share/defines.h"
@@ -11,14 +12,17 @@
 #include "testing_utils.h"
 #include "share/tools/utils/utils.h"
 
-std::pair<Player*, Field*> SetUpPlayer(bool resources) {
+std::pair<std::shared_ptr<Player>, std::shared_ptr<Field>> SetUpPlayer(bool resources) {
   RandomGenerator* ran_gen = new RandomGenerator();
-  Field* field = new Field(ran_gen->RandomInt(50, 150), ran_gen->RandomInt(50, 150), ran_gen);
+  std::shared_ptr<Field> field = std::make_shared<Field>(ran_gen->RandomInt(50, 150), 
+      ran_gen->RandomInt(50, 150), ran_gen);
   spdlog::get(LOGGER)->info("SetUpPlayer with field cols: {} and lines: {}", field->cols(), field->lines());
   field->BuildGraph();
   auto nucleus_positions = field->AddNucleus(2);
-  Player* player_one_ = new Player("p1", nucleus_positions[0], field, ran_gen, 0);
-  Player* player_two_ = new Player("p2", nucleus_positions[1], field, ran_gen, 1);
+  std::shared_ptr<Player> player_one_ = std::make_shared<Player>("p1", field, ran_gen, 0);
+  player_one_->SetupNucleusAndResources(nucleus_positions[0]);
+  std::shared_ptr<Player> player_two_ = std::make_shared<Player>("p2", field, ran_gen, 1);
+  player_two_->SetupNucleusAndResources(nucleus_positions[1]);
   player_one_->set_enemies({player_two_});
   player_two_->set_enemies({player_one_});
 
@@ -42,7 +46,8 @@ std::pair<Player*, Field*> SetUpPlayer(bool resources) {
   return {player_one_, field};
 }
 
-void CreateRandomNeurons(Player* player, Field* field, int num, RandomGenerator* ran_gen) {
+void CreateRandomNeurons(std::shared_ptr<Player> player, std::shared_ptr<Field> field, int num, 
+    RandomGenerator* ran_gen) {
   spdlog::get(LOGGER)->info("CreateRandomNeurons {}", num);
   for (int i=0; i<num; i++) {
     auto pos = t_utils::GetRandomPositionInField(field, ran_gen);
@@ -54,14 +59,14 @@ void CreateRandomNeurons(Player* player, Field* field, int num, RandomGenerator*
 TEST_CASE("test_ipsp_takes_epsp_potential", "[test_player]") {
   RandomGenerator* ran_gen = new RandomGenerator();
   auto player_and_field = SetUpPlayer(true); // set up player with lots of resources.
-  Player* player = player_and_field.first;
-  Field* field = player_and_field.second;
+  auto player = player_and_field.first;
+  auto field = player_and_field.second;
 
   /*
     TODO (fux): this test should be added. However, it is currently hard to create enemy neurons 
     and potentials at specific positions.
   SECTION("test ipsp-swallow") {
-    Player* enemy = player->enemies().front();
+  std::shared_ptr<Player> enemy = player->enemies().front();
     auto nucleus_pos = player->GetOneNucleus();
     auto synape_pos = field->FindFree(nucleus_pos, 2, 3); // random pos in range of nucleus
     auto enemy_pos = field->FindFree(synape_pos, 2, 3);  // close free position

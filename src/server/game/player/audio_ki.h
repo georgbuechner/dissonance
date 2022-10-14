@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <deque>
+#include <memory>
 #include <queue>
 #include <shared_mutex>
 #include <vector>
@@ -15,8 +16,7 @@
 
 class AudioKi : public Player {
   public:
-    AudioKi(std::string username, position_t nucleus_pos, Field* field, Audio* audio, RandomGenerator* ran_gen, 
-        int color);
+    AudioKi(std::string username, std::shared_ptr<Field> field, Audio* audio, RandomGenerator* ran_gen, int color);
     ~AudioKi() {};
 
     // getter 
@@ -24,11 +24,17 @@ class AudioKi : public Player {
     std::map<std::string, size_t> strategies() const;
     
     /**
+     * Distributes initial iron and sets up tactics.
+     * Must be called AFTER `Player::SetupNucleusAndResources()`!
+     */
+    void Setup();
+
+    /**
      * Sets up tactics. Always sets up battle-tactics, economical tactics only
      * on first call.
      * @param[in] economy_tactics if true, sets up economical tactics too.
      */
-    void SetUpTactics(bool economy_tactics);
+    void SetupTactics(bool inital_setup);
 
     /**
      * Executes ai-action.
@@ -39,7 +45,6 @@ class AudioKi : public Player {
 
   private:
     // members
-    position_t nucleus_pos_;
 
     // audio-data
     Audio* audio_;
