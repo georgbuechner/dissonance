@@ -1251,8 +1251,10 @@ std::string ClientGame::SelectAudio(std::string msg) {
         print_start = 0;
       }
       // Otherwise: show error.
-      else 
+      else {
         error = "Not a directory!";
+        level--;
+      }
     }
     // Go to parent directory
     else if (utils::IsLeft(choice)) {
