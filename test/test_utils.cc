@@ -101,7 +101,7 @@ TEST_CASE("Split large data") {
 }
 
 TEST_CASE("Test min-max-avrg", "[utils]") {
-  nlohmann::json analysis_json = utils::LoadJsonFromDisc("dissonance/data/analysis/elle_rond.json");
+  nlohmann::json analysis_json = utils::LoadJsonFromDisc("test_data/data/analysis/elle_rond.json");
   std::vector<double> pitches = analysis_json["pitches"].get<std::vector<double>>();
   std::vector<int> levels;
   for (const auto& it : analysis_json["time_points"].get<nlohmann::json>())
@@ -150,7 +150,7 @@ TEST_CASE("Test getting percent", "[utils]") {
 }
 
 TEST_CASE("Test DouglasPeucker algorithm", "[douglas_peucker]") {
-  nlohmann::json analysis_json = utils::LoadJsonFromDisc("dissonance/data/analysis/elle_rond.json");
+  nlohmann::json analysis_json = utils::LoadJsonFromDisc("test_data/data/analysis/elle_rond.json");
   std::vector<double> pitches = analysis_json["pitches"].get<std::vector<double>>();
   std::vector<int> levels;
   for (const auto& it : analysis_json["time_points"].get<nlohmann::json>())

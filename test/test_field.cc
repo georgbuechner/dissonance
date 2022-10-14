@@ -215,7 +215,6 @@ TEST_CASE("test graph", "[graph]") {
   }
 
   SECTION("way is identical for both directions and for parts") {
-    std::cout << "BOTH WAYS IDENTICAL" << std::endl;
     std::shared_ptr<Field> field = std::make_shared<Field>(100, 100, ran_gen);
     spdlog::get(LOGGER)->debug("MARK");
     field->BuildGraph();
