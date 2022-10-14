@@ -147,7 +147,7 @@ void Field::BuildGraph() {
   for (auto node : graph_->nodes()) {
     for (const auto& pos : GetAllInRange(node.second->pos_, 1.5, 1)) {
       if (InField(pos) && field_[pos.first][pos.second] != SYMBOL_HILL && graph_->InGraph(pos))
-        graph_->AddEdge(node.second, graph_->GetNode(pos));
+        graph_->AddEdge(node.first, pos);
     }
   }
   // Remove all nodes not in main circle

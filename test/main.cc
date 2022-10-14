@@ -25,9 +25,8 @@ int main( int argc, char* argv[] ) {
   int result = Catch::Session().run( argc, argv );
 
   // Remove all analyzed-data files.
-  std::cout << "CLEAN UP" << std::endl;
   for (const auto& entry : std::filesystem::directory_iterator("test_data/data/analysis/")) {
-    std::cout << entry.path().filename() << std::endl;
+    // All auto-generated analysis files begin with hash (t.i.~digits), other files must not be deleted!
     if (std::isdigit(entry.path().filename().string()[0]))
       std::filesystem::remove_all(entry.path());
   }

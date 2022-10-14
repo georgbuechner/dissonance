@@ -86,15 +86,6 @@ class Graph {
       return cache_.size();
     }
 
-    /*
-     * Gets node at given position.
-     * @param[in] pos 
-     * @return pointer to node. 
-     */
-    Node* GetNode(position_t pos) const {
-      return nodes_.at(to_int(pos));
-    }
-
     /**
      * Adds new node from x- and y-position.
      * @param line (x-position)
@@ -109,7 +100,9 @@ class Graph {
     /**
      * Adds edge between to given nodes
      */
-    void AddEdge(Node* a, Node* b) {
+    void AddEdge(int node_a_int_pos, position_t node_b_pos) {
+      Node* a = nodes_.at(node_a_int_pos);
+      Node* b = nodes_.at(to_int(node_b_pos));
       a->nodes_.push_back({b, utils::Dist(a->pos_, b->pos_)});
     }
 
