@@ -71,6 +71,8 @@ Command::Command(const char* payload, size_t len) {
     data_ = std::make_shared<GetPositions>(payload, len, offset);
   else if (command_ == "audio_map")
     data_ = std::make_shared<CheckSendAudio>(payload, len, offset);
+  else if (command_ == "audio_exists")
+    data_ = std::make_shared<CheckSendAudio>(payload, len, offset);
   else if (command_ == "send_audio_data")
     data_ = std::make_shared<AudioTransferData>(payload, len, offset);
   else if (command_ == "initialize_game")
