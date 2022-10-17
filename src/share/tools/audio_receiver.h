@@ -21,6 +21,7 @@ class AudioReceiver {
     // setter 
     void set_audio_file_name(std::string audio_file_name) { audio_file_name_ = audio_file_name; }
     void set_audio_data(std::string audio_data) { audio_data_ = audio_data; }
+    void set_audio_stored(bool audio_stored) { audio_stored_ = audio_stored; }
 
     /**
      * Adds new audio-data to buffer. 

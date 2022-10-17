@@ -3,6 +3,7 @@
 
 #include "share/audio/audio.h"
 #include "share/shemes/commands.h"
+#include "share/tools/audio_receiver.h"
 // #include "share/objects/dtos.h"
 #include <memory>
 #define NCURSES_NOMACROS
@@ -103,7 +104,7 @@ class ClientGame {
 
     // audio
     Audio audio_;
-    std::string audio_data_;
+    AudioReceiver audio_data_;
     std::vector<std::string> audio_paths_; 
     std::string audio_file_path_;
 

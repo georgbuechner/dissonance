@@ -104,7 +104,8 @@ t_topline synapse_topline = {{" set [w]ay-points ", COLOR_DEFAULT}, {" [i]psp-ta
 };
 
 ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : username_(username), 
-    muliplayer_availible_(mp), base_path_(base_path), drawrer_(), audio_(base_path) {
+    muliplayer_availible_(mp), base_path_(base_path), drawrer_(), audio_(base_path),
+    audio_data_(base_path_ + USER_FILES) {
   status_ = WAITING;
 
   // apply standard settings:
@@ -778,17 +779,8 @@ void ClientGame::m_SelectAudio(std::shared_ptr<Data>) {
 
 void ClientGame::m_GetAudioData(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data size");
-  std::string path = base_path_ + USER_FILES + username_ ;
-  if (!std::filesystem::exists(path))
-    std::filesystem::create_directory(path);
-  path += "/" + data->songname();
-  audio_data_ += data->content();
-  drawrer_.PrintOnlyCenteredLine(LINES/2, "Receiving audio part " + std::to_string(data->part()) + " of " 
-        + std::to_string(data->parts()));
-  if (data->part() == data->parts()) {
-    spdlog::get(LOGGER)->debug("Websocket::on_message: storing binary data to: {}", path);
-    utils::StoreMedia(path, audio_data_);
-    audio_file_path_ = path;
+  audio_data_.AddData(data);
+  if (audio_data_.audio_stored()) {
     ws_srv_->SendMessage("ready", std::make_shared<Data>());
   }
 }

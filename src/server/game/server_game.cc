@@ -357,6 +357,7 @@ void ServerGame::m_SendAudioMap(std::shared_ptr<Data> data) {
   // If same device, set path to map-path.
   if (data->same_device()) {
     audio_.set_source_path(data->map_path());
+    audio_data_.set_audio_stored(true);
   }
   // Otherwise check if audio-file already exists, otherwise, request audio-data from host.
   else {
@@ -365,6 +366,7 @@ void ServerGame::m_SendAudioMap(std::shared_ptr<Data> data) {
     if (std::filesystem::exists(path)) {
       audio_data_.set_audio_data(utils::GetMedia(path));
       audio_data_.set_audio_file_name(data->audio_file_name());
+      audio_data_.set_audio_stored(true);
     }
     else {
       send_song = true;
