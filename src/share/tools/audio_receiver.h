@@ -14,6 +14,7 @@ class AudioReceiver {
     AudioReceiver(std::string user_files_path) : user_files_path_(user_files_path), audio_stored_(false) {}
 
     // getter 
+    std::string audio_file_path() const { return audio_file_path_; }
     std::string audio_file_name() const { return audio_file_name_; }
     const std::string& audio_data() const { return audio_data_; }
     bool audio_stored() const { return audio_stored_; }
@@ -42,7 +43,8 @@ class AudioReceiver {
         for (const auto& it : sorted_buffer_)
           audio_data_ += it.second;
         sorted_buffer_.clear();
-        utils::StoreMedia(user_files_path_ + data->username() + "/" + audio_file_name_, audio_data_);
+        audio_file_path_ = user_files_path_ + data->username() + "/" + audio_file_name_;
+        utils::StoreMedia(audio_file_path_, audio_data_);
         audio_stored_ = true;
       }
     }
@@ -58,6 +60,7 @@ class AudioReceiver {
   private: 
     std::shared_mutex mutex_audio_;
     const std::string user_files_path_;
+    std::string audio_file_path_;
     std::map<int, std::string> sorted_buffer_;
     std::string audio_file_name_;
     std::string audio_data_;

@@ -782,6 +782,7 @@ void ClientGame::m_GetAudioData(std::shared_ptr<Data> data) {
   audio_data_.AddData(data);
   if (audio_data_.audio_stored()) {
     ws_srv_->SendMessage("ready", std::make_shared<Data>());
+    audio_file_path_ = audio_data_.audio_file_path();
   }
 }
 
@@ -798,7 +799,7 @@ void ClientGame::m_SendAudioInfo(std::shared_ptr<Data> data) {
   std::filesystem::path p = audio_file_path_;
   auto new_data = std::make_shared<InitializeGame>(p.filename().string());
 
-  // If observer load audio for two ai-files (no need to send audio-file: only analysed data)
+  // If observer, load audio for two ai-files (no need to send audio-file: only analysed data)
   if (data->send_ai_audios()) {
     for (int i = 0; i<2; i++) {
       std::string source_path = SelectAudio("select ai sound " + std::to_string(i+1));
