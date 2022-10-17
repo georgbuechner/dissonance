@@ -783,6 +783,7 @@ void ClientGame::m_GetAudioData(std::shared_ptr<Data> data) {
   if (audio_data_.audio_stored()) {
     ws_srv_->SendMessage("ready", std::make_shared<Data>());
     audio_file_path_ = audio_data_.audio_file_path();
+    audio_data_.Clear(); // audio will be loaded from disc, no need to keep in memory here.
   }
 }
 
@@ -846,21 +847,22 @@ void ClientGame::m_PrintMsg(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
-  std::unique_lock ul(mutex_);
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame");
+  std::unique_lock ul(mutex_);
+  // Play audio right away, since game has already begun.
+  audio_.set_source_path(audio_file_path_);
+  if (music_on_)
+    audio_.play();
+  // Setup drawrer with transfer-data.
   drawrer_.ClearField();
   drawrer_.set_transfer(data, show_ai_tactics_);
   drawrer_.PrintGame(false, false, current_context_);
   status_ = RUNNING;
+  // Setup context and print topline.
   current_context_ = CONTEXT_RESOURCES;
   drawrer_.set_msg(contexts_.at(current_context_).msg());
   drawrer_.set_topline(contexts_.at(current_context_).topline());
   ul.unlock();
-  spdlog::get(LOGGER)->debug("ClientGame::m_InitGame");
-  
-  audio_.set_source_path(audio_file_path_);
-  if (music_on_)
-    audio_.play();
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: done");
 }
 
