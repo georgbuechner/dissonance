@@ -22,6 +22,7 @@
 #include "share/shemes/data.h"
 #include "share/tools/random/random.h"
 #include "share/tools/eventmanager.h"
+#include "share/tools/audio_receiver.h"
 
 class WebsocketServer;
 
@@ -100,13 +101,8 @@ class ServerGame {
 
     // audio
     Audio audio_;  ///< main-audio (f.e. map and in single-player: ai)
-    std::map<int, std::string> audio_data_sorted_buffer_;
-    std::string audio_data_buffer_;  ///< audio data (used as buffer when receiving audio-data)
-    std::string audio_file_name_;  ///< audio-file-name.
+    AudioReceiver audio_data_;
     std::string base_path_;
-    bool audio_stored_;
-    std::atomic<int> last_audio_part_;
-    std::shared_mutex mutex_audio_;
 
     // meta 
     WebsocketServer* ws_server_;
