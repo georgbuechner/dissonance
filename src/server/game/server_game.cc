@@ -379,10 +379,9 @@ void ServerGame::m_SendAudioMap(std::shared_ptr<Data> data) {
 void ServerGame::m_SendSong(std::shared_ptr<Data> data) {
   // Create initial data
   std::shared_ptr<Data> audio_data = std::make_shared<AudioTransferData>(host_, audio_data_.audio_file_name());
-  std::map<int, std::string> contents;
-  utils::SplitLargeData(contents, audio_data_.audio_data(), pow(2, 12));
-  audio_data->set_parts(contents.size()-1);
-  for (const auto& it : contents) {
+  auto chunks = audio_data_.GetCunks();
+  audio_data->set_parts(chunks.size()-1);
+  for (const auto& it : chunks) {
     audio_data->set_part(it.first);
     audio_data->set_content(it.second);
     try {

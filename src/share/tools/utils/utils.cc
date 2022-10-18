@@ -187,7 +187,6 @@ void utils::StoreMedia(std::string path, std::string content) {
     std::cout << "Writing media-file failed: " << e.what() << std::endl;
     return;
   }
-  std::cout << "Successfully written media file to: " << path << std::endl;
 }
 
 std::string utils::GetFormatedDatetime() {
@@ -232,16 +231,6 @@ void utils::WaitABit(int milliseconds) {
   // Wait a bit.
   auto cur_time = std::chrono::steady_clock::now();
   while (utils::GetElapsed(cur_time, std::chrono::steady_clock::now()) < milliseconds) {}
-}
-
-void utils::SplitLargeData(std::map<int, std::string>& contents, std::string content, size_t threshold) {
-  if (content.size() > threshold) {
-    SplitLargeData(contents, content.substr(0, content.size()/2), threshold);
-    SplitLargeData(contents, content.substr(content.size()/2), threshold);
-  }
-  else {
-    contents[contents.size()] = content;
-  }
 }
 
 struct Line {

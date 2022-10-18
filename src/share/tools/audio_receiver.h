@@ -3,11 +3,14 @@
 
 #include "share/shemes/data.h"
 #include "share/tools/utils/utils.h"
+#include "spdlog/spdlog.h"
 #include <filesystem>
 #include <iostream>
 #include <map>
 #include <mutex>
 #include <shared_mutex>
+
+#define CHUNK_SIZE 4096
 
 class AudioReceiver {
   public: 
@@ -42,11 +45,28 @@ class AudioReceiver {
         // Add sorted audio-parts to buffer
         for (const auto& it : sorted_buffer_)
           audio_data_ += it.second;
-        sorted_buffer_.clear();
         audio_file_path_ = user_files_path_ + data->username() + "/" + audio_file_name_;
         utils::StoreMedia(audio_file_path_, audio_data_);
         audio_stored_ = true;
       }
+    }
+
+    /**
+     * Either takes chunks as received, or generates chunks of CHUNK_SIZE from audio-data.
+     * Clears audio_data before returning.
+     * @return chunks of CHUNK_SIZE.
+     */
+    const std::map<int, std::string>& GetCunks() {
+      if (audio_stored_ != true || sorted_buffer_.size() == 0) {
+        sorted_buffer_.clear(); // make sure buffer is empty.
+        while (audio_data_.size() >= CHUNK_SIZE*(sorted_buffer_.size()+1)) {
+          sorted_buffer_[sorted_buffer_.size()] = audio_data_.substr(sorted_buffer_.size()*CHUNK_SIZE, CHUNK_SIZE);
+        }
+        sorted_buffer_[sorted_buffer_.size()] = audio_data_.substr(sorted_buffer_.size()*CHUNK_SIZE, CHUNK_SIZE);
+        spdlog::get(LOGGER)->debug("Made {} parts of {} bits data", sorted_buffer_.size(), audio_data_.size());
+      }
+      audio_data_.clear();
+      return sorted_buffer_;
     }
 
     /**

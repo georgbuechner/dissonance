@@ -164,8 +164,6 @@ namespace utils {
 
   void WaitABit(int milliseconds);
 
-  void SplitLargeData(std::map<int, std::string>& contents, std::string content, size_t threshold);
-
   /** 
    * Decimates curve, while perserving structure.
    * @param[in] vec vector of data-points (index: value)

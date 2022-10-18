@@ -818,22 +818,25 @@ void ClientGame::SendSong() {
   std::filesystem::path p = audio_file_path_;
   auto data = std::make_shared<AudioTransferData>(username_, p.filename().string());
   // Get content.
-  std::string content = utils::GetMedia(audio_file_path_);
-  std::map<int, std::string> contents;
-  utils::SplitLargeData(contents, content, pow(2, 12));
-  spdlog::get(LOGGER)->debug("Made {} parts of {} bits data", contents.size(), content.size());
-  data->set_parts(contents.size()-1);
-  for (const auto& it : contents) {
+  audio_data_.set_audio_data(utils::GetMedia(audio_file_path_));
+  auto chunks = audio_data_.GetCunks();
+  data->set_parts(chunks.size()-1);
+  for (const auto& it : chunks) {
+    // Update dto.
     data->set_part(it.first);
     data->set_content(it.second);
+    // Print "progress"-message 
     std::string msg = "Sending audio part " + std::to_string(it.first+1) + " of " 
-      + std::to_string(contents.size()) + "...";
-    if ((size_t)it.first+1 == contents.size())
+      + std::to_string(chunks.size()) + "...";
+    if ((size_t)it.first+1 == chunks.size())
       msg = "Data sent. Waiting for server...";
     drawrer_.PrintOnlyCenteredLine(LINES/2, msg);
+    // Try sending chunk to server.
     try {
       ws_srv_->SendMessage("send_audio_data", data);
-    } catch(...) {
+    } 
+    // Otherwise (file size to big) print error message and ask for user-input (confirmation)
+    catch(...) {
       drawrer_.ClearField();
       drawrer_.PrintCenteredLine(LINES/2, "File size too big! (press any key to continue.)");
       getch();
