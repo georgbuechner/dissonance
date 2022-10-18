@@ -6,6 +6,7 @@
 #include <list>
 #include <unistd.h>
 #include <vector>
+#include "share/tools/audio_receiver.h"
 #include "share/tools/utils/utils.h"
 
 TEST_CASE ("test_dist", "[utils]") {
@@ -91,13 +92,34 @@ TEST_CASE("duration") {
   REQUIRE(utils::GetElapsedNano(end, start) < 0);
 }
 
-TEST_CASE("Split large data") {
+TEST_CASE("audio-receiver", "[utils]") {
   std::string content = utils::GetMedia("dissonance/data/examples/elle_rond_elle_bon_et_blonde.wav");
-  size_t size = content.size();
-  size_t threshold = pow(2, 13);
-  std::map<int, std::string> contents;
-  utils::SplitLargeData(contents, content, threshold);
-  REQUIRE((size/threshold)*2 > contents.size());
+  AudioReceiver audio_receiver("test_data/data/");
+  audio_receiver.set_audio_data(content);
+  std::shared_ptr<Data> audio_data = std::make_shared<AudioTransferData>("analysis", 
+      "elle_rond_elle_bon_et_blonde.wav");
+
+  // Test chunking and then rebuilding content.
+  auto chunks = audio_receiver.GetCunks();
+  std::string rebuilt_content = "";
+  for (const auto& it : chunks) {
+    rebuilt_content += it.second;
+  }
+  REQUIRE(content == rebuilt_content );
+
+  // Test "sending" audio-data
+  audio_data->set_parts(chunks.size()-1);
+  audio_receiver.Clear();
+  for (const auto& it : chunks) {
+    audio_data->set_part(it.first);
+    audio_data->set_content(it.second);
+    audio_receiver.AddData(audio_data);
+  }
+  auto new_chunks = audio_receiver.GetCunks();
+  REQUIRE(chunks.size() == new_chunks.size());
+  for (const auto& it : chunks) {
+    REQUIRE(new_chunks.at(it.first) == it.second);
+  }
 }
 
 TEST_CASE("Test min-max-avrg", "[utils]") {
