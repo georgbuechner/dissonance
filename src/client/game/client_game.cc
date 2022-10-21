@@ -39,7 +39,7 @@
 
 std::map<int, std::map<char, void(ClientGame::*)(std::shared_ptr<Data>)>> ClientGame::handlers_ = {};
 
-void ClientGame::init(){
+void ClientGame::init() {
   handlers_ = {
     { STD_HANDLERS, {
         {'j', &ClientGame::h_MoveSelectionUp}, {'k', &ClientGame::h_MoveSelectionDown}, 
@@ -270,6 +270,10 @@ void ClientGame::GetAction() {
 
   // Wrap up and exit.
   WrapUp();
+}
+
+void ClientGame::Kill(std::string msg) {
+  h_Kill(std::make_shared<Msg>(msg));
 }
 
 void ClientGame::h_Kill(std::shared_ptr<Data> data) {

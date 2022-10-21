@@ -6,6 +6,7 @@
 #include "share/tools/utils/utils.h"
 #include "spdlog/spdlog.h"
 #include "websocketpp/frame.hpp"
+#include <exception>
 #include <memory>
 
 Client::Client(ClientGame* game, std::string username, std::string base_path) : username_(username) {
@@ -30,7 +31,7 @@ void Client::Start(std::string address) {
     websocketpp::lib::error_code ec;
     client::connection_ptr con = c_.get_connection(address, ec);
     if (ec) {
-      std::cout << "could not create connection because: " << ec.message() << std::endl;
+      spdlog::get(LOGGER)->error("Client::Start: could not create connection because: {}", ec.message());
       return;
     }
     
@@ -45,11 +46,23 @@ void Client::Start(std::string address) {
     // Start the ASIO io_service run loop
     // this will cause a single connection to be made to the server. c.run()
     // will exit when this connection is closed.
-    spdlog::get(LOGGER)->info("WebsocketFrame:: successfully started client to: {}", address);
+    spdlog::get(LOGGER)->info("Client::Start: successfully started client to: {}", address);
     c_.run();
-  } catch (websocketpp::exception const & e) {
-    std::cout << e.what() << std::endl;
+  } catch (websocketpp::exception const& e) {
+    spdlog::get(LOGGER)->error("Client::Start: websocket-error in event loop: {}", e.what());
+    game_->Kill("Game crashed. We're sorry. Consider filing a bug report at \n"
+        "https://github.com/georgbuechner/dissonance/issues");
+  } catch (std::exception const& e) {
+      spdlog::get(LOGGER)->error("Client::Start: error in event loop: {}", e.what());
+      game_->Kill("Game crashed. We're sorry. Consider filing a bug report at \n"
+          "https://github.com/georgbuechner/dissonance/issues");
+  } catch ( ... ) {
+      spdlog::get(LOGGER)->error("Client::Start: unknown error in event loop!");
+      game_->Kill("Game crashed. We're sorry. Consider filing a bug report at \n"
+          "https://github.com/georgbuechner/dissonance/issues");
   }
+  spdlog::get(LOGGER)->info("Client::Start. closed.");
+  game_->Kill("The websocketpp server has closed. Probably no connection to server exists. Try again?");
 }
 
 void Client::Stop() {
@@ -59,6 +72,7 @@ void Client::Stop() {
 }
 
 void Client::on_open(websocketpp::connection_hdl) {
+  spdlog::get(LOGGER)->debug("Client::on_open");
   SendMessage("initialize_user", std::make_shared<Data>());
 }
 

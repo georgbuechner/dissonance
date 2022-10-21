@@ -51,6 +51,11 @@ class ClientGame {
     void GetAction();
 
     /**
+     * Calls h_Kill. Used to call from outside of class.
+     */
+    void Kill(std::string msg);
+
+    /**
      * Initializes handlers.
      */
     static void init();
