@@ -73,8 +73,12 @@ class AudioReceiver {
      * Cleans all audio data. 
      */
     void Clear() { 
+      std::unique_lock ul(mutex_audio_);
+      spdlog::get(LOGGER)->debug("AudioReceiver::Clear.");
       sorted_buffer_.clear();
+      spdlog::get(LOGGER)->debug("AudioReceiver::Clear. cleared buffer");
       audio_data_.clear();
+      spdlog::get(LOGGER)->debug("AudioReceiver::Clear. cleared audio-data");
     }
 
   private: 

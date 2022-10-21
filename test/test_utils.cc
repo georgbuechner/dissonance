@@ -108,13 +108,21 @@ TEST_CASE("audio-receiver", "[utils]") {
   REQUIRE(content == rebuilt_content );
 
   // Test "sending" audio-data
-  audio_data->set_parts(chunks.size()-1);
+  REQUIRE(audio_receiver.audio_stored() == false);
+  audio_data->set_parts(chunks.size());
   audio_receiver.Clear();
+  int audio_stored_counter = 0;
   for (const auto& it : chunks) {
     audio_data->set_part(it.first);
     audio_data->set_content(it.second);
     audio_receiver.AddData(audio_data);
+    if (audio_receiver.audio_stored())
+      audio_stored_counter++;
   }
+  // Make sure audio is stored and only on last chunk audio was stored.
+  REQUIRE(audio_receiver.audio_stored() == true);
+  REQUIRE(audio_stored_counter == 1);
+  // Make sure new chunks are identical to old
   auto new_chunks = audio_receiver.GetCunks();
   REQUIRE(chunks.size() == new_chunks.size());
   for (const auto& it : chunks) {

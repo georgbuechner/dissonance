@@ -820,7 +820,7 @@ void ClientGame::SendSong() {
   // Get content.
   audio_data_.set_audio_data(utils::GetMedia(audio_file_path_));
   auto chunks = audio_data_.GetCunks();
-  data->set_parts(chunks.size()-1);
+  data->set_parts(chunks.size());
   for (const auto& it : chunks) {
     // Update dto.
     data->set_part(it.first);
