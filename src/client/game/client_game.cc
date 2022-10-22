@@ -1431,9 +1431,13 @@ void ClientGame::h_TextQuit(std::shared_ptr<Data>) {
 }
 
 void ClientGame::h_TextQuit() {
-  spdlog::get(LOGGER)->debug("ClientGame::h_TextQuit");
+  spdlog::get(LOGGER)->debug("ClientGame::h_TextQuit. Current context: {}", current_context_);
   std::shared_lock sl(mutex_context_);
+  // Get last context from context-text, to resume where we left off before text-context.
   current_context_ = contexts_.at(CONTEXT_TEXT).last_context();
+  // Make sure this context exists (otherwise use default context (CONTEXT_RESOURCES).
+  if (contexts_.count(current_context_) == 0)
+    current_context_ = CONTEXT_RESOURCES;
   drawrer_.set_topline(contexts_.at(current_context_).topline());
   drawrer_.set_viewpoint(current_context_);
   UnPause();

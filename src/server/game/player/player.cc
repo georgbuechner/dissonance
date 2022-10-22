@@ -622,8 +622,6 @@ void Player::HandleEpspAndMacro(Potential& potential) {
     auto res = field_->GetNeuronTypeAndPlayerAtPosition(potential.pos_);
     if (res.first != -1)
       res.second->AddVoltageToNeuron(potential.pos_, potential._voltage);
-    // Check friendly fire (TODO (fux): check if this is necessary!)
-    AddVoltageToNeuron(potential.pos_, potential._voltage);
   }
   // Makro (A)
   else if (potential.type_ == UnitsTech::MACRO && macro_ == 0) {
@@ -631,9 +629,13 @@ void Player::HandleEpspAndMacro(Potential& potential) {
     if (res.first != -1) {
       // Get all neurons in range of macro-position (range is matched with enemies current range)
       auto neurons = res.second->GetAllNeuronsInRange(potential.pos_);
+      // Sort neurons by least distance to macro-position.
+      std::map<double, FieldPosition> sorted_neurons;
+      for (const auto& it : neurons)
+        sorted_neurons.insert({utils::Dist(potential.pos_, it.pos()), it});
       int macro_voltage = potential._voltage;
       // Unload voltage on surounding enemy neuerons. (destroy enemy neurons, unit macro-voltage is 0)
-      for (const auto& neuron : neurons) {
+      for (const auto& [_, neuron] : sorted_neurons) {
         int enemy_neuron_voltage = (neuron.unit() == SYNAPSE) ? 5 : (neuron.unit() == ACTIVATEDNEURON) ? 17 : 0;
         macro_voltage -= enemy_neuron_voltage;
         if (macro_voltage < 0) 
