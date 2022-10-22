@@ -349,7 +349,7 @@ namespace texts {
       "",
       "Place THREE activated neurons.",
       "HINT: Activated neurons can decrease the voltage of incoming potentials in a certain range.",
-      "If you place you activated neurons to close to your nucleus, they won't affect",
+      "If you place your activated neurons to close to your nucleus, they won't affect",
       "incoming potentials *behind* the activated neurons."
      }, {}}
   };

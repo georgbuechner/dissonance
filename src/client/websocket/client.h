@@ -32,6 +32,7 @@ class Client {
     ClientGame* game_;
     std::string audio_data_;
     std::string base_path_;
+    bool closed_by_me_;
 
     void on_open(websocketpp::connection_hdl);
     

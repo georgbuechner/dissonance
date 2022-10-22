@@ -153,8 +153,8 @@ ClientGame::ClientGame(std::string base_path, std::string username, bool mp) : u
 
   // Initialize contexts
   if (!muliplayer_availible_) {
-    handlers_[STD_HANDLERS][' '] = &ClientGame::h_PauseAndUnPause;
-    handlers_[CONTEXT_FIELD][' '] = &ClientGame::h_PauseAndUnPause;
+    handlers_[STD_HANDLERS][' '] = &ClientGame::h_PauseOrUnpause;
+    handlers_[CONTEXT_FIELD][' '] = &ClientGame::h_PauseOrUnpause;
     std_topline.push_back({"[space] pause", COLOR_AVAILIBLE});
   }
 
@@ -312,7 +312,7 @@ void ClientGame::h_Quit(std::shared_ptr<Data>) {
   }
 }
 
-void ClientGame::h_PauseAndUnPause(std::shared_ptr<Data>) {
+void ClientGame::h_PauseOrUnpause(std::shared_ptr<Data>) {
   if (pause_)
     UnPause();
   else 
@@ -944,10 +944,7 @@ void ClientGame::h_AddTechnology(std::shared_ptr<Data> data) {
 // tutorial 
 
 void ClientGame::h_TutorialGetOxygen(std::shared_ptr<Data>) {
-  Pause();
-  contexts_.at(CONTEXT_TEXT).init_text(texts::tutorial_get_oxygen, current_context_);
-  current_context_ = CONTEXT_TEXT;
-  h_TextPrint();
+  h_InitTutorialText(texts::tutorial_get_oxygen);
   eventmanager_tutorial_.RemoveHandler("init_game");
 }
 
@@ -998,17 +995,13 @@ void ClientGame::h_TutorialSetUnit(std::shared_ptr<Data> data) {
   }
   // If text was set, print text:
   if (texts.size() > 0) {
-    Pause();
     // Add all texts.
     auto final_text = texts[0];
     for (unsigned int i=1; i<texts.size(); i++) {
       final_text.insert(final_text.end(), std::make_move_iterator(texts[i].begin()), 
         std::make_move_iterator(texts[i].end()));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
-    contexts_.at(CONTEXT_TEXT).init_text(final_text, current_context_);
-    current_context_ = CONTEXT_TEXT;
-    h_TextPrint();
+    h_InitTutorialText(final_text);
   }
 }
 
@@ -1035,11 +1028,7 @@ void ClientGame::h_TutorialScouted(std::shared_ptr<Data> data) {
   }
   // If text was set, print text:
   if (text.size() > 0) {
-    Pause();
-    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
-    contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
-    current_context_ = CONTEXT_TEXT;
-    h_TextPrint();
+    h_InitTutorialText(text);
   }
 }
 
@@ -1055,11 +1044,7 @@ void ClientGame::h_TutorialBuildNeuron(std::shared_ptr<Data> data) {
  
   // If text was set, print text:
   if (text.size() > 0) {
-    Pause();
-    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
-    contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
-    current_context_ = CONTEXT_TEXT;
-    h_TextPrint();
+    h_InitTutorialText(text);
   }
 }
 
@@ -1084,11 +1069,7 @@ void ClientGame::h_TutorialAction(std::shared_ptr<Data>) {
   // If text was set, print text:
   if (text.size() > 0) {
     tutorial_.action_++;
-    Pause();
-    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
-    contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
-    current_context_ = CONTEXT_TEXT;
-    h_TextPrint();
+    h_InitTutorialText(text);
   }
 }
 
@@ -1101,11 +1082,7 @@ void ClientGame::h_TutorialSetMessage(std::shared_ptr<Data> data) {
   }
   // If text was set, print text:
   if (text.size() > 0) {
-    Pause();
-    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
-    contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
-    current_context_ = CONTEXT_TEXT;
-    h_TextPrint();
+    h_InitTutorialText(text);
   }
 }
 
@@ -1122,11 +1099,7 @@ void ClientGame::h_TutorialUpdateGame(std::shared_ptr<Data> data) {
   }
   // If text was set, print text:
   if (text.size() > 0) {
-    Pause();
-    std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
-    contexts_.at(CONTEXT_TEXT).init_text(text, current_context_);
-    current_context_ = CONTEXT_TEXT;
-    h_TextPrint();
+    h_InitTutorialText(text);
   }
 }
 
@@ -1439,11 +1412,26 @@ void ClientGame::PrintRanking() {
 }
 
 
+void ClientGame::h_InitTutorialText(const texts::paragraphs_field_t& text) {
+  spdlog::get(LOGGER)->debug("ClientGame::h_InitTutorialText");
+  Pause();
+  // In case another tutorial-message is added use last-context of current
+  // context, instead of current_context.
+  int old_context = current_context_;
+  if (current_context_ == CONTEXT_TEXT) 
+    old_context = contexts_.at(CONTEXT_TEXT).last_context();
+  std::this_thread::sleep_for(std::chrono::milliseconds(TUTORIAL_MSG_LAG));
+  contexts_.at(CONTEXT_TEXT).init_text(text, old_context);
+  current_context_ = CONTEXT_TEXT;
+  h_TextPrint();
+}
+
 void ClientGame::h_TextQuit(std::shared_ptr<Data>) {
   h_TextQuit();
 }
 
 void ClientGame::h_TextQuit() {
+  spdlog::get(LOGGER)->debug("ClientGame::h_TextQuit");
   std::shared_lock sl(mutex_context_);
   current_context_ = contexts_.at(CONTEXT_TEXT).last_context();
   drawrer_.set_topline(contexts_.at(current_context_).topline());

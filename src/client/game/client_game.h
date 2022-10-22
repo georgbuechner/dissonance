@@ -2,6 +2,7 @@
 #define SRC_CLIENT_CLIENT_GAME_H_
 
 #include "share/audio/audio.h"
+#include "share/constants/texts.h"
 #include "share/shemes/commands.h"
 #include "share/tools/audio_receiver.h"
 // #include "share/objects/dtos.h"
@@ -71,6 +72,9 @@ class ClientGame {
     static std::map<int, std::map<char, void(ClientGame::*)(std::shared_ptr<Data> data)>> handlers_;
     EventManager<std::string, ClientGame, std::shared_ptr<Data>> eventmanager_;
     EventManager<std::string, ClientGame, std::shared_ptr<Data>> eventmanager_tutorial_;
+
+    std::shared_mutex mutex_tutorial_;  ///< mutex locked, when tutorial text is printed.
+    bool in_tutorial_;
 
     /**
      * Stores "story-points" for tutorial
@@ -243,7 +247,7 @@ class ClientGame {
      * Pauses/ unpauses game in single-player mode (called on player-action)
      * @param[in] data (unused)
      */
-    void h_PauseAndUnPause(std::shared_ptr<Data> data);
+    void h_PauseOrUnpause(std::shared_ptr<Data> data);
 
     /**
      * Moves selection up in different contexts (called on player-action)
@@ -416,6 +420,13 @@ class ClientGame {
      * @param[in] data (unused)
      */
     void h_TutorialAction(std::shared_ptr<Data> data);
+
+    /**
+     * Initializes tutorial text (pause game, wait, set 'old' context and text,
+     * switch to tutorial context, print (first) text).
+     * @param[in] text 
+     */
+    void h_InitTutorialText(const texts::paragraphs_field_t& text);
 
     /**
      * Increases current text and call h_TextPrint (called on player-action)

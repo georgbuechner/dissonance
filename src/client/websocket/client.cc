@@ -10,9 +10,10 @@
 #include <memory>
 
 Client::Client(ClientGame* game, std::string username, std::string base_path) : username_(username) {
-    game_ = game;
-    base_path_ = base_path;
-  }
+  game_ = game;
+  base_path_ = base_path;
+  closed_by_me_ = false;
+}
 
 void Client::Start(std::string address) {
   try {
@@ -62,13 +63,14 @@ void Client::Start(std::string address) {
           "https://github.com/georgbuechner/dissonance/issues");
   }
   spdlog::get(LOGGER)->info("Client::Start. closed.");
-  game_->Kill("The websocketpp server has closed. Probably no connection to server exists. Try again?");
+  if (!closed_by_me_)
+    game_->Kill("The websocketpp server has closed. Probably no connection to server exists. Try again?");
 }
 
 void Client::Stop() {
   c_.close(hdl_, websocketpp::close::status::normal, "");
-  // sleep(1);
   c_.stop();
+  closed_by_me_ = true;
 }
 
 void Client::on_open(websocketpp::connection_hdl) {
