@@ -867,7 +867,7 @@ void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
   status_ = RUNNING;
   // Setup context and print topline.
   current_context_ = CONTEXT_RESOURCES;
-  drawrer_.set_msg(contexts_.at(current_context_).msg());
+  // Overwrite macro-information-message if show_ai_tactics_
   drawrer_.set_topline(contexts_.at(current_context_).topline());
   ul.unlock();
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: done");

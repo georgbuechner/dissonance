@@ -163,29 +163,28 @@ void Drawrer::set_transfer(std::shared_ptr<Data> init, bool show_ai_tactics) {
   spdlog::get(LOGGER)->debug("Drawrer::set_transfer: done");
 
   // Show player which macro they play with
-  if (mode_ != OBSERVER) {
-    set_stop_render(true);
+  if (mode_ == SINGLE_PLAYER || mode_ == TUTORIAL) {
     std::string macro = (init->macro() == 0) ? "chained-potential" : "loophols";
-    std::string msg = "You are playing with \"" + macro + "\" as your macro!";
-    ClearField();
-    PrintCenteredLineBold(LINES/2, msg);
-    int counter=4;
+    msg_ = "You are playing with \"" + macro + "\" as your macro!";
     if (show_ai_tactics) {
-      PrintCenteredLine(LINES/2+2, "AI strategies");
+      set_stop_render(true);
+      ClearField();
+      PrintCenteredLine(LINES/2, "AI strategies");
       // Print ai strategies
+      int counter=2;
       for (const auto& it : init->ai_strategies()) {
         if (it.second == 0xFFF)
           PrintCenteredLine(LINES/2+counter++, it.first);
         else 
           PrintCenteredLine(LINES/2+counter++, it.first + tactics_mapping.at(it.second));
       }
+      PrintCenteredLine(LINES/2+counter+1, "[Press any key to continue]");
+      std::unique_lock ul(mutex_print_field_);
+      getch();
+      ul.unlock();
+      set_stop_render(false);
+      ul.lock();
     }
-    PrintCenteredLine(LINES/2+counter+1, "[Press any key to continue]");
-    std::unique_lock ul(mutex_print_field_);
-    getch();
-    ul.unlock();
-    set_stop_render(false);
-    ul.lock();
   }
   spdlog::get(LOGGER)->debug("Drawrer::set_transfer: done");
 }
