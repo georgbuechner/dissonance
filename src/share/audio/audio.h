@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 #define MINIAUDIO_IMPLEMENTATION
-#include "miniaudio.h"
+#include "share/audio/miniaudio.h"
 
 struct Note {
   int midi_note_;

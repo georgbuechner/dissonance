@@ -5,7 +5,6 @@
 #include "share/constants/texts.h"
 #include "share/shemes/commands.h"
 #include "share/tools/audio_receiver.h"
-// #include "share/objects/dtos.h"
 #include <memory>
 #define NCURSES_NOMACROS
 #include <cstddef>

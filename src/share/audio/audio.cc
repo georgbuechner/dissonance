@@ -275,7 +275,7 @@ void Audio::data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
   if (pDecoder == NULL)
     return;
   if (!pause_audio) {
-    ma_decoder_read_pcm_frames(pDecoder, pOutput, frameCount);
+    ma_decoder_read_pcm_frames(pDecoder, pOutput, frameCount, NULL);
     (void)pInput;
   }
 }
