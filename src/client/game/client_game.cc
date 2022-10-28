@@ -1175,13 +1175,14 @@ std::string ClientGame::SelectAudio(std::string msg) {
   selector.options_.push_back({"dissonance_recently_played", "recently played"});
   std::vector<std::string> recently_played = utils::LoadJsonFromDisc(base_path_ + RECENTLYPLAYER_PATH);
   std::string error = "";
-  std::string help = "(use + to add paths, ENTER to select,  h/l or ←/→ to change directory "
-    "and j/k or ↓/↑ to circle through songs,)";
+  std::string help = "(use \"+\" to add paths, ENTER to select, \"h/l\" to change directory, "
+    "\"j/k\" to circle through songs and \"g\" to jump to the top.)";
   size_t selected = 0;
   int level = 0;
   int print_start = 0;
   size_t max = LINES/2;
   std::vector<std::pair<std::string, std::string>> visible_options;
+  std::map<std::string, std::pair<int, int>> selected_history;
 
   while(true) {
     size_t print_max = std::min(selector.options_.size(), max);
@@ -1211,24 +1212,30 @@ std::string ClientGame::SelectAudio(std::string msg) {
     char choice = getch();
     // Goes to child directory.
     if (utils::IsRight(choice)) {
-      level++;
-      // Go to "recently played" songs
-      if (visible_options[selected].first == "dissonance_recently_played") {
-        selector = SetupAudioSelector("", "Recently Played", recently_played);
-        selected = 0;
-        print_start = 0;
-      }
-      // Go to child directory (if path exists and is a directory)
-      else if (std::filesystem::is_directory(visible_options[selected].first)) {
-        selector = SetupAudioSelector(visible_options[selected].first, visible_options[selected].second, 
-            utils::GetAllPathsInDirectory(visible_options[selected].first));
-        selected = 0;
-        print_start = 0;
+      if (visible_options[selected].first == "dissonance_recently_played" || 
+          std::filesystem::is_directory(visible_options[selected].first)) {
+        level++;
+        selected_history[selector.path_] = {selected, print_start};
+        // Go to "recently played" songs
+        if (visible_options[selected].first == "dissonance_recently_played") {
+          selector = SetupAudioSelector("recently_played", "Recently Played", recently_played);
+        }
+        // Go to child directory (if path exists and is a directory)
+        else if (std::filesystem::is_directory(visible_options[selected].first)) {
+          selector = SetupAudioSelector(visible_options[selected].first, visible_options[selected].second, 
+              utils::GetAllPathsInDirectory(visible_options[selected].first));
+        }
+        if (selected_history.count(selector.path_) > 0) {
+          selected = selected_history.at(selector.path_).first;
+          print_start = selected_history.at(selector.path_).second;
+        }
+        else {
+          selected = print_start = 0;
+        }
       }
       // Otherwise: show error.
       else {
         error = "Not a directory!";
-        level--;
       }
     }
     // Go to parent directory
@@ -1238,6 +1245,7 @@ std::string ClientGame::SelectAudio(std::string msg) {
         error = "No parent directory.";
       // otherwise go to parent directory (decreases level)
       else {
+        selected_history[selector.path_] = {selected, print_start};
         level--;
         selected = 0;
         print_start = 0;
@@ -1251,20 +1259,27 @@ std::string ClientGame::SelectAudio(std::string msg) {
           selector = SetupAudioSelector(p.parent_path().string(), p.parent_path().filename().string(), 
               utils::GetAllPathsInDirectory(p.parent_path()));
         }
+        if (selected_history.count(selector.path_) > 0) {
+          selected = selected_history.at(selector.path_).first;
+          print_start = selected_history.at(selector.path_).second;
+        }
       }
     }
+    // Move choice down
     else if (utils::IsDown(choice)) {
       if (selected == print_max-1 && selector.options_.size() > max)
         print_start++;
       else 
         selected = utils::Mod(selected+1, visible_options.size());
     }
+    // Move choice up
     else if (utils::IsUp(choice)) {
       if (selected == 0 && print_start > 0)
         print_start--;
       else 
         selected = utils::Mod(selected-1, print_max);
     }
+    // Select audio-track
     else if (std::to_string(choice) == "10") {
       std::filesystem::path select_path = visible_options[selected].first;
       if (select_path.filename().extension() == ".mp3" || select_path.filename().extension() == ".wav")
@@ -1272,6 +1287,12 @@ std::string ClientGame::SelectAudio(std::string msg) {
       else 
         error = "Wrong file type. Select mp3 or wav";
     }
+    // Jump to top
+    else if (choice == 'g') {
+      selected = 0;
+      print_start = 0;
+    }
+    // Add path to known music-libraries
     else if (choice == '+') {
       std::string input = InputString("Absolute path: ");
       if (std::filesystem::exists(input)) {
