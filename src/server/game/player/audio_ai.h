@@ -1,11 +1,7 @@
 #ifndef SRC_PLAYER_AUDIOKI_H_
 #define SRC_PLAYER_AUDIOKI_H_
 
-#include <cstddef>
 #include <deque>
-#include <memory>
-#include <queue>
-#include <shared_mutex>
 #include <vector>
 
 #include "share/audio/audio.h"
@@ -14,11 +10,11 @@
 #include "share/objects/units.h"
 #include "server/game/player/player.h"
 
-class AudioKi : public Player {
+class AudioAi : public Player {
   public:
-    AudioKi(std::string username, std::shared_ptr<Field> field, std::shared_ptr<Audio> audio, 
+    AudioAi(std::string username, std::shared_ptr<Field> field, std::shared_ptr<Audio> audio, 
         std::shared_ptr<RandomGenerator> ran_gen, int color);
-    ~AudioKi() {};
+    ~AudioAi() {};
 
     // getter 
     std::deque<AudioDataTimePoint> audio_beats() const;

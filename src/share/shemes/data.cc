@@ -9,7 +9,6 @@
 #include <set>
 #include <string>
 #include "nlohmann/json.hpp"
-#include "spdlog/spdlog.h"
 
 // SYMBOL 
 Data::Symbol::Symbol() {};
@@ -228,7 +227,6 @@ void Update::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, potentials_);
   msgpack::pack(buffer, hit_potentials_);
   msgpack::pack(buffer, new_dead_neurons_);
-  spdlog::get(LOGGER)->debug("New-dead-neurons size: {}", new_dead_neurons_.size());
   msgpack::pack(buffer, audio_played_);
   // resources
   msgpack::pack(buffer, resources_.size());
@@ -856,29 +854,24 @@ GetPositions::GetPositions(const char* payload, size_t len, size_t& offset) : Da
   msgpack::object_handle result;
 
   // Read return_cmd
-  spdlog::get(LOGGER)->debug("GetPositions::GetPositions: reading return_cmd");
   unpack(result, payload, len, offset);
   return_cmd_ = result->as<std::string>();
 
   // Read num of position requests
-  spdlog::get(LOGGER)->debug("GetPositions::GetPositions: reading num_requests");
   unpack(result, payload, len, offset);
   int num_requests = result->as<int>();
   // Read position requests
   for (int i=0; i<num_requests; i++) {
     // Read key
-    spdlog::get(LOGGER)->debug("GetPositions::GetPositions: reading key");
     unpack(result, payload, len, offset);
     int key = result->as<int>();
     // Read and convert value
-    spdlog::get(LOGGER)->debug("GetPositions::GetPositions: reading pos_info");
     unpack(result, payload, len, offset);
     std::pair<int, position_t> pos_info = result->as<std::pair<int, position_t>>();
     position_requests_[key] = PositionInfo(pos_info.first, pos_info.second);
   }
 
   // Parse matching data.
-  spdlog::get(LOGGER)->debug("GetPositions::GetPositions: reading data");
   if (return_cmd_ == "select_synapse")
     data_ = std::make_shared<SelectSynapse>(payload, len, offset);
   else if (return_cmd_ == "set_wps")

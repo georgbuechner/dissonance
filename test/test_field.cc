@@ -7,6 +7,7 @@
 #include <set>
 #include <utility>
 #include <vector>
+#include <spdlog/spdlog.h>
 #include "server/game/server_game.h"
 #include "share/audio/audio.h"
 #include "share/constants/codes.h"
@@ -15,7 +16,6 @@
 #include "share/objects/units.h"
 #include "server/game/player/player.h"
 #include "share/tools/graph.h"
-#include "spdlog/spdlog.h"
 #include "testing_utils.h"
 #include "share/tools/utils/utils.h"
 #include "share/tools/random/random.h"

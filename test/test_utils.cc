@@ -1,11 +1,9 @@
-#include <cstddef>
 #include <filesystem>
-#include <iostream>
 #include <catch2/catch.hpp>
 #include <map>
 #include <list>
-#include <unistd.h>
 #include <vector>
+#include "share/defines.h"
 #include "share/tools/audio_receiver.h"
 #include "share/tools/utils/utils.h"
 
@@ -15,8 +13,8 @@ TEST_CASE ("test_dist", "[utils]") {
 }
 
 TEST_CASE("loops", "[utils]") {
-  std::vector<int> vec_a = {2};
-  std::vector<int> vec_b = {};
+  const std::vector<int> vec_a = {2};
+  const std::vector<int> vec_b = {};
   int c=0;
   for (size_t i=0; i<vec_a.size() && i<vec_b.size(); i++)
     c++;
@@ -44,7 +42,7 @@ TEST_CASE("test_map", "[general]") {
 }
 
 TEST_CASE("test advance.", "") {
-  std::list<int> list = {1, 2, 3, 4};
+  const std::list<int> list = {1, 2, 3, 4};
   auto it = list.begin();
   std::advance(it, 6);
   REQUIRE(*it == 2);
@@ -68,8 +66,8 @@ TEST_CASE("test cycle", "") {
 }
 
 TEST_CASE("test slicing vector", "") {
-  std::vector<int> vec = {1,2,3,4,5,6,7,8,9};
-  auto sliced_vec = utils::SliceVector(vec, 1, 3);
+  const std::vector<int> vec = {1,2,3,4,5,6,7,8,9};
+  const auto sliced_vec = utils::SliceVector(vec, 1, 3);
   REQUIRE(sliced_vec.size() == 3);
   REQUIRE(sliced_vec[0] == 2);
   REQUIRE(sliced_vec[1] == 3);
@@ -86,18 +84,22 @@ TEST_CASE("erase from vector", "") {
 
 TEST_CASE("duration") {
   auto start = std::chrono::steady_clock::now();
-  sleep(1);
+  // Do some random operation.
+  std::string content = utils::GetMedia("dissonance/data/examples/elle_rond_elle_bon_et_blonde.wav");
+  content.clear();
   auto end = std::chrono::steady_clock::now();
   REQUIRE(utils::GetElapsedNano(start, end) > 0);
   REQUIRE(utils::GetElapsedNano(end, start) < 0);
 }
 
 TEST_CASE("audio-receiver", "[utils]") {
-  std::string content = utils::GetMedia("dissonance/data/examples/elle_rond_elle_bon_et_blonde.wav");
-  AudioReceiver audio_receiver("test_data/data/");
+  const std::string username = "analysis";
+  const std::string filename = "elle_rond_elle_bon_et_blonde.wav";
+
+  std::string content = utils::GetMedia("dissonance/data/examples/" + filename);
+  AudioReceiver audio_receiver(TEST_DATA_PATH);
   audio_receiver.set_audio_data(content);
-  std::shared_ptr<Data> audio_data = std::make_shared<AudioTransferData>("analysis", 
-      "elle_rond_elle_bon_et_blonde.wav");
+  std::shared_ptr<Data> audio_data = std::make_shared<AudioTransferData>(username, filename);
 
   // Test chunking and then rebuilding content.
   auto chunks = audio_receiver.GetCunks();
@@ -128,10 +130,11 @@ TEST_CASE("audio-receiver", "[utils]") {
   for (const auto& it : chunks) {
     REQUIRE(new_chunks.at(it.first) == it.second);
   }
+  std::filesystem::remove_all(TEST_DATA_PATH + username + "/" + filename);
 }
 
 TEST_CASE("Test min-max-avrg", "[utils]") {
-  nlohmann::json analysis_json = utils::LoadJsonFromDisc("test_data/data/analysis/elle_rond.json");
+  const nlohmann::json analysis_json = utils::LoadJsonFromDisc(TEST_DATA_PATH "analysis/elle_rond.json");
   std::vector<double> pitches = analysis_json["pitches"].get<std::vector<double>>();
   std::vector<int> levels;
   for (const auto& it : analysis_json["time_points"].get<nlohmann::json>())
@@ -180,8 +183,8 @@ TEST_CASE("Test getting percent", "[utils]") {
 }
 
 TEST_CASE("Test DouglasPeucker algorithm", "[douglas_peucker]") {
-  nlohmann::json analysis_json = utils::LoadJsonFromDisc("test_data/data/analysis/elle_rond.json");
-  std::vector<double> pitches = analysis_json["pitches"].get<std::vector<double>>();
+  const nlohmann::json analysis_json = utils::LoadJsonFromDisc(TEST_DATA_PATH "analysis/elle_rond.json");
+  const std::vector<double> pitches = analysis_json["pitches"].get<std::vector<double>>();
   std::vector<int> levels;
   for (const auto& it : analysis_json["time_points"].get<nlohmann::json>())
     levels.push_back(it["level"]);
@@ -206,9 +209,9 @@ TEST_CASE("Test DouglasPeucker algorithm", "[douglas_peucker]") {
 
   SECTION("Test with int vector") {
     // Analyze some data for later comparison
-    auto min_max_avrg = utils::GetMinMaxAvrg(levels);
+    const auto min_max_avrg = utils::GetMinMaxAvrg(levels);
     // Generate some example max-elems
-    std::vector<int> test_maxs = {static_cast<int>((int)levels.size()*0.9), 
+    const std::vector<int> test_maxs = {static_cast<int>((int)levels.size()*0.9), 
       static_cast<int>((int)levels.size()*0.75), static_cast<int>((int)levels.size()*0.5), 100, 75};
     // For each max-elems bound decimate curve.
     for (const auto& max_elems : test_maxs) {

@@ -2,15 +2,8 @@
 #define SRC_FIELD_H_
 
 #include <map>
-#include <memory>
-#include <mutex>
 #include <string>
-#include <shared_mutex>
-#include <utility>
 #include <vector>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
 
 #include "share/objects/units.h"
 #include "server/game/player/player.h"

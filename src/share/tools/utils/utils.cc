@@ -21,22 +21,6 @@
 #define LOGGER "logger"
 
 
-bool utils::IsDown(char choice) {
-  return choice == 'j' || choice == (char)KEY_DOWN;
-}
-
-bool utils::IsUp(char choice) {
-  return choice == 'k' || choice == (char)KEY_UP;
-}
-
-bool utils::IsLeft(char choice) {
-  return choice == 'h' || choice == (char)KEY_LEFT;
-}
-
-bool utils::IsRight(char choice) {
-  return choice == 'l' || choice == (char)KEY_RIGHT;
-}
-
 double utils::GetElapsed(std::chrono::time_point<std::chrono::steady_clock> start,
     std::chrono::time_point<std::chrono::steady_clock> end) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
@@ -56,7 +40,6 @@ bool utils::InRange(position_t pos1, position_t pos2, double min_dist, double ma
   return dist >= min_dist && dist <= max_dist;
 }
 
-
 std::string utils::CharToString(char start, int i) {
   char c_str = start+i;
   std::string str = "";
@@ -73,20 +56,11 @@ std::vector<std::string> utils::Split(std::string str, std::string delimiter) {
     str.erase(0, pos + delimiter.length());
   }
   v_strs.push_back(str);
-
   return v_strs;
 }
 
 std::string utils::PositionToString(position_t pos) {
   return std::to_string(pos.first) + "|" + std::to_string(pos.second);
-}
-
-position_t utils::PositionFromString(std::string str_pos) {
-  return {std::stoi(Split(str_pos, "|")[0]), std::stoi(Split(str_pos, "|")[1])};
-}
-
-position_t utils::PositionFromVector(std::vector<int> vec_pos) {
-  return {vec_pos[0], vec_pos[1]};
 }
 
 int utils::Mod(int n, int m, int min) {
@@ -98,9 +72,8 @@ int utils::Mod(int n, int m, int min) {
 
 std::string utils::ToUpper(std::string str) {
   std::string upper;
-  for (const auto& c : str) {
+  for (const auto& c : str)
     upper += std::toupper(c); 
-  }
   return upper;
 }
 
@@ -124,7 +97,6 @@ std::string utils::CreateId(std::string type) {
     id += std::to_string(ran);
   }
   return id;
-
 }
 
 nlohmann::json utils::LoadJsonFromDisc(std::string path) {
@@ -198,39 +170,6 @@ std::string utils::GetFormatedDatetime() {
   std::strftime(buffer, 80, "%Y-%m-%d-%H-%M-%S",timeinfo);
   std::puts(buffer);
   return buffer;
-}
-
-std::pair<bool, nlohmann::json> utils::ValidateJson(std::vector<std::string> keys, std::string source) {
-  nlohmann::json json;
-  try {
-    json = nlohmann::json::parse(source); 
-  }
-  catch (std::exception& e) {
-    spdlog::get(LOGGER)->warn("ValidateJson: Failed parsing json: {}", e.what());
-    return std::make_pair(false, nlohmann::json());
-  }
-  for (auto key : keys) {
-    std::vector<std::string> depths = Split(key, "/");
-    if (depths.size() > 0) {
-      if (json.count(depths[0]) == 0) {
-        spdlog::get(LOGGER)->info("ValidateJson: Missing key: {}", key);
-        return std::make_pair(false, json);
-      }
-    }
-    if (depths.size() > 1) {
-      if (json[depths[0]].count(depths[1]) == 0) {
-        spdlog::get(LOGGER)->info("ValidateJson: Missing key: {}", key);
-        return std::make_pair(false, json);
-      }
-    }
-  }
-  return std::make_pair(true, json);
-}
-
-void utils::WaitABit(int milliseconds) {
-  // Wait a bit.
-  auto cur_time = std::chrono::steady_clock::now();
-  while (utils::GetElapsed(cur_time, std::chrono::steady_clock::now()) < milliseconds) {}
 }
 
 struct Line {

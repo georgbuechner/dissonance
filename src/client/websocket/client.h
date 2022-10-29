@@ -2,16 +2,12 @@
 #define SRC_CLIENT_CLIENT_H_
 
 #include <iostream>
-#include <memory>
-#include <unistd.h>
 #include <string>
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
 #include <nlohmann/json.hpp>
 
 #include "client/game/client_game.h"
-#include "nlohmann/json.hpp"
-#include "websocketpp/common/functional.hpp"
 
 
 class Client {

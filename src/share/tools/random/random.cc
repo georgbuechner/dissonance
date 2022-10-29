@@ -2,12 +2,7 @@
 #include "share/constants/codes.h"
 #include "share/defines.h"
 
-#include "spdlog/spdlog.h"
-
 #include <algorithm>
-#include <cstddef>
-#include <cstdlib>
-#include <vector>
 
 RandomGenerator::RandomGenerator() {
   get_ran_ = &RandomGenerator::ran;
@@ -56,26 +51,6 @@ int RandomGenerator::ran_note(int min, int max) {
   if (max > random_faktor)
     random_faktor += data_at_beat.level_;
   return min + (random_faktor % (max - min + 1)); 
-}
-
-int RandomGenerator::ran_boolean_minor_interval(int min, int max) {
-  auto data_at_beat = GetNextTimePointWithNotes(); 
-  auto intervals = Audio::GetInterval(data_at_beat.notes_);
-  for (const auto& it : {MINOR_THIRD, MINOR_SEVENTH}) {
-    if (std::find(intervals.begin(), intervals.end(), it) != intervals.end())
-      return 1;
-  }
-  return 0;
-}
-
-int RandomGenerator::ran_level_peaks(int, int max) {
-  if ((size_t)last_point_ == peaks_.size())
-    last_point_ = 0;
-  int peak = peaks_[last_point_++];
-  // trim to max:
-  int n = *std::max_element(peaks_.begin(), peaks_.end());
-  int x = static_cast<double>(peak * max)/n;
-  return 999+x;
 }
 
 AudioDataTimePoint RandomGenerator::GetNextTimePointWithNotes() {

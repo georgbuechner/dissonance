@@ -20,14 +20,6 @@ namespace utils {
   typedef std::pair<int16_t, int16_t> position_t;
 
   /**
-   * Is up
-   */
-  bool IsDown(char choice);
-  bool IsUp(char choice);
-  bool IsLeft(char choice);
-  bool IsRight(char choice);
-
-  /**
    * Converts int to string. F.e start='a' and i=2 -> "b". Or: start='1' and i=5 -> "6"
    * @param[in] start char to start from
    * @param[in] i 
@@ -50,6 +42,13 @@ namespace utils {
    */
   double GetElapsed(std::chrono::time_point<std::chrono::steady_clock> start,
     std::chrono::time_point<std::chrono::steady_clock> end);
+
+  /**
+   * Gets elapsed nanoseconds.
+   * @param[in] start 
+   * @param[in] end
+   * @return elepased nanoseconds between start and end.
+   */
   double GetElapsedNano(std::chrono::time_point<std::chrono::steady_clock> start,
     std::chrono::time_point<std::chrono::steady_clock> end);
 
@@ -78,18 +77,6 @@ namespace utils {
    * @return string representation of a position in format `x|y`.
    */
   std::string PositionToString(position_t pos);
-
-  /**
-   * Gets postion from string in format <y|x>.
-   * @param[in] str_pos
-   */
-  position_t PositionFromString(std::string str_pos);
-
-  /**
-   * Gets postion from string in format <y|x>.
-   * @param[in] str_pos
-   */
-  position_t PositionFromVector(std::vector<int> vec_pos);
 
   /**
    * Calculates true modulo of n in congruence class m.
@@ -143,8 +130,17 @@ namespace utils {
    */
   void WriteJsonToDisc(std::string path, nlohmann::json& json);
 
+  /**
+   * Loads media file from disc.
+   * @param[in] path where media file is located.
+   */
   std::string GetMedia(std::string path);
 
+  /**
+   * Stores media data to disc.
+   * @param[in] path where media shall be stored
+   * @param[in] content to be stored
+   */
   void StoreMedia(std::string path, std::string content);
 
   /**
@@ -152,17 +148,6 @@ namespace utils {
    * @return string formated current date-time.
    */
   std::string GetFormatedDatetime();
-
-  /**
-   * @brief Parsed json from string and validates that given values exist.
-   * @param keys keys which must exist.
-   * @param source from which to parse json.
-   * @return pair with boolean and generated json.
-   */
-  std::pair<bool, nlohmann::json> ValidateJson(std::vector<std::string> keys, 
-      std::string source);
-
-  void WaitABit(int milliseconds);
 
   /** 
    * Decimates curve, while perserving structure.
@@ -248,8 +233,13 @@ namespace utils {
     T _max;
     double _avrg;
   };
+
+  /**
+   * Gets min max and average values in a given vector.
+   * @param[in] vector to analyze
+   */
   template<class T> 
-  MinMaxAvrg<T> GetMinMaxAvrg(std::vector<T> vec) {
+  MinMaxAvrg<T> GetMinMaxAvrg(const std::vector<T>& vec) {
     T max = INT_MIN;
     T min = INT_MAX;
     T avrg = 0; 
@@ -270,23 +260,20 @@ namespace utils {
    * @return slices vector.
    */
   template<class T>
-  std::vector<T> SliceVector(std::vector<T> in_vec, int begin, int len) {
+  std::vector<T> SliceVector(const std::vector<T>& in_vec, int begin, int len) {
     std::vector<T> out_vec;
     for (int i=begin; i<begin+len && (size_t)i<in_vec.size(); i++)
       out_vec.push_back(in_vec[i]);
     return out_vec;
   }
 
-  template<class K, class V>
-  std::vector<V> MapToVec(std::map<K, V>& m) {
-    std::vector<V> v;
-    for (const auto& it : m) 
-      v.push_back(it.second);
-    return v;
-  }
-  
+  /**
+   * Gets index of list.
+   * @param[in] list
+   * @param[in] element in list to locate.
+   */
   template<class T>
-  int Index(std::list<T> list, T elem) {
+  int Index(const std::list<T>& list, T elem) {
     auto it = std::find(list.begin(), list.end(), elem);
     return std::distance(list.begin(), it);
   }

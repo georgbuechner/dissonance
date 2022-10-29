@@ -32,7 +32,7 @@ set(SRC_FILES
 
   src/server/game/server_game.cc
   src/server/game/field/field.cc
-  src/server/game/player/audio_ki.cc
+  src/server/game/player/audio_ai.cc
   src/server/game/player/player.cc
   src/server/websocket/websocket_server.cc
 )

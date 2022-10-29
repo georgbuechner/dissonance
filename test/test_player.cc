@@ -1,14 +1,10 @@
 #include <catch2/catch.hpp>
-#include <iterator>
-#include <memory>
 #include "server/game/field/field.h"
 #include "share/constants/codes.h"
 #include "share/defines.h"
 #include "share/objects/units.h"
-#include "server/game/player/audio_ki.h"
 #include "server/game/player/player.h"
 #include "share/tools/random/random.h"
-#include "spdlog/spdlog.h"
 #include "testing_utils.h"
 #include "share/tools/utils/utils.h"
 
@@ -16,7 +12,6 @@ std::pair<std::shared_ptr<Player>, std::shared_ptr<Field>> SetUpPlayer(bool reso
   std::shared_ptr<RandomGenerator> ran_gen = std::make_shared<RandomGenerator>();
   std::shared_ptr<Field> field = std::make_shared<Field>(ran_gen->RandomInt(50, 150), 
       ran_gen->RandomInt(50, 150), ran_gen);
-  spdlog::get(LOGGER)->info("SetUpPlayer with field cols: {} and lines: {}", field->cols(), field->lines());
   field->BuildGraph();
   auto nucleus_positions = field->AddNucleus(2);
   std::shared_ptr<Player> player_one_ = std::make_shared<Player>("p1", field, ran_gen, 0);
@@ -40,18 +35,13 @@ std::pair<std::shared_ptr<Player>, std::shared_ptr<Field>> SetUpPlayer(bool reso
     for (int i=0; i<100; i++)
       player_one_->IncreaseResources(true);
   }
-  for (const auto& it : player_one_->resources()) {
-    spdlog::get(LOGGER)->debug("{}. Active: {}", resources_name_mapping.at(it.first), it.second.Active());
-  }
   return {player_one_, field};
 }
 
 void CreateRandomNeurons(std::shared_ptr<Player> player, std::shared_ptr<Field> field, int num, 
     std::shared_ptr<RandomGenerator> ran_gen) {
-  spdlog::get(LOGGER)->info("CreateRandomNeurons {}", num);
   for (int i=0; i<num; i++) {
     auto pos = t_utils::GetRandomPositionInField(field, ran_gen);
-    spdlog::get(LOGGER)->debug("Creating neuron with pos: {}", utils::PositionToString(pos));
     player->AddNeuron(pos, ran_gen->RandomInt(0, 1));
   }
 }

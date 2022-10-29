@@ -6,8 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "spdlog/spdlog.h"
-
 #include "share/objects/units.h"
 #include "share/tools/utils/utils.h"
 
@@ -45,21 +43,26 @@ class Resource {
     bool Active() const;
 
     /**
-     * Gets string representation of resource.
-     * @return resource as string in format: [cur]+[bound]/[max]
-     */
-    std::string Print() const;
-
-    /**
      * Increases current free.
      * Increasesing is done with the following formular: ([boast] * gain * [negative-faktor])/[slowdown]
      * Boast is calculated as: `1 + boast/10` -> in range: [1..2]
      * Negative-faktor is calculated as: `1 - (cur+bound)/max` -> in range: [0..1]
-     * TODO (fux): what to do with slowdown?
      */
     void Increase(double gain, double slowdown);
-    void Decrease(double val, bool bind);
-    void call();
+
+    /**
+     * Descrease resource.
+     * If bind is true, adds amount to bound part of the resource.
+     * @param[in] value by which to decrease.
+     * @param[in] bind 
+     */
+    void Decrease(double value, bool bind);
+
+    /**
+     * Informs resource that it has been called 'remeber' how often it was
+     * called while activated/ not activated.
+     */
+    void Call();
 
   private:
     // members

@@ -1,11 +1,9 @@
 #ifndef SRC_PLAYER_H_
 #define SRC_PLAYER_H_
 
-#include <cstddef>
 #include <deque>
 #include <iostream>
 #include <map>
-#include <memory>
 #include <string>
 #include <set>
 #include <vector>
@@ -113,22 +111,11 @@ class Player : public std::enable_shared_from_this<Player> {
     int GetNeuronTypeAtPosition(position_t pos) const;
 
     /**
-     * Gets map epsp-positions and number of epsps at position.
-     * @return epsps-positions:number-of-epsps
+     * Gets map of potential-positions and count f.e. position.
+     * @param[in] type 
+     * @return map of potential-positions:number-of-potentials-at-position.
      */
-    std::map<position_t, int> GetEpspAtPosition() const;
-
-    /**
-     * Gets map ipsp-positions and number of ipsps at position.
-     * @return ipsps-positions:number-of-ipsps
-     */
-    std::map<position_t, int> GetIpspAtPosition() const;
-
-    /**
-     * Gets map macro-positions and number of macros at position.
-     * @return macro-positions:number-of-macros
-     */
-    std::map<position_t, int> GetMacroAtPosition() const;
+    std::map<position_t, int> GetNumberOfPotentialsAtPosition(int type) const;
 
     /**
      * Gets vector of all potential positions.
@@ -310,24 +297,6 @@ class Player : public std::enable_shared_from_this<Player> {
     void MovePotential();
 
     /**
-     * Checks if loophole shall transport given potential.
-     * @param[in, out] potential
-     */
-    void CheckLoophole(Potential& potential);
-
-    /**
-     * Handles epsp and macro action.
-     * @param[in, out] potential
-     */
-    void HandleEpspAndMacro(Potential& potential);
-
-    /**
-     * Handles ipsp action
-     * @param[in, out] potential
-     */
-    bool HandleIpsp(Potential& potential, std::string id);
-
-    /**
      * Function checking whether a tower has defeted a soldier.
      */
     void HandleDef();
@@ -376,14 +345,6 @@ class Player : public std::enable_shared_from_this<Player> {
      */
     void CheckNeuronsAfterNucleusDies();
  
-    /** 
-     * Increase potential of neuron.
-     * @param[in] potential which to add to neuron.
-     * @param[in] neuron which neuron to add potential to.
-     * @return whether neuron is destroyed.
-     */
-    bool IncreaseNeuronPotential(int potential, int neuron);
-
     /**
      * Updates statistics graph with final resources.
      */
@@ -391,7 +352,6 @@ class Player : public std::enable_shared_from_this<Player> {
 
     // Audio-ai
     virtual void Setup() {}
-    virtual void HandleIron() {}
     virtual bool DoAction() { return false; }
     virtual bool DoAction(const AudioDataTimePoint& data_at_beat) { return false; }
 
@@ -468,6 +428,25 @@ class Player : public std::enable_shared_from_this<Player> {
      * - removes neuron-position from all neuron-positions
      */
     void DeleteNeuron(int type, position_t);
+
+    /**
+     * Checks if loophole shall transport given potential.
+     * @param[in, out] potential
+     */
+    void CheckLoophole(Potential& potential);
+
+    /**
+     * Handles epsp and macro action.
+     * @param[in, out] potential
+     */
+    void HandleEpspAndMacro(Potential& potential);
+
+    /**
+     * Handles ipsp action
+     * @param[in, out] potential
+     */
+    bool HandleIpsp(Potential& potential, std::string id);
+
 
     // helper
 

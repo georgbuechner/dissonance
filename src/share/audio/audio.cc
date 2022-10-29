@@ -1,21 +1,14 @@
+#include <atomic>
+#include <algorithm>
+#include <functional>
+#include <iterator>
+#include <numeric>
+#include <spdlog/spdlog.h>
+
 #include "share/audio/audio.h"
-#include "nlohmann/json_fwd.hpp"
 #include "share/defines.h"
 #include "share/constants/codes.h"
 #include "share/tools/utils/utils.h"
-
-#include <atomic>
-#include <algorithm>
-#include <aubio/pitch/pitch.h>
-#include <cstddef>
-#include <filesystem>
-#include <fstream>
-#include <functional>
-#include <iterator>
-#include <nlohmann/json.hpp>
-#include <numeric>
-#include <string>
-#include "spdlog/spdlog.h"
 
 std::atomic<bool> pause_audio(false);
 
@@ -370,13 +363,10 @@ void Audio::CalcLevel(int interval, std::map<std::string, int> notes_by_frequenc
       notes_in_key++;
 
   // Add new interval information.
-  spdlog::get(LOGGER)->info("AUDI KEY: {}, Major? {}", key, key.find("Major") != std::string::npos);
   analysed_data_.intervals_[interval] = Interval({interval, key, key_note, 
       Signitue::UNSIGNED, key.find("Major") != std::string::npos, notes_in_key, 
       (int)sorted_notes_by_frequency.size()-notes_in_key, darkness}
     );
-  spdlog::get(LOGGER)->debug("Created level with darkness: {}, now: {}", darkness, 
-      analysed_data_.intervals_[interval].darkness_);
   if (key.find("#") != std::string::npos)
     analysed_data_.intervals_[interval].signature_ = Signitue::SHARP;
   else if (key.find("b") != std::string::npos)
@@ -412,7 +402,6 @@ bool Audio::MoreOffNotes(const AudioDataTimePoint &data_at_beat, bool off) const
 }
 
 int Audio::NextOfNotesIn(double cur_time) const {
-  spdlog::get(LOGGER)->debug("Audio::NextOfNotesIn");
   size_t counter = 1;
   for (const auto& it : analysed_data_.data_per_beat_) {
     if (it.time_ <= cur_time) 
@@ -421,7 +410,6 @@ int Audio::NextOfNotesIn(double cur_time) const {
       break;
     counter++;
   }
-  spdlog::get(LOGGER)->info("Audio::NextOfNotesIn: done");
   return counter;
 }
 
@@ -430,7 +418,6 @@ std::string Audio::GetOutPath(std::filesystem::path source_path) {
   std::hash<std::string> hasher;
   size_t hash = hasher(source_path);
   std::string out_path = base_path_ + ANALYSIS_PATH + std::to_string(hash) + source_path.filename().string();
-  spdlog::get(LOGGER)->info("Audio::GetOutPath: got out_path: {}", out_path);
   return out_path;
 }
 

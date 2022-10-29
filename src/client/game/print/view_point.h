@@ -18,7 +18,6 @@ class ViewPoint {
     ViewPoint() {};
     ViewPoint(int x, int y, void(ViewPoint::*f_inc)(int val), std::string(ViewPoint::*f_ts)()) 
       : x_(x), y_(y), inc_(f_inc), to_string_(f_ts) {
-        spdlog::get(LOGGER)->info("Created new ViewPoint with x={} and y={}", x_, y_);
       }
 
     // getter 
@@ -50,10 +49,9 @@ class ViewPoint {
       if (y_ > 0) 
         x_ = utils::Mod(x_+val, y_); 
       else 
-        spdlog::get(LOGGER)->debug("ViewPoint::inc_stats: Prevented remained by zero: {}|{}", y_, x_);
+        spdlog::get(LOGGER)->warn("ViewPoint::inc_stats: Prevented remained by zero: {}|{}", y_, x_);
     }
     void inc_field(int val) { 
-      spdlog::get(LOGGER)->debug("ViewPoint::inc_field: Changing field selection: {}|{}", y_, x_);
       int old_x = x_;
       int old_y = y_;
 

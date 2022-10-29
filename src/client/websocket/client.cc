@@ -1,13 +1,9 @@
-#include "client/websocket/client.h"
-#include "nlohmann/json_fwd.hpp"
-#include "share/objects/units.h"
+#include <spdlog/spdlog.h>
 
+#include "client/websocket/client.h"
+#include "share/objects/units.h"
 #include "share/shemes/commands.h"
 #include "share/tools/utils/utils.h"
-#include "spdlog/spdlog.h"
-#include "websocketpp/frame.hpp"
-#include <exception>
-#include <memory>
 
 Client::Client(ClientGame* game, std::string username, std::string base_path) : username_(username) {
   game_ = game;
@@ -57,11 +53,7 @@ void Client::Start(std::string address) {
       spdlog::get(LOGGER)->error("Client::Start: error in event loop: {}", e.what());
       game_->Kill("Game crashed. We're sorry. Consider filing a bug report at \n"
           "https://github.com/georgbuechner/dissonance/issues");
-  } catch ( ... ) {
-      spdlog::get(LOGGER)->error("Client::Start: unknown error in event loop!");
-      game_->Kill("Game crashed. We're sorry. Consider filing a bug report at \n"
-          "https://github.com/georgbuechner/dissonance/issues");
-  }
+  }  
   spdlog::get(LOGGER)->info("Client::Start. closed.");
   if (!closed_by_me_)
     game_->Kill("The websocketpp server has closed. Probably no connection to server exists. Try again?");
@@ -74,18 +66,17 @@ void Client::Stop() {
 }
 
 void Client::on_open(websocketpp::connection_hdl) {
-  spdlog::get(LOGGER)->debug("Client::on_open");
+  spdlog::get(LOGGER)->info("Client::on_open");
   SendMessage("initialize_user", std::make_shared<Data>());
 }
 
 // This message handler will be invoked once for each incoming message. It
 // prints the message and then sends a copy of the message back to the server.
 void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr msg) {
-  spdlog::get(LOGGER)->info("Client::on_message: new message");
   Command cmd;
   try {
     cmd = Command(msg->get_payload().c_str(), msg->get_payload().size());
-    spdlog::get(LOGGER)->info("Client::on_message: new message with command: {}", cmd.command());
+    spdlog::get(LOGGER)->debug("Client::on_message: new message with command: {}", cmd.command());
   }
   catch (std::exception& e) {
     spdlog::get(LOGGER)->warn("Client::on_message: failed parsing message: {}", e.what());
@@ -95,17 +86,15 @@ void Client::on_message(client* c, websocketpp::connection_hdl hdl, message_ptr 
   // Handle json-formatted data:
   std::thread handler([this, cmd]() { game_->HandleAction(cmd); });
   handler.detach();
-  spdlog::get(LOGGER)->info("Client::on_message: exited");
+  spdlog::get(LOGGER)->debug("Client::on_message: exited");
 }
 
 void Client::SendMessage(std::string command, std::shared_ptr<Data> data) {
   Command cmd(command, username_, data);
   spdlog::get(LOGGER)->debug("Client::SendMessage: username: {}, command: {}", username_, command);
-
-  // TODO (fux): add username)
   websocketpp::lib::error_code ec;
   c_.send(hdl_, cmd.bytes(), websocketpp::frame::opcode::binary, ec);
-  spdlog::get(LOGGER)->info("Client::SendMessage: successfully sent message.");
+  spdlog::get(LOGGER)->debug("Client::SendMessage: successfully sent message.");
   if (ec)
     std::cout << "Client: sending failed because: " << ec.message() << std::endl;
 }

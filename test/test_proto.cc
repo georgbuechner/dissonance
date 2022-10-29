@@ -1,17 +1,12 @@
 #include <catch2/catch.hpp>
-#include <cstddef>
-#include <iostream>
-#include <memory>
+#include <msgpack.hpp>
 #include <string>
-#include <utility>
 #include <vector>
-#include "curses.h"
 #include "share/constants/codes.h"
 #include "share/defines.h"
 #include "share/shemes/commands.h"
 #include "share/shemes/data.h"
 #include "share/tools/utils/utils.h"
-#include <msgpack.hpp>
 
 TEST_CASE("Test int and short size equivalent", "[msgpack]") {
   // get command
@@ -29,7 +24,7 @@ TEST_CASE("Test int and short size equivalent", "[msgpack]") {
 }
 
 TEST_CASE("Test creating simple dto", "[msgpack]") {
-  std::string command = "preparing";
+  const std::string command = "preparing";
   Command cmd(command);
   REQUIRE(cmd.command() == command);
   auto payload = cmd.bytes();
@@ -40,8 +35,8 @@ TEST_CASE("Test creating simple dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating msg dto", "[msgpack]") {
-  std::string command = "print_msg";
-  std::string msg = "Haaaallooooo ich bin JanJan!";
+  const std::string command = "print_msg";
+  const std::string msg = "Haaaallooooo ich bin JanJan!";
 
   SECTION ("Test create msg-command", "[msgpack]") {
     std::shared_ptr<Data> data = std::make_shared<Msg>(msg);
@@ -57,12 +52,12 @@ TEST_CASE("Test creating msg dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
-  std::string command = "setup_new_game";
-  int lines = 100;
-  int cols = 50;
+  const std::string command = "setup_new_game";
+  const int lines = 100;
+  const int cols = 50;
 
   SECTION ("Test create setup_new_game-command for single-player", "[msgpack]") {
-    int mode = SINGLE_PLAYER;
+    const int mode = SINGLE_PLAYER;
     std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
     Command cmd(command, data);
     REQUIRE(cmd.command() == command);
@@ -83,8 +78,8 @@ TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
   }
 
   SECTION ("Test create setup_new_game-command for multi-player (host)", "[msgpack]") {
-    int num_players = 2;
-    int mode = MULTI_PLAYER;
+    const int num_players = 2;
+    const int mode = MULTI_PLAYER;
     std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
     data->set_num_players(num_players);
     Command cmd(command, data);
@@ -106,8 +101,8 @@ TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
   }
 
   SECTION ("Test create setup_new_game-command for multi-player (client)", "[msgpack]") {
-    std::string game_id = "fux_game";
-    int mode = MULTI_PLAYER_CLIENT;
+    const std::string game_id = "fux_game";
+    const int mode = MULTI_PLAYER_CLIENT;
     std::shared_ptr<Data> data = std::make_shared<InitNewGame>(mode, lines, cols);
     data->set_game_id(game_id);
     Command cmd(command, data);
@@ -130,10 +125,10 @@ TEST_CASE("Test creating setup_new_game-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating set_unit dto", "[msgpack]") {
-  std::string command = "set_unit";
-  position_t pos = {74, 89};
-  int unit = 1;
-  int color = 13;
+  const std::string command = "set_unit";
+  const position_t pos = {74, 89};
+  const int unit = 1;
+  const int color = 13;
 
   SECTION ("Test create set_unit-command", "[msgpack]") {
     std::shared_ptr<Data> data = std::make_shared<FieldPosition>(pos, unit, color);
@@ -153,10 +148,10 @@ TEST_CASE("Test creating set_unit dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating set_units dto", "[msgpack]") {
-  std::string command = "set_units";
+  const std::string command = "set_units";
 
   SECTION ("Test create set_units-command with two units", "[msgpack]") {
-    std::vector<FieldPosition> units = {FieldPosition({1,1}, 1, 12), FieldPosition({100,50}, 2, 13)};
+    const std::vector<FieldPosition> units = {FieldPosition({1,1}, 1, 12), FieldPosition({100,50}, 2, 13)};
     std::shared_ptr<Data> data = std::make_shared<Units>(units);
     Command cmd(command, data);
     auto payload = cmd.bytes();
@@ -170,18 +165,18 @@ TEST_CASE("Test creating set_units dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating update_game dto", "[msgpack]") {
-  std::string command = "update_game";
-  std::map<std::string, std::pair<std::string, int>> players = {{"fux", {"0/9", 1}}, {"georg", {"5/9", 2}}};
-  std::map<position_t, int> new_dead_neurons = {{{99, 99}, 3}, {{23, 7}, 2}};
-  std::map<position_t, std::pair<std::string, int>> potentials = {};
-  float audio_played = 0.7;
-  std::map<int, Data::Resource> resources = {
+  const std::string command = "update_game";
+  const std::map<std::string, std::pair<std::string, int>> players = {{"fux", {"0/9", 1}}, {"georg", {"5/9", 2}}};
+  const std::map<position_t, int> new_dead_neurons = {{{99, 99}, 3}, {{23, 7}, 2}};
+  const std::map<position_t, std::pair<std::string, int>> potentials = {};
+  const float audio_played = 0.7;
+  const std::map<int, Data::Resource> resources = {
     {1, Data::Resource(34.5, 23.4, 100, 2, true)}, 
     {2, Data::Resource(43.5, 32.4, 120, 0, false)}
   };
-  std::vector<bool> build_options = { true, true, false, false, false};
-  std::vector<bool> synapse_options = { false, false, true, true, true, false};
-  std::set<position_t> hit_potentials;
+  const std::vector<bool> build_options = { true, true, false, false, false};
+  const std::vector<bool> synapse_options = { false, false, true, true, true, false};
+  const std::set<position_t> hit_potentials;
 
   SECTION ("Test create update_game-command", "[msgpack]") {
     std::shared_ptr<Data> data = std::make_shared<Update>(players, potentials, hit_potentials, new_dead_neurons, 
@@ -217,33 +212,34 @@ TEST_CASE("Test creating update_game dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating init_game-dto update", "[msgpack]") {
-  std::string command = "init_game";
+  const std::string command = "init_game";
 
   // Create update-data
-  std::map<std::string, std::pair<std::string, int>> players = {{"fux", {"0/9", 1}}, {"georg", {"5/9", 2}}};
-  std::map<position_t, std::pair<std::string, int>> potentials = {{{99, 99}, {"10", EPSP}}, {{23, 7}, {"c", IPSP}}};
-  std::map<position_t, int> new_dead_neurons = {{{99, 99}, 3}, {{23, 7}, 2}};
-  float audio_played = 0.7;
-  std::map<int, Data::Resource> resources = {
+  const std::map<std::string, std::pair<std::string, int>> players = {{"fux", {"0/9", 1}}, {"georg", {"5/9", 2}}};
+  const std::map<position_t, std::pair<std::string, int>> potentials = {{{99, 99}, {"10", EPSP}}, 
+    {{23, 7}, {"c", IPSP}}};
+  const std::map<position_t, int> new_dead_neurons = {{{99, 99}, 3}, {{23, 7}, 2}};
+  const float audio_played = 0.7;
+  const std::map<int, Data::Resource> resources = {
     {1, Data::Resource(34.5, 23.4, 100, 2, true)}, 
     {2, Data::Resource(43.5, 32.4, 120, 0, false)}
   };
-  std::vector<bool> build_options = { true, true, false, false, false};
-  std::vector<bool> synapse_options = { false, false, true, true, true, false};
-  std::set<position_t> hit_potentials;
-  std::shared_ptr<Update> update = std::make_shared<Update>(players, potentials, hit_potentials, 
+  const std::vector<bool> build_options = { true, true, false, false, false};
+  const std::vector<bool> synapse_options = { false, false, true, true, true, false};
+  const std::set<position_t> hit_potentials;
+  const std::shared_ptr<Update> update = std::make_shared<Update>(players, potentials, hit_potentials, 
       new_dead_neurons, audio_played);
 
   // Create field-data
-  std::vector<std::vector<Data::Symbol>> field = {
+  const std::vector<std::vector<Data::Symbol>> field = {
     {Data::Symbol({"S", 0}), Data::Symbol({"S", 0}), Data::Symbol({"S", 1}), Data::Symbol({"S", 0})},
     {Data::Symbol({"S", 0}), Data::Symbol({"S", 0}), Data::Symbol({"S", 0}), Data::Symbol({"S", 1})},
     {Data::Symbol({"T", 2}), Data::Symbol({"S", 1}), Data::Symbol({"S", 0}), Data::Symbol({"S", 1})},
     {Data::Symbol({"X", 0}), Data::Symbol({"Y", 0}), Data::Symbol({"S", 1}), Data::Symbol({"S", 0})},
   };
-  std::vector<position_t> graph_positions = {{2,3}, {99,3}, {44, 23}, {10, 12}};
-  std::map<int, tech_of_t> technologies = {{1, {0,3}}, {2, {0, 3}}, {3, {0, 3}}, {4, {1,3}}};
-  int macro = 1;
+  const std::vector<position_t> graph_positions = {{2,3}, {99,3}, {44, 23}, {10, 12}};
+  const std::map<int, tech_of_t> technologies = {{1, {0,3}}, {2, {0, 3}}, {3, {0, 3}}, {4, {1,3}}};
+  const int macro = 1;
 
   SECTION ("Test create update_game-command", "[msgpack]") {
     std::shared_ptr<Data> data = std::make_shared<Init>(update, field, graph_positions, technologies);
@@ -289,7 +285,7 @@ TEST_CASE("Test creating init_game-dto update", "[msgpack]") {
 }
 
 TEST_CASE("Test creating update_lobby-dto", "[msgpack]") {
-  std::string command = "update_lobby";
+  const std::string command = "update_lobby";
   std::shared_ptr<Data> data = std::make_shared<Lobby>();
   data->AddEntry("fux-game", 4, 2, "here-my-call.mp3");
   data->AddEntry("georgs-game", 2, 0, "black sands.wav");
@@ -311,8 +307,8 @@ TEST_CASE("Test creating update_lobby-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating game_end-dto", "[msgpack]") {
-  std::string command = "game_end";
-  std::string msg = "YOU LOST";
+  const std::string command = "game_end";
+  const std::string msg = "YOU LOST";
   std::shared_ptr<Data> data= std::make_shared<GameEnd>(msg);
   // Create statistics
   std::shared_ptr<Statictics> statistics_1 = std::make_shared<Statictics>();
@@ -398,12 +394,12 @@ TEST_CASE("Test creating game_end-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating build_potential-dto", "[msgpack]") {
-  std::string command = "build_potential";
-  int unit = EPSP;
-  int num = 1;
-  position_t default_pos = {-1, -1};
-  position_t synapse_pos = {3,4};
-  std::vector<position_t> positions = { {3,4}, {5,6}, {0,0}};
+  const std::string command = "build_potential";
+  const int unit = EPSP;
+  const int num = 1;
+  const position_t default_pos = {-1, -1};
+  const position_t synapse_pos = {3,4};
+  const std::vector<position_t> positions = { {3,4}, {5,6}, {0,0}};
 
   SECTION("Create initial data", "[msgpack]") {
     std::shared_ptr<Data> data = std::make_shared<BuildPotential>(unit, num);
@@ -483,13 +479,13 @@ TEST_CASE("Test creating build_potential-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating build_neuron-dto", "[msgpack]") {
-  std::string command = "build_neuron";
-  int unit = EPSP;
-  int range = 6;
-  position_t default_pos = {-1, -1};
-  position_t pos = {3,6};
-  position_t start_pos = {3,4};
-  std::vector<position_t> positions = { {3,4}, {5,6}, {0,0}};
+  const std::string command = "build_neuron";
+  const int unit = EPSP;
+  const int range = 6;
+  const position_t default_pos = {-1, -1};
+  const position_t pos = {3,6};
+  const position_t start_pos = {3,4};
+  const std::vector<position_t> positions = { {3,4}, {5,6}, {0,0}};
 
   SECTION("Create initial build-neuron-data", "[msgpack]") {
     std::shared_ptr<Data> data = std::make_shared<BuildNeuron>(unit);
@@ -582,10 +578,10 @@ TEST_CASE("Test creating build_neuron-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating select-synapse-dto", "[msgpack]") {
-  std::string command = "select_synapse";
-  position_t default_pos = {-1, -1};
-  position_t synapse_pos = {40, 40};
-  std::vector<position_t> player_units = {{40, 40}, {50, 50}};
+  const std::string command = "select_synapse";
+  const position_t default_pos = {-1, -1};
+  const position_t synapse_pos = {40, 40};
+  const std::vector<position_t> player_units = {{40, 40}, {50, 50}};
 
   SECTION ("Test create select_synapse-command without synapse_pos", "[msgpack]") {
     std::shared_ptr<Data> data = std::make_shared<SelectSynapse>(player_units);
@@ -618,15 +614,15 @@ TEST_CASE("Test creating select-synapse-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating set_wps-dto", "[msgpack]") {
-  std::string command = "set_wps";
-  position_t default_pos = {-1, -1};
-  position_t synapse_pos = {40, 40};
-  position_t way_point = {56, 12};
-  std::vector<position_t> centered_positions = {{40, 40}, {50, 50}};
-  std::vector<position_t> current_way = {{30, 31}, {30, 32}, {31, 32}, {32, 32}, {33, 33}, {34, 34}, {34, 35}};
-  std::vector<position_t> current_waypoints = {{30, 31}, {33, 33}};
-  std::string msg = "all availible way-points set!";
-  int num = 3;
+  const std::string command = "set_wps";
+  const position_t default_pos = {-1, -1};
+  const position_t synapse_pos = {40, 40};
+  const position_t way_point = {56, 12};
+  const std::vector<position_t> centered_positions = {{40, 40}, {50, 50}};
+  const std::vector<position_t> current_way = {{30, 31}, {30, 32}, {31, 32}, {32, 32}, {33, 33}, {34, 34}, {34, 35}};
+  const std::vector<position_t> current_waypoints = {{30, 31}, {33, 33}};
+  const std::string msg = "all availible way-points set!";
+  const int num = 3;
 
   SECTION ("Test create set_wps-command with only synapse_pos", "[msgpack]") {
     std::shared_ptr<Data> data = std::make_shared<SetWayPoints>(synapse_pos);
@@ -684,14 +680,14 @@ TEST_CASE("Test creating set_wps-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating set_target-dto", "[msgpack]") {
-  std::string command = "set_target";
-  int unit = IPSP;
-  position_t default_pos = {-1, -1};
-  position_t synapse_pos = {40, 40};
-  position_t start_pos= {56, 12};
-  position_t target = {56, 12};
-  std::vector<position_t> enemy_units = {{40, 40}, {50, 50}};
-  std::vector<position_t> target_positions = {{20, 4}, {5, 20}};
+  const std::string command = "set_target";
+  const int unit = IPSP;
+  const position_t default_pos = {-1, -1};
+  const position_t synapse_pos = {40, 40};
+  const position_t start_pos= {56, 12};
+  const position_t target = {56, 12};
+  const std::vector<position_t> enemy_units = {{40, 40}, {50, 50}};
+  const std::vector<position_t> target_positions = {{20, 4}, {5, 20}};
 
   SECTION ("Test create set_target-command with only synapse_pos and unit", "[msgpack]") {
     std::shared_ptr<Data> data = std::make_shared<SetTarget>(synapse_pos, unit);
@@ -743,8 +739,8 @@ TEST_CASE("Test creating set_target-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating toggle_swarm_attack-dto", "[msgpack]") {
-  std::string command = "toggle_swarm_attack";
-  position_t synapse_pos = {40, 40};
+  const std::string command = "toggle_swarm_attack";
+  const position_t synapse_pos = {40, 40};
 
   std::shared_ptr<Data> data = std::make_shared<ToggleSwarmAttack>(synapse_pos);
   Command cmd(command, data);
@@ -758,14 +754,14 @@ TEST_CASE("Test creating toggle_swarm_attack-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating get_positions-dto", "[msgpack]") {
-  std::string command = "get_positions";
-  position_t synapse_pos = {40, 40};
-  position_t default_pos = {-1, -1};
-  std::vector<position_t> positions = {{40, 40}, {34, 43}};
+  const std::string command = "get_positions";
+  const position_t synapse_pos = {40, 40};
+  const position_t default_pos = {-1, -1};
+  const std::vector<position_t> positions = {{40, 40}, {34, 43}};
 
   SECTION ("Test with single position-request and no (empty) data", "[msgpack]") {
-    std::map<int, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
-    std::string return_cmd = "select_synapse";
+    const std::map<int, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
+    const std::string return_cmd = "select_synapse";
     std::shared_ptr<Data> select_synapse = std::make_shared<SelectSynapse>();
     std::shared_ptr<Data> data = std::make_shared<GetPositions>(return_cmd, position_requests, select_synapse);
     Command cmd(command, data);
@@ -799,8 +795,8 @@ TEST_CASE("Test creating get_positions-dto", "[msgpack]") {
   }
 
   SECTION ("Test with single position-request", "[msgpack]") {
-    std::map<int, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
-    std::string return_cmd = "select_synapse";
+    const std::map<int, Data::PositionInfo> position_requests = {{{PLAYER, Data::PositionInfo(SYNAPSE)}}};
+    const std::string return_cmd = "select_synapse";
     std::shared_ptr<Data> select_synapse = std::make_shared<SelectSynapse>(positions);
     std::shared_ptr<Data> data = std::make_shared<GetPositions>(return_cmd, position_requests, select_synapse);
     Command cmd(command, data);
@@ -834,9 +830,9 @@ TEST_CASE("Test creating get_positions-dto", "[msgpack]") {
   }
 
   SECTION ("Test with multiple position-request", "[msgpack]") {
-    std::map<int, Data::PositionInfo> position_requests = {{{CURRENT_WAY, Data::PositionInfo(synapse_pos)}, 
+    const std::map<int, Data::PositionInfo> position_requests = {{{CURRENT_WAY, Data::PositionInfo(synapse_pos)}, 
           {CURRENT_WAY_POINTS, Data::PositionInfo(synapse_pos)}, {CENTER, Data::PositionInfo()}}};
-    std::string return_cmd = "set_wps";
+    const std::string return_cmd = "set_wps";
     std::shared_ptr<Data> set_wps = std::make_shared<SetWayPoints>(synapse_pos);
     std::shared_ptr<Data> data = std::make_shared<GetPositions>(return_cmd, position_requests, set_wps);
     Command cmd(command, data);
@@ -866,8 +862,8 @@ TEST_CASE("Test creating get_positions-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating check-send-audio-dto", "[msgpack]") {
-  std::string command = "audio_map";
-  std::string map_path = "data/songs/mysong.mp3";
+  const std::string command = "audio_map";
+  const std::string map_path = "data/songs/mysong.mp3";
 
   SECTION ("Test creating check-send-audio-dto on same devive", "[msgpack]") { 
     bool same_device = true;
@@ -887,8 +883,8 @@ TEST_CASE("Test creating check-send-audio-dto", "[msgpack]") {
   }
 
   SECTION ("Test creating check-send-audio-dto not on same devive", "[msgpack]") { 
-    bool same_device = false;
-    std::string audio_file_name = "mysong.mp3";
+    const bool same_device = false;
+    const std::string audio_file_name = "mysong.mp3";
     std::shared_ptr<Data> data = std::make_shared<CheckSendAudio>(map_path, audio_file_name);
     Command cmd(command, data);
     REQUIRE(cmd.command() == command);
@@ -906,12 +902,12 @@ TEST_CASE("Test creating check-send-audio-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating check-send-audio-data-dto", "[msgpack]") {
-  std::string command = "send_audio_data";
-  std::string username = "fux";
-  std::string songname = "Union v2.mp3";
-  int part = 1;
-  int parts = 2;
-  std::string content = "hello I am audio content";
+  const std::string command = "send_audio_data";
+  const std::string username = "fux";
+  const std::string songname = "Union v2.mp3";
+  const int part = 1;
+  const int parts = 2;
+  const std::string content = "hello I am audio content";
   SECTION ("Test creating check-send-audio-data-dto", "[msgpack]") {
     std::shared_ptr<Data> data = std::make_shared<AudioTransferData>(username, songname);
     data->set_parts(parts);
@@ -937,10 +933,10 @@ TEST_CASE("Test creating check-send-audio-data-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating initialize-dto", "[msgpack]") {
-  std::string command = "initialize_game";
-  std::string map_name = "Hear_My_Call-coffeeshoppers";
-  std::string source_path = "dissonance/data/analysis/18062755743724368886Hear_My_Call-coffeeshoppers.json";
-  nlohmann::json analysed_data = utils::LoadJsonFromDisc(source_path);
+  const std::string command = "initialize_game";
+  const std::string map_name = "Hear_My_Call-coffeeshoppers";
+  const std::string source_path = "dissonance/data/analysis/18062755743724368886Hear_My_Call-coffeeshoppers.json";
+  const nlohmann::json analysed_data = utils::LoadJsonFromDisc(source_path);
 
   SECTION("Test creating initialize-dto without ais", "[msgpack]") {
     std::shared_ptr<Data> data = std::make_shared<InitializeGame>(map_name);
@@ -973,10 +969,10 @@ TEST_CASE("Test creating initialize-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating distributed_iron-dto", "[msgpack]") {
-  int resource = POTASSIUM;
+  const int resource = POTASSIUM;
 
   SECTION ("Test creating add-iron-cmd", "[msgpack]") {
-    std::string command = "add_iron";
+    const std::string command = "add_iron";
     std::shared_ptr<Data> data = std::make_shared<DistributeIron>(resource);
     Command cmd(command, data);
     REQUIRE(cmd.command() == command);
@@ -989,7 +985,7 @@ TEST_CASE("Test creating distributed_iron-dto", "[msgpack]") {
   }
   
   SECTION ("Test creating remove-iron-cmd", "[msgpack]") {
-    std::string command = "remove_iron";
+    const std::string command = "remove_iron";
     std::shared_ptr<Data> data = std::make_shared<DistributeIron>(resource);
     Command cmd(command, data);
     REQUIRE(cmd.command() == command);
@@ -1003,8 +999,8 @@ TEST_CASE("Test creating distributed_iron-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating add_technology-dto", "[msgpack]") {
-  int technology = SWARM;
-  std::string command = "add_technology";
+  const int technology = SWARM;
+  const std::string command = "add_technology";
 
   std::shared_ptr<Data> data = std::make_shared<AddTechnology>(technology);
   Command cmd(command, data);
@@ -1018,9 +1014,9 @@ TEST_CASE("Test creating add_technology-dto", "[msgpack]") {
 }
 
 TEST_CASE("Test creating send_audio_info-dto", "[msgpack]") {
-  std::string command = "send_audio_info";
-  bool send_audio = false;
-  bool send_ai_audios = false;
+  const std::string command = "send_audio_info";
+  const bool send_audio = false;
+  const bool send_ai_audios = false;
 
   std::shared_ptr<Data> data = std::make_shared<SendAudioInfo>(send_audio, send_ai_audios);
   Command cmd(command, data);

@@ -1,7 +1,6 @@
 #include "catch2/catch.hpp"
 #include "share/audio/audio.h"
 #include "share/constants/codes.h"
-#include <algorithm>
 #include <vector>
 
 const std::vector<std::string> note_names_ = {

@@ -1,34 +1,15 @@
+#include <filesystem>
+#include <math.h>
+#include <spdlog/spdlog.h>
 #include "client/game/client_game.h"
-#include "client/game/print/drawrer.h"
 #include "client/websocket/client.h"
 #include "client_game.h"
 #include "curses.h"
-#include "nlohmann/json_fwd.hpp"
-#include "share/audio/audio.h"
+#include "nlohmann/json.hpp"
 #include "share/constants/codes.h"
 #include "share/constants/texts.h"
-#include "share/defines.h"
 #include "share/objects/units.h"
-#include "share/shemes/commands.h"
-#include "share/shemes/data.h"
-#include "share/tools/context.h"
-#include "share/tools/eventmanager.h"
 #include "share/tools/utils/utils.h"
-
-#include "spdlog/spdlog.h"
-
-#include <cctype>
-#include <cstddef>
-#include <filesystem>
-#include <iterator>
-#include <math.h>
-#include <memory>
-#include <mutex>
-#include <shared_mutex>
-#include <string>
-#include <unistd.h>
-#include <utility>
-#include <vector>
 
 #define STD_HANDLERS -1
 #define TUTORIAL_MSG_LAG 300
@@ -215,8 +196,6 @@ void ClientGame::HandleAction(Command cmd) {
   // Get event from event-manager
   if (eventmanager_.handlers().count(cmd.command()))
     (this->*eventmanager_.handlers().at(cmd.command()))(cmd.data());
-  spdlog::get(LOGGER)->debug("ClientGame::HandleAction (2): command: {}, context: {}", 
-      cmd.command(), current_context_);
   if (mode_ == TUTORIAL && eventmanager_tutorial_.handlers().count(cmd.command()) > 0)
     (this->*eventmanager_tutorial_.handlers().at(cmd.command()))(cmd.data());
 }
@@ -298,7 +277,6 @@ void ClientGame::h_Help(std::shared_ptr<Data>) {
 }
 
 void ClientGame::h_Quit(std::shared_ptr<Data>) {
-  spdlog::get(LOGGER)->debug("ClientGame::h_Quit");
   drawrer_.ClearField();
   drawrer_.set_stop_render(true);
   drawrer_.PrintCenteredLine(LINES/2, "Are you sure you want to quit? (y/n)");
@@ -550,7 +528,6 @@ void ClientGame::h_SwarmAttack(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::h_ResetOrQuitSynapseContext(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ClientGame::h_ResetOrQuitSynapseContext. current_context {}", current_context_);
   // if current context if not already synapse-context: switch to synapse-context.
   if (current_context_ != CONTEXT_SYNAPSE) {
     SwitchToSynapseContext(data);
@@ -623,7 +600,6 @@ void ClientGame::SwitchToResourceContext(std::string msg) {
 }
 
 void ClientGame::SwitchToSynapseContext(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ClientGame::SwitchToSynapseContext. current_context {}", current_context_);
   std::shared_lock sl(mutex_context_);
   current_context_ = CONTEXT_SYNAPSE;
   contexts_.at(current_context_).set_data(data);
@@ -715,8 +691,6 @@ void ClientGame::m_Preparing(std::shared_ptr<Data>) {
 }
 
 void ClientGame::m_SelectMode(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode");
-  
   // Print welcome text.
   auto welcome_text = (show_full_welcome_text_) ? texts::welcome : texts::welcome_reduced;
   // Append server-message.
@@ -757,7 +731,6 @@ void ClientGame::m_SelectMode(std::shared_ptr<Data> data) {
       {2, {"4 players", (muliplayer_availible_) ? COLOR_AVAILIBLE : COLOR_DEFAULT}}, 
     };
     int num_players = 2 + SelectInteger("Select number of players", true, mapping, {mapping.size()+1}, "Max 4 players!");
-    spdlog::get(LOGGER)->debug("ClientGame::m_SelectMode: num_players: {}", num_players);
     new_data->set_num_players(num_players);
   }
   ws_srv_->SendMessage("setup_new_game", new_data);
@@ -782,7 +755,6 @@ void ClientGame::m_SelectAudio(std::shared_ptr<Data>) {
 }
 
 void ClientGame::m_GetAudioData(std::shared_ptr<Data> data) {
-  spdlog::get(LOGGER)->debug("Websocket::on_message: got binary data size");
   audio_data_.AddData(data);
   if (audio_data_.audio_stored()) {
     ws_srv_->SendMessage("ready", std::make_shared<Data>());
@@ -914,7 +886,6 @@ void ClientGame::m_GameEnd(std::shared_ptr<Data> data) {
   current_context_ = CONTEXT_POST_GAME;
   drawrer_.set_viewpoint(VP_POST_GAME);
   if (mode_ == SINGLE_PLAYER) {
-    spdlog::get(LOGGER)->debug("ClientGame::m_GameEnd. Adding to ranking...");
     if (data->msg().find("times up") != std::string::npos)
       ranking_[audio_file_path_]._timeup++;
     else if (data->msg().find("LOST") != std::string::npos)
@@ -1211,7 +1182,7 @@ std::string ClientGame::SelectAudio(std::string msg) {
     // Get players choice.
     char choice = getch();
     // Goes to child directory.
-    if (utils::IsRight(choice)) {
+    if (choice == 'l') {
       if (visible_options[selected].first == "dissonance_recently_played" || 
           std::filesystem::is_directory(visible_options[selected].first)) {
         level++;
@@ -1239,7 +1210,7 @@ std::string ClientGame::SelectAudio(std::string msg) {
       }
     }
     // Go to parent directory
-    else if (utils::IsLeft(choice)) {
+    else if (choice == 'h') {
       // if "top level" reached, then show error.
       if (level == 0) 
         error = "No parent directory.";
@@ -1266,14 +1237,14 @@ std::string ClientGame::SelectAudio(std::string msg) {
       }
     }
     // Move choice down
-    else if (utils::IsDown(choice)) {
+    else if (choice == 'j') {
       if (selected == print_max-1 && selector.options_.size() > max)
         print_start++;
       else 
         selected = utils::Mod(selected+1, visible_options.size());
     }
     // Move choice up
-    else if (utils::IsUp(choice)) {
+    else if (choice == 'k') {
       if (selected == 0 && print_start > 0)
         print_start--;
       else 
@@ -1434,7 +1405,6 @@ void ClientGame::PrintRanking() {
 
 
 void ClientGame::h_InitTutorialText(const texts::paragraphs_field_t& text) {
-  spdlog::get(LOGGER)->debug("ClientGame::h_InitTutorialText");
   Pause();
   // In case another tutorial-message is added use last-context of current
   // context, instead of current_context.
@@ -1452,7 +1422,6 @@ void ClientGame::h_TextQuit(std::shared_ptr<Data>) {
 }
 
 void ClientGame::h_TextQuit() {
-  spdlog::get(LOGGER)->debug("ClientGame::h_TextQuit. Current context: {}", current_context_);
   std::shared_lock sl(mutex_context_);
   // Get last context from context-text, to resume where we left off before text-context.
   current_context_ = contexts_.at(CONTEXT_TEXT).last_context();
@@ -1467,9 +1436,7 @@ void ClientGame::h_TextQuit() {
 void ClientGame::h_TextPrint() {
   drawrer_.ClearField();
   auto paragraph = contexts_.at(current_context_).get_paragraph();
-  spdlog::get(LOGGER)->debug("ClientGame::h_TextPrint printing text and field...");
   drawrer_.PrintCenteredParagraphAndMiniFields(paragraph.first, paragraph.second, true);
-  spdlog::get(LOGGER)->debug("ClientGame::h_TextPrint done");
   refresh();
 }
 

@@ -1,22 +1,13 @@
 #include <algorithm>
-#include <cstddef>
-#include <memory>
-#include <mutex>
 #include <string>
-#include <unistd.h>
 #include <utility>
 #include <vector>
-#include "curses.h"
-#include "nlohmann/json_fwd.hpp"
-#include "spdlog/spdlog.h"
+#include <spdlog/spdlog.h>
+#include "nlohmann/json.hpp"
 
 #include "client/game/print/drawrer.h"
-#include "client/game/print/view_point.h"
 #include "server/game/field/field.h"
-#include "share/constants/codes.h"
-#include "share/defines.h"
 #include "share/objects/units.h"
-#include "share/shemes/data.h"
 #include "share/tools/random/random.h"
 #include "share/tools/utils/utils.h"
 
@@ -134,33 +125,29 @@ void Drawrer::set_msg(std::string msg) {
 }
 
 void Drawrer::set_transfer(std::shared_ptr<Data> init, bool show_ai_tactics) {
+  spdlog::get(LOGGER)->info("Drawrer::set_transfer.");
   field_ = init->field();
 
   // Adjust start-point of field if game size is smaller than resolution suggests.
-  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: setting height and width.");
   int cur_height = field_height();
   int cur_width = field_width();
   extra_height_ = ((size_t)cur_height > field_.size()) ? (cur_height-field_.size())/2 : 0;
   extra_width_ = ((size_t)cur_width > field_[0].size()) ? cur_width-field_[0].size() : 0;
-  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: setting graph_positions.");
   for (const auto& it : init->graph_positions())
     graph_positions_->insert(it);
   cur_selection_.at(VP_FIELD).set_graph_positions(graph_positions_);
   
   // set update
+  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: setting update.");
   update_ = std::dynamic_pointer_cast<Update>(init->update());
   // set resources and pointer to resources of resouce-viewpoint
-  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: setting resources.");
   resources_ = std::make_shared<std::map<int, Data::Resource>>(init->update()->resources());
-  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: set {} resources", resources_->size());
   cur_selection_.at(VP_RESOURCE).set_resources(resources_);
   // set technologies and pointer to technologies of tech-viewpoint
-  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: setting technologies.");
   technologies_ = std::make_shared<std::map<int, tech_of_t>>(init->technologies());
   cur_selection_.at(VP_TECH).set_technologies(technologies_);
 
   initialized_ = true;
-  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: done");
 
   // Show player which macro they play with
   if (mode_ == SINGLE_PLAYER || mode_ == TUTORIAL) {
@@ -186,7 +173,7 @@ void Drawrer::set_transfer(std::shared_ptr<Data> init, bool show_ai_tactics) {
       ul.lock();
     }
   }
-  spdlog::get(LOGGER)->debug("Drawrer::set_transfer: done");
+  spdlog::get(LOGGER)->info("Drawrer::set_transfer: done");
 }
 
 void Drawrer::set_stop_render(bool stop) {
@@ -458,7 +445,6 @@ void Drawrer::PrintTopline(std::vector<bool> availible_options) {
 }
 
 void Drawrer::PrintField() {
-  spdlog::get(LOGGER)->info("Drawrer::PrintField");
   position_t sel = field_pos();
   auto range = cur_selection_.at(VP_FIELD).range();
 
@@ -567,7 +553,6 @@ void Drawrer::PrintFooter(std::string str) {
 }
 
 void Drawrer::PrintStatistics() const {
-  spdlog::get(LOGGER)->info("Drawrer::PrintStatistics: {} {}", statistics_.size(), cur_selection_.at(VP_POST_GAME).x());
   clear();
   refresh();
   if (show_graph_)
@@ -593,13 +578,11 @@ void Drawrer::PrintStatisticsGraph(std::shared_ptr<Statictics> statistic) const 
     if (cur > max)
       max = cur;
   }
-  spdlog::get(LOGGER)->info("PrintStatistics: max: {}, lines: {}", max, LINES);
   double fak = (double)(LINES-15)/max; // -10 = 5 spaces top and 5 spaces bottom
   // calculate cols-offset, or reduce graph
   int lines_offset = 7;
   int cols_init_offset = 13;
   int cols_offset = cols_init_offset;
-  spdlog::get(LOGGER)->info("PrintStatistics: printing first {} of {} entries", COLS-(cols_offset*2), graph.size());
   if ((size_t)(COLS-(cols_offset*2)) > graph.size()) 
     cols_offset += ((COLS-cols_init_offset)-graph.size())/2;
   // Print column discriptions (bottom: time / top: neurons, 
@@ -727,7 +710,6 @@ void Drawrer::PrintNeuronsBuilt(std::vector<int> neurons_built, int i, int cols_
   size_t size = neurons_built.size();
   for (unsigned int j=0; j<size; j++) {
     size_t neuron = neurons_built[j];
-    spdlog::get(LOGGER)->debug("Drawrer::PrintStatistics: neuron: {}", neuron);
     if (neuron == RESOURCENEURON)
       mvaddstr(7, i+cols_offset-(size-j), "R");
     else 
@@ -755,7 +737,6 @@ void Drawrer::PrintStatisticsTable(std::shared_ptr<Statictics> statistic) const 
 
 int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, 
     std::map<int, int> infos) const {
-  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticEntry: {}, {}", heading, infos.size());
   PrintCenteredLineBold(s+(++i), heading);
   for (const auto& it : infos) 
     PrintCenteredLine(s+(++i), units_tech_name_mapping.at(it.first) + ": " + std::to_string(it.second));
@@ -763,7 +744,6 @@ int Drawrer::PrintStatisticEntry(std::string heading, int s, int i,
 }
 
 int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, int info) const {
-  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticEntry: {}, {}", heading, info);
   PrintCenteredLineBold(s+(++i), heading);
   PrintCenteredLine(s+(++i), std::to_string(info));
   return ++i;
@@ -771,7 +751,6 @@ int Drawrer::PrintStatisticEntry(std::string heading, int s, int i, int info) co
 
 int Drawrer::PrintStatisticsResources(int start_line, int i, 
     std::map<int, std::map<std::string, double>> resources) const {
-  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticsResources: {} resource-entries", resources.size());
   PrintCenteredLineBold(start_line+(++i), "Resources");
   for (const auto& resource : resources) {
     PrintCenteredLine(start_line+(++i), resources_name_mapping.at(resource.first));
@@ -785,7 +764,6 @@ int Drawrer::PrintStatisticsResources(int start_line, int i,
 }
 
 int Drawrer::PrintStatisticsTechnology(int start_line, int i, std::map<int, tech_of_t> technologies) const {
-  spdlog::get(LOGGER)->debug("Drawrer::PrintStatisticsTechnology: {} technology-entries", technologies.size());
   PrintCenteredLineBold(start_line+(++i), "Technologies");
   for (const auto& it : technologies) {
     std::string info = units_tech_name_mapping.at(it.first) + ": " + utils::PositionToString(it.second);

@@ -1,23 +1,16 @@
 #ifndef SRC_SERVER_GAME_H_
 #define SRC_SERVER_GAME_H_
 
-#include <cstddef>
-#include <deque>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <stdio.h>
-#include <stdlib.h>
 #include <shared_mutex>
 #include <vector>
 
 #include "share/defines.h"
 #include "share/audio/audio.h"
-#include "share/constants/texts.h"
 #include "server/game/field/field.h"
-#include "server/game/player/audio_ki.h"
 #include "server/game/player/player.h"
-#include "share/objects/units.h"
 #include "share/shemes/commands.h"
 #include "share/shemes/data.h"
 #include "share/tools/random/random.h"
@@ -38,7 +31,6 @@ class ServerGame {
 
     // getter 
     int status() const;
-    int mode() const;
     int max_players() const;
     int cur_players() const;
     std::string audio_map_name() const;
@@ -76,6 +68,12 @@ class ServerGame {
      */
     void HandleInput(std::string command, std::shared_ptr<Data> data);
 
+    /**
+     * Creates field and returns success/ failure. Deletes all created objects
+     * afterwards.
+     * @param[in] audio_path to load map from.
+     * @return success/ failure
+     */
     bool TestField(std::string audio_path);
     
   private: 

@@ -1,27 +1,21 @@
 #ifndef SRC_CLIENT_CLIENT_GAME_H_
 #define SRC_CLIENT_CLIENT_GAME_H_
 
-#include "share/audio/audio.h"
-#include "share/constants/texts.h"
-#include "share/shemes/commands.h"
-#include "share/tools/audio_receiver.h"
-#include <memory>
 #define NCURSES_NOMACROS
-#include <cstddef>
 #include <curses.h>
-#include <mutex>
 #include <shared_mutex>
 #include <string>
-#include <stdio.h>
-#include <stdlib.h>
 #include <vector>
-
-#include "nlohmann/json_fwd.hpp"
 
 #include "client/game/print/drawrer.h"
 #include "share/tools/eventmanager.h"
 #include "share/tools/context.h"
 #include "share/defines.h"
+#include "share/audio/audio.h"
+#include "share/constants/texts.h"
+#include "share/shemes/commands.h"
+#include "share/shemes/data.h"
+#include "share/tools/audio_receiver.h"
 
 class Client;
 

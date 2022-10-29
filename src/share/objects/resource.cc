@@ -1,6 +1,5 @@
 #include "share/objects/resource.h"
 #include "spdlog/spdlog.h"
-#include <numeric>
 
 Resource::Resource(double init, int max, int distributed_iron, bool to_int, position_t pos) 
     : to_int_(to_int), pos_(pos) {
@@ -81,12 +80,7 @@ bool Resource::Active() const {
   return distributed_iron_ >= 2;
 }
 
-std::string Resource::Print() const {
-  return utils::Dtos(cur()) + "+" + utils::Dtos(bound_) + "/" + utils::Dtos(limit_);
-}
-
-
-void Resource::call() {
+void Resource::Call() {
   active_percent_.second++;
   active_percent_.first += (Active()) ? 1 : 0;
 }

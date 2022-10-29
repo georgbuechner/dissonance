@@ -1,23 +1,17 @@
 #ifndef SRC_PRINT_DRAWER_H_
 #define SRC_PRINT_DRAWER_H_
 
-#include <memory>
 #include <set>
 #include <vector>
 #define NCURSES_NOMACROS
-#include <cstddef>
 #include <curses.h>
 #include <shared_mutex>
 #include <string>
 
-#include "spdlog/spdlog.h"
-
 #include "client/game/print/view_point.h"
 #include "share/shemes/data.h"
 #include "share/constants/codes.h"
-#include "share/constants/costs.h"
 #include "share/constants/texts.h"
-#include "share/tools/utils/utils.h"
 #include "share/defines.h"
 
 class Drawrer {

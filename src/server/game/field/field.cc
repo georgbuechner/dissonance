@@ -1,28 +1,11 @@
 #include <algorithm>
-#include <cctype>
 #include <cmath>
-#include <cstddef>
-#include <cstdlib>
-#include <curses.h>
-#include <exception>
 #include <iostream>
-#include <iterator>
-#include <locale>
-#include <memory>
-#include <random>
-#include <stdexcept>
-#include <vector>
+#include <spdlog/spdlog.h>
 
-#include "share/defines.h"
 #include "share/shemes/data.h"
-#include "share/tools/graph.h"
-#include "spdlog/spdlog.h"
-
 #include "server/game/field/field.h"
-#include "share/objects/units.h"
 #include "share/constants/codes.h"
-#include "server/game/player/player.h"
-#include "share/tools/random/random.h"
 #include "share/tools/utils/utils.h"
 
 #define SECTIONS 8
@@ -72,16 +55,14 @@ std::vector<position_t> Field::AddNucleus(int num_players) {
     if (free_positions > (int)positions_in_section.size()/4 && free_positions > 8)
       availible_sections.push_back(i);
   }
-  spdlog::get(LOGGER)->debug("Field::AddNucleus: got all sections: {}", availible_sections.size());
   // If not at least half as many sections are availible as players (max 2 players per section) omit.
   if ((int)availible_sections.size() < num_players/2) {
-    spdlog::get(LOGGER)->info("Field::AddNucleus: returning since not enough sections...");
+    spdlog::get(LOGGER)->info("Field::AddNucleus: returning since not enough sections... {}", availible_sections.size());
     return {};
   }
   // Create nucleus-positions.
   std::vector<position_t> nucleus_positions;
   for (int i=0; i<num_players; i++) {
-    spdlog::get(LOGGER)->debug("Field::AddNucleus: adding nucleus for player {}", i);
     // Get random section and then erase retreived section from availible sections
     int section = ran_gen_->RandomInt(0, availible_sections.size()-1);
     auto positions_in_section = GetAllPositionsOfSection(availible_sections[section], true);
@@ -92,7 +73,7 @@ std::vector<position_t> Field::AddNucleus(int num_players) {
     while (NucleusInRange(pos, 12) || GetAllInRange(pos, 2, 0, true).size() < 10) {
       pos = positions_in_section[ran_gen_->RandomInt(0, positions_in_section.size())];
       if (counter++ == 100) {
-        spdlog::get(LOGGER)->info("Field::AddNucleus: failed since not enough space in section.");
+        spdlog::get(LOGGER)->debug("Field::AddNucleus: failed since not enough space in section.");
         return {};
       }
     }
@@ -100,7 +81,6 @@ std::vector<position_t> Field::AddNucleus(int num_players) {
     field_[pos.first][pos.second] = SYMBOL_DEN;
     nucleus_positions.push_back(pos);
     AddResources(pos);
-    spdlog::get(LOGGER)->info("Adding nucleus at position: {}", utils::PositionToString(pos));
   }
   spdlog::get(LOGGER)->info("Field::AddNucleus: done");
   return nucleus_positions;
@@ -114,14 +94,12 @@ void Field::AddResources(position_t start_pos) {
   int nth_try = 0;
   std::vector<position_t> positions = GetAllInRange(start_pos, 4, 2, true);
   while(positions.size() < symbol_resource_mapping.size()-1) {
-    spdlog::get(LOGGER)->debug("Field::AddResources: {}th try getting positions", nth_try);
     positions = GetAllInRange(start_pos, 4+nth_try++, 3, true);
   }
   // Randomly asign each resource one of these free positions.
   for (const auto& it : symbol_resource_mapping) {
     if (it.second == IRON)
       continue;
-    spdlog::get(LOGGER)->debug("Field::AddResources: resource {}", it.second);
     int ran = ran_gen_->RandomInt(0, positions.size()-1);
     auto pos = positions[ran];
     positions.erase(positions.begin()+ran);
@@ -171,7 +149,6 @@ void Field::CreateBrain(std::vector<double> reduced_pitches, int looseness) {
       auto pitch_diff = avrg_pitch - reduced_pitches[l*cols_+c];
       if (pitch_diff > 0) {
         auto percent = utils::GetPercentDiff(min_pitch_diff, pitch_diff);
-        spdlog::get(LOGGER)->debug("pitch_diff: {}, percent: {}", pitch_diff, percent);
         // hugde
         if (percent >= 99) {
           CreateBrainPart(reduced_pitches, {l, c}, 5, 0, 80, avrg_pitch, max_pitch_diff);
@@ -205,8 +182,10 @@ void Field::CreateBrainPart(const std::vector<double>& reduced_pitches, const po
 
 std::list<position_t> Field::GetWay(position_t start_pos, const std::vector<position_t>& way_points) {
   spdlog::get(LOGGER)->debug("Field::GetWayForSoldier: pos={}", utils::PositionToString(start_pos));
-  if (way_points.size() < 1)
+  if (way_points.size() < 1) {
+    spdlog::get(LOGGER)->debug("Field::GetWayForSoldier: omited: no way_points.");
     return {};
+  }
   std::list<position_t> way = {start_pos};
   for (size_t i=0; i<way_points.size(); i++) {
     try {
@@ -224,7 +203,6 @@ std::list<position_t> Field::GetWay(position_t start_pos, const std::vector<posi
 }
 
 void Field::AddNewNeuron(position_t pos, std::shared_ptr<Neuron> neuron, std::shared_ptr<Player> p) {
-  spdlog::get(LOGGER)->debug("Field::AddNewUnitToPos({})", utils::PositionToString(pos));
   // Add unit to field if in unit-symbol-mapping (resource-neurons already exist)
   if (unit_symbol_mapping.count(neuron->type_) > 0)
     field_[pos.first][pos.second] = unit_symbol_mapping.at(neuron->type_);

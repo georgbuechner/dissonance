@@ -5,36 +5,20 @@
 #ifndef SERVER_WEBSOCKET_SERVER_H_
 #define SERVER_WEBSOCKET_SERVER_H_
 
-#include <chrono>
 #include <iostream>
-#include <list>
 #include <map>
-#include <memory>
-#define NCURSES_NOMACROS
 #include <shared_mutex>
 #include <string>
 #include <websocketpp/common/connection_hdl.hpp>
+#include <websocketpp/config/asio_no_tls.hpp>
+#include <websocketpp/server.hpp>
 
 #include "share/shemes/commands.h"
 #include "share/shemes/data.h"
 #include "server/websocket/connection.h"
 #include "server/game/server_game.h"
-#include "share/defines.h"
-
-#ifdef _COMPILE_FOR_SERVER_
-#include <websocketpp/config/asio.hpp>
-#else
-#include <websocketpp/config/asio_no_tls.hpp>
-#endif
-
-#include <websocketpp/server.hpp>
-
-#ifdef _COMPILE_FOR_SERVER_
-typedef websocketpp::lib::shared_ptr<websocketpp::lib::asio::ssl::context> context_ptr;
-#endif
 
 class WebsocketServer {
-
   public:
      ///< Connection_id-typedef.
     typedef decltype(websocketpp::lib::weak_ptr<void>().lock().get()) connection_id;
@@ -69,14 +53,11 @@ class WebsocketServer {
     /**
      * Sends message to given username. 
      * Constucts data to send from `command` and `data`.
+     * @param[in] username
+     * @param[in] command
+     * @param[in] data
      */
     void SendMessage(std::string username, std::string command, std::shared_ptr<Data> data);
-
-    /**
-     * Sends message to given id. 
-     * Constucts command to send from `command` and `data`.
-     */
-    void SendMessage(connection_id id, std::string command, std::shared_ptr<Data> data);
 
     /**
      * Closes games every 5 seconds if finished. (THREAD)
@@ -88,11 +69,7 @@ class WebsocketServer {
   private:
 
     // typedefs:
-#ifdef _COMPILE_FOR_SERVER_
-    typedef websocketpp::server<websocketpp::config::asio_tls> server;
-#else
     typedef websocketpp::server<websocketpp::config::asio> server;
-#endif
     typedef server::message_ptr message_ptr;
     typedef std::pair<int, std::string> error_obj;
     
@@ -104,7 +81,7 @@ class WebsocketServer {
 
     mutable std::shared_mutex mutex_games_map_;  ///< Mutex for games map (sl when accessed, ul when modified)
     std::map<std::string, std::string> username_game_id_mapping_;  ///< maps username to game
-    std::map<std::string, ServerGame*> games_;  ///< all games (key=host-player).
+    std::map<std::string, std::shared_ptr<ServerGame>> games_;  ///< all games (key=host-player).
 
     mutable std::shared_mutex mutex_games_lock_;  ///< Mutex for games map (sl when accessed, ul when modified)
     std::map<std::string, bool> games_lock_; ///< stores whether game is currently locked.
@@ -141,6 +118,15 @@ class WebsocketServer {
     void on_message(server* srv, websocketpp::connection_hdl hdl, message_ptr msg);
 
     /**
+     * Sends message to given id. 
+     * Constucts command to send from `command` and `data`.
+     * @param[in] id of connection
+     * @param[in] command 
+     * @param[in] data
+     */
+    void SendMessage(connection_id id, std::string command, std::shared_ptr<Data> data);
+
+    /**
      * Sends message to given connection by connection-id.
      * Shared-locks connections-mutex.
      * @param[in] id of connection over which to send.
@@ -172,7 +158,7 @@ class WebsocketServer {
      * @param[in] username
      * @return game or nullptr if game or user does not exist and game-id.
      */
-    std::pair<ServerGame*, std::string> GetGameFromUsername(std::string username);
+    std::pair<std::shared_ptr<ServerGame>, std::string> GetGameFromUsername(std::string username);
 
     /**
      * Gets all users playing same game a user. 

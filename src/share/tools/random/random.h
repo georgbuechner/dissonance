@@ -1,9 +1,8 @@
 #ifndef SRC_RANDOM_RANDOM_H_
 #define SRC_RANDOM_RANDOM_H_
 
-#include <cstddef>
-
 #include "share/audio/audio.h"
+#include <vector>
 
 class RandomGenerator {
   public:
@@ -32,10 +31,6 @@ class RandomGenerator {
     int RandomInt(int min, int max);
 
     // generators
-    /**
-     * Gets random number from std::random.
-     */
-    int ran(int min, int max);
 
     /**
      * Gets random number based on the first note at beat. Uses multiplication
@@ -45,17 +40,6 @@ class RandomGenerator {
      * @return random number between min and max.
      */
     int ran_note(int min, int max);
-
-    /**
-     * Gets random number based on the existance of a minor third intervals in
-     * the last notes played. Only use for boolean values!
-     * @param[in] min
-     * @param[in] max
-     * @return random number between min and max.
-     */
-    int ran_boolean_minor_interval(int min, int max);
-
-    int ran_level_peaks(int min, int max);
 
   private:
     // member
@@ -71,6 +55,12 @@ class RandomGenerator {
      * starts at the beginning again.). Skips time point if notes are empty.
      */
     AudioDataTimePoint GetNextTimePointWithNotes();
+
+    /**
+     * Gets random number from std::random.
+     */
+    int ran(int min, int max);
+
 };
 
 #endif

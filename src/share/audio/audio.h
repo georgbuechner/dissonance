@@ -2,16 +2,8 @@
 #define SRC_ANALYSES_H_
 
 #include "nlohmann/json.hpp"
-#include "nlohmann/json_fwd.hpp"
 #include <aubio/aubio.h>
-#include <aubio/musicutils.h>
-#include <aubio/notes/notes.h>
-#include <aubio/pitch/pitch.h>
-#include <aubio/tempo/tempo.h>
-#include <cstddef>
 #include <filesystem>
-#include <iostream>
-#include <list>
 #include <map>
 #include <queue>
 #include <string>

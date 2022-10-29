@@ -2,12 +2,8 @@
 #define SRC_SOLDIER_H_
 
 #include <chrono>
-#include <cstddef>
-#include <iostream>
 #include <list>
-#include <stdexcept>
 #include <vector>
-#include <spdlog/spdlog.h>
 
 #include "share/constants/codes.h"
 #include "share/defines.h"

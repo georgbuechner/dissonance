@@ -2,8 +2,6 @@
 #include "share/constants/codes.h"
 #include "share/defines.h"
 #include "share/tools/utils/utils.h"
-#include "spdlog/spdlog.h"
-#include <cstddef>
 
 // Neurons
 Neuron::Neuron() : Unit () {}
@@ -110,7 +108,6 @@ void Synapse::set_max_stored(int max_stored) {
 
 // methods: 
 std::vector<position_t> Synapse::GetWayPoints(int unit) const { 
-  spdlog::get(LOGGER)->debug("SYNAPSE::GetWayPoints");
   auto waypoints_with_target = waypoints_;
   if (unit == UnitsTech::EPSP)
     waypoints_with_target.push_back(epsp_target_);
@@ -124,7 +121,6 @@ std::vector<position_t> Synapse::GetWayPoints(int unit) const {
 }
 
 int Synapse::AddEpsp() { 
-  spdlog::get(LOGGER)->debug("Synapse::AddEpsp");
   if (swarm_) {
     if (++stored_ >= max_stored_) {
       stored_ = 0;
@@ -168,7 +164,6 @@ void ActivatedNeuron::DecreaseTotalCooldown() {
 ResourceNeuron::ResourceNeuron() : Neuron(), resource_(999) {}
 ResourceNeuron::ResourceNeuron(position_t pos, size_t resource) : Neuron(pos, 0, UnitsTech::RESOURCENEURON), 
     resource_(resource) {
-  spdlog::get(LOGGER)->debug("ResourceNeuron::ResourceNeuron, type {}", UnitsTech::RESOURCENEURON);
 }
 
 // getter 

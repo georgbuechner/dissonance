@@ -61,6 +61,8 @@
 #define RANKING_PATH "data/local_ranking.json"
 #define ANALYSIS_PATH "data/analysis/"
 
+#define TEST_DATA_PATH "test_data/data/"
+
 // logger
 #define LOGGER "logger"
 

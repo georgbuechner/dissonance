@@ -1,43 +1,15 @@
 /*
- * @author: georgbuechner
+ * @author: fux
  */
-#include <exception>
 #include <filesystem>
-#include <memory>
-#include <mutex>
-#include <ostream>
-#include <shared_mutex>
-#include <stdexcept>
-#include <string>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <system_error>
 #include <thread>
-#include <unistd.h>
-#include <utility>
 #include <vector>
-#include <websocketpp/common/connection_hdl.hpp>
-#include <websocketpp/error.hpp>
-#include <websocketpp/frame.hpp>
 #include <spdlog/spdlog.h>
 #include "share/constants/texts.h"
-#include "share/shemes/data.h"
-#include "spdlog/common.h"
-#include "spdlog/logger.h"
-#include "websocketpp/close.hpp"
-#include "websocketpp/common/system_error.hpp"
-#include "websocketpp/logger/levels.hpp"
-
 #include "server/game/player/player.h"
-#include "server/game/server_game.h"
-#include "share/shemes/commands.h"
 #include "server/websocket/websocket_server.h"
 #include "share/tools/utils/utils.h"
 #include "share/constants/codes.h"
-
-#ifdef _COMPILE_FOR_SERVER_
-namespace asio = websocketpp::lib::asio;
-#endif
 
 using websocketpp::lib::placeholders::_1;
 using websocketpp::lib::placeholders::_2;
@@ -55,42 +27,6 @@ WebsocketServer::~WebsocketServer() {
   server_.stop();
 }
 
-#ifdef _COMPILE_FOR_SERVER_
-context_ptr on_tls_init(websocketpp::connection_hdl hdl) {
-  context_ptr ctx = websocketpp::lib::make_shared<asio::ssl::context>
-    (asio::ssl::context::sslv23);
-  try {
-    ctx->set_options(asio::ssl::context::default_workarounds |
-      asio::ssl::context::no_sslv2 |
-      asio::ssl::context::no_sslv3 |
-      asio::ssl::context::no_tlsv1 |
-      asio::ssl::context::single_dh_use);
-    ctx->set_password_callback(bind(&get_password));
-    ctx->use_certificate_chain_file("/etc/letsencrypt/live/kava-i.de-0001/fullchain.pem");
-    ctx->use_private_key_file("/etc/letsencrypt/live/kava-i.de-0001/privkey.pem", 
-        asio::ssl::context::pem);
-
-    std::string ciphers;
-    ciphers = "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-"
-      "AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:"
-      "ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:"
-      "ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-"
-      "RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-"
-      "AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-"
-      "RSA-AES256-SHA256:DHE-RSA-AES256-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-DES-CBC3-"
-      "SHA:EDH-RSA-DES-CBC3-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-"
-      "SHA256:AES128-SHA:AES256-SHA:DES-CBC3-SHA:!DSS";
-    if (SSL_CTX_set_cipher_list(ctx->native_handle(), ciphers.c_str()) != 1) {
-      spdlog::get(LOGGER)->error("WebsocketFrame::on_tls_init: error setting cipher list");
-    }
-  } catch (std::exception& e) {
-    spdlog::get(LOGGER)->error("WebsocketFrame::on_tls_init: {}", e.what());
-  }
-  return ctx;
-}
-#endif
-
-
 void WebsocketServer::Start(int port) {
   try { 
     spdlog::get(LOGGER)->info("WebsocketFrame::Start: set_access_channels");
@@ -98,9 +34,6 @@ void WebsocketServer::Start(int port) {
     server_.clear_access_channels(websocketpp::log::alevel::frame_payload);
     server_.init_asio(); 
     server_.set_message_handler(bind(&WebsocketServer::on_message, this, &server_, ::_1, ::_2)); 
-    #ifdef _COMPILE_FOR_SERVER_
-      server_.set_tls_init_handler(bind(&on_tls_init, ::_1));
-    #endif
     server_.set_open_handler(bind(&WebsocketServer::OnOpen, this, ::_1));
     server_.set_close_handler(bind(&WebsocketServer::OnClose, this, ::_1));
     server_.set_reuse_addr(true);
@@ -159,12 +92,11 @@ void WebsocketServer::OnClose(websocketpp::connection_hdl hdl) {
 }
 
 void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, message_ptr msg) {
-  spdlog::get(LOGGER)->info("Websocket::on_message: new message");
   // try parsing dto:
   Command cmd;
   try {
     cmd = Command(msg->get_payload().c_str(), msg->get_payload().size());
-    spdlog::get(LOGGER)->info("Websocket::on_message: new message with command: {}", cmd.command());
+    spdlog::get(LOGGER)->debug("Websocket::on_message: new message with command: {}", cmd.command());
   }
   catch (std::exception& e) {
     spdlog::get(LOGGER)->warn("Websocket::on_message: failed parsing message: {}", e.what());
@@ -187,7 +119,7 @@ void WebsocketServer::on_message(server* srv, websocketpp::connection_hdl hdl, m
     std::thread handler([this, hdl, cmd]() { h_InGameAction(hdl.lock().get(), cmd); });
     handler.detach();
   }
-  spdlog::get(LOGGER)->info("Websocket::on_message: exited");
+  spdlog::get(LOGGER)->debug("Websocket::on_message: exited");
 }
 
 void WebsocketServer::h_InitializeUser(connection_id id, std::string username) {
@@ -215,7 +147,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     std::string game_id = username;
     std::unique_lock ul_games_map(mutex_games_map_); // unique_lock since games-map is being modyfied (add game)
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), 2, base_path_, this);
+    games_[game_id] = std::make_shared<ServerGame>(data->lines(), data->cols(), data->mode(), 2, base_path_, this);
     SendMessage(id, Command("select_audio").bytes());
   }
   else if (data->mode() == MULTI_PLAYER) {
@@ -223,7 +155,8 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     std::string game_id = username;
     std::unique_lock ul_games_map(mutex_games_map_); // unique_lock since games-map is being modyfied (add game)
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), data->num_players(), base_path_, this);
+    games_[game_id] = std::make_shared<ServerGame>(data->lines(), data->cols(), data->mode(), data->num_players(), 
+        base_path_, this);
     SendMessage(id, Command("select_audio").bytes());
     spdlog::get(LOGGER)->debug("WebsocketServer::h_InitializeGame: New game added, informing waiting players");
   }
@@ -232,7 +165,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     std::string game_id = data->game_id();
     // game_id empy: enter lobby
     if (game_id == "") {
-      spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: new client-player: get lobby");
+      spdlog::get(LOGGER)->debug("WebsocketServer::h_InitializeGame: new client-player: get lobby");
       UpdateLobby();
       SendMessage(username, "update_lobby", lobby_);
       std::shared_lock sl_connections(mutex_connections_);
@@ -241,12 +174,11 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     }
     // with game_id: joint game
     else if (games_.count(game_id) > 0) {
-      spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: add client-player");
+      spdlog::get(LOGGER)->debug("WebsocketServer::h_InitializeGame: add client-player");
       std::unique_lock ul_games_map(mutex_games_map_);  // unique-lock since user-game mapping is modyfied
       LockGame(game_id); 
-      ServerGame* game = games_.at(game_id);
+      auto game = games_.at(game_id);
       if (game->status() == WAITING_FOR_PLAYERS) {
-        spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: add client-player adding to game");
         std::shared_lock sl_connections(mutex_connections_);
         connections_.at(id)->set_waiting(false);  // indicate player has stopped waiting for game.
         sl_connections.unlock();
@@ -256,7 +188,7 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
         SendMessage(id, "print_msg", std::make_shared<Msg>("Waiting for players..."));
       }
       else{ 
-        spdlog::get(LOGGER)->info("WebsocketServer::h_InitializeGame: add client-player: game full");
+        spdlog::get(LOGGER)->debug("WebsocketServer::h_InitializeGame: add client-player: game full");
         SendMessage(id, "print_msg", std::make_shared<Msg>("Game already full."));
       }
     }
@@ -270,26 +202,24 @@ void WebsocketServer::h_InitializeGame(connection_id id, std::string username, s
     std::string game_id = username;
     std::unique_lock ul(mutex_games_map_);
     username_game_id_mapping_[username] = game_id;
-    games_[game_id] = new ServerGame(data->lines(), data->cols(), data->mode(), 2, base_path_, this);
+    games_[game_id] = std::make_shared<ServerGame>(data->lines(), data->cols(), data->mode(), 2, base_path_, this);
     SendMessage(id, Command("select_audio").bytes());
   }
 }
 
 void WebsocketServer::h_InGameAction(connection_id id, Command cmd) {
-  spdlog::get(LOGGER)->info("h_InGameAction: username {}", cmd.username());
+  spdlog::get(LOGGER)->debug("h_InGameAction: username {}", cmd.username());
   // Gets command and adds command to cmd-data.
   std::string command = cmd.command();
   cmd.data()->AddUsername(cmd.username());
   // Get and lock game.
   auto [game, game_id] = GetGameFromUsername(cmd.username());
-  spdlog::get(LOGGER)->debug("h_InGameAction: calling game-function");
   if (game) {
     try {
       game->HandleInput(command, cmd.data());
     } catch (std::exception& e) {
       spdlog::get(LOGGER)->error("h_InGameAction: calling game-function failed: {}", e.what());
     }
-    spdlog::get(LOGGER)->debug("h_InGameAction: calling game-function: done");
     UnlockGame(game_id);
     // Update lobby for all waiting players after "initialize_game" was called (potentially new game)
     if (command == "initialize_game")
@@ -297,36 +227,31 @@ void WebsocketServer::h_InGameAction(connection_id id, Command cmd) {
   }
   else
     spdlog::get(LOGGER)->warn("Server: message with unkown command ({}) or username ({})", cmd.username(), cmd.command());
+  spdlog::get(LOGGER)->debug("h_InGameAction: for done for username {}.", cmd.username());
 }
 
 void WebsocketServer::CloseGames() {
   for(;;) {
-    spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: waiting...");
+    spdlog::get(LOGGER)->debug("WebsocketServer::CloseGames: waiting...");
     std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     std::unique_lock ul_games_map(mutex_games_map_); // unique_lock since 
     std::vector<std::string> games_to_delete;
-    spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: Checking running games");
+    spdlog::get(LOGGER)->debug("WebsocketServer::CloseGames: Checking running games");
     // Gather games to delete or close games if all users are disconnected.
     for (const auto& it : games_) {
-      spdlog::get(LOGGER)->debug("WebsocketServer::CloseGames: Checking game: {}, status: {}", 
-          it.first, it.second->status());
       // If game is closed add to game_to_delete.
       if (it.second->status() == CLOSED)
         games_to_delete.push_back(it.first);
       // If all users are disconnected, set status to closed.
-      else if (GetPlayingUsers(it.first, true).size() == 0) {
-        spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: game-status changed to {}",
-            (it.second->status() <= SETTING_UP) ? CLOSED : CLOSING);
+      else if (GetPlayingUsers(it.first, true).size() == 0)
         it.second->set_status((it.second->status() <= SETTING_UP) ? CLOSED : CLOSING);
-      }
     }
     // Detelte games to delete, remove from games and remove all player-game-mappings for this game.
     for (const auto& it : games_to_delete) {
       // Check if game is locked, if yes, continue...
       if (IsLocked(it))
         continue;
-      // Delete game and remove from list of games.
-      delete games_[it];
+      // Delete game by removeing from list of games.
       games_.erase(it);
       spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: removed game with id: {}", it);
       // Remove all username-game-mappings
@@ -341,7 +266,7 @@ void WebsocketServer::CloseGames() {
     }
     ul_games_map.unlock();
     if (games_to_delete.size() > 0) {
-      spdlog::get(LOGGER)->info("WebsocketServer::CloseGames: Game removed, informing waiting players");
+      spdlog::get(LOGGER)->debug("WebsocketServer::CloseGames: Game removed, informing waiting players");
       SendUpdatedLobbyToAllInLobby();
     }
   }
@@ -363,7 +288,7 @@ bool WebsocketServer::UsernameExists(std::string username) {
   return false;
 }
 
-std::pair<ServerGame*, std::string> WebsocketServer::GetGameFromUsername(std::string username) {
+std::pair<std::shared_ptr<ServerGame>, std::string> WebsocketServer::GetGameFromUsername(std::string username) {
   std::shared_lock sl_games_map(mutex_games_map_);
   std::shared_lock sl_connections(mutex_connections_);
   if (username_game_id_mapping_.count(username) > 0 && games_.count(username_game_id_mapping_.at(username))) {
@@ -439,13 +364,11 @@ void WebsocketServer::UpdateLobby() {
 }
 
 void WebsocketServer::LockGame(std::string game_id) {
-  spdlog::get(LOGGER)->debug("WebsocketServer::LockGame: game-id: {}", game_id);
   std::unique_lock ul_games_lock(mutex_games_lock_);
   games_lock_[game_id] = true;
 }
 
 void WebsocketServer::UnlockGame(std::string game_id) {
-  spdlog::get(LOGGER)->debug("WebsocketServer::UnLockGame: game-id: {}", game_id);
   std::unique_lock ul_games_lock(mutex_games_lock_);
   if (games_lock_.count(game_id) > 0)
     games_lock_[game_id] = false;
@@ -454,7 +377,6 @@ void WebsocketServer::UnlockGame(std::string game_id) {
 }
 
 bool WebsocketServer::IsLocked(std::string game_id) {
-  spdlog::get(LOGGER)->debug("WebsocketServer::IsLocked: game-id: {}", game_id);
   std::unique_lock ul_games_lock(mutex_games_lock_);
   if (games_lock_.count(game_id) > 0)
     return games_lock_.at(game_id);

@@ -1,34 +1,17 @@
+#include <algorithm>
+#include <chrono>
+#include <deque>
+#include <filesystem>
+#include <thread>
+#include <spdlog/spdlog.h>
+
 #include "server/game/server_game.h"
-#include "server/game/player/audio_ki.h"
-#include "server/game/player/player.h"
-#include "share/audio/audio.h"
+#include "server/game/player/audio_ai.h"
 #include "share/constants/codes.h"
 #include "share/defines.h"
-#include "share/objects/units.h"
 #include "server/websocket/websocket_server.h"
-#include "share/shemes/commands.h"
-#include "share/shemes/data.h"
-#include "share/tools/eventmanager.h"
-#include "share/tools/random/random.h"
 #include "share/tools/utils/utils.h"
 
-#include "spdlog/spdlog.h"
-
-#include <algorithm>
-#include <cctype>
-#include <chrono>
-#include <cmath>
-#include <cstddef>
-#include <deque>
-#include <exception>
-#include <filesystem>
-#include <memory>
-#include <mutex>
-#include <shared_mutex>
-#include <string>
-#include <thread>
-#include <unistd.h>
-#include <vector>
 
 #define MC_AI "#AI_2_MC"
 #define RAN_AI "#AI_1_RAN"
@@ -71,9 +54,6 @@ int ServerGame::status() const {
   return status_;
 }
 
-int ServerGame::mode() const {
-  return mode_;
-}
 int ServerGame::max_players() const {
   return max_players_;
 }
@@ -462,10 +442,11 @@ void ServerGame::SetupGame(std::vector<std::shared_ptr<Audio>> audios) {
   if (!field_) {
     std::string msg = "Game cannot be played with this song, as generated map is unplayable. "
       "It might work with a higher resolution. (dissonance -r)";
+    spdlog::get(LOGGER)->info("ServerGame::SetUpGame: map was not playable.");
     SendMessageToAllPlayers(Command("kill", std::make_shared<Msg>(msg)));
     return;
   }
-  spdlog::get(LOGGER)->info("ServerGame::SetUpGame: Creating {} players.", max_players_);
+  spdlog::get(LOGGER)->debug("ServerGame::SetUpGame: Creating {} players.", max_players_);
 
   // Setup players.
   int ai_audio_counter = 0;
@@ -474,9 +455,9 @@ void ServerGame::SetupGame(std::vector<std::shared_ptr<Audio>> audios) {
     int color = (counter % 4) + 10; // currently results in four different colors
     // Add AI 
     if (IsAi(it.first) && audios.size() > 0)
-      players_[it.first] = std::make_shared<AudioKi>(it.first, field_, audios[ai_audio_counter++], ran_gen, color);
+      players_[it.first] = std::make_shared<AudioAi>(it.first, field_, audios[ai_audio_counter++], ran_gen, color);
     else if (IsAi(it.first))
-      players_[it.first] = std::make_shared<AudioKi>(it.first, field_, std::make_shared<Audio>(audio_), ran_gen, color);
+      players_[it.first] = std::make_shared<AudioAi>(it.first, field_, std::make_shared<Audio>(audio_), ran_gen, color);
     // Add human player
     else
       players_[it.first] = std::make_shared<Player>(it.first, field_, ran_gen, color);
@@ -508,7 +489,7 @@ std::vector<position_t> ServerGame::SetupField(std::shared_ptr<RandomGenerator> 
     if (nucleus_positions.size() < (size_t)max_players_)
       field_.reset();
   }
-  spdlog::get(LOGGER)->info("ServerGame::SetUpField: created map for {} players", nucleus_positions.size());
+  spdlog::get(LOGGER)->debug("ServerGame::SetUpField: created map for {} players", nucleus_positions.size());
   return nucleus_positions;
 }
 
@@ -659,7 +640,7 @@ std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotent
   // 2: Create map of potentials in stacked format.
   for (const auto& it : players_) {
     // Add epsp first
-    for (const auto& jt : it.second->GetEpspAtPosition()) {
+    for (const auto& jt : it.second->GetNumberOfPotentialsAtPosition(EPSP)) {
       std::string symbol = utils::CharToString('a', jt.second-1);
       if (symbol > "z") {
         spdlog::get(LOGGER)->error("Symbol to great: {}", symbol);
@@ -673,7 +654,7 @@ std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotent
         potential_per_pos[jt.first] = {symbol, it.second->color()};
     }
     // Ipsp always dominates epsp
-    for (const auto& jt : it.second->GetIpspAtPosition()) {
+    for (const auto& jt : it.second->GetNumberOfPotentialsAtPosition(IPSP)) {
       std::string symbol = utils::CharToString('1', jt.second-1);
       if (symbol > "9") {
         spdlog::get(LOGGER)->error("Symbol to great: {}", symbol);
@@ -689,7 +670,7 @@ std::map<position_t, std::pair<std::string, int>> ServerGame::GetAndUpdatePotent
         potential_per_pos[jt.first] = {symbol, it.second->color()};
     }
     // MACRO is always shown on top of epsp and ipsp (player domination is "random", t.i. based on name)
-    for (const auto& jt : it.second->GetMacroAtPosition()) {
+    for (const auto& jt : it.second->GetNumberOfPotentialsAtPosition(MACRO)) {
       potential_per_pos[jt.first] = {"0", it.second->color()};
     }
   }
