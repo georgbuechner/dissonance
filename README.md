@@ -86,7 +86,8 @@ inside you to overcome dissonance in your favor!
 - C++ compiler:  
   Linux: [gcc](https://gcc.gnu.org/) (available in most package managers),   
   MacOs: [clang](https://clang.llvm.org/) (available with `brew install clang`)  
-- also essential c++ tools like `make` and `cmake`.
+- essential commandline tools, like `wget`
+- essential c++ tools like `make` and `cmake`.
 - [python](https://www.python.org/) 
 - [conan](https://conan.io/) (available in most package managers, but also: `pip install conan`)
 - [aubio](https://github.com/aubio/aubio) (installation instructions below)

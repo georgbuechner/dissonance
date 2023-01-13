@@ -203,6 +203,7 @@ void ClientGame::HandleAction(Command cmd) {
 void ClientGame::GetAction() {
   spdlog::get(LOGGER)->info("ClientGame::GetAction stated");
   while(true) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
     // Get Input
     if (status_ == WAITING) continue; // Skip as long as not active.
     char choice = getch();
@@ -686,7 +687,7 @@ void ClientGame::RemovePickContext(int new_context) {
 void ClientGame::m_Preparing(std::shared_ptr<Data>) {
   // Waiting is only to overwrite ugly debug-output from aubio (only single-player).
   if (!muliplayer_availible_)
-    std::this_thread::sleep_for(std::chrono::milliseconds(15));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
   drawrer_.PrintOnlyCenteredLine(LINES/2, "Analyzing audio...");
 }
 
