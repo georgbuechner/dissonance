@@ -546,6 +546,7 @@ void ServerGame::Thread_RenderField() {
   // Main loop.
   int counter=0;
   while (status_ < CLOSING) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
     if (pause_) continue;
     auto cur_time = std::chrono::steady_clock::now();
     // Analyze audio data.
@@ -613,6 +614,7 @@ void ServerGame::Thread_Ai(std::string username) {
   
   // Handle building neurons and potentials.
   while(ai && !ai->HasLost() && status_ < CLOSING) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
     if (pause_) continue;
     auto cur_time = std::chrono::steady_clock::now();
     // Analyze audio data.
