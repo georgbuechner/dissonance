@@ -286,8 +286,8 @@ namespace texts {
       "each resembling one resource. They will change color as soon as the resource is activated (two",
       "iron distributed to this resource)",
       "",
-      "iron " SYMBOL_IRON "   oxygen " SYMBOL_OXYGEN "   potassium " SYMBOL_POTASSIUM "   glutamate  " SYMBOL_GLUTAMATE 
-        "   dopamine " SYMBOL_DOPAMINE "   serotonin " SYMBOL_SEROTONIN,
+      "iron " SYMBOL_IRON "   oxygen " SYMBOL_OXYGEN "   potassium " SYMBOL_POTASSIUM "   chloride " SYMBOL_CHLORIDE
+      "   glutamate  " SYMBOL_GLUTAMATE "   dopamine " SYMBOL_DOPAMINE "   serotonin " SYMBOL_SEROTONIN,
       "(In the second image oxygen has been activated, and in the third oxygen, glutamate and potassium)"
     }, {"field_player", "field_player_oxygen_activated", "field_player_oxygen_potassium_glutamate_activated"}},
     {{
