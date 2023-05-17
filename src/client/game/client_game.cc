@@ -234,18 +234,12 @@ void ClientGame::GetAction() {
       drawrer_.set_msg("Invalid option. Availible: " + contexts_.at(current_context_).eventmanager().options());
     }
 
-    // Refresh field (only side-column)
-    if (current_context_ == CONTEXT_FIELD)
-      drawrer_.PrintGame(false, false, current_context_); 
     // Lobby
-    else if (current_context_ == CONTEXT_LOBBY)
+    if (current_context_ == CONTEXT_LOBBY)
       drawrer_.PrintLobby();
     // Postgame print statistics
     else if (current_context_ == CONTEXT_POST_GAME)
       drawrer_.PrintStatistics();
-    // Normal update
-    else 
-      drawrer_.PrintGame(false, true, current_context_); 
   }
 
   // Wrap up and exit.
