@@ -258,7 +258,11 @@ std::vector<position_t> Field::GetAllCenterPositionsOfSections() {
   for (int i=1; i<=SECTIONS; i++) {
     int l = (i-1)%(SECTIONS/2)*(cols_/4);
     int c = (i < (SECTIONS/2)+1) ? 0 : lines_/2;
-    positions.push_back({(c+c+lines_/2)/2, (l+l+cols_/4)/2});
+    position_t pos = {(c+c+lines_/2)/2, (l+l+cols_/4)/2};
+    if (graph_->InGraph(pos))
+      positions.push_back(pos);
+    else 
+      positions.push_back(FindFree(pos, 5, 8));
   }
   return positions;
 }
