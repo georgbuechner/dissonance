@@ -124,6 +124,7 @@ TEST_CASE("test_field", "[main]") {
 
   SECTION("test GetAllCenterPositionsOfSections") {
     std::shared_ptr<Field> field = std::make_shared<Field>(50, 100, std::make_shared<RandomGenerator>());
+    field->BuildGraph();
     auto positions= field->GetAllCenterPositionsOfSections();
     REQUIRE(positions.size() == 8);
     REQUIRE(std::find(positions.begin(), positions.end(), (position_t){12,12}) != positions.end());
@@ -137,6 +138,8 @@ TEST_CASE("test_field", "[main]") {
   }
 
   SECTION("test GetAllPositionsOfSection") {
+    std::shared_ptr<Field> field = std::make_shared<Field>(50, 100, std::make_shared<RandomGenerator>());
+    field->BuildGraph();
     auto center_positions = field->GetAllCenterPositionsOfSections();
     auto positions = field->GetAllPositionsOfSection(1);
     for (const auto& it : positions)
