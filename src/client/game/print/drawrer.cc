@@ -354,6 +354,7 @@ void Drawrer::PrintCenteredParagraph(texts::paragraph_t paragraph, int additiona
 
 void Drawrer::PrintCenteredParagraphAndMiniFields(texts::paragraph_t paragraph, std::vector<std::string> fields, 
     bool nextmsg) {
+  clear();
   // Add message with availibe commands.
   if (nextmsg) {
     paragraph.push_back("");
@@ -378,6 +379,7 @@ void Drawrer::PrintCenteredParagraphAndMiniFields(texts::paragraph_t paragraph, 
       start_col += 5;
     }
   }
+  refresh();
 }
 
 void Drawrer::PrintCenteredParagraphs(texts::paragraphs_t paragraphs, bool skip_first_wait) {
@@ -757,7 +759,7 @@ int Drawrer::PrintStatisticsResources(int start_line, int i,
     std::string info = "";
     for (const auto& jt : resource.second)
       info += jt.first + ": " + utils::Dtos(jt.second) + ", ";
-    info.substr(0, info.length()-2);
+    info = info.substr(0, info.length()-2);
     PrintCenteredLine(start_line+(++i), info);
   }
   return ++i;

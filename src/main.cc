@@ -43,7 +43,7 @@ int main(int argc, const char** argv) {
   base_path += "/.dissonance/";
   int server_port = 4444;
   bool multiplayer = false;
-  std::string server_address = "ws://kava-i.de:4444";
+  std::string server_address = "ws://fux-1789.org:4444";
   std::string localhost = "ws://localhost:4444";
   bool standalone = false;
 

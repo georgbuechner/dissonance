@@ -83,6 +83,9 @@ namespace texts {
       "EPSP (strong in attack) and IPSP (blocks buildings and enemy potential); you should start with EPSP."
     },
     {
+      "If the map is distorted or stange characters apear, simply `r` to refresh the screen."
+    },
+    {
       "In case you're not familiar with using the command-line or terminal: ",
       "should the game at any point 'crash' or 'hang up' (which we hope will not happen!), ",
       "press CRTL-C (german keyboard: STRG-C) to force-quit the game. Then you can start over :)",
@@ -219,7 +222,7 @@ namespace texts {
        "TUTORIAL",
        "",
        "You can ignore this first message, it informs you which kind of MACRO you are playing with.",
-       "MACROs are a strong special unit, which will not be referred to in the tutorial.", 
+       "MACROs are a strong special units, which will not be referred to in the tutorial.", 
        "Explore which macros exist and what they can do in single-player mode, once you learned how to play.",
     }, {}},
     {{

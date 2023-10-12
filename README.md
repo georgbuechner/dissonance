@@ -259,6 +259,10 @@ being analysed. Once you analysed the song once, the data is stored and the
 message should not aprear again.
 ![Load audio](images/load_audio.png)
 
+#### Screen tear/ stange characters 
+If the map is distorted or stange characters apear, simply `r` to refresh the
+screen.
+
 ## Help Me I have no idea what a command-line is.<a name="help-me"></a>
 Okay I think it's worth writing a few lines about the command-line and giving a
 few instructions in case you never used a *terminal* or a *command-line* and

@@ -59,7 +59,7 @@ class ClientGame {
     const std::string username_;
     const bool muliplayer_availible_;
     Client* ws_srv_;
-    std::shared_mutex mutex_;  ///< mutex locked, when setting transfer.
+    std::shared_mutex mutex_drawrer_;  ///< mutex locked, when setting transfer.
 
     // eventmanager
     static std::map<int, std::map<char, void(ClientGame::*)(std::shared_ptr<Data> data)>> handlers_;
@@ -229,6 +229,11 @@ class ClientGame {
      * @param[in] data (unused)
      */
     void h_Quit(std::shared_ptr<Data> data); 
+
+    /**
+     * Simply refreshes screen.
+     */
+    void h_Refresh(std::shared_ptr<Data> data); 
 
     /**
      * Prints received message, then exits game (called on server-action)

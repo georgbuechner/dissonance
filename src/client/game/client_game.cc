@@ -27,7 +27,7 @@ void ClientGame::init() {
         {'t', &ClientGame::h_ChangeViewPoint}, {'q', &ClientGame::h_Quit}, {'s', &ClientGame::h_SendSelectSynapse}, 
         {'A', &ClientGame::h_BuildNeuron}, {'S', &ClientGame::h_BuildNeuron}, {'N', &ClientGame::h_BuildNeuron}, 
         {'e', &ClientGame::h_BuildPotential}, {'i', &ClientGame::h_BuildPotential}, 
-        {'m', &ClientGame::h_BuildPotential}, {'?', &ClientGame::h_Help},
+        {'m', &ClientGame::h_BuildPotential}, {'?', &ClientGame::h_Help}, {'r', &ClientGame::h_Refresh}
       }
     },
     { CONTEXT_FIELD, {
@@ -289,6 +289,10 @@ void ClientGame::h_Quit(std::shared_ptr<Data>) {
   else {
     drawrer_.set_stop_render(false);
   }
+}
+
+void ClientGame::h_Refresh(std::shared_ptr<Data> data) {
+  drawrer_.ClearField();
 }
 
 void ClientGame::h_PauseOrUnpause(std::shared_ptr<Data>) {
@@ -828,7 +832,6 @@ void ClientGame::m_PrintMsg(std::shared_ptr<Data> data) {
 
 void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame");
-  std::unique_lock ul(mutex_);
   // Play audio right away, since game has already begun.
   audio_.set_source_path(audio_file_path_);
   if (music_on_)
@@ -842,14 +845,11 @@ void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
   current_context_ = CONTEXT_RESOURCES;
   // Overwrite macro-information-message if show_ai_tactics_
   drawrer_.set_topline(contexts_.at(current_context_).topline());
-  ul.unlock();
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame: done");
 }
 
 void ClientGame::m_UpdateGame(std::shared_ptr<Data> data) {
-  std::unique_lock ul(mutex_);
   drawrer_.UpdateTranser(data);
-  ul.unlock();
   drawrer_.PrintGame(false, false, current_context_);
 }
 
@@ -1435,10 +1435,8 @@ void ClientGame::h_TextQuit() {
 }
 
 void ClientGame::h_TextPrint() {
-  drawrer_.ClearField();
   auto paragraph = contexts_.at(current_context_).get_paragraph();
   drawrer_.PrintCenteredParagraphAndMiniFields(paragraph.first, paragraph.second, true);
-  refresh();
 }
 
 void ClientGame::Pause() {
