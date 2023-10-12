@@ -89,7 +89,7 @@ inside you to overcome dissonance in your favor!
 - essential commandline tools, like `wget`
 - essential c++ tools like `make` and `cmake`.
 - [python](https://www.python.org/) 
-- [conan](https://conan.io/) (available in most package managers, but also: `pip install conan`)
+- [conan 1.6](https://conan.io/) (`pip install conan==1.60.2`)
 - [aubio](https://github.com/aubio/aubio) (installation instructions below)
 
 Aubio installation: 

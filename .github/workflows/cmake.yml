@@ -27,7 +27,7 @@ jobs:
         sudo apt install aubio-tools libaubio-dev libaubio-doc
     
     - name: install conan
-      run: pip install conan
+      run: pip install conan==1.60.2
 
     - name: Build
       run: make build
