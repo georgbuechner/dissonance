@@ -5,6 +5,7 @@ UNAME_S := $(shell uname -s)
 
 aubio:
 	git submodule update --init --recursive
+	cd aubio make
 	cd aubio && ./waf configure && ./waf build 
 	cd aubio && sudo ./waf install
 
