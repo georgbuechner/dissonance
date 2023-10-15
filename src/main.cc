@@ -43,7 +43,7 @@ int main(int argc, const char** argv) {
   base_path += "/.dissonance/";
   int server_port = 4444;
   bool multiplayer = false;
-  std::string server_address = "ws://fux-1789.org:4444";
+  std::string server_address = "ws://202.61.196.240:4444";
   std::string localhost = "ws://localhost:4444";
   bool standalone = false;
 
@@ -71,6 +71,10 @@ int main(int argc, const char** argv) {
     std::cout << cli;
     return 0;
   }
+
+  // Add "/" to base_path if missing: 
+  if (base_path.back() != '/')
+    base_path += "/";
 
   // Setup logger.
   SetupLogger(keep_log, base_path, log_level);
