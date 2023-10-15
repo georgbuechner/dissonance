@@ -38,8 +38,7 @@ install:
 	make setup
 
 uninstall_aubio:
-	cd deps/aubio-$(AUBIO_VERSION) && ./waf uninstall
-	rm -rf deps/
+	cd aubio && ./waf uninstall
 
 uninstall_dissonance: 
 	sudo rm /usr/local/bin/dissonance

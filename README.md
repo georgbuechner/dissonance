@@ -86,7 +86,7 @@ inside you to overcome dissonance in your favor!
 - C++ compiler:  
   Linux: [gcc](https://gcc.gnu.org/) (available in most package managers),   
   MacOs: [clang](https://clang.llvm.org/) (available with `brew install clang`)  
-- essential commandline tools, like `wget`
+- essential commandline tools, like `wget`, `ffmpeg`
 - essential c++ tools like `make` and `cmake`.
 - [python](https://www.python.org/) 
 - [conan 1.6](https://conan.io/) (`pip install conan==1.60.2`)
@@ -215,8 +215,41 @@ make uninstall_aubio
 This is a single-person project and issues may appear. 
 If the game crashes while playing, consider filing a bug-report on this github
 page and include the log file. 
-Also the terminal-command `reset` clears the screen when you experience
-corrupted output after a game crash.
+
+#### make: 'xxxx' is up to date.
+If you get the message: 
+```
+make: 'aubio' is up to date.
+```
+or
+```
+make: 'build' is up to date.
+``` 
+
+Simply run with `-B` flag. F.e.: 
+```
+make aubio -B 
+make build -B 
+```
+
+#### Compilation uses too much RAM 
+To build the c++-code we're using `make -j` which enables as many CPU cores as
+possible. This may lead to very extensive RAM usage possibly resulting in a
+compiler-crash. 
+
+However, it's possible to either just use `make` instead, or specify the number
+of CPU cores to use. F.e. `make -j2`
+
+You can either run the final bit of the built-process yourself: 
+```
+cd build 
+make -j2 
+``` 
+Or modify the makefile: 
+- Open Makefile
+- Search for `make -j` 
+- Change to `make` or `make -2`
+- Save and close file
 
 #### Conan 
 Conan is a great piece of software, however, errors might occurr. 
@@ -252,6 +285,9 @@ need to figure some problems out yourself.
 As the documentation of [miniaudio](https://miniaud.io/docs/manual/index.html) 
 correctly points out, these issues might be fixed by applying the fix mentioned
 in the arch-linux wiki: https://wiki.archlinux.org/title/PulseAudio/Troubleshooting#Glitches,_skips_or_crackling.
+
+Also the terminal-command `reset` clears the screen when you experience
+corrupted output after a game crash.
 
 #### Loading audio
 What you see in the image below is not an error! It's indicating that audio is
