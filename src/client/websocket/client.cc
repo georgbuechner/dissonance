@@ -25,6 +25,7 @@ void Client::Start(std::string address) {
           std::placeholders::_1, std::placeholders::_2));
     c_.set_open_handler(websocketpp::lib::bind(&Client::on_open, this, std::placeholders::_1));
 
+    spdlog::get(LOGGER)->info("Client::Start: starting connection to {}", address);
     websocketpp::lib::error_code ec;
     client::connection_ptr con = c_.get_connection(address, ec);
     if (ec) {
@@ -48,12 +49,14 @@ void Client::Start(std::string address) {
   } catch (websocketpp::exception const& e) {
     spdlog::get(LOGGER)->error("Client::Start: websocket-error in event loop: {}", e.what());
     game_->Kill("Game crashed. We're sorry. Consider filing a bug report at \n"
-        "https://github.com/georgbuechner/dissonance/issues");
+      "https://github.com/georgbuechner/dissonance/issues");
   } catch (std::exception const& e) {
-      spdlog::get(LOGGER)->error("Client::Start: error in event loop: {}", e.what());
-      game_->Kill("Game crashed. We're sorry. Consider filing a bug report at \n"
-          "https://github.com/georgbuechner/dissonance/issues");
-  }  
+    spdlog::get(LOGGER)->error("Client::Start: error in event loop: {}", e.what());
+    game_->Kill("Game crashed. We're sorry. Consider filing a bug report at \n"
+      "https://github.com/georgbuechner/dissonance/issues");
+  } catch (...) {
+    spdlog::get(LOGGER)->error("Client::Start: unkown error in event loop.");
+  }
   spdlog::get(LOGGER)->info("Client::Start. closed.");
   if (!closed_by_me_)
     game_->Kill("The websocketpp server has closed. Probably no connection to server exists. Try again?");

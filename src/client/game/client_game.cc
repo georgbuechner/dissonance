@@ -10,6 +10,7 @@
 #include "share/constants/texts.h"
 #include "share/objects/units.h"
 #include "share/tools/utils/utils.h"
+#include "share/shemes/data.h"
 
 #define STD_HANDLERS -1
 #define TUTORIAL_MSG_LAG 300
@@ -750,8 +751,10 @@ void ClientGame::m_SelectAudio(std::shared_ptr<Data>) {
   if (mode_ != MULTI_PLAYER) {
     new_data = std::make_shared<CheckSendAudio>(audio_file_path_);
     // If no ranking-entry for song exists, create one.
-    if (ranking_.count(audio_file_path_) == 0)
-      ranking_[audio_file_path_] = RankingEntry({"", filename, 0, 0, 0});
+    std::string ranking_entry_id = RankingEntry::id(audio_file_path_, {drawrer_.field_height(), drawrer_.field_width()});
+    if (ranking_.count(ranking_entry_id) == 0) {
+      ranking_[ranking_entry_id] = new RankingEntry(filename, {drawrer_.field_width(), drawrer_.field_height()});
+    }
   }
   else {
     new_data = std::make_shared<CheckSendAudio>(username_ + "/" + filename, filename);
@@ -832,6 +835,7 @@ void ClientGame::m_PrintMsg(std::shared_ptr<Data> data) {
 
 void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
   spdlog::get(LOGGER)->debug("ClientGame::m_InitGame");
+  std::unique_lock ul(mutex_);
   // Play audio right away, since game has already begun.
   audio_.set_source_path(audio_file_path_);
   if (music_on_)
@@ -849,6 +853,7 @@ void ClientGame::m_InitGame(std::shared_ptr<Data> data) {
 }
 
 void ClientGame::m_UpdateGame(std::shared_ptr<Data> data) {
+  std::unique_lock ul(mutex_);
   drawrer_.UpdateTranser(data);
   drawrer_.PrintGame(false, false, current_context_);
 }
@@ -887,12 +892,14 @@ void ClientGame::m_GameEnd(std::shared_ptr<Data> data) {
   current_context_ = CONTEXT_POST_GAME;
   drawrer_.set_viewpoint(VP_POST_GAME);
   if (mode_ == SINGLE_PLAYER) {
+    std::string ranking_entry_id = RankingEntry::id(audio_file_path_, {drawrer_.field_height(), drawrer_.field_width()});
+    spdlog::get(LOGGER)->debug("ClientGame::m_GameEnd: ranking_entry_id: {}", ranking_entry_id);
     if (data->msg().find("times up") != std::string::npos)
-      ranking_[audio_file_path_]._timeup++;
+      ranking_[ranking_entry_id]->IncDraw();
     else if (data->msg().find("LOST") != std::string::npos)
-      ranking_[audio_file_path_]._lost++;
+      ranking_[ranking_entry_id]->IncLost();
     else
-      ranking_[audio_file_path_]._won++;
+      ranking_[ranking_entry_id]->IncWon();
     StoreRanking();
   }
 }
@@ -1364,39 +1371,42 @@ void ClientGame::LoadSettings() {
 
 void ClientGame::LoadRanking() {
   nlohmann::json ranking = utils::LoadJsonFromDisc(base_path_ + RANKING_PATH);
+  spdlog::get(LOGGER)->debug("Got ranking: {}, size: {}", ranking.dump(), ranking.size());
   if (ranking.size() == 0)
     return;
   for (const auto& it : ranking.get<std::map<std::string, nlohmann::json>>()) {
-    nlohmann::json e = it.second;
-    ranking_[it.first] = RankingEntry({e["interpret"], e["songname"], e["won"], e["lost"], e["timeup"]});
+    ranking_[it.first] = new RankingEntry(it.second);
   }
 }
 
 void ClientGame::StoreRanking() {
   nlohmann::json ranking;
   for (const auto& it : ranking_) {
-    ranking[it.first] = nlohmann::json({{"interpret", it.second._interpret}, {"songname", it.second._songname},
-        {"won", it.second._won}, {"lost", it.second._lost}, {"timeup", it.second._timeup}});
+    ranking[it.first] = it.second->ToJson();
+    spdlog::get(LOGGER)->debug("StoreRanking: {}: {}", it.first, ranking[it.first].dump());
   }
   utils::WriteJsonToDisc(base_path_ + RANKING_PATH, ranking);
 }
 
 void ClientGame::PrintRanking() {
+  spdlog::get(LOGGER)->debug("ClientGame::PrintRanking()");
   drawrer_.ClearField();
   drawrer_.PrintCenteredLineBold(5, "LOCAL RANKING");
-  RankingEntry header({"interpret", "songname", 6, 7, 8});
-  std::string header_str = header.string();
+  RankingEntry header("filename", {0,0}, 6, 7, 8);
+  std::string header_str = header.ToString();
   auto pos = header_str.rfind("8");
-  header_str.replace(pos, 6, "timeup");
+  header_str.replace(pos, 5, "draw ");
   pos = header_str.rfind("7");
-  header_str.replace(pos, 6, "lost  ");
+  header_str.replace(pos, 5, "lost ");
   pos = header_str.rfind("6");
-  header_str.replace(pos, 6, "won   ");
+  header_str.replace(pos, 5, "won  ");
+  pos = header_str.rfind("0x0");
+  header_str.replace(pos, 5, "size ");
   drawrer_.PrintCenteredLineBold(7, header_str);
 
   int counter=0;
   for (const auto& it : ranking_) {
-    drawrer_.PrintCenteredLine(8+counter++, it.second.string());
+    drawrer_.PrintCenteredLine(8+counter++, it.second->ToString());
   }
   drawrer_.PrintCenteredLine(15+counter, "[Press any key to quit]");
   refresh();

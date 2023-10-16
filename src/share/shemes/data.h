@@ -872,4 +872,27 @@ class AddTechnology : public Data {
     int technology_;
 };
 
+class RankingEntry {
+  public: 
+    RankingEntry(std::string filename, position_t size);
+    RankingEntry(std::string filename, position_t size, int won, int lost, int draw);
+    RankingEntry(nlohmann::json json);
+
+    // methods 
+    std::string ToString();
+    nlohmann::json ToJson();
+    void IncWon();
+    void IncLost();
+    void IncDraw();
+
+    static std::string id(std::string filename, position_t size);
+
+  private: 
+    const std::string _filename;
+    const position_t _size;
+    int _won;
+    int _lost;
+    int _draw;
+};
+
 #endif

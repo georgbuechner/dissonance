@@ -59,7 +59,7 @@ class ClientGame {
     const std::string username_;
     const bool muliplayer_availible_;
     Client* ws_srv_;
-    std::shared_mutex mutex_drawrer_;  ///< mutex locked, when setting transfer.
+    std::shared_mutex mutex_;  ///< mutex locked, when setting transfer.
 
     // eventmanager
     static std::map<int, std::map<char, void(ClientGame::*)(std::shared_ptr<Data> data)>> handlers_;
@@ -116,42 +116,7 @@ class ClientGame {
     bool music_on_;
     bool show_ai_tactics_;
 
-    // ranking
-    struct RankingEntry {
-      std::string _interpret;
-      std::string _songname;
-      int _won;
-      int _lost;
-      int _timeup;
-
-      std::string string() const {
-        std::string str;
-        std::string songname = _songname;
-        if (_songname.size() > 30) {
-          songname.erase(27, _songname.size()-27);
-          songname += "...";
-        }
-        std::string songname_clear_string(35-songname.length(), ' ');
-        str += songname + songname_clear_string;
-        
-        std::string interpret = _interpret;
-        if (_interpret.size() > 25) {
-          interpret.erase(22, _interpret.size()-22);
-          interpret += "...";
-        }
-        std::string interpret_clear_string(40-interpret.length(), ' ');
-        str += interpret + interpret_clear_string;
-
-        std::string won_clearstring(10-_won/10, ' ');
-        str += std::to_string(_won) + won_clearstring;
-        std::string lost_clearstring(10-_lost/10, ' ');
-        str += std::to_string(_lost) + lost_clearstring;
-        std::string timeup_clearstring(10-_timeup/10, ' ');
-        str += std::to_string(_timeup) + timeup_clearstring;
-        return str;
-      }
-    };
-    std::map<std::string, RankingEntry> ranking_;
+    std::map<std::string, RankingEntry*> ranking_;
 
     // Selection methods
     

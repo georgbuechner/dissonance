@@ -9,6 +9,7 @@
 #include <set>
 #include <string>
 #include "nlohmann/json.hpp"
+#include "spdlog/spdlog.h"
 
 // SYMBOL 
 Data::Symbol::Symbol() {};
@@ -1063,4 +1064,64 @@ int AddTechnology::technology() const { return technology_; }
 // methods
 void AddTechnology::binary(std::stringstream& buffer) {
   msgpack::pack(buffer, technology_);
+}
+
+// RANKING ENTRY 
+RankingEntry::RankingEntry(std::string filename, position_t size) : _filename(filename), _size(size) { 
+  _won = 0; 
+  _lost = 0; 
+  _draw = 0;
+}
+RankingEntry::RankingEntry(std::string filename, position_t size, int won, int lost, int draw) : _filename(filename), _size(size) {
+  _won = won; 
+  _lost = lost; 
+  _draw = draw;
+}
+RankingEntry::RankingEntry(nlohmann::json json) : _filename(json["filename"]), _size({json["size"][0], json["size"][1]}) {
+  _won = json["w"]; 
+  _lost = json["l"]; 
+  _draw = json["d"];
+}
+
+// methods 
+std::string RankingEntry::ToString() {
+  std::string str;
+  std::string songname = _filename;
+  if (_filename.size() > 30) {
+    songname.erase(27, _filename.size()-27);
+    songname += "...";
+  }
+  std::string songname_clear_string(35-songname.length(), ' ');
+  str += songname + songname_clear_string;
+
+  std::string size_str = std::to_string(_size.first) + "x" + std::to_string(_size.second);
+  std::string size_clear_string(10-size_str.length(), ' '); 
+  str += size_str + size_clear_string;
+
+  for (const auto& x : {_won, _lost, _draw}) {
+    std::string x_str = std::to_string(x);
+    std::string clearstring(6-x_str.length(), ' ');
+    str += x_str + clearstring;
+  }
+  return str;
+}
+
+nlohmann::json RankingEntry::ToJson() {
+  return {{"filename", _filename}, {"size", {_size.first, _size.second}}, {"w", _won}, {"l", _lost}, {"d", _draw}};
+}
+
+std::string RankingEntry::id(std::string filename, position_t size) {
+  return filename + "_" + std::to_string(size.first) + "x" + std::to_string(size.second);
+}
+
+void RankingEntry::IncWon() {
+  spdlog::get(LOGGER)->debug("RankingEntry::IncWon: before: {}", _won);
+  _won++;
+  spdlog::get(LOGGER)->debug("RankingEntry::IncWon: after: {}", _won);
+}
+void RankingEntry::IncLost() {
+  _lost++;
+}
+void RankingEntry::IncDraw() {
+  _draw++;
 }
